@@ -1,0 +1,49 @@
+﻿<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Stem & Loop Gradient (Nord Frost to Glacier) -->
+    <linearGradient id="mark-primary-grad" x1="130" y1="112" x2="350" y2="390" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8FBCBB" />
+      <stop offset="30%" stop-color="#88C0D0" />
+      <stop offset="70%" stop-color="#81A1C1" />
+      <stop offset="100%" stop-color="#5E81AC" />
+    </linearGradient>
+
+    <!-- Diagonal Leg Dynamic Gradient -->
+    <linearGradient id="mark-leg-grad" x1="240" y1="264" x2="352" y2="388" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#81A1C1" />
+      <stop offset="50%" stop-color="#88C0D0" />
+      <stop offset="100%" stop-color="#A3BE8C" />
+    </linearGradient>
+
+    <!-- Aurora Red Record Dot Glow -->
+    <radialGradient id="mark-rec-dot-glow" cx="252" cy="198" r="38" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#BF616A" stop-opacity="0.95" />
+      <stop offset="45%" stop-color="#D08770" stop-opacity="0.75" />
+      <stop offset="100%" stop-color="#BF616A" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Vertical Spine / Timeline Pillar (Left Stem) -->
+  <rect x="134" y="112" width="48" height="288" rx="24" fill="url(#mark-primary-grad)" />
+
+  <!-- Diagonal Motion Kick (Lower Leg) -->
+  <line x1="240" y1="264" x2="348" y2="384" stroke="url(#mark-leg-grad)" stroke-width="48" stroke-linecap="round" />
+
+  <!-- Upper Bowl of the R (Smooth Arch connecting to waist) -->
+  <path d="M158 136 H268 C308 136 342 165 342 200 C342 235 308 264 268 264 H158" 
+        fill="none" 
+        stroke="url(#mark-primary-grad)" 
+        stroke-width="48" 
+        stroke-linecap="round" 
+        stroke-linejoin="round" />
+
+  <!-- Aperture Recording Eye in the center of the upper bowl -->
+  <circle cx="252" cy="200" r="27" fill="url(#mark-rec-dot-glow)" />
+  <circle cx="252" cy="200" r="11" fill="#BF616A" stroke="#ECEFF4" stroke-width="2" />
+
+  <!-- Sleek Nordic Shutter Accent (Lens Flare ring) -->
+  <circle cx="252" cy="200" r="21" stroke="#ECEFF4" stroke-width="1.5" stroke-dasharray="8 14" opacity="0.45" />
+
+  <!-- Nordic Star Sparkle Accent (Top Right) -->
+  <path d="M396 92 Q396 106 382 106 Q396 106 396 120 Q396 106 410 106 Q396 106 396 92 Z" fill="#88C0D0" opacity="0.95" />
+</svg>

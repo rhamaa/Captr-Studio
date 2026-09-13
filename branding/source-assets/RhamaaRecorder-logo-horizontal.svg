@@ -1,0 +1,86 @@
+﻿<svg width="600" height="140" viewBox="0 0 600 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background Gradient (Polar Night) -->
+    <linearGradient id="h-polar-bg" x1="16" y1="10" x2="114" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3B4252" />
+      <stop offset="100%" stop-color="#242933" />
+    </linearGradient>
+
+    <!-- Border Frost Glow -->
+    <linearGradient id="h-frost-border" x1="10" y1="10" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#88C0D0" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#5E81AC" stop-opacity="0.4" />
+    </linearGradient>
+
+    <!-- Mark Stem Gradient -->
+    <linearGradient id="h-stem-grad" x1="34" y1="36" x2="52" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8FBCBB" />
+      <stop offset="40%" stop-color="#88C0D0" />
+      <stop offset="100%" stop-color="#5E81AC" />
+    </linearGradient>
+
+    <!-- Mark Loop Gradient -->
+    <linearGradient id="h-loop-grad" x1="50" y1="36" x2="100" y2="70" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#88C0D0" />
+      <stop offset="60%" stop-color="#81A1C1" />
+      <stop offset="100%" stop-color="#5E81AC" />
+    </linearGradient>
+
+    <!-- Mark Leg Gradient -->
+    <linearGradient id="h-leg-grad" x1="60" y1="65" x2="100" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#81A1C1" />
+      <stop offset="60%" stop-color="#88C0D0" />
+      <stop offset="100%" stop-color="#A3BE8C" />
+    </linearGradient>
+
+    <!-- Recording Glow -->
+    <radialGradient id="h-rec-glow" cx="76" cy="62" r="14" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#BF616A" />
+      <stop offset="100%" stop-color="#BF616A" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Left Icon Squircle Container -->
+  <g transform="translate(10, 10)">
+    <rect x="0" y="0" width="120" height="120" rx="28" fill="url(#h-polar-bg)" stroke="url(#h-frost-border)" stroke-width="2.5" />
+    
+    <!-- Mini Mark R inside (scaled down by 0.23, translated to center) -->
+    <g transform="translate(12, 12) scale(0.1875)">
+      <!-- Vertical Stem -->
+      <rect x="124" y="124" width="52" height="264" rx="26" fill="url(#h-stem-grad)" />
+
+      <!-- Loop -->
+      <path d="M150 124 H288 C343.228 124 388 168.772 388 224 C388 279.228 343.228 324 288 324 H150" 
+            fill="none" 
+            stroke="url(#h-loop-grad)" 
+            stroke-width="52" 
+            stroke-linecap="round" 
+            stroke-linejoin="round" />
+
+      <!-- Leg -->
+      <path d="M236 244 L340 376 C349.5 388 368 392 379 381 C390 370 387 351 374 336 L284 228" 
+            fill="url(#h-leg-grad)" />
+
+      <!-- Rec Dot -->
+      <circle cx="288" cy="224" r="32" fill="url(#h-rec-glow)" />
+      <circle cx="288" cy="224" r="14" fill="#BF616A" stroke="#ECEFF4" stroke-width="2.5" />
+      
+      <!-- Sparkle -->
+      <path d="M410 88 Q410 102 396 102 Q410 102 410 116 Q410 102 424 102 Q410 102 410 88 Z" fill="#88C0D0" opacity="0.85" />
+    </g>
+  </g>
+
+  <!-- Typography: RHAMAA -->
+  <text x="156" y="68" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="44" font-weight="800" letter-spacing="2" fill="#ECEFF4">
+    RHAMAA
+  </text>
+
+  <!-- Typography: RECORDER -->
+  <text x="158" y="104" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="600" letter-spacing="7" fill="#88C0D0">
+    RECORDER
+  </text>
+
+  <!-- Live Record Dot Accent -->
+  <circle cx="436" cy="98" r="5" fill="#BF616A" />
+  <circle cx="436" cy="98" r="9" stroke="#BF616A" stroke-width="1.5" opacity="0.4" />
+</svg>
