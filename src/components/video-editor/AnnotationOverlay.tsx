@@ -1,8 +1,12 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Rnd } from "react-rnd";
 import { cn } from "@/lib/utils";
 import { getArrowComponent } from "./ArrowSvgs";
 import { type AnnotationRegion, BASE_PREVIEW_WIDTH, BLUR_ANNOTATION_STRENGTH } from "./types";
+import {
+	interpolateNumericKeyframe,
+	interpolatePositionKeyframe,
+} from "./keyframeInterpolation";
 
 interface AnnotationOverlayProps {
 	annotation: AnnotationRegion;
@@ -29,13 +33,44 @@ export function AnnotationOverlay({
 	isSelectedBoost,
 	currentTimeMs,
 }: AnnotationOverlayProps) {
-	const x = (annotation.position.x / 100) * containerWidth;
-	const y = (annotation.position.y / 100) * containerHeight;
-	const width = (annotation.size.width / 100) * containerWidth;
-	const height = (annotation.size.height / 100) * containerHeight;
+	const isDraggingRef = useRef(false);
+	const [snapGuides, setSnapGuides] = useState<{
+		isCenterH?: boolean;
+		isCenterV?: boolean;
+	}>({});
+
+	// If explicitly set to not visible, don't render
+	if (annotation.visible === false && !isSelected) {
+		return null;
+	}
+
+	// Keyframe-interpolated position, scale, opacity, and rotation
+	const hasKeyframes = Array.isArray(annotation.keyframes) && annotation.keyframes.length > 0;
+	const activeTime = currentTimeMs ?? annotation.startMs;
+
+	const interpolatedPos = hasKeyframes
+		? interpolatePositionKeyframe(annotation.keyframes!, activeTime, annotation.position)
+		: annotation.position;
+
+	const interpolatedScale = hasKeyframes
+		? interpolateNumericKeyframe(annotation.keyframes!, "scale", activeTime, 1)
+		: 1;
+
+	const interpolatedOpacity = hasKeyframes
+		? interpolateNumericKeyframe(annotation.keyframes!, "opacity", activeTime, annotation.style.opacity ?? 1)
+		: (annotation.style.opacity ?? 1);
+
+	const interpolatedRotation = hasKeyframes
+		? interpolateNumericKeyframe(annotation.keyframes!, "rotation", activeTime, annotation.rotationDeg ?? 0)
+		: (annotation.rotationDeg ?? 0);
+
+	const x = (interpolatedPos.x / 100) * containerWidth;
+	const y = (interpolatedPos.y / 100) * containerHeight;
+	const width = (annotation.size.width / 100) * containerWidth * interpolatedScale;
+	const height = (annotation.size.height / 100) * containerHeight * interpolatedScale;
 
 	const animDuration = annotation.animationDurationMs ?? 500;
-	let animOpacity = annotation.style.opacity ?? 1;
+	let animOpacity = interpolatedOpacity;
 	let animTranslateY = 0;
 
 	if (currentTimeMs !== undefined && animDuration > 0) {
@@ -56,8 +91,6 @@ export function AnnotationOverlay({
 			animOpacity *= progress;
 		}
 	}
-
-	const isDraggingRef = useRef(false);
 
 	const renderArrow = () => {
 		const direction = annotation.figureData?.arrowDirection || "right";
@@ -206,6 +239,21 @@ export function AnnotationOverlay({
 				);
 
 			default:
+				if (annotation.videoFilePath) {
+					const videoSrc = annotation.videoFilePath.startsWith("http") || annotation.videoFilePath.startsWith("file:")
+						? annotation.videoFilePath
+						: `file://${annotation.videoFilePath.replace(/\\/g, "/")}`;
+					return (
+						<video
+							src={videoSrc}
+							className="w-full h-full object-contain pointer-events-none rounded-md"
+							autoPlay
+							loop
+							muted={annotation.muted ?? true}
+							playsInline
+						/>
+					);
+				}
 				return null;
 		}
 	};
@@ -216,11 +264,42 @@ export function AnnotationOverlay({
 			size={{ width, height }}
 			onDragStart={() => {
 				isDraggingRef.current = true;
+				setSnapGuides({});
+			}}
+			onDrag={(_e, d) => {
+				const currentCenterX = d.x + width / 2;
+				const currentCenterY = d.y + height / 2;
+				const canvasCenterX = containerWidth / 2;
+				const canvasCenterY = containerHeight / 2;
+				const SNAP_THRESHOLD = 8;
+
+				const isNearCenterH = Math.abs(currentCenterX - canvasCenterX) <= SNAP_THRESHOLD;
+				const isNearCenterV = Math.abs(currentCenterY - canvasCenterY) <= SNAP_THRESHOLD;
+
+				setSnapGuides((prev) => {
+					if (prev.isCenterH !== isNearCenterH || prev.isCenterV !== isNearCenterV) {
+						return { isCenterH: isNearCenterH, isCenterV: isNearCenterV };
+					}
+					return prev;
+				});
 			}}
 			onDragStop={(_e, d) => {
-				const xPercent = (d.x / containerWidth) * 100;
-				const yPercent = (d.y / containerHeight) * 100;
+				const canvasCenterX = containerWidth / 2;
+				const canvasCenterY = containerHeight / 2;
+				let finalX = d.x;
+				let finalY = d.y;
+
+				if (snapGuides.isCenterH) {
+					finalX = canvasCenterX - width / 2;
+				}
+				if (snapGuides.isCenterV) {
+					finalY = canvasCenterY - height / 2;
+				}
+
+				const xPercent = (finalX / containerWidth) * 100;
+				const yPercent = (finalY / containerHeight) * 100;
 				onPositionChange(annotation.id, { x: xPercent, y: yPercent });
+				setSnapGuides({});
 
 				// Reset dragging flag after a short delay to prevent click event
 				setTimeout(() => {
@@ -251,8 +330,8 @@ export function AnnotationOverlay({
 				backgroundColor: isSelected ? "rgba(37, 99, 235, 0.1)" : "transparent",
 				boxShadow: isSelected ? "0 0 0 1px rgba(37, 99, 235, 0.35)" : "none",
 			}}
-			enableResizing={isSelected}
-			disableDragging={!isSelected}
+			enableResizing={isSelected && !annotation.locked}
+			disableDragging={!isSelected || Boolean(annotation.locked)}
 			resizeHandleStyles={{
 				topLeft: {
 					width: "12px",
@@ -306,11 +385,51 @@ export function AnnotationOverlay({
 				)}
 				style={{
 					opacity: animOpacity,
-					transform: animTranslateY !== 0 ? `translateY(${animTranslateY}px)` : undefined,
+					mixBlendMode: annotation.blendMode ?? "normal",
+					transform: [
+						animTranslateY !== 0 ? `translateY(${animTranslateY}px)` : "",
+						interpolatedRotation !== 0 ? `rotate(${interpolatedRotation}deg)` : "",
+					]
+						.filter(Boolean)
+						.join(" ") || undefined,
 				}}
 			>
 				{renderContent()}
 			</div>
+
+			{/* Sub-Phase 7.1: Snapping Visual Guides */}
+			{isSelected && snapGuides.isCenterH && (
+				<div
+					className="pointer-events-none fixed z-[9999] bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"
+					style={{
+						position: "absolute",
+						left: `${containerWidth / 2 - (interpolatedPos.x / 100) * containerWidth}px`,
+						top: `-${(interpolatedPos.y / 100) * containerHeight}px`,
+						width: "1.5px",
+						height: `${containerHeight}px`,
+					}}
+				>
+					<span className="absolute top-2 -left-6 bg-cyan-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
+						CENTER
+					</span>
+				</div>
+			)}
+			{isSelected && snapGuides.isCenterV && (
+				<div
+					className="pointer-events-none fixed z-[9999] bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"
+					style={{
+						position: "absolute",
+						top: `${containerHeight / 2 - (interpolatedPos.y / 100) * containerHeight}px`,
+						left: `-${(interpolatedPos.x / 100) * containerWidth}px`,
+						height: "1.5px",
+						width: `${containerWidth}px`,
+					}}
+				>
+					<span className="absolute left-2 -top-5 bg-cyan-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
+						CENTER
+					</span>
+				</div>
+			)}
 		</Rnd>
 	);
 }

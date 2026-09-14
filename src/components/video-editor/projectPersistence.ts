@@ -380,7 +380,19 @@ export function normalizeClipEntries(candidateClips: unknown): ClipEntry[] {
 				trimStartMs: isFiniteNumber(raw.trimStartMs) ? raw.trimStartMs : undefined,
 				trimEndMs: isFiniteNumber(raw.trimEndMs) ? raw.trimEndMs : undefined,
 				speed: isFiniteNumber(raw.speed) ? raw.speed : undefined,
-				showCursor: typeof raw.showCursor === "boolean" ? raw.showCursor : (origin === "recorded"),
+				showCursor: typeof raw.showCursor === "boolean" ? raw.showCursor : origin === "recorded",
+				slideMode:
+					raw.slideMode === "video" || raw.slideMode === "record"
+						? raw.slideMode
+						: origin === "uploaded"
+							? "video"
+							: "record",
+				mediaTrackLayers: Array.isArray(raw.mediaTrackLayers)
+					? (raw.mediaTrackLayers as import("./types").MediaTrackLayer[])
+					: undefined,
+				keyframes: Array.isArray(raw.keyframes)
+					? (raw.keyframes as import("./types").PropertyKeyframe[])
+					: undefined,
 				transitionToNext:
 					raw.transitionToNext && typeof raw.transitionToNext === "object"
 						? {
@@ -773,6 +785,23 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 						trackIndex: isFiniteNumber(region.trackIndex)
 							? Math.max(0, Math.floor(region.trackIndex))
 							: 0,
+						videoFilePath:
+							typeof region.videoFilePath === "string" ? region.videoFilePath : undefined,
+						name: typeof region.name === "string" ? region.name : undefined,
+						locked: typeof region.locked === "boolean" ? region.locked : false,
+						visible: typeof region.visible === "boolean" ? region.visible : true,
+						muted: typeof region.muted === "boolean" ? region.muted : false,
+						blendMode:
+							region.blendMode === "multiply" ||
+							region.blendMode === "screen" ||
+							region.blendMode === "overlay" ||
+							region.blendMode === "soft-light"
+								? region.blendMode
+								: "normal",
+						rotationDeg: isFiniteNumber(region.rotationDeg) ? region.rotationDeg : 0,
+						keyframes: Array.isArray(region.keyframes)
+							? (region.keyframes as import("./types").PropertyKeyframe[])
+							: undefined,
 					};
 				})
 		: [];

@@ -17,6 +17,13 @@ import {
 } from "../core/rows";
 
 export function getAnnotationLabel(region: AnnotationRegion): string {
+	if (region.name && region.name.trim()) {
+		return region.name.trim();
+	}
+	if (region.videoFilePath) {
+		const fileName = region.videoFilePath.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, "");
+		return fileName ? `Video: ${fileName}` : "Video B-Roll";
+	}
 	if (region.type === "text") {
 		const preview = region.content.trim() || "Empty text";
 		return preview.length > 20 ? `${preview.substring(0, 20)}...` : preview;

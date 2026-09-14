@@ -285,6 +285,8 @@ export interface ClipEntry {
 	speed?: number;
 	showCursor?: boolean; // false for uploaded by default, true for recorded
 	transitionToNext?: ClipTransition;
+	mediaTrackLayers?: MediaTrackLayer[];
+	keyframes?: PropertyKeyframe[];
 }
 
 export function getClipSourceEndMs(clip: ClipRegion): number {
@@ -511,6 +513,50 @@ export function getDefaultCaptionFontFamily() {
 	return '"SF Pro Text", "SF Pro Display", Helvetica, sans-serif';
 }
 
+export type MediaBlendMode = "normal" | "multiply" | "screen" | "overlay" | "soft-light";
+
+export type KeyframeProperty = "position" | "scale" | "rotation" | "opacity";
+export type KeyframeEasing =
+	| "linear"
+	| "ease-in"
+	| "ease-out"
+	| "ease-in-out"
+	| "spring-bounce"
+	| "cubic-bezier";
+
+export interface PropertyKeyframe {
+	id: string;
+	timeMs: number;
+	property: KeyframeProperty;
+	value: number | { x: number; y: number };
+	easing: KeyframeEasing;
+}
+
+export interface MediaTrackLayer {
+	id: string;
+	name: string;
+	trackIndex: number;
+	type: "video" | "image" | "gif" | "text" | "sticker" | "figure" | "blur";
+	sourcePath?: string;
+	dataUrl?: string; // transient
+	startMs: number;
+	endMs: number;
+	zIndex: number;
+	locked?: boolean;
+	muted?: boolean;
+	visible?: boolean;
+	blendMode?: MediaBlendMode;
+	opacity: number; // 0..1
+	transform: {
+		x: number; // 0..100% canvas
+		y: number; // 0..100% canvas
+		width: number; // 0..100% canvas
+		height: number; // 0..100% canvas
+		rotationDeg?: number; // -360..360
+	};
+	keyframes?: PropertyKeyframe[];
+}
+
 export interface AnnotationRegion {
 	id: string;
 	startMs: number;
@@ -530,9 +576,18 @@ export interface AnnotationRegion {
 	gifPath?: string; // persisted to disk — absolute path to .gif file
 	gifDataUrl?: string; // TRANSIENT: runtime-only, re-loaded from gifPath on project open, NOT serialized
 	imageFilePath?: string; // absolute file path for file-based images (Piece 2)
+	videoFilePath?: string; // absolute file path for overlay video B-roll
 	animationIn?: "none" | "fade" | "slide-up";
 	animationOut?: "none" | "fade";
 	animationDurationMs?: number;
+	// Phase 7 Multi-Track & Keyframe extension
+	name?: string;
+	locked?: boolean;
+	visible?: boolean;
+	muted?: boolean;
+	blendMode?: MediaBlendMode;
+	rotationDeg?: number;
+	keyframes?: PropertyKeyframe[];
 }
 
 export const DEFAULT_ANNOTATION_POSITION: AnnotationPosition = {

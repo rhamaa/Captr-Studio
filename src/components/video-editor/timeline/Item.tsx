@@ -10,6 +10,7 @@ import {
 	Scissors,
 	SpeakerHigh as SpeakerHighIcon,
 	SpeakerX,
+	Sparkle,
 	VideoCamera as VideoCameraIcon,
 	VideoCameraSlash as VideoCameraSlashIcon,
 	MagnifyingGlassPlus as ZoomIn,
@@ -466,8 +467,14 @@ export default function Item({
 										</>
 									) : (
 										<>
-											<MessageSquare className="w-3.5 h-3.5 shrink-0" />
-											<span className="text-[11px] font-semibold tracking-tight whitespace-nowrap">
+											{typeof children === "string" && children.startsWith("Video:") ? (
+												<VideoCameraIcon className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
+											) : typeof children === "string" && children.includes("GIF") ? (
+												<Sparkle className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+											) : (
+												<MessageSquare className="w-3.5 h-3.5 shrink-0 text-indigo-400" />
+											)}
+											<span className="text-[11px] font-semibold tracking-tight truncate max-w-[140px]">
 												{children}
 											</span>
 										</>

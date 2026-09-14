@@ -2,11 +2,21 @@ import {
 	AlignCenterHorizontal as AlignCenter,
 	AlignLeft,
 	AlignRight,
+	ArrowsClockwise,
 	TextB as Bold,
 	CaretDown as ChevronDown,
+	Diamond,
+	Eye,
+	EyeSlash,
 	ImageSquare as ImageIcon,
 	Info,
 	TextItalic as Italic,
+	Lock,
+	LockOpen,
+	Plus,
+	SlidersHorizontal,
+	SpeakerSimpleHigh,
+	SpeakerSimpleSlash,
 	BoundingBox as SquareDashed,
 	Trash as Trash2,
 	TextT as Type,
@@ -33,7 +43,16 @@ import { cn } from "@/lib/utils";
 import { useScopedT } from "../../contexts/I18nContext";
 import { AddCustomFontDialog } from "./AddCustomFontDialog";
 import { getArrowComponent } from "./ArrowSvgs";
-import type { AnnotationRegion, AnnotationType, ArrowDirection, FigureData } from "./types";
+import type {
+	AnnotationRegion,
+	AnnotationType,
+	ArrowDirection,
+	FigureData,
+	KeyframeEasing,
+	KeyframeProperty,
+	MediaBlendMode,
+	PropertyKeyframe,
+} from "./types";
 
 interface AnnotationSettingsPanelProps {
 	annotation: AnnotationRegion;
@@ -44,6 +63,8 @@ interface AnnotationSettingsPanelProps {
 	onBlurIntensityChange?: (intensity: number) => void;
 	onBlurColorChange?: (color: string) => void;
 	onAnimationChange?: (anim: { animationIn?: "none" | "fade" | "slide-up"; animationOut?: "none" | "fade"; animationDurationMs?: number }) => void;
+	onLayerChange?: (changes: Partial<AnnotationRegion>) => void;
+	currentTimeMs?: number;
 	onDelete: () => void;
 }
 
@@ -74,6 +95,8 @@ export function AnnotationSettingsPanel({
 	onBlurIntensityChange,
 	onBlurColorChange,
 	onAnimationChange,
+	onLayerChange,
+	currentTimeMs,
 	onDelete,
 }: AnnotationSettingsPanelProps) {
 	const t = useScopedT("editor");
@@ -89,6 +112,48 @@ export function AnnotationSettingsPanel({
 	useEffect(() => {
 		setCustomFonts(getCustomFonts());
 	}, []);
+
+	const handleAddKeyframe = (property: KeyframeProperty) => {
+		const currentMs = currentTimeMs ?? annotation.startMs;
+		const relativeTimeMs = Math.max(0, currentMs - annotation.startMs);
+		let value: any = 0;
+		if (property === "opacity") {
+			value = annotation.style?.opacity ?? 1;
+		} else if (property === "rotation") {
+			value = annotation.rotationDeg ?? 0;
+		} else if (property === "scale") {
+			value = annotation.size ? annotation.size.width / 100 : 1;
+		} else if (property === "position") {
+			value = annotation.position ? { x: annotation.position.x, y: annotation.position.y } : { x: 50, y: 50 };
+		}
+
+		const newKf: PropertyKeyframe = {
+			id: `kf_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+			property,
+			timeMs: relativeTimeMs,
+			value,
+			easing: "ease-in-out",
+		};
+
+		const existing = annotation.keyframes || [];
+		const filtered = existing.filter(
+			(k) => !(k.property === property && Math.abs(k.timeMs - relativeTimeMs) < 50),
+		);
+		const nextKfs = [...filtered, newKf].sort((a, b) => a.timeMs - b.timeMs);
+		onLayerChange?.({ keyframes: nextKfs });
+		toast.success(`Keyframe ${property} added at ${(relativeTimeMs / 1000).toFixed(2)}s`);
+	};
+
+	const handleRemoveKeyframe = (kfId: string) => {
+		const nextKfs = (annotation.keyframes || []).filter((k) => k.id !== kfId);
+		onLayerChange?.({ keyframes: nextKfs });
+		toast.success("Keyframe removed");
+	};
+
+	const handleKeyframeEasingChange = (kfId: string, easing: KeyframeEasing) => {
+		const nextKfs = (annotation.keyframes || []).map((k) => (k.id === kfId ? { ...k, easing } : k));
+		onLayerChange?.({ keyframes: nextKfs });
+	};
 
 	const colorPalette = [
 		"#FF0000", // Red
@@ -153,9 +218,52 @@ export function AnnotationSettingsPanel({
 					<span className="text-sm font-medium text-foreground">
 						{t("annotations.settings")}
 					</span>
-					<span className="text-[10px] uppercase tracking-wider font-medium text-[#2563EB] bg-[#2563EB]/10 px-2 py-1 rounded-full">
-						{t("annotations.active")}
-					</span>
+					<div className="flex items-center gap-1.5">
+						<button
+							type="button"
+							onClick={() => onLayerChange?.({ visible: annotation.visible === false ? true : false })}
+							className={cn(
+								"p-1.5 rounded-lg border transition-all text-xs flex items-center justify-center",
+								annotation.visible === false
+									? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+									: "bg-foreground/5 border-foreground/10 text-muted-foreground hover:text-foreground",
+							)}
+							title={annotation.visible === false ? "Hidden (Click to show)" : "Visible (Click to hide)"}
+						>
+							{annotation.visible === false ? <EyeSlash className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+						</button>
+						<button
+							type="button"
+							onClick={() => onLayerChange?.({ locked: !annotation.locked })}
+							className={cn(
+								"p-1.5 rounded-lg border transition-all text-xs flex items-center justify-center",
+								annotation.locked
+									? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+									: "bg-foreground/5 border-foreground/10 text-muted-foreground hover:text-foreground",
+							)}
+							title={annotation.locked ? "Locked (Click to unlock)" : "Unlocked (Click to lock)"}
+						>
+							{annotation.locked ? <Lock className="w-3.5 h-3.5" /> : <LockOpen className="w-3.5 h-3.5" />}
+						</button>
+						{annotation.videoFilePath && (
+							<button
+								type="button"
+								onClick={() => onLayerChange?.({ muted: !annotation.muted })}
+								className={cn(
+									"p-1.5 rounded-lg border transition-all text-xs flex items-center justify-center",
+									annotation.muted
+										? "bg-red-500/10 border-red-500/30 text-red-400"
+										: "bg-foreground/5 border-foreground/10 text-muted-foreground hover:text-foreground",
+								)}
+								title={annotation.muted ? "Muted (Click to unmute)" : "Audio Active (Click to mute)"}
+							>
+								{annotation.muted ? <SpeakerSimpleSlash className="w-3.5 h-3.5" /> : <SpeakerSimpleHigh className="w-3.5 h-3.5" />}
+							</button>
+						)}
+						<span className="text-[10px] uppercase tracking-wider font-medium text-[#2563EB] bg-[#2563EB]/10 px-2 py-1 rounded-full">
+							{t("annotations.active")}
+						</span>
+					</div>
 				</div>
 
 				{/* Type Selector */}
@@ -941,6 +1049,205 @@ export function AnnotationSettingsPanel({
 						)}
 					</div>
 				)}
+
+				{/* Sub-Phase 7.1: Layer Controls & Blend Modes */}
+				<div className="mt-6 pt-4 border-t border-foreground/10 space-y-4">
+					<div className="flex items-center justify-between">
+						<span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+							<SlidersHorizontal className="w-3.5 h-3.5 text-[#2563EB]" />
+							Compositing & Transform
+						</span>
+					</div>
+
+					<div className="space-y-3">
+						{/* Opacity Slider */}
+						<div>
+							<div className="flex items-center justify-between mb-1.5">
+								<label className="text-xs text-foreground font-medium">Opacity</label>
+								<span className="text-xs text-muted-foreground">
+									{Math.round((annotation.style?.opacity ?? 1) * 100)}%
+								</span>
+							</div>
+							<Slider
+								value={[Math.round((annotation.style?.opacity ?? 1) * 100)]}
+								onValueChange={([val]) => onStyleChange({ opacity: val / 100 })}
+								min={0}
+								max={100}
+								step={1}
+								className="w-full"
+							/>
+						</div>
+
+						{/* Rotation Slider */}
+						<div>
+							<div className="flex items-center justify-between mb-1.5">
+								<label className="text-xs text-foreground font-medium flex items-center gap-1">
+									<ArrowsClockwise className="w-3 h-3 text-muted-foreground" />
+									Rotation
+								</label>
+								<span className="text-xs text-muted-foreground">
+									{annotation.rotationDeg ?? 0}°
+								</span>
+							</div>
+							<Slider
+								value={[annotation.rotationDeg ?? 0]}
+								onValueChange={([val]) => onLayerChange?.({ rotationDeg: val })}
+								min={-180}
+								max={180}
+								step={1}
+								className="w-full"
+							/>
+						</div>
+
+						{/* Blend Mode Selector */}
+						<div>
+							<label className="text-xs text-foreground font-medium mb-1.5 block">
+								Blend Mode
+							</label>
+							<Select
+								value={annotation.blendMode ?? "normal"}
+								onValueChange={(value) =>
+									onLayerChange?.({ blendMode: value as MediaBlendMode })
+								}
+							>
+								<SelectTrigger className="w-full bg-foreground/5 border-foreground/10 text-foreground h-9 text-xs">
+									<SelectValue placeholder="Normal" />
+								</SelectTrigger>
+								<SelectContent className="bg-editor-surface-alt border-foreground/10 text-foreground">
+									<SelectItem value="normal">Normal</SelectItem>
+									<SelectItem value="multiply">Multiply (Darken)</SelectItem>
+									<SelectItem value="screen">Screen (Lighten)</SelectItem>
+									<SelectItem value="overlay">Overlay (Contrast)</SelectItem>
+									<SelectItem value="darken">Darken</SelectItem>
+									<SelectItem value="lighten">Lighten</SelectItem>
+									<SelectItem value="color-dodge">Color Dodge</SelectItem>
+									<SelectItem value="color-burn">Color Burn</SelectItem>
+									<SelectItem value="difference">Difference</SelectItem>
+									<SelectItem value="exclusion">Exclusion</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+					</div>
+				</div>
+
+				{/* Sub-Phase 7.3: Property Keyframing Engine */}
+				<div className="mt-6 pt-4 border-t border-foreground/10 space-y-4">
+					<div className="flex items-center justify-between">
+						<span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+							<Diamond className="w-3.5 h-3.5 text-cyan-400" />
+							Keyframe Engine
+						</span>
+						<span className="text-[10px] text-muted-foreground bg-foreground/5 px-2 py-0.5 rounded-md font-mono">
+							{((((currentTimeMs ?? annotation.startMs) - annotation.startMs)) / 1000).toFixed(2)}s
+						</span>
+					</div>
+
+					<div className="grid grid-cols-2 gap-1.5">
+						<Button
+							type="button"
+							size="sm"
+							variant="outline"
+							onClick={() => handleAddKeyframe("position")}
+							className="h-8 text-xs font-medium border-foreground/10 bg-foreground/5 hover:bg-cyan-500/10 hover:text-cyan-400 hover:border-cyan-500/30 gap-1.5"
+						>
+							<Plus className="w-3 h-3" />
+							Position
+						</Button>
+						<Button
+							type="button"
+							size="sm"
+							variant="outline"
+							onClick={() => handleAddKeyframe("scale")}
+							className="h-8 text-xs font-medium border-foreground/10 bg-foreground/5 hover:bg-yellow-500/10 hover:text-yellow-400 hover:border-yellow-500/30 gap-1.5"
+						>
+							<Plus className="w-3 h-3" />
+							Scale
+						</Button>
+						<Button
+							type="button"
+							size="sm"
+							variant="outline"
+							onClick={() => handleAddKeyframe("rotation")}
+							className="h-8 text-xs font-medium border-foreground/10 bg-foreground/5 hover:bg-purple-500/10 hover:text-purple-400 hover:border-purple-500/30 gap-1.5"
+						>
+							<Plus className="w-3 h-3" />
+							Rotation
+						</Button>
+						<Button
+							type="button"
+							size="sm"
+							variant="outline"
+							onClick={() => handleAddKeyframe("opacity")}
+							className="h-8 text-xs font-medium border-foreground/10 bg-foreground/5 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30 gap-1.5"
+						>
+							<Plus className="w-3 h-3" />
+							Opacity
+						</Button>
+					</div>
+
+					{/* Keyframe List */}
+					{annotation.keyframes && annotation.keyframes.length > 0 && (
+						<div className="space-y-2 mt-3">
+							<span className="text-[11px] font-medium text-muted-foreground block">
+								Active Keyframes ({annotation.keyframes.length})
+							</span>
+							<div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+								{annotation.keyframes.map((kf) => (
+									<div
+										key={kf.id}
+										className="flex items-center justify-between p-2 rounded-lg bg-foreground/[0.03] border border-foreground/5 text-xs"
+									>
+										<div className="flex items-center gap-2 min-w-0">
+											<span
+												className={cn(
+													"w-2 h-2 rotate-45 rounded-[1px] flex-shrink-0",
+													kf.property === "position" && "bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.5)]",
+													kf.property === "scale" && "bg-yellow-400 shadow-[0_0_6px_rgba(250,204,21,0.5)]",
+													kf.property === "rotation" && "bg-purple-400 shadow-[0_0_6px_rgba(192,132,252,0.5)]",
+													kf.property === "opacity" && "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]",
+												)}
+											/>
+											<span className="capitalize font-medium text-foreground text-[11px] truncate">
+												{kf.property}
+											</span>
+											<span className="text-[10px] text-muted-foreground font-mono">
+												{(kf.timeMs / 1000).toFixed(2)}s
+											</span>
+										</div>
+
+										<div className="flex items-center gap-1">
+											<Select
+												value={kf.easing || "ease-in-out"}
+												onValueChange={(val) =>
+													handleKeyframeEasingChange(kf.id, val as KeyframeEasing)
+												}
+											>
+												<SelectTrigger className="h-6 w-20 text-[10px] px-1.5 bg-foreground/5 border-foreground/10">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent className="bg-editor-surface-alt border-foreground/10 text-[11px]">
+													<SelectItem value="linear">Linear</SelectItem>
+													<SelectItem value="ease-in">Ease In</SelectItem>
+													<SelectItem value="ease-out">Ease Out</SelectItem>
+													<SelectItem value="ease-in-out">Ease In-Out</SelectItem>
+													<SelectItem value="spring-bounce">Spring</SelectItem>
+												</SelectContent>
+											</Select>
+											<button
+												type="button"
+												onClick={() => handleRemoveKeyframe(kf.id)}
+												className="p-1 text-muted-foreground hover:text-red-400 transition-colors rounded"
+												title="Delete keyframe"
+											>
+												<Trash2 className="w-3.5 h-3.5" />
+											</button>
+										</div>
+									</div>
+								))}
+							</div>
+						</div>
+					)}
+				</div>
 
 				<div className="mt-6 p-3 bg-foreground/5 rounded-lg border border-foreground/5">
 					<div className="flex items-center gap-2 mb-2 text-muted-foreground">

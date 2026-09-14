@@ -443,6 +443,11 @@ async function renderGif(
 	ctx.restore();
 }
 
+import {
+	interpolateNumericKeyframe,
+	interpolatePositionKeyframe,
+} from "@/components/video-editor/keyframeInterpolation";
+
 export async function renderAnnotations(
 	ctx: CanvasRenderingContext2D,
 	annotations: AnnotationRegion[],
@@ -453,16 +458,59 @@ export async function renderAnnotations(
 	assets?: AnnotationRenderAssets,
 ): Promise<void> {
 	const activeAnnotations = annotations.filter(
-		(ann) => currentTimeMs >= ann.startMs && currentTimeMs <= ann.endMs,
+		(ann) =>
+			ann.visible !== false &&
+			currentTimeMs >= ann.startMs &&
+			currentTimeMs <= ann.endMs,
 	);
 
 	const sortedAnnotations = [...activeAnnotations].sort((a, b) => a.zIndex - b.zIndex);
 
 	for (const annotation of sortedAnnotations) {
-		const x = (annotation.position.x / 100) * canvasWidth;
-		const y = (annotation.position.y / 100) * canvasHeight;
-		const width = (annotation.size.width / 100) * canvasWidth;
-		const height = (annotation.size.height / 100) * canvasHeight;
+		const hasKeyframes = Array.isArray(annotation.keyframes) && annotation.keyframes.length > 0;
+
+		const interpolatedPos = hasKeyframes
+			? interpolatePositionKeyframe(annotation.keyframes!, currentTimeMs, annotation.position)
+			: annotation.position;
+
+		const interpolatedScale = hasKeyframes
+			? interpolateNumericKeyframe(annotation.keyframes!, "scale", currentTimeMs, 1)
+			: 1;
+
+		const interpolatedOpacity = hasKeyframes
+			? interpolateNumericKeyframe(annotation.keyframes!, "opacity", currentTimeMs, annotation.style.opacity ?? 1)
+			: (annotation.style.opacity ?? 1);
+
+		const interpolatedRotation = hasKeyframes
+			? interpolateNumericKeyframe(annotation.keyframes!, "rotation", currentTimeMs, annotation.rotationDeg ?? 0)
+			: (annotation.rotationDeg ?? 0);
+
+		const x = (interpolatedPos.x / 100) * canvasWidth;
+		const y = (interpolatedPos.y / 100) * canvasHeight;
+		const width = (annotation.size.width / 100) * canvasWidth * interpolatedScale;
+		const height = (annotation.size.height / 100) * canvasHeight * interpolatedScale;
+
+		ctx.save();
+		if (annotation.blendMode && annotation.blendMode !== "normal") {
+			ctx.globalCompositeOperation =
+				annotation.blendMode === "multiply"
+					? "multiply"
+					: annotation.blendMode === "screen"
+						? "screen"
+						: annotation.blendMode === "overlay"
+							? "overlay"
+							: "source-over";
+		}
+		if (interpolatedRotation !== 0) {
+			const cx = x + width / 2;
+			const cy = y + height / 2;
+			ctx.translate(cx, cy);
+			ctx.rotate((interpolatedRotation * Math.PI) / 180);
+			ctx.translate(-cx, -cy);
+		}
+		if (interpolatedOpacity !== 1) {
+			ctx.globalAlpha = interpolatedOpacity;
+		}
 
 		switch (annotation.type) {
 			case "text":
@@ -535,6 +583,8 @@ export async function renderAnnotations(
 				break;
 			}
 		}
+
+		ctx.restore();
 	}
 }
 

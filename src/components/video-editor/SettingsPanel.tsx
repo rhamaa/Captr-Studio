@@ -3,10 +3,7 @@ import {
 	Check,
 	CursorClick,
 	SquaresFour as LayoutIcon,
-	Microphone,
 	Palette,
-	Pause,
-	Play,
 	PresentationChart,
 	Sparkle,
 	Trash as Trash2,
@@ -19,6 +16,7 @@ import { toast } from "sonner";
 import minimalCursorUrl from "@/assets/cursors/custom/minimal-cursor.svg";
 import { Button } from "@/components/ui/button";
 import { AssetExplorer } from "./assets/AssetExplorer";
+import { VoiceoverStudio } from "./voiceover/VoiceoverStudio";
 import {
 	Select,
 	SelectContent,
@@ -489,179 +487,6 @@ function MotionPresetCards({
 	);
 }
 
-function VoiceoverRecorder({
-	onAudioRecorded,
-	currentTime = 0,
-}: {
-	onAudioRecorded?: (span: { start: number; end: number }, audioPath: string) => void;
-	currentTime?: number;
-}) {
-	const [isRecording, setIsRecording] = useState(false);
-	const [recordingDuration, setRecordingDuration] = useState(0);
-	const [audioLevel, setAudioLevel] = useState(0);
-	const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-	const audioChunksRef = useRef<Blob[]>([]);
-	const timerRef = useRef<number | null>(null);
-	const audioContextRef = useRef<AudioContext | null>(null);
-	const analyserRef = useRef<AnalyserNode | null>(null);
-	const animationFrameRef = useRef<number | null>(null);
-	const recordStartPlayheadRef = useRef<number>(0);
-
-	const startRecording = async () => {
-		try {
-			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-			audioChunksRef.current = [];
-			recordStartPlayheadRef.current = currentTime * 1000;
-
-			const audioCtx = new AudioContext();
-			audioContextRef.current = audioCtx;
-			const source = audioCtx.createMediaStreamSource(stream);
-			const analyser = audioCtx.createAnalyser();
-			analyser.fftSize = 256;
-			source.connect(analyser);
-			analyserRef.current = analyser;
-
-			const dataArray = new Uint8Array(analyser.frequencyBinCount);
-			const updateMeter = () => {
-				if (!analyserRef.current) return;
-				analyserRef.current.getByteFrequencyData(dataArray);
-				let sum = 0;
-				for (let i = 0; i < dataArray.length; i++) {
-					sum += dataArray[i];
-				}
-				const avg = sum / dataArray.length;
-				setAudioLevel(Math.min(100, Math.round((avg / 128) * 100)));
-				animationFrameRef.current = requestAnimationFrame(updateMeter);
-			};
-			updateMeter();
-
-			const recorder = new MediaRecorder(stream);
-			mediaRecorderRef.current = recorder;
-
-			recorder.ondataavailable = (e) => {
-				if (e.data && e.data.size > 0) {
-					audioChunksRef.current.push(e.data);
-				}
-			};
-
-			recorder.onstop = () => {
-				stream.getTracks().forEach((track) => track.stop());
-				if (audioContextRef.current) {
-					audioContextRef.current.close().catch(() => {});
-					audioContextRef.current = null;
-				}
-				if (animationFrameRef.current) {
-					cancelAnimationFrame(animationFrameRef.current);
-					animationFrameRef.current = null;
-				}
-				setAudioLevel(0);
-
-				const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-				const audioUrl = URL.createObjectURL(blob);
-				const durationMs = recordingDuration * 1000;
-				const startMs = recordStartPlayheadRef.current;
-				const endMs = startMs + Math.max(1000, durationMs);
-
-				if (onAudioRecorded && durationMs > 200) {
-					onAudioRecorded({ start: startMs, end: endMs }, audioUrl);
-					toast.success("Voiceover added to timeline");
-				}
-			};
-
-			recorder.start(100);
-			setIsRecording(true);
-			setRecordingDuration(0);
-
-			const startEpoch = Date.now();
-			timerRef.current = window.setInterval(() => {
-				setRecordingDuration(Math.round((Date.now() - startEpoch) / 1000));
-			}, 200);
-		} catch (err) {
-			console.error("Microphone access failed:", err);
-			toast.error("Failed to access microphone. Please check system permissions.");
-		}
-	};
-
-	const stopRecording = () => {
-		if (timerRef.current) {
-			clearInterval(timerRef.current);
-			timerRef.current = null;
-		}
-		if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-			mediaRecorderRef.current.stop();
-		}
-		setIsRecording(false);
-	};
-
-	useEffect(() => {
-		return () => {
-			if (timerRef.current) clearInterval(timerRef.current);
-			if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-			if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-				mediaRecorderRef.current.stop();
-			}
-		};
-	}, []);
-
-	const minutes = Math.floor(recordingDuration / 60);
-	const seconds = recordingDuration % 60;
-	const timeStr = `${minutes}:${seconds.toString().padStart(2, "0")}`;
-
-	return (
-		<div className="flex flex-col gap-2 p-3 rounded-xl border border-foreground/10 bg-foreground/[0.02]">
-			<div className="flex items-center justify-between">
-				<div className="flex items-center gap-1.5">
-					<Microphone className="w-3.5 h-3.5 text-primary" weight="bold" />
-					<span className="text-[11px] font-semibold text-foreground">Record Voiceover</span>
-				</div>
-				{isRecording && (
-					<span className="flex items-center gap-1 text-[10px] font-mono font-bold text-rose-500 animate-pulse">
-						<span className="w-2 h-2 rounded-full bg-rose-500" />
-						{timeStr}
-					</span>
-				)}
-			</div>
-
-			<div className="h-1.5 w-full rounded-full bg-foreground/10 overflow-hidden">
-				<div
-					className="h-full bg-emerald-500 transition-all duration-75"
-					style={{ width: `${isRecording ? audioLevel : 0}%` }}
-				/>
-			</div>
-
-			<Button
-				type="button"
-				onClick={isRecording ? stopRecording : startRecording}
-				variant={isRecording ? "destructive" : "default"}
-				size="sm"
-				className={cn(
-					"h-8 w-full gap-2 text-xs font-semibold rounded-lg shadow-sm transition-all cursor-pointer",
-					isRecording
-						? "bg-rose-600 hover:bg-rose-700 text-white"
-						: "bg-primary hover:bg-primary/90 text-white",
-				)}
-			>
-				{isRecording ? (
-					<>
-						<Pause className="w-3.5 h-3.5" weight="fill" />
-						<span>Stop Recording</span>
-					</>
-				) : (
-					<>
-						<Play className="w-3.5 h-3.5" weight="fill" />
-						<span>Start Voiceover</span>
-					</>
-				)}
-			</Button>
-			<p className="text-[9.5px] text-muted-foreground/70 leading-tight">
-				{isRecording
-					? "Recording microphone into timeline at current playhead..."
-					: "Click to record voice narration directly into the timeline."}
-			</p>
-		</div>
-	);
-}
-
 interface SettingsPanelProps {
 	className?: string;
 	style?: React.CSSProperties;
@@ -818,6 +643,7 @@ interface SettingsPanelProps {
 			animationDurationMs?: number;
 		},
 	) => void;
+	onAnnotationLayerChange?: (id: string, changes: Partial<AnnotationRegion>) => void;
 	onAnnotationDelete?: (id: string) => void;
 	autoCaptions?: CaptionCue[];
 	autoCaptionSettings?: AutoCaptionSettings;
@@ -1233,6 +1059,7 @@ export function SettingsPanel({
 	onAnnotationBlurIntensityChange,
 	onAnnotationBlurColorChange,
 	onAnnotationAnimationChange,
+	onAnnotationLayerChange,
 	onAnnotationDelete,
 	autoCaptions = [],
 	autoCaptionSettings = DEFAULT_AUTO_CAPTION_SETTINGS,
@@ -2311,6 +2138,12 @@ export function SettingsPanel({
 						? (anim) => onAnnotationAnimationChange(selectedAnnotation.id, anim)
 						: undefined
 				}
+				onLayerChange={
+					onAnnotationLayerChange
+						? (changes) => onAnnotationLayerChange(selectedAnnotation.id, changes)
+						: undefined
+				}
+				currentTimeMs={Math.round(currentTime * 1000)}
 				onDelete={() => onAnnotationDelete(selectedAnnotation.id)}
 			/>
 		);
@@ -4127,7 +3960,7 @@ export function SettingsPanel({
 					</p>
 				</div>
 
-				<VoiceoverRecorder
+				<VoiceoverStudio
 					onAudioRecorded={onAudioAdded}
 					currentTime={currentTime}
 				/>

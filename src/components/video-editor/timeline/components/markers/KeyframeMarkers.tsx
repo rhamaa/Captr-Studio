@@ -4,6 +4,8 @@ import React, { useEffect, useState } from "react";
 interface Keyframe {
 	id: string;
 	time: number;
+	property?: "position" | "scale" | "rotation" | "opacity";
+	easing?: string;
 }
 
 interface KeyframeMarkersProps {
@@ -14,6 +16,13 @@ interface KeyframeMarkersProps {
 	videoDurationMs: number;
 	timelineRef: React.RefObject<HTMLDivElement>;
 }
+
+const PROPERTY_COLORS: Record<string, string> = {
+	position: "#06b6d4", // Cyan
+	scale: "#eab308",    // Yellow
+	rotation: "#a855f7", // Purple
+	opacity: "#10b981",  // Emerald
+};
 
 const KeyframeMarkers: React.FC<KeyframeMarkersProps> = ({
 	keyframes,
@@ -71,11 +80,12 @@ const KeyframeMarkers: React.FC<KeyframeMarkersProps> = ({
 				const offset = valueToPixels(kf.time - range.start);
 				const isSelected = kf.id === selectedKeyframeId;
 				const isDragging = kf.id === draggingKeyframeId;
+				const diamondColor = kf.property ? (PROPERTY_COLORS[kf.property] || "#ffe100") : "#ffe100";
 
 				return (
 					<div
 						key={kf.id}
-						className={`absolute top-8 cursor-grab active:cursor-grabbing ${isSelected ? "ring-2 ring-[#2563EB]" : ""}`}
+						className={`absolute top-8 cursor-grab active:cursor-grabbing group ${isSelected ? "ring-2 ring-primary ring-offset-1 ring-offset-transparent rounded-xs" : ""}`}
 						style={{
 							left: `${sidebarWidth + offset - 8}px`,
 							zIndex: isDragging ? 50 : 40,
@@ -94,18 +104,21 @@ const KeyframeMarkers: React.FC<KeyframeMarkersProps> = ({
 							e.stopPropagation();
 							setSelectedKeyframeId(kf.id);
 						}}
-						title={`Keyframe @ ${Math.round(kf.time)}ms (drag to move, Delete/Backspace to remove)`}
+						title={`Keyframe [${kf.property || "transform"}] @ ${Math.round(kf.time)}ms (drag to move, Delete/Backspace to remove)`}
 					>
 						<div
 							style={{
-								width: "10px",
-								height: "10px",
-								background: "#ffe100ff",
+								width: "11px",
+								height: "11px",
+								background: diamondColor,
 								transform: "rotate(45deg)",
-								border: "none",
-								opacity: isSelected ? 1 : 0.6,
-								transition: "opacity 0.15s",
+								boxShadow: isSelected
+									? `0 0 8px ${diamondColor}`
+									: "0 1px 3px rgba(0,0,0,0.4)",
+								opacity: isSelected ? 1 : 0.8,
+								transition: "all 0.15s ease",
 							}}
+							className="group-hover:scale-125"
 						/>
 					</div>
 				);

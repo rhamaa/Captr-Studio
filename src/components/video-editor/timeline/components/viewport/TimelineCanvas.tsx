@@ -61,7 +61,12 @@ interface TimelineCanvasProps {
 	selectedAudioId?: string | null;
 	selectAllBlocksActive?: boolean;
 	onClearBlockSelection?: () => void;
-	keyframes?: { id: string; time: number }[];
+	keyframes?: {
+		id: string;
+		time: number;
+		property?: "position" | "scale" | "rotation" | "opacity";
+		easing?: string;
+	}[];
 	sourceAudioTracks?: SourceAudioTrackWithPeaks[];
 	getSourceAudioTrackSettingsForClip?: (
 		clipId: string | null,

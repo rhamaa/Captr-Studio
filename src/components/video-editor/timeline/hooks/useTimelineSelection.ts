@@ -51,16 +51,24 @@ export function useTimelineSelection({
 	onSelectAnnotation,
 	onSelectAudio,
 }: UseTimelineSelectionParams) {
-	const [keyframes, setKeyframes] = useState<{ id: string; time: number }[]>([]);
+	const [keyframes, setKeyframes] = useState<{
+		id: string;
+		time: number;
+		property?: "position" | "scale" | "rotation" | "opacity";
+		easing?: string;
+	}[]>([]);
 	const [selectedKeyframeId, setSelectedKeyframeId] = useState<string | null>(null);
 	const [selectAllBlocksActive, setSelectAllBlocksActive] = useState(false);
 
-	const addKeyframe = useCallback(() => {
-		if (totalMs === 0) return;
-		const time = Math.max(0, Math.min(currentTimeMs, totalMs));
-		if (keyframes.some((kf) => Math.abs(kf.time - time) < 1)) return;
-		setKeyframes((prev) => [...prev, { id: uuidv4(), time }]);
-	}, [currentTimeMs, totalMs, keyframes]);
+	const addKeyframe = useCallback(
+		(property: "position" | "scale" | "rotation" | "opacity" = "position", easing = "ease-in-out") => {
+			if (totalMs === 0) return;
+			const time = Math.max(0, Math.min(currentTimeMs, totalMs));
+			if (keyframes.some((kf) => Math.abs(kf.time - time) < 1 && kf.property === property)) return;
+			setKeyframes((prev) => [...prev, { id: uuidv4(), time, property, easing }]);
+		},
+		[currentTimeMs, totalMs, keyframes],
+	);
 
 	const deleteSelectedKeyframe = useCallback(() => {
 		if (!selectedKeyframeId) return;

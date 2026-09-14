@@ -3302,6 +3302,24 @@ export default function VideoEditor() {
 		[],
 	);
 
+	const handleToggleSlideMode = useCallback(
+		(slideId: string) => {
+			setClips((prev) =>
+				prev.map((c) =>
+					c.id === slideId
+						? {
+								...c,
+								slideMode: (c.slideMode === "video" ? "record" : "video") as "record" | "video",
+							}
+						: c,
+				),
+			);
+			recordEditorHistorySnapshot(editorHistoryRef.current, buildHistorySnapshot());
+			syncHistoryButtons();
+		},
+		[buildHistorySnapshot, syncHistoryButtons],
+	);
+
 	const handleDeleteClip = useCallback(
 		(clipId: string) => {
 			if (clips.length <= 1) return;
@@ -5459,6 +5477,15 @@ export default function VideoEditor() {
 		) => {
 			setAnnotationRegions((prev) =>
 				prev.map((region) => (region.id === id ? { ...region, ...anim } : region)),
+			);
+		},
+		[],
+	);
+
+	const handleAnnotationLayerChange = useCallback(
+		(id: string, changes: Partial<AnnotationRegion>) => {
+			setAnnotationRegions((prev) =>
+				prev.map((region) => (region.id === id ? { ...region, ...changes } : region)),
 			);
 		},
 		[],
@@ -7703,6 +7730,7 @@ export default function VideoEditor() {
 							onAnnotationBlurIntensityChange={handleAnnotationBlurIntensityChange}
 							onAnnotationBlurColorChange={handleAnnotationBlurColorChange}
 							onAnnotationAnimationChange={handleAnnotationAnimationChange}
+							onAnnotationLayerChange={handleAnnotationLayerChange}
 							onAnnotationDelete={handleAnnotationDelete}
 						/>
 						</div>
@@ -8264,6 +8292,7 @@ export default function VideoEditor() {
 								onSplitSlide={handleSplitSlide}
 								onReorderSlide={handleReorderClip}
 								onTransitionChange={handleTransitionChange}
+								onToggleSlideMode={handleToggleSlideMode}
 								currentTimeMs={currentTime * 1000}
 							/>
 						</div>
