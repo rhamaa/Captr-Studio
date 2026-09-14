@@ -1,405 +1,191 @@
-Language: EN | [简中](README.zh-CN.md)
-
 <p align="center">
-  <img width="220" alt="Recordly Logo" src="https://github.com/user-attachments/assets/414b8838-6731-45d4-a815-6e3c0aa1fe52" />
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/macOS%20%7C%20Windows%20%7C%20Linux-111827?style=for-the-badge" alt="macOS Windows Linux" />
-  <img src="https://img.shields.io/badge/open%20source-AGPL3.0-2563eb?style=for-the-badge" alt="AGPL 3.0 license" />
-</p>
-
-### Create polished screen recordings without editing.
-[Recordly](https://www.recordly.dev) is an **open-source screen recorder** and editor for **walkthroughs, demos, product videos**, and more. 
-**Accepting PRs.** [Donate](https://ko-fi.com/webadderall/goal?g=0)
-
-https://github.com/user-attachments/assets/9b66c71d-ac97-49ff-a0c9-63ac26edf2e4
-
----
-# Sponsors
-> Keep Recordly open-source and <a href="https://github.com/sponsors/webadderall">get eyes on your logo</a>
-
-<a href="https://coderabbit.link/recordly"><img width="400" alt="CodeRabbit Typemark" src="https://github.com/user-attachments/assets/3926ecfd-8652-4f2d-8da8-ac7641017cf5" /></a>
-
----
-
-## What is Recordly?
-
-Recordly is a desktop app for recording and editing screen captures with motion-driven presentation tools built in. Instead of sending raw footage to a motion designer just to add zooms, cursor polish, or a styled background, Recordly handles that workflow in one place for free.
-
-Recordly runs on:
-
-- **macOS** 14.0+
-- **Windows** 10 Build 19041+
-- **Linux** on modern distros
-
-Platform notes:
-
-- **macOS** uses native ScreenCaptureKit-based capture helpers.
-- **Windows** uses a native Windows Graphics Capture (WGC) helper on supported builds, with native WASAPI audio support.
-- **Linux** records through Electron capture APIs. Cursor hiding is not supported on Linux today.
-
----
-
-# Core Features
-
-## Auto-zooms, cursor polish, and styled frames
-Recordly can automatically emphasize activity with zoom suggestions, smooth cursor movement, add motion effects, and place the final composition inside a styled frame with wallpapers, colors, gradients, blur, padding, and shadows.
-
-<p>
-  <img src="./docs/media/feature1.gif" width="450" alt="Recordly cursor and zoom demo video">
-</p>
-
-## Dynamic webcam bubble overlays
-Add webcam footage as an overlay bubble, position it with presets or custom coordinates, mirror it, control shadow and roundness, and optionally make it react to zoom so it stays visually balanced during motion.
-
-<p>
-  <img src="./docs/media/feature2.gif" width="450" alt="Recordly webcam overlay demo video">
-</p>
-
-## Timeline editing built for demos
-Use drag-and-drop timeline tools for zooms, trims, speed regions, annotations, extra audio regions, and crop-aware edits. Save and reopen work as `.recordly` project files.
-
-<p>
-  <img width="450" alt="timeline editor" src="https://github.com/user-attachments/assets/3692bd8f-7b8d-4a93-b696-d17c828487ea" />
-</p>
-
-## Extensions & Marketplace
-
-Recordly has a community-driven extension system. Anyone can build and publish extensions that add new capabilities to Recordly — cursor click sounds, device frames, browser mockups, wallpapers, render hooks, settings panels, and more.
-
-Browse and install community extensions from the [Recordly Marketplace](https://marketplace.recordly.dev/extensions).
-
----
-
-## All Features
-
-### Recording
-
-- Record an entire display or a single app window
-- Jump directly from recording into the editor
-- Capture microphone audio and system audio
-- Use native capture backends where supported
-- Resume editing from saved `.recordly` project files
-- Open existing recordings or existing project files from the app
-
-### Timeline and Editing
-
-- Drag-and-drop timeline editing
-- Trim unwanted sections
-- Add manual zoom regions
-- Use automatic zoom suggestions based on cursor activity
-- Add speed-up and slow-down regions
-- Add text, image, and figure annotations
-- Add extra audio regions on the timeline
-- Crop the recorded frame
-- Save and reopen projects with editor state preserved
-
-### Cursor Controls
-
-- Show or hide the rendered cursor overlay
-- Cursor size adjustment
-- Cursor smoothing
-- Cursor motion blur
-- Cursor click bounce
-- Cursor sway
-- Cursor loop mode for cleaner looping exports
-- macOS-style cursor assets for the rendered overlay
-
-### Webcam Overlay
-
-- Enable or disable webcam overlay footage
-- Upload, replace, or remove webcam footage
-- Mirror webcam footage
-- Size control
-- Preset positions and custom X/Y placement
-- Margin control
-- Roundness control
-- Shadow control
-- Optional zoom-reactive webcam scaling
-
-### Frame Styling and Backgrounds
-
-- Built-in wallpapers
-- Runtime wallpaper discovery from the wallpapers directory
-- Custom uploaded backgrounds
-- Solid color backgrounds
-- Gradient backgrounds
-- Frame padding
-- Rounded corners
-- Background blur
-- Drop shadows
-- Aspect ratio presets for the final frame
-
-### Export
-
-- MP4 export
-- GIF export
-- Export quality selection
-- GIF frame-rate selection
-- GIF loop toggle
-- GIF size presets
-- Aspect ratio and output dimension controls
-- Reveal exported files in the system file manager
-
-### Workflow and Usability
-
-- Customizable keyboard shortcuts
-- In-app shortcut reference
-- Feedback and issue links from the editor
-- Project persistence for editor preferences
-- Faster preview recovery after export
----
-
-# Screenshots
-
-<p align="center">
-  <img src="https://i.postimg.cc/8CrQtGJf/Screenshot-2026-04-30-at-5-11-52-pm.png" width="700" alt="Recordly recording interface screenshot">
+  <h1 align="center">🎥 Captr Studio</h1>
+  <p align="center">
+    <strong>The open-source, motion-driven screen recorder and presentation editor built for creators, engineers, and product teams.</strong>
+  </p>
 </p>
 
 <p align="center">
-  <img src="https://i.postimg.cc/pLSMfrTM/Screenshot-2026-04-30-at-5-11-45-pm.png" width="700" alt="Recordly editor screenshot">
-</p>
-
-<p align="center">
-  <img src="https://i.postimg.cc/Zn9VY6bg/Screenshot-2026-03-18-at-6-32-59-pm.png" width="700" alt="Recordly timeline screenshot">
+  <img src="https://img.shields.io/badge/macOS%20%7C%20Windows%20%7C%20Linux-0F172A?style=for-the-badge&logo=electron&logoColor=white" alt="macOS Windows Linux" />
+  <img src="https://img.shields.io/badge/Open%20Source-AGPL--3.0-2563EB?style=for-the-badge" alt="AGPL 3.0 License" />
+  <img src="https://img.shields.io/badge/PixiJS-v8-E91E63?style=for-the-badge&logo=webgl&logoColor=white" alt="PixiJS v8" />
+  <img src="https://img.shields.io/badge/GPU%20Accelerated-NVENC%20%2F%20WGC%20%2F%20SCK-10B981?style=for-the-badge" alt="GPU Accelerated" />
 </p>
 
 ---
 
-# Installation
+## 💡 What is Captr Studio?
 
-## Download a build
+**Captr Studio** is a high-performance desktop screen recording and video presentation application designed to produce studio-grade walkthroughs, demos, and educational videos out of the box — **without requiring complex post-production software** like After Effects, Premiere Pro, or DaVinci Resolve.
 
-Prebuilt releases are available at:
-
-https://github.com/webadderallorg/Recordly/releases
+Raw screen recordings typically look flat and static. Adding smooth cursor motion, intelligent focus zooms, webcam bubbles, and styled canvas frames usually requires hours of tedious keyframing. Captr Studio automates this entirely: **record your screen, and get an interactive, beautifully framed video with auto-zooms and spring physics ready in seconds.**
 
 ---
 
-## Arch Linux / Manjaro (yay)
+## ✨ Core Features & Capabilities
 
-Install from the AUR ([recordly-bin](https://aur.archlinux.org/packages/recordly-bin)):
+### 🚀 1. Hardware-Accelerated Screen & Audio Capture
+- **Windows Graphics Capture (WGC)**: High-fps DirectX 11 capture engine (`C++`) capable of smooth 60 FPS recording with minimal CPU impact.
+- **Native macOS ScreenCaptureKit**: Optimized capture pipeline on macOS 14+ for flawless screen and per-window captures.
+- **Pure Native Audio Capture**:
+  - **WASAPI Loopback (Windows)**: Crystal clear system sound recording without external virtual audio cables.
+  - **ScreenCaptureKit Audio (macOS)**: Native system audio separation and microphone sync.
+  - **PipeWire & Web Audio (Linux)**: Robust multi-channel capture.
+- **Window & Display Modes**: Record full ultra-wide monitors, specific displays, or individual application windows with clean boundary isolation.
 
-```bash
-yay -S recordly-bin
+### 🔍 2. Intelligent Auto-Zoom & Cursor Physics
+- **Dynamic Auto-Zoom**: Captr Studio tracks hardware cursor activity globally and automatically suggests zoom regions where key clicks or typing occur.
+- **Spring Physics Motion Smoothing**: Eliminates jittery hand movements by passing cursor telemetry through real-time spring-damper equations (`mass`, `stiffness`, `damping`).
+- **Cinematic Motion Blur**: Temporal and directional motion blur that makes fast camera pans and cursor sweeps look fluid and natural.
+- **Interactive Click Effects**: Visual ripple waves, bounce dynamics, and cursor enlargement upon clicking.
+- **Custom Cursor Styles**: Switch between macOS aesthetic pointers, minimal crosshairs, glow dots, and custom creative avatars.
+
+### 🎙️ 3. Presenter Webcam Bubble Overlay
+- **Floating Picture-in-Picture**: Add a circular or rounded webcam bubble to your recordings.
+- **Reactive Zoom**: Webcam bubble can automatically scale and reposition during zoom events to avoid blocking content.
+- **Customization**: Independent control over corner radius, drop shadows, borders, mirrors, and free-form timeline positioning.
+
+### ✂️ 4. Intuitive Timeline Video Editor
+- **Non-Linear Timeline**: Drag, cut, trim, ripple delete, and reposition video clips with millisecond precision.
+- **Speed Ramping**: Accelerate long terminal commands or loading screens with smooth speed transitions (e.g., 2x to 10x) and slow-motion highlights.
+- **Integrated Voiceover Recorder**: Record synchronized audio commentary directly over the timeline with live audio metering and waveform visualization.
+- **Rich Annotations**: Insert floating text cards, arrows, callout shapes, blur masks for sensitive data, and sticker figure elements.
+- **Frame Cropping**: Adjust and crop recorded regions on the fly.
+
+### 🎨 5. Studio Canvas & Frame Styling
+- **Curated Backgrounds**: Included high-resolution wallpapers, modern gradients, and solid studio color backdrops.
+- **Custom Backgrounds & Videos**: Import your own brand images or looping video wallpapers.
+- **Canvas Effects**: Adjustable background Gaussian blur, drop shadows, window border radiuses, and padding.
+- **Aspect Ratio Presets**: 1-click formatting for YouTube (16:9), Instagram & TikTok (9:16 vertical shorts), Square (1:1), or traditional (4:3).
+
+### ⚡ 6. Ultra-Fast GPU Export Engine
+- **Multi-Backend Rendering via Pixi.js v8**: High-speed WebGL and WebGPU canvas compositing.
+- **Native Hardware Encoding**:
+  - **NVIDIA NVENC (CUDA Compositor)**: Blazing fast GPU export on RTX/GTX GPUs.
+  - **Windows Media Foundation (WMF)**: Native hardware H.264 encoding.
+  - **macOS VideoToolbox**: Hardware-accelerated Apple Silicon encoding.
+  - **WebCodecs API & FFmpeg**: In-memory chunked export for broad compatibility.
+- **Multiple Output Formats**: Export clean MP4 videos with custom bitrates or lightweight looping GIFs with palette optimization.
+
+### 💾 7. Project Persistence (`.captr`)
+- Save and resume full edit sessions anytime in the native `.captr` project format.
+- Backward compatibility: Seamlessly open and upgrade legacy `.recordly` and `.openscreen` project files.
+
+---
+
+## 🏗️ Architecture & Tech Stack
+
+```
+Captr Studio
+├── Electron Shell (Process Lifecycle & Native Window Control)
+│    ├── Windows IPC (WASAPI, WGC DirectX 11 Capture, CUDA Compositor)
+│    ├── macOS IPC (ScreenCaptureKit, VideoToolbox)
+│    └── Linux IPC (DesktopCapturer, PipeWire)
+├── Renderer Layer (React 18 + Vite + Tailwind CSS)
+│    ├── Launch & HUD Overlay (Floating interactive control bar)
+│    ├── Non-Linear Timeline Engine (dnd-timeline, GSAP, Motion)
+│    └── Compositor Engine (PixiJS v8, WebGL / WebGPU Canvas)
+└── Export Pipeline
+     ├── Hardware NVENC / WMF / VideoToolbox
+     └── WebCodecs + FFmpeg Stream Muxer
 ```
 
-PKGBUILD, desktop entry, release sync, and optional **local-from-source** packaging live in **[recordly-aur](https://github.com/firtoz/recordly-aur)** so this repository stays free of Arch release chores. For maintainer contact and how the package is updated, see that repo or the AUR package page.
+- **Runtime**: Electron 39, Node.js, TypeScript
+- **UI Framework**: React 18, Tailwind CSS, Radix UI Primitives, Phosphor Icons
+- **Motion & Canvas**: Pixi.js v8, GSAP, Motion (Framer Motion)
+- **Native Kernels**: C++20 (Direct3D11, WGC, Media Foundation, CUDA), Swift (ScreenCaptureKit)
+- **Quality & Build**: Biome, Vitest, Vite 5, Electron Builder
 
 ---
 
-## Build from source
+## 🗺️ Product Roadmap
+
+### 📍 Phase 1: v1.3.x (Current Milestone) — Foundation & Stability
+- [x] Complete brand unification to **Captr Studio**
+- [x] Stable Windows Graphics Capture (WGC) 60 FPS recording with WASAPI audio loopback
+- [x] Real-time spring physics smoothing for cursor trajectories
+- [x] Pixi.js v8 canvas rendering for preview and export
+- [x] Native GPU export probes (NVIDIA NVENC / CUDA helper support)
+- [x] Multi-language support (English, Chinese, Spanish, Portuguese, French, etc.)
+
+### 🚀 Phase 2: v1.4.x (Upcoming Milestone) — Creator Intelligence & Polish
+- [ ] **On-Device AI Auto-Captions**: Integrate local Whisper.cpp inference for 100% private, automated subtitles with karaoke word-by-word highlight animations.
+- [ ] **Smart Audio Ducking**: Automatically lower background music/system audio when voice activity is detected on the microphone.
+- [ ] **Live Screen Drawing**: Annotate directly on the screen with pens, highlighters, and spotlights while recording is in progress.
+- [ ] **Export Presets & Platform Templates**: Instant 1-click styling setups optimized for X/Twitter demo videos, YouTube tutorials, and vertical TikTok/Reels.
+- [ ] **Extension Marketplace Expansion**: Support for custom device mockups (iPhone, iPad, MacBook, browser address bars).
+
+### 🌟 Phase 3: v2.0 (Major Release) — Collaborative & Cloud Capabilities
+- [ ] **Instant Cloud Publish & Stream Sharing**: One-click upload to generate a sharable interactive preview link (Loom / CleanShot alternative).
+- [ ] **Multi-Source Recording**: Simultaneously capture multiple windows or multi-monitor feeds and switch angles on the timeline.
+- [ ] **Linux Hardware Compositor Parity**: Native Vulkan / VAAPI export acceleration for Linux workstations.
+- [ ] **AI Video Summarization & Chaptering**: Automatically generate chapters and description bullet points from audio transcripts.
+
+---
+
+## 🛠️ Development & Building from Source
 
 ### Prerequisites
 
-**macOS:** Xcode Command Line Tools (`xcode-select --install`).
+- **Node.js**: >= 20.x
+- **Platform Compilers**:
+  - **Windows**: Visual Studio 2022 (with "Desktop development with C++" and Windows 10/11 SDK) + CMake. For CUDA export: NVIDIA CUDA Toolkit.
+  - **macOS**: Xcode 15+ & Command Line Tools (`xcode-select --install`).
+  - **Linux**: GCC/Clang, CMake, `libx11-dev`, `libxtst-dev`, `libxrandr-dev`.
 
-**Linux (Ubuntu/Debian):**
+### Quick Start
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/rhamaa/Captr-Studio.git
+   cd Captr-Studio
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Start in development mode**:
+   ```bash
+   npm run dev
+   ```
+
+4. **Launch standalone video editor in dev**:
+   ```bash
+   npm run dev:editor
+   ```
+
+### Running Tests & Linting
 
 ```bash
-sudo apt install build-essential cmake libx11-dev libxtst-dev libxrandr-dev libxt-dev
+# Run unit tests
+npm test
+
+# Run code style & linting check
+npm run lint
+
+# Format code
+npm run format
 ```
 
-**Windows:** Visual Studio 2022 (or Build Tools) with the C++ workload and CMake.
-
-### Steps
+### Packaging Builds
 
 ```bash
-git clone https://github.com/webadderallorg/Recordly.git recordly
-cd recordly
-npm install
-npm run dev
-```
-
-For packaged builds:
-
-```bash
+# Package for current platform
 npm run build
-```
 
-Target-specific build commands are also available:
-
-- `npm run build:mac`
-- `npm run build:win`
-- `npm run build:linux`
-
----
-
-## macOS: "App cannot be opened"
-
-Locally built apps may be quarantined by macOS.
-
-Remove the quarantine flag with:
-
-```bash
-xattr -rd com.apple.quarantine /Applications/Recordly.app
+# Target specific platform
+npm run build:win      # Windows (NSIS installer)
+npm run build:mac      # macOS (DMG & Zip)
+npm run build:linux    # Linux (AppImage)
 ```
 
 ---
 
-# System Requirements
+## 📄 License & Acknowledgements
 
-| Platform | Minimum version | Notes |
-|---|---|---|
-| **macOS** | macOS 14.0 (Sonoma) | Required for ScreenCaptureKit audio and microphone capture. |
-| **Windows** | Windows 10 20H1 (Build 19041, May 2020) | Required for the native Windows Graphics Capture (WGC) helper and best cursor-hiding behavior. |
-| **Linux** | Any modern distro | Recording works through Electron capture. System audio generally requires PipeWire. |
-
-> [!IMPORTANT]
-> On Windows builds older than 19041, recording can still work through fallback capture, but the real OS cursor may remain visible in recordings.
-
----
-
-# Usage
-
-## Record
-
-1. Launch Recordly.
-2. Select a screen or window.
-3. Choose microphone and system-audio options.
-4. Start recording.
-5. Stop recording to open the editor.
-
-## Edit
-
-Inside the editor you can:
-
-- add trims, zooms, speed regions, and annotations
-- tune cursor behavior and preview volume
-- style the frame with wallpapers, colors, gradients, blur, padding, and corners
-- add or adjust webcam overlay footage
-- add extra audio regions
-- crop the frame and choose an aspect ratio
-
-Save your work anytime as a `.recordly` project.
-
-## Export
-
-Export options include:
-
-- **MP4** for standard video output
-- **GIF** for lightweight sharing and loops
-
-You can adjust format-specific settings such as quality, GIF frame rate, GIF looping, and output size before export.
-
----
-
-# Limitations
-
-### Cursor capture
-
-Recordly renders a polished cursor overlay on top of the recording. Platform cursor-hiding behavior still depends on OS support.
-
-**macOS**
-- ScreenCaptureKit can exclude the real cursor cleanly.
-
-**Windows**
-- Best results require Windows 10 Build 19041+ and the native capture helper.
-- Older builds fall back to Electron capture, so the real cursor may remain visible.
-
-**Linux**
-- Electron desktop capture does not currently support cursor hiding.
-- If you also enable the rendered cursor overlay, exports may show both the real cursor and the styled cursor.
-
-### System audio
-
-System audio support varies by platform.
-
-**Windows**
-- Native WASAPI support
-
-**Linux**
-- Usually requires PipeWire
-
-**macOS**
-- Requires macOS 14.0+ and the ScreenCaptureKit-based workflow
-
----
-
-# How It Works
-
-Recordly combines a platform-specific capture layer with a renderer-driven editor and export pipeline.
-
-**Capture**
-- Electron coordinates recording and application flow
-- macOS uses native ScreenCaptureKit helpers
-- Windows uses a native Windows Graphics Capture (WGC) helper and native audio helpers where available
-
-**Editing**
-- Timeline regions define zooms, trims, speed changes, audio overlays, and annotations
-- Cursor and webcam styling are applied in the editor state
-
-**Rendering**
-- Scene composition is handled by **PixiJS**
-
-**Export**
-- The same scene logic used in preview is rendered into exported MP4 or GIF output
-
-**Projects**
-- `.recordly` files store the source media path plus editor state so work can be reopened later
-
----
-
-# Contribution
-
-Contributions are welcome.
-
-Areas where help is especially useful:
-
-- Linux capture and cursor behavior
-- Export performance and stability
-- UI and UX refinement
-- Localisation work
-- Additional editor tools and workflow polish
-
-Please keep pull requests focused, test recording/edit/export flows, and avoid unrelated refactors.
-
-See `CONTRIBUTING.md` for guidelines.
-
----
-
-# Community
-
-Bug reports and feature requests:
-
-https://github.com/webadderallorg/Recordly/issues
-
-Pull requests are welcome.
-
----
-
-# Hall of Supporters
-
-[![Ko-Fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/webadderall)
-
-- Tadees
-- buildwithfur
-- Tobias
-- Anonymous Supporter
-- Tandava Appadoo
-- Digitalfastmind
-- Roberto Marcelino
-- Rajan RK
-- Francesco
-- Erwan
-- Anonymous supporter
-
----
-
-# License
-
-Recordly is licensed under the **AGPL 3.0**.
-
----
-
-# Credits
-
-## Acknowledgements
-
-Recordly originally started as a fork of [OpenScreen](https://github.com/siddharthvaddem/openscreen) and has been rewritten (majority code).
-
-Created by  
-[@webadderall](https://x.com/webadderall)
-
----
+- **License**: Captr Studio is open-source software licensed under the **AGPL 3.0** license.
+- **Acknowledgements**:
+  - Built upon foundational research and inspirations from [Recordly](https://github.com/webadderallorg/Recordly) and [OpenScreen](https://github.com/siddharthvaddem/openscreen).
+  - Special thanks to the open-source community, contributors, and the creators of Pixi.js, FFmpeg, and Electron.

@@ -41,39 +41,8 @@
   "publish": [
     {
       "provider": "github",
-      "owner": "webadderall",
-      "repo": "Recordly",
-      "tagNamePrefix": "v",
-      "publishAutoUpdate": true
-    }
-  ],
-
-  "mac": {
-    "hardenedRuntime": true,
-    "entitlements": "build/entitlements.mac.plist",
-    "entitlementsInherit": "build/entitlements.mac.inherit.plist",
-    "target": [
-      {
-        "target": "dmg",
-        "arch": ["x64", "arm64"]
-      },
-      {
-    "!*.md",
-    "!README.md",
-    "!CONTRIBUTING.md",
-    "!LICENSE"
-  ],
-  "extraResources": [
-    {
-      "from": "public/wallpapers",
-      "to": "assets/wallpapers"
-    }
-  ],
-  "publish": [
-    {
-      "provider": "github",
-      "owner": "webadderall",
-      "repo": "Recordly",
+      "owner": "rhamaa",
+      "repo": "Captr-Studio",
       "tagNamePrefix": "v",
       "publishAutoUpdate": true
     }

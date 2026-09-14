@@ -15,7 +15,8 @@ import { formatBinding, SHORTCUT_ACTIONS, SHORTCUT_LABELS } from "@/lib/shortcut
 import { formatShortcut } from "@/utils/platformUtils";
 import { toast } from "sonner";
 
-export const RECORDLY_ISSUES_URL = "https://github.com/webadderallorg/Recordly/issues";
+export const CAPTR_ISSUES_URL = "https://github.com/rhamaa/Captr-Studio/issues";
+export const RECORDLY_ISSUES_URL = CAPTR_ISSUES_URL;
 const RECORDLY_DISCORD_URL = "https://discord.gg/sdv2FBVNgE";
 const RECORDLY_X_URL = "https://x.com/webadderall";
 const CONTACT_EMAIL = "youngchen3442@gmail.com";

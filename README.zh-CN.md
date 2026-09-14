@@ -1,7 +1,10 @@
 语言: [EN](README.md) | 简中
 
 <p align="center">
-  <img width="220" alt="Recordly logo" src="https://github.com/user-attachments/assets/082bb4b0-5fc5-4e9f-abda-55611fd6aded" />
+  <h1 align="center">🎥 Captr Studio</h1>
+  <p align="center">
+    <strong>开源动效屏幕录制与演示视频编辑器，专为创作者与开发者打造。</strong>
+  </p>
 </p>
 
 <p align="center">
@@ -10,18 +13,15 @@
 </p>
 
 ### 无需额外剪辑，也能做出精致的屏幕录制。
-[Recordly](https://www.recordly.dev) 是一款**开源屏幕录制器**和编辑器，适合制作**操作讲解、演示、产品视频**等内容。  
-**欢迎提交 PR。** [赞助](https://ko-fi.com/webadderall/goal?g=0)
-
-https://github.com/user-attachments/assets/9b66c71d-ac97-49ff-a0c9-63ac26edf2e4
+[Captr Studio](https://github.com/rhamaa/Captr-Studio) 是一款**开源屏幕录制器**和编辑器，适合制作**操作讲解、演示、产品视频**等内容。  
 
 ---
 
-## Recordly 是什么？
+## Captr Studio 是什么？
 
-Recordly 是一款桌面应用，用于录制并编辑屏幕内容，内置面向演示视频的动态呈现工具。你不需要再把原始素材交给动效设计师去补缩放、光标润色或样式化背景，Recordly 可以在一个地方免费完成整套流程。
+Captr Studio 是一款桌面应用，用于录制并编辑屏幕内容，内置面向演示视频的动态呈现工具。你不需要再把原始素材交给动效设计师去补缩放、光标润色或样式化背景，Captr Studio 可以在一个地方免费完成整套流程。
 
-Recordly 支持：
+Captr Studio 支持：
 
 - **macOS** 14.0+
 - **Windows** 10 Build 19041+

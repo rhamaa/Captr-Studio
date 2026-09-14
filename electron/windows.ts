@@ -13,7 +13,7 @@ const nodeRequire = createRequire(import.meta.url);
 const APP_ROOT = path.join(electronWindowsDir, "..");
 const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
 const RENDERER_DIST = path.join(APP_ROOT, "dist");
-const WINDOW_ICON_FILENAME = process.platform === "darwin" ? "recordlymac-512.png" : "recordly-512.png";
+const WINDOW_ICON_FILENAME = process.platform === "darwin" ? "captrmac-512.png" : "captr-512.png";
 const WINDOW_ICON_PATH = path.join(
 	process.env.VITE_PUBLIC || RENDERER_DIST,
 	"app-icons",
@@ -738,25 +738,30 @@ export function createEditorWindow(): BrowserWindow {
 	const { workArea, workAreaSize } = getScreen().getPrimaryDisplay();
 
 	const hasInitialInput = Boolean(
-		process.env.RECORDLY_DEV_OPEN_RECORDING_INPUT ||
-		process.env.RECORDLY_SMOKE_EXPORT === "1"
+		process.env.RECORDLY_DEV_OPEN_RECORDING_INPUT || process.env.RECORDLY_SMOKE_EXPORT === "1",
 	);
 
 	const WELCOME_WIDTH = 740;
 	const WELCOME_HEIGHT = 580;
 
-	const editorWidth = isMac ? Math.round(workAreaSize.width * 0.85) : Math.round(workArea.width * 0.92);
-	const editorHeight = isMac ? Math.round(workAreaSize.height * 0.85) : Math.round(workArea.height * 0.92);
+	const editorWidth = isMac
+		? Math.round(workAreaSize.width * 0.85)
+		: Math.round(workArea.width * 0.92);
+	const editorHeight = isMac
+		? Math.round(workAreaSize.height * 0.85)
+		: Math.round(workArea.height * 0.92);
 
 	const initialWidth = hasInitialInput ? editorWidth : WELCOME_WIDTH;
 	const initialHeight = hasInitialInput ? editorHeight : WELCOME_HEIGHT;
 
-	const initialX = hasInitialInput && !isMac
-		? Math.round((workArea.width - initialWidth) / 2) + workArea.x
-		: Math.round((workArea.width - initialWidth) / 2) + workArea.x;
-	const initialY = hasInitialInput && !isMac
-		? Math.round((workArea.height - initialHeight) / 2) + workArea.y
-		: Math.round((workArea.height - initialHeight) / 2) + workArea.y;
+	const initialX =
+		hasInitialInput && !isMac
+			? Math.round((workArea.width - initialWidth) / 2) + workArea.x
+			: Math.round((workArea.width - initialWidth) / 2) + workArea.x;
+	const initialY =
+		hasInitialInput && !isMac
+			? Math.round((workArea.height - initialHeight) / 2) + workArea.y
+			: Math.round((workArea.height - initialHeight) / 2) + workArea.y;
 
 	const win = new BrowserWindow({
 		width: initialWidth,

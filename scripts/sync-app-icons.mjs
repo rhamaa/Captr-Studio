@@ -1,4 +1,4 @@
-﻿import fs from "fs";
+import fs from "fs";
 import path from "path";
 
 const sizes = [16, 32, 64, 128, 256, 512, 1024];
@@ -12,6 +12,8 @@ fs.mkdirSync(destDir, { recursive: true });
 for (const size of sizes) {
   const srcFile = path.join(srcDir, `${size}x${size}.png`);
   if (fs.existsSync(srcFile)) {
+    fs.copyFileSync(srcFile, path.join(destDir, `captr-${size}.png`));
+    fs.copyFileSync(srcFile, path.join(destDir, `captrmac-${size}.png`));
     fs.copyFileSync(srcFile, path.join(destDir, `recordly-${size}.png`));
     fs.copyFileSync(srcFile, path.join(destDir, `recordlymac-${size}.png`));
     console.log(`Synced size ${size}px`);

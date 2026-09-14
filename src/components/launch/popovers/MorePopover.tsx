@@ -1,24 +1,23 @@
 import {
+	ArrowClockwiseIcon,
+	DesktopIcon,
 	EyeIcon,
 	EyeSlashIcon,
 	FolderOpenIcon,
+	MoonIcon,
+	SunIcon,
 	TranslateIcon,
 	VideoCameraIcon,
-	ArrowClockwiseIcon,
-	SunIcon,
-	MoonIcon,
-	DesktopIcon,
 } from "@phosphor-icons/react";
 import type { ReactElement } from "react";
-import { useI18n } from "@/contexts/I18nContext";
-import { useScopedT } from "@/contexts/I18nContext";
+import { CaptrLogo } from "@/components/brand/CaptrLogo";
+import { useI18n, useScopedT } from "@/contexts/I18nContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import type { AppLocale } from "@/i18n/config";
 import { SUPPORTED_LOCALES } from "@/i18n/config";
 import styles from "../LaunchWindow.module.css";
 import { useLaunchPopoverCoordinator } from "./LaunchPopoverCoordinator";
 import { DropdownItem, HudPopover } from "./PopoverScaffold";
-import { RhamaaLogo } from "@/components/brand/RhamaaLogo";
 
 const POPOVER_ID = "more";
 
@@ -189,7 +188,7 @@ export function MorePopover({
 						borderTop: "1px solid var(--launch-border, rgba(255,255,255,0.08))",
 					}}
 				>
-					<RhamaaLogo variant="icon" size={14} />
+					<CaptrLogo variant="icon" size={14} />
 					<span>Captr Studio v{appVersion}</span>
 				</div>
 			)}

@@ -50,23 +50,29 @@ describe("ThemeContext persistence", () => {
 	});
 
 	it("loads the persisted theme preference from Electron app settings", () => {
-		stubElectronSettings({ "recordly.theme": "dark" });
+		stubElectronSettings({ "captr.theme": "dark" });
 
 		expect(loadThemePreference()).toBe("dark");
 	});
 
-	it("saves the theme preference to Electron app settings", () => {
+	it("loads the legacy recordly.theme from Electron app settings as fallback", () => {
+		stubElectronSettings({ "recordly.theme": "light" });
+
+		expect(loadThemePreference()).toBe("light");
+	});
+
+	it("saves the theme preference to Electron app settings using captr.theme", () => {
 		const settingsStore = stubElectronSettings();
 
 		persistThemePreference("dark");
 
-		expect(settingsStore.get("recordly.theme")).toBe("dark");
+		expect(settingsStore.get("captr.theme")).toBe("dark");
 	});
 
 	it("falls back to localStorage when Electron settings are unavailable", () => {
 		vi.stubGlobal(
 			"localStorage",
-			createStorageMock({ "recordly.theme": "light" }),
+			createStorageMock({ "captr.theme": "light" }),
 		);
 
 		expect(loadThemePreference()).toBe("light");

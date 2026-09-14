@@ -200,7 +200,7 @@ let defaultTrayIcon: ReturnType<typeof getTrayIcon> | null = null;
 let recordingTrayIcon: ReturnType<typeof getTrayIcon> | null = null;
 
 function getPlatformAppIconFilename(size: 32 | 128 | 512) {
-	const baseName = process.platform === "darwin" ? "recordlymac" : "recordly";
+	const baseName = process.platform === "darwin" ? "captrmac" : "captr";
 	return `app-icons/${baseName}-${size}.png`;
 }
 
@@ -819,8 +819,12 @@ ipcMain.handle("window:set-mode", (event, mode: "welcome" | "editor") => {
 		const primaryDisplay = getScreen().getPrimaryDisplay();
 		const workArea = primaryDisplay.workArea;
 		const workAreaSize = primaryDisplay.workAreaSize;
-		const editorWidth = isMac ? Math.round(workAreaSize.width * 0.85) : Math.round(workArea.width * 0.92);
-		const editorHeight = isMac ? Math.round(workAreaSize.height * 0.85) : Math.round(workArea.height * 0.92);
+		const editorWidth = isMac
+			? Math.round(workAreaSize.width * 0.85)
+			: Math.round(workArea.width * 0.92);
+		const editorHeight = isMac
+			? Math.round(workAreaSize.height * 0.85)
+			: Math.round(workArea.height * 0.92);
 		win.setMinimumSize(900, 600);
 		win.setSize(editorWidth, editorHeight, true);
 		win.center();
@@ -906,7 +910,7 @@ function createEditorWindowWrapper() {
 	const previousWindow = mainWindow;
 	if (previousWindow && !previousWindow.isDestroyed()) {
 		const closingEditorWindow = isEditorWindow(previousWindow);
-		
+
 		if (closingEditorWindow) {
 			closeEditorWindowBypassingUnsavedPrompt(previousWindow);
 		} else {
@@ -1003,7 +1007,7 @@ app.on("second-instance", () => {
 // Register all IPC handlers when app is ready
 app.whenReady().then(async () => {
 	if (process.platform === "win32") {
-		app.setAppUserModelId("dev.recordly.app");
+		app.setAppUserModelId("studio.captr.app");
 	}
 
 	session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
