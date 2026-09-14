@@ -98,28 +98,58 @@ Captr Studio
 
 ---
 
-## 🗺️ Product Roadmap
+## 🗺️ Progress & Implementation Status (Kondisi Proyek Sejauh Ini)
 
-### 📍 Phase 1: v1.3.x (Current Milestone) — Foundation & Stability
-- [x] Complete brand unification to **Captr Studio**
-- [x] Stable Windows Graphics Capture (WGC) 60 FPS recording with WASAPI audio loopback
-- [x] Real-time spring physics smoothing for cursor trajectories
-- [x] Pixi.js v8 canvas rendering for preview and export
-- [x] Native GPU export probes (NVIDIA NVENC / CUDA helper support)
-- [x] Multi-language support (English, Chinese, Spanish, Portuguese, French, etc.)
+Dokumentasi capaian fitur dan fondasi teknis yang telah selesai diimplementasikan hingga rilis saat ini (**v1.3.0-beta.3**):
 
-### 🚀 Phase 2: v1.4.x (Upcoming Milestone) — Creator Intelligence & Polish
-- [ ] **On-Device AI Auto-Captions**: Integrate local Whisper.cpp inference for 100% private, automated subtitles with karaoke word-by-word highlight animations.
-- [ ] **Smart Audio Ducking**: Automatically lower background music/system audio when voice activity is detected on the microphone.
-- [ ] **Live Screen Drawing**: Annotate directly on the screen with pens, highlighters, and spotlights while recording is in progress.
-- [ ] **Export Presets & Platform Templates**: Instant 1-click styling setups optimized for X/Twitter demo videos, YouTube tutorials, and vertical TikTok/Reels.
-- [ ] **Extension Marketplace Expansion**: Support for custom device mockups (iPhone, iPad, MacBook, browser address bars).
+### ✅ 1. Brand Identity & Project Unification
+- [x] **Konsolidasi Identitas Captr Studio**: Migrasi penuh nama aplikasi, identifier Windows (`studio.captr.app`), dan konfigurasi build.
+- [x] **New Official App Icon**: Implementasi logo baru Captr Studio dengan kurva huruf **C** di tengah, lensa rekam menyala, dan integrasi ikon platform lengkap (`.ico`, `.icns`, `.png`).
+- [x] **Format Proyek Native (`.captr`)**: Format berkas proyek baru dengan backward compatibility penuh untuk membuka berkas lama `.recordly` dan `.openscreen`.
+- [x] **Pembaruan Konfigurasi Distribusi**: Penyelarasan repositori GitHub, issue tracker, dan pipeline rilis ke `rhamaa/Captr-Studio`.
 
-### 🌟 Phase 3: v2.0 (Major Release) — Collaborative & Cloud Capabilities
-- [ ] **Instant Cloud Publish & Stream Sharing**: One-click upload to generate a sharable interactive preview link (Loom / CleanShot alternative).
-- [ ] **Multi-Source Recording**: Simultaneously capture multiple windows or multi-monitor feeds and switch angles on the timeline.
-- [ ] **Linux Hardware Compositor Parity**: Native Vulkan / VAAPI export acceleration for Linux workstations.
-- [ ] **AI Video Summarization & Chaptering**: Automatically generate chapters and description bullet points from audio transcripts.
+### ✅ 2. Screen & Audio Capture Core
+- [x] **Windows Graphics Capture (WGC)**: Helper native C++ (Direct3D 11) untuk perekaman layar penuh dan spesifik jendela aplikasi hingga 60 FPS.
+- [x] **macOS ScreenCaptureKit Engine**: Helper native Swift untuk perekaman layar bersih tanpa latency kursor pada macOS 14+.
+- [x] **Linux Electron Desktop Capturer**: Pipeline perekaman fallback untuk lingkungan desktop Linux.
+- [x] **Native WASAPI Audio Loopback (Windows)**: Perekaman suara sistem jernih tanpa memerlukan virtual audio cable eksternal.
+- [x] **Multi-channel Microphone Capture**: Perekaman mikrofon simultan dengan isolasi track dan browser fallback audio mixing.
+
+### ✅ 3. Smart Motion & Cursor Physics
+- [x] **Global Hardware Cursor Tracking**: Pelacakan posisi dan event klik mouse secara real-time via `uiohook-napi` dan native monitor.
+- [x] **Spring Physics Smoothing**: Peredaman getaran gerakan tangan kursor menggunakan kalkulasi spring-damper (*mass, damping, stiffness*).
+- [x] **Intelligent Auto-Zoom**: Analisis aktivitas kursor otomatis yang mendeteksi fokus klik dan menghasilkan saran region pembesaran kamera.
+- [x] **Motion Presentation Effects**: Efek *motion blur* sinematik, *click ripples* visual saat mouse ditekan, dan *cursor bounce*.
+- [x] **Cursor Aesthetic Presets**: Pilihan style kursor (macOS pointer, Tahoe, minimal dot, crosshair, dll.).
+
+### ✅ 4. Presenter Webcam Overlay
+- [x] **Floating Picture-in-Picture Bubble**: Overlay kamera depan melayang dengan kontrol posisi drag-and-drop.
+- [x] **Styling & Effects**: Pengaturan ukuran, radius sudut lingkaran (*roundness*), bayangan (*drop shadow*), border, dan opsi cermin (*mirror*).
+- [x] **Zoom-Reactive Scaling**: Bubble kamera otomatis menyesuaikan skala dan posisi saat kamera melakukan auto-zoom agar tidak menutupi materi penting.
+
+### ✅ 5. Non-Linear Timeline Video Editor
+- [x] **Interactive Multi-track Timeline**: Editor visual dengan dukungan *clip trimming, cutting, splitting*, dan *ripple delete*.
+- [x] **Speed Ramping (变速)**: Akselerasi bagian video tertentu (1x hingga 10x) untuk melewati proses panjang, serta opsi *slow-motion*.
+- [x] **Voiceover Narration Recorder**: Perekam suara narasi pengisi langsung di timeline lengkap dengan VU meter dan visualisasi level audio.
+- [x] **Rich Canvas Annotations**: Penambahan teks bergaya, kartu judul, bentuk/panah penunjuk, efek sensor blur, dan stiker figur.
+- [x] **Dynamic Cropping Tool**: Pemotongan area bingkai video sesuai kebutuhan presentasi.
+
+### ✅ 6. Studio Canvas & Frame Styling
+- [x] **Wallpaper & Background Presets**: Pustaka latar belakang bawaan beresolusi tinggi, gradien modern, dan warna studio solid.
+- [x] **Custom Background Import**: Dukungan impor gambar latar kustom dan video wallpaper berulang (*looping video*).
+- [x] **Framing Controls**: Pengaturan keburaman latar (*gaussian blur*), bayangan bingkai (*drop shadow*), radius sudut jendela, dan *padding*.
+- [x] **Preset Aspek Rasio**: Format 1-klik untuk YouTube (16:9), TikTok/Reels/Shorts (9:16), Square (1:1), dan klasik (4:3).
+
+### ✅ 7. High-Performance GPU Export Pipeline
+- [x] **Dual Rendering Engine (Pixi.js v8)**: Compositor grafis berperforma tinggi berbasis WebGPU dan WebGL.
+- [x] **Hardware Video Encoding (NVENC / CUDA)**: Akselerasi ekspor berbasis NVIDIA CUDA compositor C++ helper.
+- [x] **Windows Media Foundation & macOS VideoToolbox**: Akselerasi encoder hardware H.264 bawaan sistem operasi.
+- [x] **Universal WebCodecs + FFmpeg**: Pipeline encoding dalam memori dengan stream-copy muxing untuk stabilitas universal.
+- [x] **Multi-format Output**: Ekspor video MP4 resolusi penuh dan GIF animasi ringan dengan optimasi palet warna.
+
+### ✅ 8. Settings & Multi-language Localization
+- [x] **Dukungan 10 Bahasa (i18n)**: English, Chinese (Simplified & Traditional), Spanish, Portuguese (pt-BR), French, Russian, Korean, Dutch, Italian.
+- [x] **Persistent Preferences**: Penyimpanan pengaturan tema (`captr.theme`), shortcut keyboard kustom, dan preferensi countdown rekam.
 
 ---
 
