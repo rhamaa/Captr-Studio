@@ -363,31 +363,25 @@ describe("ModernFrameRenderer webcam frame cache", () => {
 		}
 	});
 
-	it("keeps the refresh throttle for default crop regions", () => {
+	it("uses each live uncropped frame directly instead of throttling export", () => {
 		const renderer = createRenderer() as any;
-
 		renderer.config.webcam.cropRegion = { x: 0, y: 0, width: 1, height: 1 };
-		renderer.webcamFrameCacheCanvas = { width: 1280, height: 720 };
-		renderer.lastWebcamCacheRefreshTime = 10;
-		renderer.currentVideoTime = 10.1;
-
-		expect(renderer.shouldRefreshWebcamFrameCache(1280, 720)).toBe(false);
+		const first = {};
+		const next = {};
+		expect(renderer.resolveRenderableWebcamSource(first, 1280, 720, true)?.source).toBe(first);
+		expect(renderer.resolveRenderableWebcamSource(next, 1280, 720, true)?.source).toBe(next);
 	});
 
-	it("bypasses the refresh throttle for cropped webcam regions", () => {
+	it("refreshes cropped frames on every export frame and preserves crop geometry", () => {
 		const renderer = createRenderer() as any;
-
-		renderer.config.webcam.cropRegion = {
-			x: 0.25,
-			y: 0,
-			width: 0.5,
-			height: 1,
-		};
-		renderer.webcamFrameCacheCanvas = { width: 640, height: 720 };
-		renderer.lastWebcamCacheRefreshTime = 10;
-		renderer.currentVideoTime = 10.1;
-
-		expect(renderer.shouldRefreshWebcamFrameCache(1280, 720)).toBe(true);
+		renderer.config.webcam.cropRegion = { x: 0.25, y: 0, width: 0.5, height: 1 };
+		const first = {};
+		const next = {};
+		renderer.resolveRenderableWebcamSource(first, 1280, 720, true);
+		const result = renderer.resolveRenderableWebcamSource(next, 1280, 720, true);
+		expect(result?.source).toBe(renderer.webcamFrameCacheCanvas);
+		expect(renderer.webcamFrameCacheCtx.drawImage).toHaveBeenCalledTimes(2);
+		expect(renderer.webcamFrameCacheCtx.drawImage).toHaveBeenLastCalledWith(next, 320, 0, 640, 720, 0, 0, 640, 720);
 	});
 });
 
@@ -711,7 +705,6 @@ describe("ModernFrameRenderer temporal webcam sync", () => {
 		renderer.config.zoomMotionBlurSampleCount = 3;
 		renderer.config.zoomMotionBlurShutterFraction = 0.5;
 		renderer.app = { canvas: createMockCanvas() };
-		renderer.updateCaptionLayer = vi.fn();
 		renderer.renderSceneSample = vi.fn(async (sampleTimestamp: number) => ({
 			timeMs: sampleTimestamp / 1000,
 			cursorTimeMs: sampleTimestamp / 1000,

@@ -1105,7 +1105,7 @@ app.whenReady().then(async () => {
 
 	registerExtensionIpcHandlers();
 
-	if (IS_SMOKE_EXPORT || process.env.RECORDLY_DEV_OPEN_RECORDING_INPUT) {
+	if (IS_SMOKE_EXPORT || process.env.RECORDLY_DEV_OPEN_RECORDING_INPUT || process.env.RECORDLY_DEV_OPEN_EDITOR === "1") {
 		await logSmokeExportGpuDiagnostics();
 		if (IS_SMOKE_EXPORT) {
 			const smokeSource =
@@ -1115,7 +1115,7 @@ app.whenReady().then(async () => {
 			console.log(`[smoke-export] Starting editor smoke export for ${smokeSource}`);
 		} else {
 			console.log(
-				`[dev-open-recording] Starting editor for ${process.env.RECORDLY_DEV_OPEN_RECORDING_INPUT}`,
+				`[dev-open-recording] Starting editor for ${process.env.RECORDLY_DEV_OPEN_RECORDING_INPUT ?? "<empty project>"}`,
 			);
 		}
 		createEditorWindowWrapper();

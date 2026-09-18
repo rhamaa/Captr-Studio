@@ -62,13 +62,7 @@ type PersistedEditorControls = Pick<
 
 type PartialEditorControls = Partial<PersistedEditorControls>;
 
-type PresetAutoCaptionSettings = ProjectEditorState["autoCaptionSettings"];
-
-export interface EditorPresetSnapshot extends PersistedEditorControls {
-	autoCaptionSettings: PresetAutoCaptionSettings;
-	whisperExecutablePath: string | null;
-	whisperModelPath: string | null;
-}
+export interface EditorPresetSnapshot extends PersistedEditorControls {}
 
 export interface EditorPreset {
 	id: string;
@@ -83,8 +77,6 @@ export interface EditorPreferences extends PersistedEditorControls {
 	customAspectHeight: string;
 	customWallpapers: string[];
 	autoApplyFreshRecordingAutoZooms: boolean;
-	whisperExecutablePath: string | null;
-	whisperModelPath: string | null;
 }
 
 export const EDITOR_PREFERENCES_STORAGE_KEY = "recordly.editor.preferences";
@@ -145,8 +137,6 @@ export const DEFAULT_EDITOR_PREFERENCES: EditorPreferences = {
 	customAspectHeight: "9",
 	customWallpapers: [],
 	autoApplyFreshRecordingAutoZooms: true,
-	whisperExecutablePath: null,
-	whisperModelPath: null,
 };
 
 function normalizeBoolean(value: unknown, fallback: boolean): boolean {
@@ -178,37 +168,12 @@ function normalizeCustomWallpapers(value: unknown, fallback: string[]): string[]
 	);
 }
 
-function normalizeNullablePath(value: unknown): string | null {
-	if (typeof value !== "string") {
-		return null;
-	}
 
-	const trimmed = value.trim();
-	return trimmed.length > 0 ? trimmed : null;
-}
-
-function normalizePresetAutoCaptionSettings(value: unknown): PresetAutoCaptionSettings {
-	return normalizeProjectEditor({
-		autoCaptionSettings:
-			value && typeof value === "object" ? (value as PresetAutoCaptionSettings) : undefined,
-	}).autoCaptionSettings;
-}
 
 function normalizeEditorPresetSnapshot(candidate: unknown): EditorPresetSnapshot {
 	const normalizedPreferences = normalizeEditorPreferences(candidate);
-	const raw =
-		candidate && typeof candidate === "object"
-			? (candidate as Partial<EditorPresetSnapshot>)
-			: {};
-
 	return {
 		...normalizeEditorControls(normalizedPreferences, normalizedPreferences),
-		autoCaptionSettings: normalizePresetAutoCaptionSettings(raw.autoCaptionSettings),
-		whisperExecutablePath:
-			normalizeNullablePath(raw.whisperExecutablePath) ??
-			normalizedPreferences.whisperExecutablePath,
-		whisperModelPath:
-			normalizeNullablePath(raw.whisperModelPath) ?? normalizedPreferences.whisperModelPath,
 	};
 }
 
@@ -425,9 +390,6 @@ export function normalizeEditorPreferences(
 			raw.autoApplyFreshRecordingAutoZooms,
 			fallback.autoApplyFreshRecordingAutoZooms,
 		),
-		whisperExecutablePath:
-			normalizeNullablePath(raw.whisperExecutablePath) ?? fallback.whisperExecutablePath,
-		whisperModelPath: normalizeNullablePath(raw.whisperModelPath) ?? fallback.whisperModelPath,
 	};
 }
 

@@ -169,35 +169,3 @@ export type CompanionAudioCandidate = {
 	micPath: string;
 	usablePaths: string[];
 };
-
-export type CaptionWordPayload = {
-	text: string;
-	startMs: number;
-	endMs: number;
-	leadingSpace?: boolean;
-};
-
-export type CaptionCuePayload = {
-	id: string;
-	startMs: number;
-	endMs: number;
-	text: string;
-	words?: CaptionWordPayload[];
-};
-
-export type WhisperJsonToken = {
-	text?: unknown;
-	offsets?: {
-		from?: unknown;
-		to?: unknown;
-	};
-};
-
-export type WhisperJsonSegment = {
-	text?: unknown;
-	offsets?: {
-		from?: unknown;
-		to?: unknown;
-	};
-	tokens?: unknown;
-};

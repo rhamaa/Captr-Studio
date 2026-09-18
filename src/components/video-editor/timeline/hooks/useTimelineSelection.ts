@@ -1,4 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
+import { addAnnotationKeyframe, moveAnnotationKeyframe } from "../../annotationKeyframes";
+import type { AnnotationRegion, KeyframeProperty } from "../../types";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import type { TimelineRegion } from "../core/timelineTypes";
 
@@ -8,7 +10,7 @@ interface UseTimelineSelectionParams {
 	zoomRegions: TimelineRegion[];
 	clipRegions: TimelineRegion[];
 	layoutRegions: TimelineRegion[];
-	annotationRegions: (TimelineRegion & { zIndex: number })[];
+	annotationRegions: AnnotationRegion[];
 	audioRegions: TimelineRegion[];
 	selectedZoomId: string | null;
 	selectedClipId?: string | null;
@@ -19,6 +21,7 @@ interface UseTimelineSelectionParams {
 	onClipDelete?: (id: string, ripple?: boolean) => void;
 	onLayoutDelete?: (id: string) => void;
 	onAnnotationDelete?: (id: string) => void;
+	onAnnotationKeyframesChange?: (id: string, keyframes: import("../../types").PropertyKeyframe[]) => void;
 	onAudioDelete?: (id: string) => void;
 	onSelectZoom: (id: string | null) => void;
 	onSelectClip?: (id: string | null) => void;
@@ -44,6 +47,7 @@ export function useTimelineSelection({
 	onClipDelete,
 	onLayoutDelete,
 	onAnnotationDelete,
+		onAnnotationKeyframesChange,
 	onAudioDelete,
 	onSelectZoom,
 	onSelectClip,
@@ -51,41 +55,31 @@ export function useTimelineSelection({
 	onSelectAnnotation,
 	onSelectAudio,
 }: UseTimelineSelectionParams) {
-	const [keyframes, setKeyframes] = useState<{
-		id: string;
-		time: number;
-		property?: "position" | "scale" | "rotation" | "opacity";
-		easing?: string;
-	}[]>([]);
+	const selectedAnnotation = annotationRegions.find((region) => region.id === selectedAnnotationId);
+	const keyframes = useMemo(() => (selectedAnnotation?.keyframes ?? []).map((frame) => ({
+		id: frame.id, time: selectedAnnotation!.startMs + frame.timeMs, property: frame.property, easing: frame.easing,
+	})).sort((a, b) => a.time - b.time), [selectedAnnotation]);
 	const [selectedKeyframeId, setSelectedKeyframeId] = useState<string | null>(null);
+	useEffect(() => {
+		setSelectedKeyframeId(null);
+	}, [selectedAnnotationId]);
 	const [selectAllBlocksActive, setSelectAllBlocksActive] = useState(false);
 
-	const addKeyframe = useCallback(
-		(property: "position" | "scale" | "rotation" | "opacity" = "position", easing = "ease-in-out") => {
-			if (totalMs === 0) return;
-			const time = Math.max(0, Math.min(currentTimeMs, totalMs));
-			if (keyframes.some((kf) => Math.abs(kf.time - time) < 1 && kf.property === property)) return;
-			setKeyframes((prev) => [...prev, { id: uuidv4(), time, property, easing }]);
-		},
-		[currentTimeMs, totalMs, keyframes],
-	);
+	const addKeyframe = useCallback((property: KeyframeProperty = "position") => {
+		if (!selectedAnnotation || selectedAnnotation.locked || !onAnnotationKeyframesChange || totalMs === 0) return;
+		onAnnotationKeyframesChange(selectedAnnotation.id, addAnnotationKeyframe(selectedAnnotation, property, currentTimeMs, uuidv4()));
+	}, [selectedAnnotation, currentTimeMs, totalMs, onAnnotationKeyframesChange]);
 
 	const deleteSelectedKeyframe = useCallback(() => {
-		if (!selectedKeyframeId) return;
-		setKeyframes((prev) => prev.filter((kf) => kf.id !== selectedKeyframeId));
+		if (!selectedAnnotation || selectedAnnotation.locked || !selectedKeyframeId) return;
+		onAnnotationKeyframesChange?.(selectedAnnotation.id, (selectedAnnotation.keyframes ?? []).filter((frame) => frame.id !== selectedKeyframeId));
 		setSelectedKeyframeId(null);
-	}, [selectedKeyframeId]);
+	}, [selectedAnnotation, selectedKeyframeId, onAnnotationKeyframesChange]);
 
-	const handleKeyframeMove = useCallback(
-		(id: string, newTime: number) => {
-			setKeyframes((prev) =>
-				prev.map((kf) =>
-					kf.id === id ? { ...kf, time: Math.max(0, Math.min(newTime, totalMs)) } : kf,
-				),
-			);
-		},
-		[totalMs],
-	);
+	const handleKeyframeMove = useCallback((id: string, newTime: number) => {
+		if (!selectedAnnotation || selectedAnnotation.locked) return;
+		onAnnotationKeyframesChange?.(selectedAnnotation.id, moveAnnotationKeyframe(selectedAnnotation, id, newTime));
+	}, [selectedAnnotation, onAnnotationKeyframesChange]);
 
 	const deleteSelectedZoom = useCallback(() => {
 		if (!selectedZoomId) return;
@@ -163,6 +157,7 @@ export function useTimelineSelection({
 		onClipDelete,
 		onLayoutDelete,
 		onAnnotationDelete,
+		onAnnotationKeyframesChange,
 		onAudioDelete,
 		clearSelectedBlocks,
 	]);

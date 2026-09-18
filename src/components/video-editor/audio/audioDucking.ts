@@ -4,7 +4,7 @@
  * vocal speech is active, preventing background music from overpowering narration.
  */
 
-import type { AudioDuckingSettings, CaptionCue } from "../types";
+import type { AudioDuckingSettings } from "../types";
 
 export interface SpeechInterval {
 	startMs: number;
@@ -63,19 +63,6 @@ export function mergeSpeechIntervals(
 	}
 
 	return merged;
-}
-
-/**
- * Extracts speech intervals directly from Whisper AI caption cues.
- * Extremely fast and accurate since timings are already timestamped by speech AI.
- */
-export function getSpeechIntervalsFromCues(cues: CaptionCue[], maxGapMs = 500): SpeechInterval[] {
-	const rawIntervals: SpeechInterval[] = cues.map((cue) => ({
-		startMs: Math.max(0, cue.startMs),
-		endMs: Math.max(cue.startMs, cue.endMs),
-	}));
-
-	return mergeSpeechIntervals(rawIntervals, maxGapMs);
 }
 
 /**

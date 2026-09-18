@@ -4,6 +4,28 @@ Dokumen ini memetakan visi, arsitektur, dan tahapan pengembangan **Captr Studio*
 
 ---
 
+## Status arsitektur terverifikasi — 18 September 2026
+
+Target produk: recording polish ala Screen Studio, storyboard/scene ala Tella, serta editing berlapis ala Filmora. Phase 7 masih **parsial**; checklist historis di bawah bukan bukti semua kemampuan tersedia.
+
+Fondasi yang diperbaiki:
+- Keyframe anotasi memakai waktu lokal layer; inspector, marker timeline, preview, dan export memakai sampler bersama. Data keyframe rusak disaring saat load.
+- Transisi masuk memakai `transitionIn`; format lama dinormalisasi ke tipe renderer yang didukung. Crossfade/wipe lama belum didukung dan menjadi `none`.
+- Reorder scene mempertahankan setelan audio, speed, dan transisi.
+- Load dan pruning memakai daftar referensi media proyek yang sama, termasuk scene, layer, audio, dan gambar anotasi.
+- Integrasi caption yang telah dihapus dibersihkan dari editor dan preload. Caption belum tersedia kembali.
+
+Gerbang sebelum Phase 8:
+- [ ] Implementasikan compositor video multi-layer nyata: source clock, trim, speed, z-order, visibility, audio, serta lifecycle decoder per layer.
+- [ ] Buktikan paritas preview/export lewat proyek dua video bertumpuk, seek, split, save/load, dan hasil ekspor.
+- [ ] Satukan history operasi scene dan layer; uji undo/redo lintas pergantian scene.
+- [ ] Pisahkan orchestration proyek, playback, dan export dari komponen VideoEditor secara bertahap.
+- [ ] Bangun ulang caption dengan kontrak data, IPC, dan pengujian preview/export yang lengkap.
+
+Kontrak arah arsitektur: satu proyek berisi scene, setiap scene memiliki layer bertipe; Record Editor dan Video Editor menjadi dua tampilan atas model tersebut. `MediaTrackLayer` tersimpan saat ini, tetapi keberadaan tipe/persistensi belum berarti compositor videonya selesai.
+
+---
+
 ## 🎯 Visi & Tujuan Produk
 
 1. **Dynamic Screen Experience (RapidDemo & Screen Studio)**
@@ -65,7 +87,7 @@ flowchart TD
 - [x] **Clip Transition Engine**:
   - Pembuatan slot transisi pada sambungan antar klip di timeline.
   - Pilihan efek transisi bawaan:
-    - *Cross-Dissolve / Dissolve* (peleburan halus gambar A ke B).
+    - *Cross-Dissolve / Dissolve*: belum didukung; membutuhkan dua source aktif bersamaan.
     - *Fade to Black / Dip to White* (efek sinematik jeda antar babak).
     - *Slide Left / Slide Right* (geser konten seperti presentasi modern).
     - *Zoom In / Zoom Out Push* (transisi dorong dinamis).
@@ -106,7 +128,7 @@ flowchart TD
   - Mekanisme *anti-pumping* cerdas dengan *speech interval merging* dan *hold time* (hysteresis).
   - Paritas 100% antara preview player (`VideoPlayback.tsx`) dan pipeline ekspor Web Audio (`audioEncoder.ts`).
   - Pengaturan fleksibel: toggle ducking per-track audio dan kontrol intensitas ducking (-6 dB s.d. -26 dB) di Settings Panel.
-- [x] **Animated Karaoke Captions (TikTok / Alex Hormozi Style)**:
+- [ ] **Animated Karaoke Captions (TikTok / Alex Hormozi Style)**:
   - Penyorotan kata per kata (*word-by-word active highlight*) dengan transisi halus dan sinkronisasi real-time.
   - 5 pilihan preset gaya: *Karaoke Pop*, *Alex Hormozi*, *Neon Glow*, *Box Pill*, dan *Classic*.
   - Palet warna highlight cepat: Neon Yellow (`#FFE600`), Lime Green (`#22C55E`), Electric Cyan (`#06B6D4`), Hot Pink (`#EC4899`), Flame Orange (`#F97316`), serta pemilih warna kustom (*color picker*).
@@ -182,21 +204,21 @@ Captr Studio memisahkan alur kerja pembuatan konten ke dalam **2 Editor Utama** 
 
 ---
 
-### ✅ Phase 7: Per-Slide Video Editor & Multi-Layer Compositor (COMPLETED — v1.4.0)
+### 🚧 Phase 7: Per-Slide Video Editor & Multi-Layer Compositor (PARTIAL)
 
 > **Fokus Utama Phase 7**: Membangun dan menyempurnakan **Editor Khusus untuk Slide dengan Mode Video Editor**.
 > Sementara *Slide Record* sudah matang untuk alur tangkapan layar, Phase 7 berpusat pada perancangan lingkungan kerja penuh bagi slide video mandiri: kanvas media multi-track (ala CapCut/Filmora), studio rekaman audio langsung per-slide, dan engine keyframing dinamis.
 
 #### 📦 Sub-Phase 7.1: Multi-Track Media Layers Engine (CapCut / Filmora Style)
-- [x] **Multi-Track Timeline Canvas**:
+- [ ] **Multi-Track Timeline Canvas**:
   - Kemampuan menyisipkan banyak media sekaligus di dalam satu slide/timeline (Video B-Roll, Tangkapan Gambar, Logo PNG, Stiker Animasi, GIF, Text Overlays).
   - Sistem susunan *Z-Index Stacking* visual (drag-and-drop antar track untuk reordering layer).
-- [x] **Layer Controls & Blend Modes**:
+- [ ] **Layer Controls & Blend Modes**:
   - Kontrol per-layer: Visibility toggle (👁️), Lock track (🔒), Mute media audio (🔇), dan Opacity slider.
   - Dukungan Blend Mode grafis (*Multiply, Screen, Overlay, Soft Light*) untuk efek visual estetik.
 - [x] **Canvas Safe Zones & Snapping Guides**:
   - Garis bantu snapping otomatis (tengah horizontal, vertikal, tepi aman 16:9, 9:16) saat memindahkan atau me-resize media di preview canvas.
-- [x] **Paritas Multi-Layer Preview & Render**:
+- [ ] **Paritas Multi-Layer Preview & Render**:
   - Penataan render pass multi-track real-time preview dan sinkronisasi ke Canvas 2D / FFmpeg video pipeline (`annotationRenderer.ts`).
 
 #### 🎙️ Sub-Phase 7.2: Dedicated Audio Recorder & Voiceover Studio
@@ -217,7 +239,7 @@ Captr Studio memisahkan alur kerja pembuatan konten ke dalam **2 Editor Utama** 
     - **Scale** (`Width`, `Height` / Uniform Scale) — efek zoom in/out dan pop visual.
     - **Rotation** (`Degree` / `Rad`) — rotasi miring atau berputar.
     - **Opacity** (`0% - 100%`) — animasi fade-in / fade-out kustom.
-- [x] **Visual Curve & Bezier Easing Selector**:
+- [ ] **Visual Curve & Bezier Easing Selector**:
   - Pilihan kurva interpolasi per keyframe: *Linear*, *Ease-In*, *Ease-Out*, *Ease-In-Out*, *Spring Bounce*, dan *Custom Cubic Bezier*.
 - [x] **Keyframe Manipulation UI**:
   - Drag-to-move keyframe pada timeline, quick add/remove per property, serta list keyframe interaktif di Inspector panel.

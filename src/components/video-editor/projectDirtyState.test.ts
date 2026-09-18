@@ -16,7 +16,6 @@ function createProjectData(overrides: Partial<EditorProjectData> = {}): EditorPr
 			speedRegions: [],
 			annotationRegions: [],
 			audioRegions: [],
-			autoCaptions: [],
 		},
 		...overrides,
 	};
@@ -58,7 +57,15 @@ describe("hasUnsavedProjectChanges", () => {
 		const current = createProjectData({
 			editor: {
 				...createProjectData().editor,
-				autoCaptions: [{ id: "caption-1", startMs: 0, endMs: 1_000, text: "hello" }],
+				audioRegions: [
+					{
+						id: "audio-1",
+						startMs: 0,
+						endMs: 1_000,
+						durationMs: 1_000,
+						audioPath: "track.mp3",
+					} as any,
+				],
 			},
 		});
 

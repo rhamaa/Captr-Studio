@@ -330,7 +330,6 @@ describe("ModernVideoExporter native static-layout eligibility", () => {
 			wallpaper: "file:///C:/Recordly/background.webm",
 			speedRegions: [{ id: "speed-1", startMs: 1_000, endMs: 4_000, speed: 1.5 }],
 			annotationRegions: [{ id: "annotation-1", startMs: 0, endMs: 1_000 }],
-			autoCaptions: [{ id: "caption-1", text: "hello", startMs: 0, endMs: 1_000 }],
 			webcam: { enabled: true },
 			frame: "macbook",
 			cropRegion: { x: 0.1, y: 0, width: 0.9, height: 1 },
@@ -349,7 +348,6 @@ describe("ModernVideoExporter native static-layout eligibility", () => {
 			"odd-output-dimensions",
 			"unsupported-background-video",
 			"unsupported-annotation-overlay",
-			"unsupported-caption-overlay",
 			"unsupported-webcam-source",
 			"unsupported-frame-overlay",
 		]);

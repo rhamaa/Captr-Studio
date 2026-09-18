@@ -69,6 +69,7 @@ export interface TimelineEditorProps {
 	onAnnotationAdded?: (span: Span, trackIndex?: number) => void;
 	onAnnotationSpanChange?: (id: string, span: Span, trackIndex?: number) => void;
 	onAnnotationDelete?: (id: string) => void;
+	onAnnotationKeyframesChange?: (id: string, keyframes: import("../types").PropertyKeyframe[]) => void;
 	selectedAnnotationId?: string | null;
 	onSelectAnnotation?: (id: string | null) => void;
 	speedRegions?: SpeedRegion[];
@@ -170,6 +171,7 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 			onAnnotationAdded,
 			onAnnotationSpanChange,
 			onAnnotationDelete,
+		onAnnotationKeyframesChange,
 			selectedAnnotationId,
 			onSelectAnnotation,
 			speedRegions = [],
@@ -411,6 +413,7 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 			onAnnotationAdded,
 			onAnnotationSpanChange,
 			onAnnotationDelete,
+		onAnnotationKeyframesChange,
 			selectedAnnotationId,
 			onSelectAnnotation,
 			speedRegions,

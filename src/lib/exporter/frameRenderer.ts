@@ -4,8 +4,6 @@ import { ZoomBlurFilter } from "pixi-filters/zoom-blur";
 import { resolveLayoutSceneAtTime } from "@/components/video-editor/layoutScenes";
 import type {
 	AnnotationRegion,
-	AutoCaptionSettings,
-	CaptionCue,
 	ClipRegion,
 	CropRegion,
 	CursorStyle,
@@ -77,7 +75,6 @@ import {
 } from "@/lib/mediaTiming";
 import { isVideoWallpaperSource } from "@/lib/wallpapers";
 import { renderAnnotations } from "./annotationRenderer";
-import { renderCaptions } from "./captionRenderer";
 import { ForwardFrameSource } from "./forwardFrameSource";
 import { resolveMediaElementSource } from "./localMediaSource";
 import { buildTemporalSamplePlanUs, getTemporalMotionBlurConfig } from "./temporalMotionBlur";
@@ -116,8 +113,6 @@ interface FrameRenderConfig {
 	videoWidth: number;
 	videoHeight: number;
 	annotationRegions?: AnnotationRegion[];
-	autoCaptions?: CaptionCue[];
-	autoCaptionSettings?: AutoCaptionSettings;
 	speedRegions?: SpeedRegion[];
 	previewWidth?: number;
 	previewHeight?: number;
@@ -1540,22 +1535,6 @@ export class FrameRenderer {
 				);
 			}
 
-			if (
-				this.config.autoCaptions &&
-				this.config.autoCaptions.length > 0 &&
-				this.config.autoCaptionSettings &&
-				this.compositeCtx
-			) {
-				renderCaptions(
-					this.compositeCtx,
-					this.config.autoCaptions,
-					this.config.autoCaptionSettings,
-					this.config.width,
-					this.config.height,
-					temporalSnapshot.timeMs,
-				);
-			}
-
 			if (this.compositeCtx) {
 				const maskRect = this.layoutCache?.maskRect;
 				const hookParams = {
@@ -1721,22 +1700,6 @@ export class FrameRenderer {
 				this.config.height,
 				timeMs,
 				scaleFactor,
-			);
-		}
-
-		if (
-			this.config.autoCaptions &&
-			this.config.autoCaptions.length > 0 &&
-			this.config.autoCaptionSettings &&
-			this.compositeCtx
-		) {
-			renderCaptions(
-				this.compositeCtx,
-				this.config.autoCaptions,
-				this.config.autoCaptionSettings,
-				this.config.width,
-				this.config.height,
-				timeMs,
 			);
 		}
 

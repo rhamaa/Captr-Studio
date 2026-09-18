@@ -1,7 +1,6 @@
 import type {
 	AnnotationRegion,
 	AudioRegion,
-	CaptionCue,
 	ClipRegion,
 	LayoutRegion,
 	SpeedRegion,
@@ -15,7 +14,6 @@ export type EditorHistorySnapshot = {
 	annotationRegions: AnnotationRegion[];
 	audioRegions: AudioRegion[];
 	layoutRegions: LayoutRegion[];
-	autoCaptions: CaptionCue[];
 	selectedZoomId: string | null;
 	selectedClipId: string | null;
 	selectedAnnotationId: string | null;

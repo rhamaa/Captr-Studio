@@ -1,8 +1,6 @@
 import GIF from "gif.js";
 import type {
 	AnnotationRegion,
-	AutoCaptionSettings,
-	CaptionCue,
 	ClipRegion,
 	CropRegion,
 	CursorStyle,
@@ -66,8 +64,6 @@ interface GifExporterConfig {
 	webcamUrl?: string | null;
 	layoutRegions?: LayoutRegion[];
 	annotationRegions?: AnnotationRegion[];
-	autoCaptions?: CaptionCue[];
-	autoCaptionSettings?: AutoCaptionSettings;
 	cursorTelemetry?: CursorTelemetryPoint[];
 	showCursor?: boolean;
 	cursorStyle?: CursorStyle;
@@ -196,8 +192,6 @@ export class GifExporter {
 				videoWidth: videoInfo.width,
 				videoHeight: videoInfo.height,
 				annotationRegions: this.config.annotationRegions,
-				autoCaptions: this.config.autoCaptions,
-				autoCaptionSettings: this.config.autoCaptionSettings,
 				speedRegions: this.config.speedRegions,
 				previewWidth: this.config.previewWidth,
 				previewHeight: this.config.previewHeight,

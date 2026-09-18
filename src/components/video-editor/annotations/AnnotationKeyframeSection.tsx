@@ -1,3 +1,4 @@
+import { addAnnotationKeyframe, getAnnotationLocalTime } from "../annotationKeyframes";
 import { Diamond, Plus, Trash as Trash2 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,6 @@ import type {
 	AnnotationRegion,
 	KeyframeEasing,
 	KeyframeProperty,
-	PropertyKeyframe,
 } from "../types";
 
 export interface AnnotationKeyframeSectionProps {
@@ -29,33 +29,8 @@ export function AnnotationKeyframeSection({
 }: AnnotationKeyframeSectionProps) {
 	const handleAddKeyframe = (property: KeyframeProperty) => {
 		const currentMs = currentTimeMs ?? annotation.startMs;
-		const relativeTimeMs = Math.max(0, currentMs - annotation.startMs);
-		let value: number | { x: number; y: number } = 0;
-		if (property === "opacity") {
-			value = annotation.style?.opacity ?? 1;
-		} else if (property === "rotation") {
-			value = annotation.rotationDeg ?? 0;
-		} else if (property === "scale") {
-			value = annotation.size ? annotation.size.width / 100 : 1;
-		} else if (property === "position") {
-			value = annotation.position
-				? { x: annotation.position.x, y: annotation.position.y }
-				: { x: 50, y: 50 };
-		}
-
-		const newKf: PropertyKeyframe = {
-			id: `kf_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-			property,
-			timeMs: relativeTimeMs,
-			value,
-			easing: "ease-in-out",
-		};
-
-		const existing = annotation.keyframes || [];
-		const filtered = existing.filter(
-			(k) => !(k.property === property && Math.abs(k.timeMs - relativeTimeMs) < 50),
-		);
-		const nextKfs = [...filtered, newKf].sort((a, b) => a.timeMs - b.timeMs);
+		const relativeTimeMs = getAnnotationLocalTime(annotation, currentMs);
+		const nextKfs = addAnnotationKeyframe(annotation, property, currentMs, `kf_${crypto.randomUUID()}`);
 		onLayerChange?.({ keyframes: nextKfs });
 		toast.success(`Keyframe ${property} added at ${(relativeTimeMs / 1000).toFixed(2)}s`);
 	};

@@ -2,8 +2,6 @@ import type {
 	AnnotationRegion,
 	AudioDuckingSettings,
 	AudioRegion,
-	AutoCaptionSettings,
-	CaptionCue,
 	ClipRegion,
 	ColorGradingSettings,
 	CropRegion,
@@ -125,8 +123,6 @@ interface VideoExporterConfig extends ExportConfig {
 	webcamUrl?: string | null;
 	layoutRegions?: LayoutRegion[];
 	annotationRegions?: AnnotationRegion[];
-	autoCaptions?: CaptionCue[];
-	autoCaptionSettings?: AutoCaptionSettings;
 	cursorTelemetry?: CursorTelemetryPoint[];
 	showCursor?: boolean;
 	cursorStyle?: CursorStyle;
@@ -612,8 +608,6 @@ export class ModernVideoExporter {
 					videoWidth: videoInfo.width,
 					videoHeight: videoInfo.height,
 					annotationRegions: this.config.annotationRegions,
-					autoCaptions: this.config.autoCaptions,
-					autoCaptionSettings: this.config.autoCaptionSettings,
 					speedRegions: this.config.speedRegions,
 					previewWidth: this.config.previewWidth,
 					previewHeight: this.config.previewHeight,
@@ -825,7 +819,6 @@ export class ModernVideoExporter {
 									this.config.sourceAudioTrackSettings,
 									this.config.clipRegions,
 									this.config.audioDuckingSettings,
-									this.config.autoCaptions,
 								),
 								"audio processing",
 								"audio",
@@ -1548,9 +1541,6 @@ export class ModernVideoExporter {
 		}
 		if ((this.config.annotationRegions ?? []).length > 0) {
 			reasons.push("unsupported-annotation-overlay");
-		}
-		if ((this.config.autoCaptions ?? []).length > 0) {
-			reasons.push("unsupported-caption-overlay");
 		}
 
 		if (this.config.webcam?.enabled && !this.getNativeWebcamSourcePath()) {

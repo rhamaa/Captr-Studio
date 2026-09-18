@@ -18,7 +18,6 @@ function createSnapshot(id: string | null): EditorHistorySnapshot {
 		speedRegions: [],
 		annotationRegions: [],
 		audioRegions: [],
-		autoCaptions: [],
 		selectedZoomId: id,
 		selectedClipId: id ? `clip-${id}` : null,
 		selectedAnnotationId: null,

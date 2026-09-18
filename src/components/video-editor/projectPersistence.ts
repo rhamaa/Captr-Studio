@@ -1,3 +1,5 @@
+import { normalizePropertyKeyframes } from "./annotationKeyframes";
+import { normalizeClipTransition, normalizeClipTransitionType } from "./transitionContract";
 import type { SourceAudioTrackSettings } from "@/components/video-editor/audio/audioTypes";
 import type {
 	ExportBackendPreference,
@@ -27,14 +29,8 @@ import {
 	type AnnotationRegion,
 	type AudioDuckingSettings,
 	type AudioRegion,
-	type AutoCaptionAnimation,
-	type AutoCaptionSettings,
-	type CaptionCue,
-	type CaptionCueWord,
-	type CaptionHighlightStyle,
 	type ClipEntry,
 	type ClipRegion,
-	type ClipTransitionType,
 	type ColorGradingSettings,
 	type CropRegion,
 	type CursorStyle,
@@ -42,7 +38,6 @@ import {
 	DEFAULT_ANNOTATION_SIZE,
 	DEFAULT_ANNOTATION_STYLE,
 	DEFAULT_AUDIO_DUCKING_SETTINGS,
-	DEFAULT_AUTO_CAPTION_SETTINGS,
 	DEFAULT_CAMERA_PERSPECTIVE_TILT,
 	DEFAULT_CONNECTED_ZOOM_DURATION_MS,
 	DEFAULT_CONNECTED_ZOOM_EASING,
@@ -73,7 +68,6 @@ import {
 	DEFAULT_ZOOM_MOTION_BLUR_TUNING,
 	DEFAULT_ZOOM_OUT_EASING,
 	DEFAULT_ZOOM_SMOOTHNESS,
-	getDefaultCaptionFontFamily,
 	type LayoutRegion,
 	type LayoutScenePreset,
 	type Padding,
@@ -141,8 +135,6 @@ export interface ProjectEditorState {
 	annotationRegions: AnnotationRegion[];
 	audioRegions: AudioRegion[];
 	audioDuckingSettings: AudioDuckingSettings;
-	autoCaptions: CaptionCue[];
-	autoCaptionSettings: AutoCaptionSettings;
 	webcam: WebcamOverlaySettings;
 	layoutRegions: LayoutRegion[];
 	aspectRatio: AspectRatio;
@@ -224,28 +216,6 @@ function normalizeZoomTransitionEasing(
 		value === "smooth" ||
 		value === "snappy" ||
 		value === "linear"
-		? value
-		: fallback;
-}
-
-function normalizeAutoCaptionAnimation(
-	value: unknown,
-	fallback: AutoCaptionAnimation,
-): AutoCaptionAnimation {
-	return value === "none" || value === "fade" || value === "rise" || value === "pop"
-		? value
-		: fallback;
-}
-
-function normalizeCaptionHighlightStyle(
-	value: unknown,
-	fallback: CaptionHighlightStyle,
-): CaptionHighlightStyle {
-	return value === "classic" ||
-		value === "karaoke-pop" ||
-		value === "hormozi" ||
-		value === "neon-glow" ||
-		value === "box-highlight"
 		? value
 		: fallback;
 }
@@ -390,29 +360,8 @@ export function normalizeClipEntries(candidateClips: unknown): ClipEntry[] {
 				mediaTrackLayers: Array.isArray(raw.mediaTrackLayers)
 					? (raw.mediaTrackLayers as import("./types").MediaTrackLayer[])
 					: undefined,
-				keyframes: Array.isArray(raw.keyframes)
-					? (raw.keyframes as import("./types").PropertyKeyframe[])
-					: undefined,
-				transitionToNext:
-					raw.transitionToNext && typeof raw.transitionToNext === "object"
-						? {
-								type: (["none", "crossfade", "slide", "wipe"].includes(
-									String((raw.transitionToNext as Record<string, unknown>).type),
-								)
-									? (raw.transitionToNext as Record<string, unknown>).type
-									: "none") as import("./types").ClipTransition["type"],
-								durationMs: isFiniteNumber(
-									(raw.transitionToNext as Record<string, unknown>).durationMs,
-								)
-									? Math.max(
-											0,
-											Math.round(
-												(raw.transitionToNext as Record<string, unknown>).durationMs as number,
-											),
-									  )
-									: 300,
-						  }
-						: undefined,
+				keyframes: normalizePropertyKeyframes(raw.keyframes),
+				transitionIn: normalizeClipTransition(raw.transitionIn ?? raw.transitionToNext),
 			};
 		});
 }
@@ -609,14 +558,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 						: rawStart + 1000;
 					const startMs = Math.max(0, Math.min(rawStart, rawEnd));
 					const endMs = Math.max(startMs + 1, rawEnd);
-					const transitionIn: ClipTransitionType =
-						region.transitionIn === "fade-black" ||
-						region.transitionIn === "fade-white" ||
-						region.transitionIn === "slide-left" ||
-						region.transitionIn === "slide-right" ||
-						region.transitionIn === "zoom-push"
-							? region.transitionIn
-							: "none";
+					const transitionIn = normalizeClipTransitionType(region.transitionIn);
 					const transitionInDurationMs =
 						isFiniteNumber(region.transitionInDurationMs) &&
 						region.transitionInDurationMs > 0
@@ -799,9 +741,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 								? region.blendMode
 								: "normal",
 						rotationDeg: isFiniteNumber(region.rotationDeg) ? region.rotationDeg : 0,
-						keyframes: Array.isArray(region.keyframes)
-							? (region.keyframes as import("./types").PropertyKeyframe[])
-							: undefined,
+						keyframes: normalizePropertyKeyframes(region.keyframes),
 					};
 				})
 		: [];
@@ -858,129 +798,6 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 				)
 				.sort((left, right) => left.startMs - right.startMs)
 		: [];
-
-	const normalizedAutoCaptions: CaptionCue[] = Array.isArray(
-		(editor as Partial<ProjectEditorState>).autoCaptions,
-	)
-		? ((editor as Partial<ProjectEditorState>).autoCaptions as CaptionCue[])
-				.filter((cue): cue is CaptionCue => Boolean(cue && typeof cue.id === "string"))
-				.map((cue) => {
-					const rawStart = isFiniteNumber(cue.startMs) ? Math.round(cue.startMs) : 0;
-					const rawEnd = isFiniteNumber(cue.endMs)
-						? Math.round(cue.endMs)
-						: rawStart + 1000;
-					const startMs = Math.max(0, Math.min(rawStart, rawEnd));
-					const endMs = Math.max(startMs + 1, rawEnd);
-					const words: CaptionCueWord[] | undefined = Array.isArray(cue.words)
-						? cue.words
-								.filter((word): word is CaptionCueWord =>
-									Boolean(word && typeof word.text === "string"),
-								)
-								.map((word) => {
-									const rawWordStart = isFiniteNumber(word.startMs)
-										? Math.round(word.startMs)
-										: startMs;
-									const rawWordEnd = isFiniteNumber(word.endMs)
-										? Math.round(word.endMs)
-										: rawWordStart + 1;
-									const normalizedWordStart = clamp(
-										rawWordStart,
-										startMs,
-										endMs - 1,
-									);
-									const normalizedWordEnd = clamp(
-										rawWordEnd,
-										normalizedWordStart + 1,
-										endMs,
-									);
-
-									return {
-										text: word.text.trim(),
-										startMs: normalizedWordStart,
-										endMs: normalizedWordEnd,
-										...(word.leadingSpace ? { leadingSpace: true } : {}),
-									};
-								})
-								.filter((word) => word.text.length > 0)
-						: undefined;
-
-					return {
-						id: cue.id,
-						startMs,
-						endMs,
-						text: typeof cue.text === "string" ? cue.text.trim() : "",
-						...(words && words.length > 0 ? { words } : {}),
-					};
-				})
-				.filter((cue) => cue.text.length > 0)
-		: [];
-
-	const rawAutoCaptionSettings: Partial<AutoCaptionSettings> =
-		editor.autoCaptionSettings && typeof editor.autoCaptionSettings === "object"
-			? (editor.autoCaptionSettings as Partial<AutoCaptionSettings>)
-			: {};
-	const normalizedAutoCaptionSettings: AutoCaptionSettings = {
-		enabled:
-			typeof rawAutoCaptionSettings.enabled === "boolean"
-				? rawAutoCaptionSettings.enabled
-				: DEFAULT_AUTO_CAPTION_SETTINGS.enabled,
-		language:
-			typeof rawAutoCaptionSettings.language === "string" &&
-			rawAutoCaptionSettings.language.trim()
-				? rawAutoCaptionSettings.language.trim()
-				: DEFAULT_AUTO_CAPTION_SETTINGS.language,
-		fontFamily: getDefaultCaptionFontFamily(),
-		fontSize: isFiniteNumber(rawAutoCaptionSettings.fontSize)
-			? clamp(rawAutoCaptionSettings.fontSize, 16, 72)
-			: DEFAULT_AUTO_CAPTION_SETTINGS.fontSize,
-		bottomOffset: isFiniteNumber(rawAutoCaptionSettings.bottomOffset)
-			? clamp(rawAutoCaptionSettings.bottomOffset, 0, 30)
-			: DEFAULT_AUTO_CAPTION_SETTINGS.bottomOffset,
-		maxWidth: isFiniteNumber(rawAutoCaptionSettings.maxWidth)
-			? clamp(rawAutoCaptionSettings.maxWidth, 40, 95)
-			: DEFAULT_AUTO_CAPTION_SETTINGS.maxWidth,
-		maxRows: isFiniteNumber(rawAutoCaptionSettings.maxRows)
-			? clamp(Math.round(rawAutoCaptionSettings.maxRows), 1, 4)
-			: DEFAULT_AUTO_CAPTION_SETTINGS.maxRows,
-		animationStyle: normalizeAutoCaptionAnimation(
-			rawAutoCaptionSettings.animationStyle,
-			DEFAULT_AUTO_CAPTION_SETTINGS.animationStyle,
-		),
-		boxRadius: isFiniteNumber(rawAutoCaptionSettings.boxRadius)
-			? clamp(rawAutoCaptionSettings.boxRadius, 0, 40)
-			: DEFAULT_AUTO_CAPTION_SETTINGS.boxRadius,
-		textColor:
-			typeof rawAutoCaptionSettings.textColor === "string" &&
-			rawAutoCaptionSettings.textColor.trim()
-				? rawAutoCaptionSettings.textColor
-				: DEFAULT_AUTO_CAPTION_SETTINGS.textColor,
-		inactiveTextColor:
-			typeof rawAutoCaptionSettings.inactiveTextColor === "string" &&
-			rawAutoCaptionSettings.inactiveTextColor.trim()
-				? rawAutoCaptionSettings.inactiveTextColor
-				: DEFAULT_AUTO_CAPTION_SETTINGS.inactiveTextColor,
-		backgroundOpacity: isFiniteNumber(rawAutoCaptionSettings.backgroundOpacity)
-			? clamp(rawAutoCaptionSettings.backgroundOpacity, 0, 1)
-			: DEFAULT_AUTO_CAPTION_SETTINGS.backgroundOpacity,
-		highlightStyle: normalizeCaptionHighlightStyle(
-			rawAutoCaptionSettings.highlightStyle,
-			DEFAULT_AUTO_CAPTION_SETTINGS.highlightStyle ?? "karaoke-pop",
-		),
-		highlightColor:
-			typeof rawAutoCaptionSettings.highlightColor === "string" &&
-			rawAutoCaptionSettings.highlightColor.trim()
-				? rawAutoCaptionSettings.highlightColor
-				: DEFAULT_AUTO_CAPTION_SETTINGS.highlightColor,
-		highlightTextColor:
-			typeof rawAutoCaptionSettings.highlightTextColor === "string" &&
-			rawAutoCaptionSettings.highlightTextColor.trim()
-				? rawAutoCaptionSettings.highlightTextColor
-				: DEFAULT_AUTO_CAPTION_SETTINGS.highlightTextColor,
-		uppercase:
-			typeof rawAutoCaptionSettings.uppercase === "boolean"
-				? rawAutoCaptionSettings.uppercase
-				: DEFAULT_AUTO_CAPTION_SETTINGS.uppercase,
-	};
 
 	const rawAudioDuckingSettings: Partial<AudioDuckingSettings> =
 		editor.audioDuckingSettings && typeof editor.audioDuckingSettings === "object"
@@ -1169,8 +986,6 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		audioRegions: normalizedAudioRegions,
 		audioDuckingSettings: normalizedAudioDuckingSettings,
 		layoutRegions: normalizedLayoutRegions,
-		autoCaptions: normalizedAutoCaptions,
-		autoCaptionSettings: normalizedAutoCaptionSettings,
 		webcam: {
 			enabled:
 				typeof webcam.enabled === "boolean"

@@ -2,6 +2,7 @@ import { existsSync, constants as fsConstants, realpathSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { app } from "electron";
+import { collectProjectMediaPaths, getProjectPrimaryMedia } from "./mediaReferences";
 import { RECORDINGS_DIR, USER_DATA_PATH } from "../../appPaths";
 import { isSupportedLocalMediaPath } from "../../mediaTypes";
 import {
@@ -208,7 +209,7 @@ export async function resolveProjectMediaSources(
 		return { success: false, message: "Invalid project file format" };
 	}
 
-	const rawVideoPath = (project as { videoPath?: unknown }).videoPath;
+	const { videoPath: rawVideoPath, webcamPath: rawWebcamPath } = getProjectPrimaryMedia(project);
 	if (typeof rawVideoPath !== "string") {
 		return { success: false, message: "Project file is missing a video path" };
 	}
@@ -227,12 +228,6 @@ export async function resolveProjectMediaSources(
 		};
 	}
 
-	const rawWebcamPath =
-		typeof (project as { editor?: { webcam?: { sourcePath?: unknown } } }).editor?.webcam
-			?.sourcePath === "string"
-			? ((project as { editor?: { webcam?: { sourcePath?: string } } }).editor?.webcam
-					?.sourcePath ?? null)
-			: null;
 	const normalizedWebcamPath = normalizeVideoSourcePath(rawWebcamPath);
 
 	if (!normalizedWebcamPath) {
@@ -446,28 +441,11 @@ export async function loadProjectFromPath(projectPath: string) {
 			message: mediaSources.message,
 		};
 	}
-	const projectObj = project as Record<string, unknown>;
-	const editorObj = projectObj?.editor as Record<string, unknown> | undefined;
-	const audioTracks = editorObj?.audioTracks as { sourcePath?: unknown }[] | undefined;
-	const audioRegions = editorObj?.audioRegions as { audioPath?: unknown }[] | undefined;
 	const approvedProjectPaths: Array<string | null | undefined> = [
 		mediaSources.videoPath,
 		mediaSources.webcamPath,
+		...collectProjectMediaPaths(project),
 	];
-	if (Array.isArray(audioTracks)) {
-		for (const track of audioTracks) {
-			if (typeof track?.sourcePath === "string") {
-				approvedProjectPaths.push(track.sourcePath);
-			}
-		}
-	}
-	if (Array.isArray(audioRegions)) {
-		for (const region of audioRegions) {
-			if (typeof region?.audioPath === "string") {
-				approvedProjectPaths.push(region.audioPath);
-			}
-		}
-	}
 	await replaceApprovedSessionLocalReadPaths(approvedProjectPaths);
 	await rememberRecentProject(normalizedPath);
 

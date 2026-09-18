@@ -1,12 +1,10 @@
+import { sampleAnnotationTransform } from "./annotationKeyframes";
 import { useRef, useState } from "react";
 import { Rnd } from "react-rnd";
 import { cn } from "@/lib/utils";
 import { getArrowComponent } from "./ArrowSvgs";
 import { type AnnotationRegion, BASE_PREVIEW_WIDTH, BLUR_ANNOTATION_STRENGTH } from "./types";
-import {
-	interpolateNumericKeyframe,
-	interpolatePositionKeyframe,
-} from "./keyframeInterpolation";
+
 
 interface AnnotationOverlayProps {
 	annotation: AnnotationRegion;
@@ -45,24 +43,7 @@ export function AnnotationOverlay({
 	}
 
 	// Keyframe-interpolated position, scale, opacity, and rotation
-	const hasKeyframes = Array.isArray(annotation.keyframes) && annotation.keyframes.length > 0;
-	const activeTime = currentTimeMs ?? annotation.startMs;
-
-	const interpolatedPos = hasKeyframes
-		? interpolatePositionKeyframe(annotation.keyframes!, activeTime, annotation.position)
-		: annotation.position;
-
-	const interpolatedScale = hasKeyframes
-		? interpolateNumericKeyframe(annotation.keyframes!, "scale", activeTime, 1)
-		: 1;
-
-	const interpolatedOpacity = hasKeyframes
-		? interpolateNumericKeyframe(annotation.keyframes!, "opacity", activeTime, annotation.style.opacity ?? 1)
-		: (annotation.style.opacity ?? 1);
-
-	const interpolatedRotation = hasKeyframes
-		? interpolateNumericKeyframe(annotation.keyframes!, "rotation", activeTime, annotation.rotationDeg ?? 0)
-		: (annotation.rotationDeg ?? 0);
+	const { position: interpolatedPos, scale: interpolatedScale, opacity: interpolatedOpacity, rotation: interpolatedRotation } = sampleAnnotationTransform(annotation, currentTimeMs ?? annotation.startMs);
 
 	const x = (interpolatedPos.x / 100) * containerWidth;
 	const y = (interpolatedPos.y / 100) * containerHeight;

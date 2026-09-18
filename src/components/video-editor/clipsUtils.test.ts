@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	buildSceneClipRegions,
 	createRecordedClip,
 	createUploadedClip,
 	findClipAtTimelineTime,
@@ -14,6 +15,17 @@ import {
 import type { ClipEntry, CropRegion, WebcamOverlaySettings } from "./types";
 
 describe("clipsUtils", () => {
+	it("preserves transition and audio edits when scenes are reordered", () => {
+		const clips: ClipEntry[] = [
+			{ id: "a", videoPath: "a.mp4", startMsOffset: 0, durationMs: 1000 },
+			{ id: "b", videoPath: "b.mp4", startMsOffset: 1000, durationMs: 2000, transitionIn: { type: "slide-left", durationMs: 300 } },
+		];
+		const reordered = reorderClips(clips, "b", "left");
+		const regions = buildSceneClipRegions(reordered, [{ id: "a", startMs: 0, endMs: 1000, speed: 2, muted: true, showSourceAudio: true, transitionIn: "fade-white", transitionInDurationMs: 500 }]);
+		expect(regions[0]).toMatchObject({ id: "b", startMs: 0, endMs: 2000, transitionIn: "slide-left" });
+		expect(regions[1]).toMatchObject({ id: "a", startMs: 2000, endMs: 3000, speed: 2, muted: true, showSourceAudio: true, transitionIn: "fade-white", transitionInDurationMs: 500 });
+	});
+
 	const defaultSettings: ProjectDefaultSettings = {
 		wallpaper: "linear-gradient(to right, #000, #111)",
 		cropRegion: { x: 0, y: 0, width: 1, height: 1 },

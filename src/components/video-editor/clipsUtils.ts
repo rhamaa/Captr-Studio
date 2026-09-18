@@ -1,11 +1,29 @@
 import {
 	DEFAULT_WEBCAM_OVERLAY,
 	type ClipEntry,
+	type ClipRegion,
 	type CropRegion,
 	type LayoutRegion,
 	type WebcamOverlaySettings,
 	type ZoomRegion,
 } from "./types";
+
+/** Rebuild scene placement without discarding mute, audio, or transition edits. */
+export function buildSceneClipRegions(clips: ClipEntry[], previous: ClipRegion[] = []): ClipRegion[] {
+	const byId = new Map(previous.map((region) => [region.id, region]));
+	return clips.map((clip) => {
+		const existing = byId.get(clip.id);
+		return {
+			...existing,
+			id: clip.id,
+			startMs: clip.startMsOffset,
+			endMs: clip.startMsOffset + clip.durationMs,
+			speed: existing?.speed ?? clip.speed ?? 1,
+			transitionIn: existing?.transitionIn ?? clip.transitionIn?.type,
+			transitionInDurationMs: existing?.transitionInDurationMs ?? clip.transitionIn?.durationMs,
+		};
+	});
+}
 
 export interface ProjectDefaultSettings {
 	wallpaper: string;

@@ -57,6 +57,7 @@ interface UseTimelineEditorRuntimeParams {
 	onAnnotationAdded?: (span: Span, trackIndex?: number) => void;
 	onAnnotationSpanChange?: (id: string, span: Span, trackIndex?: number) => void;
 	onAnnotationDelete?: (id: string) => void;
+	onAnnotationKeyframesChange?: (id: string, keyframes: import("../../types").PropertyKeyframe[]) => void;
 	selectedAnnotationId?: string | null;
 	onSelectAnnotation?: (id: string | null) => void;
 	speedRegions: SpeedRegion[];
@@ -107,6 +108,7 @@ export function useTimelineEditorRuntime({
 	onAnnotationAdded,
 	onAnnotationSpanChange,
 	onAnnotationDelete,
+		onAnnotationKeyframesChange,
 	selectedAnnotationId,
 	onSelectAnnotation,
 	speedRegions,
@@ -161,6 +163,7 @@ export function useTimelineEditorRuntime({
 		onClipDelete,
 		onLayoutDelete,
 		onAnnotationDelete,
+		onAnnotationKeyframesChange,
 		onAudioDelete,
 		onSelectZoom,
 		onSelectClip,

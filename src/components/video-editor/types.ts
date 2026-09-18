@@ -58,7 +58,6 @@ export type SlideMode = "record" | "video";
 export type EditorEffectSection =
 	| "scene"
 	| "cursor"
-	| "captions"
 	| "webcam"
 	| "layout"
 	| "settings"
@@ -284,6 +283,9 @@ export interface ClipEntry {
 	trimEndMs?: number;
 	speed?: number;
 	showCursor?: boolean; // false for uploaded by default, true for recorded
+	/** Transition entering this scene, matching preview and export semantics. */
+	transitionIn?: ClipTransition;
+	/** @deprecated Legacy field was rendered as an incoming transition. */
 	transitionToNext?: ClipTransition;
 	mediaTrackLayers?: MediaTrackLayer[];
 	keyframes?: PropertyKeyframe[];
@@ -509,10 +511,6 @@ function getDefaultAnnotationFontFamily() {
 	return '"SF Pro Display", "SF Pro Text", Helvetica, sans-serif';
 }
 
-export function getDefaultCaptionFontFamily() {
-	return '"SF Pro Text", "SF Pro Display", Helvetica, sans-serif';
-}
-
 export type MediaBlendMode = "normal" | "multiply" | "screen" | "overlay" | "soft-light";
 
 export type KeyframeProperty = "position" | "scale" | "rotation" | "opacity";
@@ -683,67 +681,6 @@ export const DEFAULT_AUDIO_DUCKING_SETTINGS: AudioDuckingSettings = {
 	attackMs: 200,
 	releaseMs: 600,
 	holdMs: 350,
-};
-
-export interface CaptionCue {
-	id: string;
-	startMs: number;
-	endMs: number;
-	text: string;
-	words?: CaptionCueWord[];
-}
-
-export interface CaptionCueWord {
-	text: string;
-	startMs: number;
-	endMs: number;
-	leadingSpace?: boolean;
-}
-
-export type AutoCaptionAnimation = "none" | "fade" | "rise" | "pop";
-export type CaptionHighlightStyle =
-	| "classic"
-	| "karaoke-pop"
-	| "hormozi"
-	| "neon-glow"
-	| "box-highlight";
-
-export interface AutoCaptionSettings {
-	enabled: boolean;
-	language: string;
-	fontFamily: string;
-	fontSize: number;
-	bottomOffset: number;
-	maxWidth: number;
-	maxRows: number;
-	animationStyle: AutoCaptionAnimation;
-	boxRadius: number;
-	textColor: string;
-	inactiveTextColor: string;
-	backgroundOpacity: number;
-	highlightStyle?: CaptionHighlightStyle;
-	highlightColor?: string;
-	highlightTextColor?: string;
-	uppercase?: boolean;
-}
-
-export const DEFAULT_AUTO_CAPTION_SETTINGS: AutoCaptionSettings = {
-	enabled: false,
-	language: "auto",
-	fontFamily: getDefaultCaptionFontFamily(),
-	fontSize: 30,
-	bottomOffset: 3,
-	maxWidth: 62,
-	maxRows: 1,
-	animationStyle: "fade",
-	boxRadius: 17.5,
-	textColor: "#FFFFFF",
-	inactiveTextColor: "#A3A3A3",
-	backgroundOpacity: 0.9,
-	highlightStyle: "karaoke-pop",
-	highlightColor: "#FFE600",
-	highlightTextColor: "#000000",
-	uppercase: false,
 };
 
 export type PlaybackSpeed = 0.25 | 0.5 | 0.75 | 1.25 | 1.5 | 1.75 | 2;

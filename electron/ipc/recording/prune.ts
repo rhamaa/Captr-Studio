@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { collectProjectMediaPaths } from "../project/mediaReferences";
 import {
 	AUTO_RECORDING_MAX_AGE_MS,
 	AUTO_RECORDING_RETENTION_COUNT,
@@ -72,15 +73,9 @@ async function loadSavedProjectMediaPaths() {
 			})
 			.map(async (entry) => {
 				const projectPath = path.join(projectsDir, entry.name);
-				let rawProject: {
-					videoPath?: unknown;
-					editor?: { webcam?: { sourcePath?: unknown } };
-				};
+				let rawProject: unknown;
 				try {
-					rawProject = parseJsonWithByteOrderMark<{
-						videoPath?: unknown;
-						editor?: { webcam?: { sourcePath?: unknown } };
-					}>(await fs.readFile(projectPath, "utf-8"));
+					rawProject = parseJsonWithByteOrderMark(await fs.readFile(projectPath, "utf-8"));
 				} catch (error) {
 					console.warn("[prune] Aborting recording prune because a saved project is unreadable", {
 						projectPath,
@@ -88,10 +83,7 @@ async function loadSavedProjectMediaPaths() {
 					});
 					throw error;
 				}
-				const candidatePaths = [
-					rawProject.videoPath,
-					rawProject.editor?.webcam?.sourcePath,
-				];
+				const candidatePaths = collectProjectMediaPaths(rawProject);
 
 				for (const candidatePath of candidatePaths) {
 					if (typeof candidatePath !== "string" || candidatePath.trim().length === 0) {

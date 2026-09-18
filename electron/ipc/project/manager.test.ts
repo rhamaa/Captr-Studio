@@ -47,6 +47,23 @@ describe("local media path policy", () => {
 		}
 	});
 
+	it("opens scene-only projects and approves media from every scene without approving unrelated files", async () => {
+		const external = path.join(tempRoot, "External");
+		await fs.mkdir(external, { recursive: true });
+		const sources = ["intro.mp4", "demo.mp4", "cam.mp4", "broll.mp4", "mic.wav"].map((name) => path.join(external, name));
+		await Promise.all(sources.map((source) => fs.writeFile(source, "media")));
+		const unrelated = path.join(external, "unrelated.mp4");
+		await fs.writeFile(unrelated, "unrelated");
+		const projectPath = path.join(tempRoot, "story.captr");
+		await fs.writeFile(projectPath, JSON.stringify({ videoPath: "", unrelated,
+			clips: [{ videoPath: sources[0] }, { videoPath: sources[1], webcamPath: sources[2], microphoneAudioPath: sources[4], mediaTrackLayers: [{ sourcePath: sources[3] }] }], editor: {},
+		}));
+		const { loadProjectFromPath, resolveApprovedLocalMediaPath } = await import("./manager");
+		expect((await loadProjectFromPath(projectPath)).success).toBe(true);
+		for (const source of sources) await expect(resolveApprovedLocalMediaPath(source)).resolves.toBe(await fs.realpath(source));
+		await expect(resolveApprovedLocalMediaPath(unrelated)).resolves.toBeNull();
+	});
+
 	it("rejects existing media files outside allowed directories until they are approved", async () => {
 		const downloadsPath = path.join(tempRoot, "Downloads");
 		const exportPath = path.join(downloadsPath, "export-test.mp4");

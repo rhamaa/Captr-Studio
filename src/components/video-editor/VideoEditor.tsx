@@ -1,10 +1,10 @@
+import { buildSceneClipRegions } from "./clipsUtils";
 import {
 	ArrowsLeftRight,
 	BookmarkSimple,
 	Check,
 	CaretDown as ChevronDown,
 	CaretUp as ChevronUp,
-	ClosedCaptioning,
 	Copy,
 	Crop,
 	Cursor,
@@ -108,9 +108,7 @@ const PhCursorFill = (props: { className?: string; weight?: "fill" | "regular" }
 const PhCamera = (props: { className?: string; weight?: "fill" | "regular" }) => (
 	<PhCameraRegular weight={props.weight ?? "regular"} className={props.className} />
 );
-const PhCaptions = (props: { className?: string; weight?: "fill" | "regular" }) => (
-	<ClosedCaptioning weight={props.weight ?? "regular"} className={props.className} />
-);
+
 const PhSparkle = (props: { className?: string; weight?: "fill" | "regular" }) => (
 	<Sparkle weight={props.weight ?? "regular"} className={props.className} />
 );
@@ -145,7 +143,6 @@ import {
 	type SilenceRegion,
 } from "./audio/silenceDetector";
 import { useVideoEditorAudio } from "./audio/useVideoEditorAudio";
-import { resolveAutoCaptionSourcePath } from "./autoCaptionSource";
 import { CropControl } from "./CropControl";
 import { ExportSettingsMenu } from "./ExportSettingsMenu";
 import {
@@ -198,8 +195,6 @@ import {
 	type AnnotationRegion,
 	type AudioDuckingSettings,
 	type AudioRegion,
-	type AutoCaptionSettings,
-	type CaptionCue,
 	type ClipEntry,
 	type ClipRegion,
 	type ClipTransitionType,
@@ -213,7 +208,6 @@ import {
 	DEFAULT_ANNOTATION_SIZE,
 	DEFAULT_ANNOTATION_STYLE,
 	DEFAULT_AUDIO_DUCKING_SETTINGS,
-	DEFAULT_AUTO_CAPTION_SETTINGS,
 	DEFAULT_AUTO_ZOOM_DEPTH,
 	DEFAULT_COLOR_GRADING,
 	DEFAULT_CONNECTED_ZOOM_DURATION_MS,
@@ -597,28 +591,18 @@ export default function VideoEditor() {
 	const [defaultSourceAudioTrackSettings, setDefaultSourceAudioTrackSettings] =
 		useState<SourceAudioTrackSettings>({});
 	const [hasClipSourceAudio, setHasClipSourceAudio] = useState(false);
-	const [autoCaptions, setAutoCaptions] = useState<CaptionCue[]>([]);
-	const [autoCaptionSettings, setAutoCaptionSettings] = useState<AutoCaptionSettings>(
-		DEFAULT_AUTO_CAPTION_SETTINGS,
-	);
+	
+	
 	const [audioDuckingSettings, setAudioDuckingSettings] = useState<AudioDuckingSettings>(
 		DEFAULT_AUDIO_DUCKING_SETTINGS,
 	);
 	const [showSocialSafeZone, setShowSocialSafeZone] = useState(false);
-	const [whisperExecutablePath, setWhisperExecutablePath] = useState<string | null>(
-		initialEditorPreferences.whisperExecutablePath,
-	);
-	const [whisperModelPath, setWhisperModelPath] = useState<string | null>(
-		initialEditorPreferences.whisperModelPath,
-	);
-	const [downloadedWhisperModelPath, setDownloadedWhisperModelPath] = useState<string | null>(
-		null,
-	);
-	const [whisperModelDownloadStatus, setWhisperModelDownloadStatus] = useState<
-		"idle" | "downloading" | "downloaded" | "error"
-	>(initialEditorPreferences.whisperModelPath ? "downloaded" : "idle");
-	const [whisperModelDownloadProgress, setWhisperModelDownloadProgress] = useState(0);
-	const [isGeneratingCaptions, setIsGeneratingCaptions] = useState(false);
+	
+	
+	
+	
+	
+	
 	const [silenceModalOpen, setSilenceModalOpen] = useState(false);
 	const [isAnalyzingSilence, setIsAnalyzingSilence] = useState(false);
 	const [detectedSilences, setDetectedSilences] = useState<SilenceRegion[]>([]);
@@ -937,9 +921,6 @@ export default function VideoEditor() {
 			gifFrameRate,
 			gifLoop,
 			gifSizePreset,
-			autoCaptionSettings: { ...autoCaptionSettings },
-			whisperExecutablePath,
-			whisperModelPath,
 		}),
 		[
 			wallpaper,
@@ -990,9 +971,6 @@ export default function VideoEditor() {
 			gifFrameRate,
 			gifLoop,
 			gifSizePreset,
-			autoCaptionSettings,
-			whisperExecutablePath,
-			whisperModelPath,
 		],
 	);
 
@@ -1086,9 +1064,6 @@ export default function VideoEditor() {
 		setGifFrameRate(snapshot.gifFrameRate);
 		setGifLoop(snapshot.gifLoop);
 		setGifSizePreset(snapshot.gifSizePreset);
-		setAutoCaptionSettings({ ...snapshot.autoCaptionSettings });
-		setWhisperExecutablePath(snapshot.whisperExecutablePath);
-		setWhisperModelPath(snapshot.whisperModelPath);
 	}, []);
 
 	const handleApplyEditorPreset = useCallback(
@@ -1302,8 +1277,6 @@ export default function VideoEditor() {
 					videoWidth: previewVideo.videoWidth,
 					videoHeight: previewVideo.videoHeight,
 					annotationRegions,
-					autoCaptions,
-					autoCaptionSettings,
 					speedRegions: (() => {
 						const clipDerived: SpeedRegion[] = clipRegions
 							.filter((clip) => clip.speed !== 1)
@@ -1400,8 +1373,6 @@ export default function VideoEditor() {
 		}
 	}, [
 		annotationRegions,
-		autoCaptionSettings,
-		autoCaptions,
 		backgroundBlur,
 		borderRadius,
 		connectZooms,
@@ -1729,11 +1700,6 @@ export default function VideoEditor() {
 					icon: PhArrowsLeftRight,
 				},
 				{
-					id: "captions" as const,
-					label: t("settings.sections.captions", "Captions"),
-					icon: PhCaptions,
-				},
-				{
 					id: "color-grading" as const,
 					label: t("settings.sections.colorGrading", "Filters & Color"),
 					icon: PhFaders,
@@ -1764,11 +1730,6 @@ export default function VideoEditor() {
 				icon: PhLayout,
 			},
 			{
-				id: "captions" as const,
-				label: t("settings.sections.captions", "Captions"),
-				icon: PhCaptions,
-			},
-			{
 				id: "color-grading" as const,
 				label: t("settings.sections.colorGrading", "Filters & Color"),
 				icon: PhFaders,
@@ -1788,7 +1749,6 @@ export default function VideoEditor() {
 				"video-adjust",
 				"audio-record",
 				"transitions",
-				"captions",
 				"color-grading",
 				"settings",
 			];
@@ -1801,7 +1761,6 @@ export default function VideoEditor() {
 				"cursor",
 				"webcam",
 				"layout",
-				"captions",
 				"color-grading",
 				"settings",
 			];
@@ -1868,8 +1827,6 @@ export default function VideoEditor() {
 				speedRegions: SpeedRegion[];
 				annotationRegions: AnnotationRegion[];
 				audioRegions: AudioRegion[];
-				autoCaptions: CaptionCue[];
-				autoCaptionSettings: AutoCaptionSettings;
 				audioDuckingSettings: AudioDuckingSettings;
 				aspectRatio: AspectRatio;
 				exportEncodingMode: ExportEncodingMode;
@@ -1975,8 +1932,6 @@ export default function VideoEditor() {
 				speedRegions,
 				annotationRegions,
 				audioRegions,
-				autoCaptions,
-				autoCaptionSettings,
 				audioDuckingSettings,
 				aspectRatio,
 				exportEncodingMode,
@@ -2040,8 +1995,6 @@ export default function VideoEditor() {
 			speedRegions,
 			annotationRegions,
 			audioRegions,
-			autoCaptions,
-			autoCaptionSettings,
 			audioDuckingSettings,
 			aspectRatio,
 			exportEncodingMode,
@@ -2067,7 +2020,6 @@ export default function VideoEditor() {
 			speedRegions,
 			annotationRegions,
 			audioRegions,
-			autoCaptions,
 			selectedZoomId,
 			selectedClipId,
 			selectedLayoutId,
@@ -2081,7 +2033,6 @@ export default function VideoEditor() {
 		speedRegions,
 		annotationRegions,
 		audioRegions,
-		autoCaptions,
 		selectedZoomId,
 		selectedClipId,
 		selectedLayoutId,
@@ -2098,7 +2049,6 @@ export default function VideoEditor() {
 		setSpeedRegions(cloned.speedRegions);
 		setAnnotationRegions(cloned.annotationRegions);
 		setAudioRegions(cloned.audioRegions);
-		setAutoCaptions(cloned.autoCaptions);
 		setSelectedZoomId(cloned.selectedZoomId);
 		setSelectedClipId(cloned.selectedClipId);
 		setSelectedLayoutId(cloned.selectedLayoutId);
@@ -2286,16 +2236,7 @@ export default function VideoEditor() {
 					normalizedEditor.clipRegions.length === 0 ||
 					normalizedEditor.clipRegions.length !== normalizedClips.length
 				) {
-					const generatedRegions: ClipRegion[] = normalizedClips.map((c) => ({
-						id: c.id,
-						startMs: c.startMsOffset,
-						endMs: c.startMsOffset + c.durationMs,
-						speed: c.speed ?? 1,
-						transitionIn: c.transitionToNext
-							? (c.transitionToNext.type as ClipTransitionType)
-							: undefined,
-						transitionInDurationMs: c.transitionToNext?.durationMs,
-					}));
+					const generatedRegions = buildSceneClipRegions(normalizedClips, normalizedEditor.clipRegions);
 					setClipRegions(generatedRegions);
 				}
 
@@ -2333,8 +2274,6 @@ export default function VideoEditor() {
 			setDefaultSourceAudioTrackSettings(
 				normalizedEditor.defaultSourceAudioTrackSettings ?? {},
 			);
-			setAutoCaptions(normalizedEditor.autoCaptions);
-			setAutoCaptionSettings(normalizedEditor.autoCaptionSettings);
 			setAudioDuckingSettings(
 				normalizedEditor.audioDuckingSettings ?? DEFAULT_AUDIO_DUCKING_SETTINGS,
 			);
@@ -2443,28 +2382,7 @@ export default function VideoEditor() {
 		[currentProjectPath, currentSourcePath, webcam.timeOffsetMs],
 	);
 
-	const syncActiveVideoSource = useCallback(
-		async (sourcePath: string, webcamPath?: string | null) => {
-			if (webcamPath) {
-				await window.electronAPI.setCurrentRecordingSession?.(
-					{
-						videoPath: sourcePath,
-						webcamPath,
-						timeOffsetMs: webcam.timeOffsetMs,
-					},
-					{
-						preserveProjectPath: Boolean(currentProjectPath),
-					},
-				);
-				return;
-			}
-
-			await window.electronAPI.setCurrentVideoPath(sourcePath, {
-				preserveProjectPath: Boolean(currentProjectPath),
-			});
-		},
-		[currentProjectPath, webcam.timeOffsetMs],
-	);
+	
 
 	const handleUploadWebcam = useCallback(async () => {
 		const result = await window.electronAPI.openVideoFilePicker();
@@ -2957,8 +2875,6 @@ export default function VideoEditor() {
 			gifFrameRate,
 			gifLoop,
 			gifSizePreset,
-			whisperExecutablePath,
-			whisperModelPath,
 		});
 	}, [
 		wallpaper,
@@ -3009,47 +2925,9 @@ export default function VideoEditor() {
 		gifFrameRate,
 		gifLoop,
 		gifSizePreset,
-		whisperExecutablePath,
-		whisperModelPath,
 	]);
 
-	useEffect(() => {
-		const unsubscribe = window.electronAPI.onWhisperSmallModelDownloadProgress((state) => {
-			setWhisperModelDownloadStatus(state.status);
-			setWhisperModelDownloadProgress(state.progress);
-			if (state.status === "downloaded") {
-				setDownloadedWhisperModelPath(state.path ?? null);
-				setWhisperModelPath((currentPath) => currentPath ?? state.path ?? null);
-			}
-			if (state.status === "idle") {
-				setDownloadedWhisperModelPath(null);
-			}
-			if (state.status === "error" && state.error) {
-				toast.error(state.error);
-			}
-		});
-
-		void (async () => {
-			const result = await window.electronAPI.getWhisperSmallModelStatus();
-			if (!result.success) {
-				return;
-			}
-
-			if (result.exists && result.path) {
-				setDownloadedWhisperModelPath(result.path);
-				setWhisperModelPath((currentPath) => currentPath ?? result.path ?? null);
-				setWhisperModelDownloadStatus("downloaded");
-				setWhisperModelDownloadProgress(100);
-				return;
-			}
-
-			setDownloadedWhisperModelPath(null);
-			setWhisperModelDownloadStatus("idle");
-			setWhisperModelDownloadProgress(0);
-		})();
-
-		return () => unsubscribe?.();
-	}, []);
+	
 
 	const handleOpenRecorderHud = useCallback(async () => {
 		try {
@@ -3279,7 +3157,7 @@ export default function VideoEditor() {
 					c.id === slideId
 						? {
 								...c,
-								transitionToNext: {
+								transitionIn: {
 									type: transitionType,
 									durationMs,
 								},
@@ -3346,17 +3224,7 @@ export default function VideoEditor() {
 			if (updatedClips === clips) return;
 			setClips(updatedClips);
 
-			setClipRegions((prev) => {
-				return updatedClips.map((clip) => {
-					const existing = prev.find((r) => r.id === clip.id);
-					return {
-						id: clip.id,
-						startMs: clip.startMsOffset,
-						endMs: clip.startMsOffset + clip.durationMs,
-						speed: existing?.speed ?? 1,
-					};
-				});
-			});
+			setClipRegions((prev) => buildSceneClipRegions(updatedClips, prev));
 
 			recordEditorHistorySnapshot(editorHistoryRef.current, buildHistorySnapshot());
 			syncHistoryButtons();
@@ -3365,147 +3233,17 @@ export default function VideoEditor() {
 		[clips, buildHistorySnapshot, syncHistoryButtons],
 	);
 
-	const handlePickWhisperExecutable = useCallback(async () => {
-		const result = await window.electronAPI.openWhisperExecutablePicker();
-		if (!result.success || !result.path) {
-			return;
-		}
+	
 
-		setWhisperExecutablePath(result.path);
-		toast.success("Whisper executable selected");
-	}, []);
+	
 
-	const handleDownloadWhisperSmallModel = useCallback(async () => {
-		if (whisperModelDownloadStatus === "downloading") {
-			return;
-		}
+	
 
-		setWhisperModelDownloadStatus("downloading");
-		setWhisperModelDownloadProgress(0);
-		const result = await window.electronAPI.downloadWhisperSmallModel();
-		if (!result.success) {
-			setWhisperModelDownloadStatus("error");
-			toast.error(result.error || "Failed to download Whisper small model");
-			return;
-		}
+	
 
-		if (result.path) {
-			setDownloadedWhisperModelPath(result.path);
-			setWhisperModelPath(result.path);
-		}
-	}, [whisperModelDownloadStatus]);
+	
 
-	const handlePickWhisperModel = useCallback(async () => {
-		const result = await window.electronAPI.openWhisperModelPicker();
-		if (!result.success || !result.path) {
-			return;
-		}
-
-		setWhisperModelPath(result.path);
-		toast.success("Whisper model selected");
-	}, []);
-
-	const handleDeleteWhisperSmallModel = useCallback(async () => {
-		const result = await window.electronAPI.deleteWhisperSmallModel();
-		if (!result.success) {
-			toast.error(result.error || "Failed to delete Whisper small model");
-			// Reset download state so re-download is not blocked
-			setWhisperModelDownloadStatus("idle");
-			setWhisperModelDownloadProgress(0);
-			return;
-		}
-
-		setWhisperModelPath((currentPath) =>
-			currentPath === downloadedWhisperModelPath ? null : currentPath,
-		);
-		setDownloadedWhisperModelPath(null);
-		setWhisperModelDownloadStatus("idle");
-		setWhisperModelDownloadProgress(0);
-		toast.success("Whisper small model deleted");
-	}, [downloadedWhisperModelPath]);
-
-	const handleGenerateAutoCaptions = useCallback(async () => {
-		if (isGeneratingCaptions) {
-			return;
-		}
-
-		let sourcePath = resolveAutoCaptionSourcePath({
-			videoSourcePath,
-			videoPath,
-		});
-
-		if (!sourcePath) {
-			const sessionResult = await window.electronAPI.getCurrentRecordingSession?.();
-			const currentVideoResult = await window.electronAPI.getCurrentVideoPath();
-			sourcePath = resolveAutoCaptionSourcePath({
-				recordingSessionVideoPath:
-					sessionResult?.success && sessionResult.session?.videoPath
-						? sessionResult.session.videoPath
-						: null,
-				currentVideoPath: currentVideoResult.success
-					? (currentVideoResult.path ?? null)
-					: null,
-			});
-		}
-
-		if (!sourcePath) {
-			toast.error("No source video is loaded");
-			return;
-		}
-
-		if (sourcePath !== videoSourcePath) {
-			setVideoSourcePath(sourcePath);
-			setVideoPath(await resolveVideoUrl(sourcePath));
-		}
-
-		await syncActiveVideoSource(sourcePath, webcam.sourcePath ?? null);
-
-		if (!whisperModelPath) {
-			toast.error("Select a Whisper model or download the small model first");
-			return;
-		}
-
-		setIsGeneratingCaptions(true);
-		try {
-			const result = await window.electronAPI.generateAutoCaptions({
-				videoPath: sourcePath,
-				whisperExecutablePath: whisperExecutablePath ?? undefined,
-				whisperModelPath,
-				language: autoCaptionSettings.language,
-			});
-
-			if (!result.success || !result.cues) {
-				toast.error(
-					result.message ||
-						getErrorMessage(result.error) ||
-						"Failed to generate captions",
-				);
-				return;
-			}
-
-			setAutoCaptions(result.cues);
-			setAutoCaptionSettings((prev) => ({ ...prev, enabled: true }));
-			toast.success(result.message || `Generated ${result.cues.length} captions`);
-		} catch (error) {
-			toast.error(getErrorMessage(error));
-		} finally {
-			setIsGeneratingCaptions(false);
-		}
-	}, [
-		autoCaptionSettings.language,
-		isGeneratingCaptions,
-		webcam.sourcePath,
-		syncActiveVideoSource,
-		videoPath,
-		videoSourcePath,
-		whisperExecutablePath,
-		whisperModelPath,
-	]);
-
-	const handleClearAutoCaptions = useCallback(() => {
-		setAutoCaptions([]);
-		setAutoCaptionSettings((prev) => ({ ...prev, enabled: false }));
-	}, []);
+	
 
 	const saveProject = useCallback(
 		async (forceSaveAs: boolean, options?: SaveProjectOptions) => {
@@ -4171,8 +3909,8 @@ export default function VideoEditor() {
 				endMs: Math.max(100, durMs),
 				speed: activeSlide?.speed ?? 1,
 				showSourceAudio: true,
-				transitionIn: activeSlide?.transitionToNext?.type ?? "none",
-				transitionInDurationMs: activeSlide?.transitionToNext?.durationMs ?? 400,
+				transitionIn: activeSlide?.transitionIn?.type ?? "none",
+				transitionInDurationMs: activeSlide?.transitionIn?.durationMs ?? 400,
 			},
 		];
 	}, [activeSlide, duration]);
@@ -5784,8 +5522,6 @@ export default function VideoEditor() {
 							resolvedWebcamVideoUrl ??
 							(webcam.sourcePath ? toFileUrl(webcam.sourcePath) : null),
 						annotationRegions,
-						autoCaptions,
-						autoCaptionSettings,
 						zoomRegions: effectiveZoomRegions,
 						cursorTelemetry: effectiveCursorTelemetry,
 						showCursor: effectiveShowCursor,
@@ -5964,8 +5700,6 @@ export default function VideoEditor() {
 							resolvedWebcamVideoUrl ??
 							(webcam.sourcePath ? toFileUrl(webcam.sourcePath) : null),
 						annotationRegions,
-						autoCaptions,
-						autoCaptionSettings,
 						zoomRegions: effectiveZoomRegions,
 						cursorTelemetry: effectiveCursorTelemetry,
 						showCursor: effectiveShowCursor,
@@ -6367,8 +6101,6 @@ export default function VideoEditor() {
 			layoutRegions,
 			resolvedWebcamVideoUrl,
 			annotationRegions,
-			autoCaptions,
-			autoCaptionSettings,
 			isPlaying,
 			exportQuality,
 			effectiveZoomRegions,
@@ -7705,20 +7437,6 @@ export default function VideoEditor() {
 							onAspectRatioChange={setAspectRatio}
 							selectedAnnotationId={selectedAnnotationId}
 							annotationRegions={annotationRegions}
-							autoCaptions={autoCaptions}
-							autoCaptionSettings={autoCaptionSettings}
-							whisperExecutablePath={whisperExecutablePath}
-							whisperModelPath={whisperModelPath}
-							whisperModelDownloadStatus={whisperModelDownloadStatus}
-							whisperModelDownloadProgress={whisperModelDownloadProgress}
-							isGeneratingCaptions={isGeneratingCaptions}
-							onAutoCaptionSettingsChange={setAutoCaptionSettings}
-							onPickWhisperExecutable={handlePickWhisperExecutable}
-							onPickWhisperModel={handlePickWhisperModel}
-							onGenerateAutoCaptions={handleGenerateAutoCaptions}
-							onClearAutoCaptions={handleClearAutoCaptions}
-							onDownloadWhisperSmallModel={handleDownloadWhisperSmallModel}
-							onDeleteWhisperSmallModel={handleDeleteWhisperSmallModel}
 							nativeCaptureUnavailableSession={sessionNativeCaptureUnavailable}
 							onOpenNativeCaptureUnavailableModal={() =>
 								setNativeCaptureUnavailableModalOpen(true)
@@ -7731,7 +7449,7 @@ export default function VideoEditor() {
 							onAnnotationBlurColorChange={handleAnnotationBlurColorChange}
 							onAnnotationAnimationChange={handleAnnotationAnimationChange}
 							onAnnotationLayerChange={handleAnnotationLayerChange}
-							onAnnotationDelete={handleAnnotationDelete}
+							onAnnotationDelete={handleAnnotationDelete} 
 						/>
 						</div>
 
@@ -7968,8 +7686,6 @@ export default function VideoEditor() {
 												trimRegions={trimRegions}
 												speedRegions={effectiveSpeedRegions}
 												annotationRegions={annotationRegions}
-												autoCaptions={autoCaptions}
-												autoCaptionSettings={autoCaptionSettings}
 												selectedAnnotationId={selectedAnnotationId}
 												onSelectAnnotation={handleSelectAnnotation}
 												onAnnotationPositionChange={
@@ -8432,7 +8148,7 @@ export default function VideoEditor() {
 								annotationRegions={annotationRegions}
 								onAnnotationAdded={handleAnnotationAdded}
 								onAnnotationSpanChange={handleAnnotationSpanChange}
-								onAnnotationDelete={handleAnnotationDelete}
+								onAnnotationDelete={handleAnnotationDelete} onAnnotationKeyframesChange={(id, keyframes) => handleAnnotationLayerChange(id, { keyframes })} 
 								selectedAnnotationId={selectedAnnotationId}
 								onSelectAnnotation={handleSelectAnnotation}
 								showSourceAudioTrack={false}

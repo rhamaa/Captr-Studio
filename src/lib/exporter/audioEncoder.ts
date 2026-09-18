@@ -2,7 +2,6 @@ import { WebDemuxer } from "web-demuxer";
 import type {
 	AudioDuckingSettings,
 	AudioRegion,
-	CaptionCue,
 	ClipRegion,
 	SpeedRegion,
 	SourceAudioTrackSettings,
@@ -11,7 +10,6 @@ import type {
 import {
 	applyDuckingAutomationToGainNode,
 	getSpeechIntervalsFromChannelData,
-	getSpeechIntervalsFromCues,
 	type SpeechInterval,
 } from "@/components/video-editor/audio/audioDucking";
 import {
@@ -218,7 +216,6 @@ export class AudioProcessor {
 		sourceAudioTrackSettings?: SourceAudioTrackSettings,
 		clipRegions?: ClipRegion[],
 		audioDuckingSettings?: AudioDuckingSettings,
-		autoCaptions?: CaptionCue[],
 	): Promise<void> {
 		const sortedTrims = trimRegions
 			? [...trimRegions].sort((a, b) => a.startMs - b.startMs)
@@ -268,7 +265,6 @@ export class AudioProcessor {
 				clipRegions,
 				muxer,
 				audioDuckingSettings,
-				autoCaptions,
 			);
 			return;
 		}
@@ -655,7 +651,6 @@ export class AudioProcessor {
 		clipRegions: ClipRegion[] | undefined,
 		muxer: VideoMuxer,
 		audioDuckingSettings?: AudioDuckingSettings,
-		autoCaptions?: CaptionCue[],
 	): Promise<void> {
 		const prepared = await this.prepareOfflineRender(
 			videoUrl,
@@ -667,7 +662,6 @@ export class AudioProcessor {
 			sourceAudioTrackSettings,
 			clipRegions,
 			audioDuckingSettings,
-			autoCaptions,
 		);
 		if (this.cancelled) return;
 		await this.renderAndEncodeChunked(prepared, muxer);
@@ -683,7 +677,6 @@ export class AudioProcessor {
 		sourceAudioTrackSettings?: SourceAudioTrackSettings,
 		clipRegions?: ClipRegion[],
 		audioDuckingSettings?: AudioDuckingSettings,
-		autoCaptions?: CaptionCue[],
 	): Promise<PreparedOfflineRender> {
 		if (this.cancelled) throw new Error("Export cancelled");
 		this.onProgress?.(0);
@@ -800,9 +793,7 @@ export class AudioProcessor {
 
 		let speechIntervals: SpeechInterval[] = [];
 		if (audioDuckingSettings?.enabled) {
-			if (autoCaptions && autoCaptions.length > 0) {
-				speechIntervals = getSpeechIntervalsFromCues(autoCaptions);
-			} else if (mainBufferEntry?.buffer) {
+			if (mainBufferEntry?.buffer) {
 				const channelData = mainBufferEntry.buffer.getChannelData(0);
 				speechIntervals = getSpeechIntervalsFromChannelData(
 					channelData,

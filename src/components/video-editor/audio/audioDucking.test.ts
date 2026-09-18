@@ -1,11 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AudioDuckingSettings, CaptionCue } from "../types";
+import type { AudioDuckingSettings } from "../types";
 import {
 	applyDuckingAutomationToGainNode,
 	computeDuckingGain,
 	dbToLinear,
 	getSpeechIntervalsFromChannelData,
-	getSpeechIntervalsFromCues,
 	linearToDb,
 	mergeSpeechIntervals,
 } from "./audioDucking";
@@ -52,22 +51,6 @@ describe("audioDucking - mergeSpeechIntervals", () => {
 		expect(mergeSpeechIntervals([])).toEqual([]);
 		expect(mergeSpeechIntervals([{ startMs: 100, endMs: 500 }])).toEqual([
 			{ startMs: 100, endMs: 500 },
-		]);
-	});
-});
-
-describe("audioDucking - getSpeechIntervalsFromCues", () => {
-	it("extracts and merges intervals from caption cues", () => {
-		const cues: CaptionCue[] = [
-			{ id: "1", startMs: 500, endMs: 1500, text: "Halo semuanya" },
-			{ id: "2", startMs: 1800, endMs: 2800, text: "kembali lagi" }, // gap 300ms
-			{ id: "3", startMs: 5000, endMs: 6500, text: "di channel ini" },
-		];
-
-		const intervals = getSpeechIntervalsFromCues(cues, 500);
-		expect(intervals).toEqual([
-			{ startMs: 500, endMs: 2800 },
-			{ startMs: 5000, endMs: 6500 },
 		]);
 	});
 });

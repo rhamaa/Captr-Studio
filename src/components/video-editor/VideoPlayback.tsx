@@ -31,18 +31,7 @@ import {
 	DEFAULT_WALLPAPER_RELATIVE_PATH,
 	isVideoWallpaperSource,
 } from "@/lib/wallpapers";
-import { computeDuckingGain, getSpeechIntervalsFromCues } from "./audio/audioDucking";
-import { buildActiveCaptionLayout } from "./captionLayout";
-import {
-	CAPTION_FONT_WEIGHT,
-	CAPTION_LINE_HEIGHT,
-	getCaptionPadding,
-	getCaptionScaledFontSize,
-	getCaptionScaledRadius,
-	getCaptionTextMaxWidth,
-	getCaptionWordHighlightInfo,
-	getCaptionWordVisualState,
-} from "./captionStyle";
+import { computeDuckingGain } from "./audio/audioDucking";
 import { applyColorGradingToFilter, getVignetteTexture } from "./colorGrading";
 import { resolveLayoutSceneAtTime } from "./layoutScenes";
 import { toFileUrl } from "./projectPersistence";
@@ -51,8 +40,6 @@ import {
 	type AnnotationRegion,
 	type AudioDuckingSettings,
 	type AudioRegion,
-	type AutoCaptionSettings,
-	type CaptionCue,
 	type ClipRegion,
 	type ColorGradingSettings,
 	type CursorStyle,
@@ -173,7 +160,6 @@ import {
 	DEFAULT_ZOOM_MOTION_BLUR_TUNING,
 	DEFAULT_ZOOM_OUT_DURATION_MS,
 	DEFAULT_ZOOM_OUT_EASING,
-	getDefaultCaptionFontFamily,
 } from "./types";
 import {
 	type CursorFollowCameraState,
@@ -384,8 +370,6 @@ interface VideoPlaybackProps {
 	audioRegions?: AudioRegion[];
 	audioDuckingSettings?: AudioDuckingSettings;
 	showSocialSafeZone?: boolean;
-	autoCaptions?: CaptionCue[];
-	autoCaptionSettings?: AutoCaptionSettings;
 	selectedAnnotationId?: string | null;
 	onSelectAnnotation?: (id: string | null) => void;
 	onAnnotationPositionChange?: (id: string, position: { x: number; y: number }) => void;
@@ -469,8 +453,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			audioRegions = [],
 			audioDuckingSettings,
 			showSocialSafeZone = false,
-			autoCaptions = [],
-			autoCaptionSettings,
 			selectedAnnotationId,
 			onSelectAnnotation,
 			onAnnotationPositionChange,
@@ -551,7 +533,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			width: number;
 			height: number;
 		} | null>(null);
-		const captionBoxRef = useRef<HTMLDivElement | null>(null);
 		const currentTimeRef = useRef(0);
 		const zoomRegionsRef = useRef<ZoomRegion[]>([]);
 		const selectedZoomIdRef = useRef<string | null>(null);
@@ -718,79 +699,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			[],
 		);
 
-		const activeCaptionLayout = useMemo(() => {
-			if (
-				!autoCaptionSettings?.enabled ||
-				autoCaptions.length === 0 ||
-				typeof document === "undefined"
-			) {
-				return null;
-			}
-
-			const overlayWidth = overlayRef.current?.clientWidth || 960;
-			const fontSize = getCaptionScaledFontSize(
-				autoCaptionSettings.fontSize,
-				overlayWidth,
-				autoCaptionSettings.maxWidth,
-			);
-			const maxTextWidthPx = getCaptionTextMaxWidth(
-				overlayWidth,
-				autoCaptionSettings.maxWidth,
-				fontSize,
-			);
-			const measurementCanvas = document.createElement("canvas");
-			const measurementContext = measurementCanvas.getContext("2d");
-			if (!measurementContext) {
-				return null;
-			}
-
-			measurementContext.font = `${CAPTION_FONT_WEIGHT} ${fontSize}px ${getDefaultCaptionFontFamily()}`;
-
-			return buildActiveCaptionLayout({
-				cues: autoCaptions,
-				timeMs: Math.round(currentTime * 1000),
-				settings: autoCaptionSettings,
-				maxWidthPx: maxTextWidthPx,
-				measureText: (text) => measurementContext.measureText(text).width,
-			});
-		}, [autoCaptionSettings, autoCaptions, currentTime]);
-
-		useEffect(() => {
-			const captionBox = captionBoxRef.current;
-			if (!captionBox || !activeCaptionLayout || !autoCaptionSettings) {
-				if (captionBox) {
-					captionBox.style.clipPath = "";
-					captionBox.style.removeProperty("-webkit-clip-path");
-				}
-				return;
-			}
-
-			const frame = requestAnimationFrame(() => {
-				const width = captionBox.offsetWidth;
-				const height = captionBox.offsetHeight;
-				if (width <= 0 || height <= 0) {
-					return;
-				}
-
-				const fontSize = getCaptionScaledFontSize(
-					autoCaptionSettings.fontSize,
-					overlayRef.current?.clientWidth || 960,
-					autoCaptionSettings.maxWidth,
-				);
-
-				const squirclePath = getSquircleSvgPath({
-					x: 0,
-					y: 0,
-					width,
-					height,
-					radius: getCaptionScaledRadius(autoCaptionSettings.boxRadius, fontSize),
-				});
-				captionBox.style.clipPath = `path('${squirclePath}')`;
-				captionBox.style.setProperty("-webkit-clip-path", `path('${squirclePath}')`);
-			});
-
-			return () => cancelAnimationFrame(frame);
-		}, [activeCaptionLayout, autoCaptionSettings]);
 		const motionBlurStateRef = useRef<MotionBlurState>(createMotionBlurState());
 		const webcamEnabled = webcam?.enabled ?? false;
 		const webcamMargin = webcam?.margin ?? 24;
@@ -1947,12 +1855,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			lastWebcamSyncTimeRef.current = null;
 		}, [webcamVideoPath]);
 
-		const speechIntervals = useMemo(() => {
-			if (!audioDuckingSettings?.enabled || !autoCaptions || autoCaptions.length === 0) {
-				return [];
-			}
-			return getSpeechIntervalsFromCues(autoCaptions);
-		}, [audioDuckingSettings?.enabled, autoCaptions]);
+		const speechIntervals = useMemo(() => [], []);
 
 		useEffect(() => {
 			if (!audioRegions || audioRegions.length === 0) return;
@@ -3111,128 +3014,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								</div>
 							</div>
 						) : null}
-						{activeCaptionLayout && autoCaptionSettings
-							? (() => {
-									const captionFontSize = getCaptionScaledFontSize(
-										autoCaptionSettings.fontSize,
-										overlayRef.current?.clientWidth || 960,
-										autoCaptionSettings.maxWidth,
-									);
-									const captionPadding = getCaptionPadding(captionFontSize);
-									const captionRadius = getCaptionScaledRadius(
-										autoCaptionSettings.boxRadius,
-										captionFontSize,
-									);
-
-									return (
-										<div
-											className="pointer-events-none absolute inset-x-0 flex justify-center"
-											style={{
-												bottom: `${autoCaptionSettings.bottomOffset}%`,
-											}}
-										>
-											<div
-												style={{
-													maxWidth: `${autoCaptionSettings.maxWidth}%`,
-													opacity: activeCaptionLayout.opacity,
-													transform: `translateY(${activeCaptionLayout.translateY}px) scale(${activeCaptionLayout.scale})`,
-													transformOrigin: "center bottom",
-													filter: "drop-shadow(0 12px 30px rgba(0, 0, 0, 0.28))",
-												}}
-											>
-												<div
-													ref={captionBoxRef}
-													style={{
-														backgroundColor: `rgba(0, 0, 0, ${autoCaptionSettings.backgroundOpacity})`,
-														fontFamily: getDefaultCaptionFontFamily(),
-														fontSize: `${captionFontSize}px`,
-														lineHeight: CAPTION_LINE_HEIGHT,
-														textAlign: "center",
-														fontWeight: CAPTION_FONT_WEIGHT,
-														padding: `${captionPadding.y}px ${captionPadding.x}px`,
-														borderRadius: `${captionRadius}px`,
-														boxSizing: "border-box",
-													}}
-												>
-													{activeCaptionLayout.visibleLines.map(
-														(line) => (
-															<div
-																key={`${activeCaptionLayout.blockKey}-${line.startWordIndex}`}
-																style={{
-																	display: "flex",
-																	justifyContent: "center",
-																	flexWrap: "nowrap",
-																	whiteSpace: "nowrap",
-																}}
-															>
-																{line.words.map((word) => {
-																	const visualState =
-																		getCaptionWordVisualState(
-																			activeCaptionLayout.hasWordTimings,
-																			word.state,
-																		);
-																	const highlight =
-																		getCaptionWordHighlightInfo(
-																			autoCaptionSettings,
-																			word.state,
-																			captionFontSize,
-																		);
-
-																	const wordStyle: React.CSSProperties =
-																		{
-																			display: "inline-block",
-																			whiteSpace: "pre",
-																			color: highlight.color,
-																			backgroundColor:
-																				highlight.backgroundColor,
-																			opacity:
-																				visualState.opacity,
-																			fontWeight:
-																				highlight.isBold
-																					? 700
-																					: undefined,
-																			transform:
-																				highlight.scale !==
-																				1
-																					? `scale(${highlight.scale})`
-																					: undefined,
-																			transformOrigin:
-																				"center center",
-																			borderRadius:
-																				highlight.borderRadiusPx
-																					? `${highlight.borderRadiusPx}px`
-																					: undefined,
-																			padding:
-																				highlight.paddingPx
-																					? `${highlight.paddingPx.y}px ${highlight.paddingPx.x}px`
-																					: undefined,
-																			textShadow:
-																				highlight.glow &&
-																				highlight.glowColor
-																					? `0 0 14px ${highlight.glowColor}`
-																					: undefined,
-																			transition:
-																				"transform 0.08s ease, color 0.08s ease, background-color 0.08s ease",
-																		};
-
-																	return (
-																		<span
-																			key={`${activeCaptionLayout.blockKey}-${word.index}`}
-																			style={wordStyle}
-																		>
-																			{`${word.leadingSpace ? " " : ""}${word.text}`}
-																		</span>
-																	);
-																})}
-															</div>
-														),
-													)}
-												</div>
-											</div>
-										</div>
-									);
-								})()
-							: null}
 						{(() => {
 							const filtered = (annotationRegions || []).filter((annotation) => {
 								if (

@@ -1,3 +1,4 @@
+import { sampleAnnotationTransform } from "@/components/video-editor/annotationKeyframes";
 import {
 	type AnnotationRegion,
 	type ArrowDirection,
@@ -443,10 +444,7 @@ async function renderGif(
 	ctx.restore();
 }
 
-import {
-	interpolateNumericKeyframe,
-	interpolatePositionKeyframe,
-} from "@/components/video-editor/keyframeInterpolation";
+
 
 export async function renderAnnotations(
 	ctx: CanvasRenderingContext2D,
@@ -467,25 +465,9 @@ export async function renderAnnotations(
 	const sortedAnnotations = [...activeAnnotations].sort((a, b) => a.zIndex - b.zIndex);
 
 	for (const annotation of sortedAnnotations) {
-		const hasKeyframes = Array.isArray(annotation.keyframes) && annotation.keyframes.length > 0;
+		const { position: interpolatedPos, scale: interpolatedScale, opacity: interpolatedOpacity, rotation: interpolatedRotation } = sampleAnnotationTransform(annotation, currentTimeMs ?? annotation.startMs);
 
-		const interpolatedPos = hasKeyframes
-			? interpolatePositionKeyframe(annotation.keyframes!, currentTimeMs, annotation.position)
-			: annotation.position;
-
-		const interpolatedScale = hasKeyframes
-			? interpolateNumericKeyframe(annotation.keyframes!, "scale", currentTimeMs, 1)
-			: 1;
-
-		const interpolatedOpacity = hasKeyframes
-			? interpolateNumericKeyframe(annotation.keyframes!, "opacity", currentTimeMs, annotation.style.opacity ?? 1)
-			: (annotation.style.opacity ?? 1);
-
-		const interpolatedRotation = hasKeyframes
-			? interpolateNumericKeyframe(annotation.keyframes!, "rotation", currentTimeMs, annotation.rotationDeg ?? 0)
-			: (annotation.rotationDeg ?? 0);
-
-		const x = (interpolatedPos.x / 100) * canvasWidth;
+	const x = (interpolatedPos.x / 100) * canvasWidth;
 		const y = (interpolatedPos.y / 100) * canvasHeight;
 		const width = (annotation.size.width / 100) * canvasWidth * interpolatedScale;
 		const height = (annotation.size.height / 100) * canvasHeight * interpolatedScale;

@@ -45,7 +45,6 @@ import type { AspectRatio } from "@/utils/aspectRatioUtils";
 import { useI18n, useScopedT } from "../../contexts/I18nContext";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import { SceneSection } from "./settings/sections/SceneSection";
-import { CaptionsSection } from "./settings/sections/CaptionsSection";
 import { ZoomItemSection } from "./settings/sections/ZoomItemSection";
 import { ClipItemSection } from "./settings/sections/ClipItemSection";
 import { LayoutItemSection } from "./settings/sections/LayoutItemSection";
@@ -64,8 +63,6 @@ import type {
 	AnnotationRegion,
 	AnnotationType,
 	AudioDuckingSettings,
-	AutoCaptionSettings,
-	CaptionCue,
 	ClipEntry,
 	ClipTransitionType,
 	ColorGradingSettings,
@@ -84,7 +81,6 @@ import type {
 	ZoomTransitionEasing,
 } from "./types";
 import {
-	DEFAULT_AUTO_CAPTION_SETTINGS,
 	DEFAULT_CAMERA_PERSPECTIVE_TILT,
 	DEFAULT_CURSOR_CLICK_BOUNCE_DURATION,
 	DEFAULT_CURSOR_MOTION_BLUR,
@@ -257,20 +253,6 @@ interface SettingsPanelProps {
 	) => void;
 	onAnnotationLayerChange?: (id: string, changes: Partial<AnnotationRegion>) => void;
 	onAnnotationDelete?: (id: string) => void;
-	autoCaptions?: CaptionCue[];
-	autoCaptionSettings?: AutoCaptionSettings;
-	whisperExecutablePath?: string | null;
-	whisperModelPath?: string | null;
-	whisperModelDownloadStatus?: "idle" | "downloading" | "downloaded" | "error";
-	whisperModelDownloadProgress?: number;
-	isGeneratingCaptions?: boolean;
-	onAutoCaptionSettingsChange?: (settings: AutoCaptionSettings) => void;
-	onPickWhisperExecutable?: () => void;
-	onPickWhisperModel?: () => void;
-	onGenerateAutoCaptions?: () => void;
-	onClearAutoCaptions?: () => void;
-	onDownloadWhisperSmallModel?: () => void;
-	onDeleteWhisperSmallModel?: () => void;
 	nativeCaptureUnavailableSession?: boolean;
 	onOpenNativeCaptureUnavailableModal?: () => void;
 }
@@ -409,18 +391,6 @@ export function SettingsPanel({
 	onAnnotationAnimationChange,
 	onAnnotationLayerChange,
 	onAnnotationDelete,
-	autoCaptions = [],
-	autoCaptionSettings = DEFAULT_AUTO_CAPTION_SETTINGS,
-	whisperModelPath,
-	whisperModelDownloadStatus = "idle",
-	whisperModelDownloadProgress = 0,
-	isGeneratingCaptions = false,
-	onAutoCaptionSettingsChange,
-	onPickWhisperModel,
-	onGenerateAutoCaptions,
-	onClearAutoCaptions,
-	onDownloadWhisperSmallModel,
-	onDeleteWhisperSmallModel,
 	nativeCaptureUnavailableSession = false,
 	onOpenNativeCaptureUnavailableModal,
 }: SettingsPanelProps) {
@@ -446,13 +416,6 @@ export function SettingsPanel({
 		() => extensionWallpapers.map((wallpaper) => wallpaper.resolvedUrl),
 		[extensionWallpapers],
 	);
-	const captionCueCount = autoCaptions.length;
-	const updateAutoCaptionSettings = (partial: Partial<AutoCaptionSettings>) => {
-		onAutoCaptionSettingsChange?.({
-			...autoCaptionSettings,
-			...partial,
-		});
-	};
 
 	useEffect(() => {
 		let mounted = true;
@@ -1081,27 +1044,6 @@ export function SettingsPanel({
 			case "frame":
 			case "crop":
 				return sceneSectionContent;
-			case "captions":
-				return (
-					<CaptionsSection
-						autoCaptionSettings={autoCaptionSettings}
-						updateAutoCaptionSettings={updateAutoCaptionSettings}
-						onAutoCaptionSettingsChange={onAutoCaptionSettingsChange}
-						whisperModelPath={whisperModelPath}
-						whisperModelDownloadStatus={whisperModelDownloadStatus}
-						whisperModelDownloadProgress={whisperModelDownloadProgress}
-						isGeneratingCaptions={isGeneratingCaptions}
-						captionCueCount={captionCueCount}
-						onPickWhisperModel={onPickWhisperModel ?? (() => {})}
-						onDownloadWhisperSmallModel={onDownloadWhisperSmallModel ?? (() => {})}
-						onDeleteWhisperSmallModel={onDeleteWhisperSmallModel ?? (() => {})}
-						onClearAutoCaptions={onClearAutoCaptions ?? (() => {})}
-						onGenerateAutoCaptions={onGenerateAutoCaptions ?? (() => {})}
-						renderExtensionPanelsForSections={renderExtensionPanelsForSections}
-						tSettings={tSettings}
-						t={t}
-					/>
-				);
 			case "cursor":
 				return (
 					<CursorSection

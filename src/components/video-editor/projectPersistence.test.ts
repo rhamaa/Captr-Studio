@@ -6,8 +6,17 @@ import {
 } from "./projectPersistence";
 import { hasUnsavedProjectChanges } from "./projectDirtyState";
 import type { ClipEntry } from "./types";
+import { CLIP_TRANSITION_TYPES } from "./transitionContract";
 
 describe("projectPersistence - Multi-Clip Persistence", () => {
+	it.each(CLIP_TRANSITION_TYPES)("round-trips the supported %s transition through project JSON", (type) => {
+		const clips = normalizeClipEntries([{ id: "scene", videoPath: "take.mp4", durationMs: 3000, transitionToNext: { type, durationMs: 650 } }]);
+		const project = createProjectData("take.mp4", {}, "test", clips);
+		const reopened = normalizeClipEntries(JSON.parse(JSON.stringify(project)).clips);
+		expect(reopened[0].transitionIn).toEqual({ type, durationMs: 650 });
+		expect(reopened[0].transitionToNext).toBeUndefined();
+	});
+
 	it("normalizes empty or non-array clips safely", () => {
 		expect(normalizeClipEntries(null)).toEqual([]);
 		expect(normalizeClipEntries(undefined)).toEqual([]);
@@ -65,8 +74,8 @@ describe("projectPersistence - Multi-Clip Persistence", () => {
 		expect(take2.videoPath).toBe("D:/videos/external.mp4");
 		expect(take2.webcamPath).toBeNull();
 		expect(take2.showCursor).toBe(false);
-		expect(take2.transitionToNext).toEqual({
-			type: "crossfade",
+		expect(take2.transitionIn).toEqual({
+			type: "none",
 			durationMs: 400,
 		});
 	});

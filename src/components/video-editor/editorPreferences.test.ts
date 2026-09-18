@@ -10,7 +10,6 @@ import {
 	saveEditorPreferences,
 	saveEditorPresets,
 } from "./editorPreferences";
-import { DEFAULT_AUTO_CAPTION_SETTINGS } from "./types";
 
 function createStorageMock(initialValues: Record<string, string> = {}): Storage {
 	const store = new Map(Object.entries(initialValues));
@@ -218,23 +217,6 @@ describe("editorPreferences", () => {
 		});
 	});
 
-	it("preserves custom Whisper paths from stored preferences", () => {
-		vi.stubGlobal(
-			"localStorage",
-			createStorageMock({
-				[EDITOR_PREFERENCES_STORAGE_KEY]: JSON.stringify({
-					whisperExecutablePath: "/usr/local/bin/whisper-cli",
-					whisperModelPath: "/Users/test/models/ggml-base.bin",
-				}),
-			}),
-		);
-
-		expect(loadEditorPreferences()).toMatchObject({
-			whisperExecutablePath: "/usr/local/bin/whisper-cli",
-			whisperModelPath: "/Users/test/models/ggml-base.bin",
-		});
-	});
-
 	it("saves all editor controls with normalization", () => {
 		const localStorage = createStorageMock();
 		vi.stubGlobal("localStorage", localStorage);
@@ -312,21 +294,6 @@ describe("editorPreferences", () => {
 		});
 	});
 
-	it("saves custom Whisper paths", () => {
-		const localStorage = createStorageMock();
-		vi.stubGlobal("localStorage", localStorage);
-
-		saveEditorPreferences({
-			whisperExecutablePath: "/opt/homebrew/bin/whisper-cli",
-			whisperModelPath: "/Users/test/models/ggml-small.bin",
-		});
-
-		expect(loadEditorPreferences()).toMatchObject({
-			whisperExecutablePath: "/opt/homebrew/bin/whisper-cli",
-			whisperModelPath: "/Users/test/models/ggml-small.bin",
-		});
-	});
-
 	it("loads editor preferences from Electron app settings when available", () => {
 		stubElectronSettings({
 			[EDITOR_PREFERENCES_STORAGE_KEY]: {
@@ -358,7 +325,6 @@ describe("editorPreferences", () => {
 					updatedAt: "2026-05-01T00:00:00.000Z",
 					snapshot: {
 						...DEFAULT_EDITOR_PREFERENCES,
-						autoCaptionSettings: DEFAULT_AUTO_CAPTION_SETTINGS,
 					},
 				},
 			]),
@@ -385,7 +351,6 @@ describe("editorPreferences", () => {
 					updatedAt: "2026-05-02T00:00:00.000Z",
 					snapshot: {
 						...DEFAULT_EDITOR_PREFERENCES,
-						autoCaptionSettings: DEFAULT_AUTO_CAPTION_SETTINGS,
 					},
 				},
 			]),

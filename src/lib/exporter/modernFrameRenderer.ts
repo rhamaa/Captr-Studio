@@ -1,22 +1,9 @@
 import { Application, BlurFilter, ColorMatrixFilter, Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 import { MotionBlurFilter } from "pixi-filters/motion-blur";
 import { ZoomBlurFilter } from "pixi-filters/zoom-blur";
-import { buildActiveCaptionLayout } from "@/components/video-editor/captionLayout";
 import { resolveLayoutSceneAtTime } from "@/components/video-editor/layoutScenes";
-import {
-	CAPTION_FONT_WEIGHT,
-	CAPTION_LINE_HEIGHT,
-	getCaptionPadding,
-	getCaptionScaledFontSize,
-	getCaptionScaledRadius,
-	getCaptionTextMaxWidth,
-	getCaptionWordVisualState,
-	drawCaptionWordOnCanvas,
-} from "@/components/video-editor/captionStyle";
 import type {
 	AnnotationRegion,
-	AutoCaptionSettings,
-	CaptionCue,
 	ClipRegion,
 	ColorGradingSettings,
 	CropRegion,
@@ -48,7 +35,6 @@ import {
 } from "@/components/video-editor/videoPlayback/perspectiveTilt";
 import {
 	DEFAULT_WEBCAM_OVERLAY,
-	getDefaultCaptionFontFamily,
 	ZOOM_DEPTH_SCALES,
 } from "@/components/video-editor/types";
 import { DEFAULT_FOCUS } from "@/components/video-editor/videoPlayback/constants";
@@ -155,8 +141,6 @@ interface FrameRenderConfig {
 	videoWidth: number;
 	videoHeight: number;
 	annotationRegions?: AnnotationRegion[];
-	autoCaptions?: CaptionCue[];
-	autoCaptionSettings?: AutoCaptionSettings;
 	speedRegions?: SpeedRegion[];
 	clipRegions?: ClipRegion[];
 	previewWidth?: number;
@@ -253,20 +237,6 @@ interface AnnotationSpriteEntry {
 interface ExportCompositeCanvasState {
 	canvas: HTMLCanvasElement;
 	context: CanvasRenderingContext2D;
-}
-
-type ResolvedCaptionLayout = NonNullable<ReturnType<typeof buildActiveCaptionLayout>>;
-
-interface CaptionRenderState {
-	key: string;
-	layout: ResolvedCaptionLayout;
-	fontFamily: string;
-	fontSize: number;
-	lineHeight: number;
-	boxWidth: number;
-	boxHeight: number;
-	centerX: number;
-	centerY: number;
 }
 
 type PixiRendererAttempt = {
@@ -433,7 +403,6 @@ export class FrameRenderer {
 	private cursorContainer: Container | null = null;
 	private overlayContainer: Container | null = null;
 	private annotationContainer: Container | null = null;
-	private captionContainer: Container | null = null;
 	private webcamRootContainer: Container | null = null;
 	private webcamContainer: Container | null = null;
 	private videoSprite: Sprite | null = null;
@@ -475,13 +444,6 @@ export class FrameRenderer {
 	private backgroundVideoFrameStagingCtx: CanvasRenderingContext2D | null = null;
 	private webcamVideoFrameStagingCanvas: HTMLCanvasElement | null = null;
 	private webcamVideoFrameStagingCtx: CanvasRenderingContext2D | null = null;
-	private captionMeasureCanvas: HTMLCanvasElement | null = null;
-	private captionMeasureCtx: CanvasRenderingContext2D | null = null;
-	private captionCanvas: HTMLCanvasElement | null = null;
-	private captionCtx: CanvasRenderingContext2D | null = null;
-	private captionSprite: Sprite | null = null;
-	private captionTextureSource: MutableVideoTextureSource | null = null;
-	private captionRenderKey: string | null = null;
 	private frameSprite: Sprite | null = null;
 	private frameImage: HTMLImageElement | null = null;
 	private frameDraw:
@@ -601,7 +563,6 @@ export class FrameRenderer {
 		this.cursorContainer = new Container();
 		this.overlayContainer = new Container();
 		this.annotationContainer = new Container();
-		this.captionContainer = new Container();
 		this.webcamRootContainer = new Container();
 		this.webcamContainer = new Container();
 
@@ -634,7 +595,6 @@ export class FrameRenderer {
 
 		this.overlayContainer.addChild(this.webcamRootContainer);
 		this.overlayContainer.addChild(this.annotationContainer);
-		this.overlayContainer.addChild(this.captionContainer);
 
 		this.videoMaskGraphics = new Graphics();
 		this.transitionOverlayGraphics = new Graphics();
@@ -688,7 +648,6 @@ export class FrameRenderer {
 		this.annotationScaleFactor = this.calculateAnnotationScaleFactor();
 		this.annotationAssets = await preloadAnnotationAssets(this.config.annotationRegions ?? []);
 		await this.setupAnnotationLayer();
-		this.setupCaptionResources();
 
 		if (this.shouldUseZoomMotionBlur()) {
 			this.zoomBlurFilter = new ZoomBlurFilter({
@@ -1578,26 +1537,6 @@ export class FrameRenderer {
 		return this.temporalCompositeCanvas;
 	}
 
-	private drawCaptionOverlay(context: CanvasRenderingContext2D): void {
-		if (
-			!this.captionContainer?.visible ||
-			!this.captionSprite?.visible ||
-			!this.captionCanvas
-		) {
-			return;
-		}
-
-		const drawWidth = this.captionCanvas.width * this.captionSprite.scale.x;
-		const drawHeight = this.captionCanvas.height * this.captionSprite.scale.y;
-		const drawX = this.captionSprite.x - drawWidth * this.captionSprite.anchor.x;
-		const drawY = this.captionSprite.y - drawHeight * this.captionSprite.anchor.y;
-
-		context.save();
-		context.globalAlpha = this.captionSprite.alpha;
-		context.drawImage(this.captionCanvas, drawX, drawY, drawWidth, drawHeight);
-		context.restore();
-	}
-
 	private async composeBlurAnnotationFrame(
 		timeMs: number,
 		sourceCanvas?: CanvasImageSource,
@@ -1627,7 +1566,6 @@ export class FrameRenderer {
 			this.annotationAssets ?? undefined,
 		);
 
-		this.drawCaptionOverlay(context);
 		this.outputCanvasOverride = canvas;
 	}
 
@@ -1683,206 +1621,6 @@ export class FrameRenderer {
 				currentTimeMs >= entry.annotation.startMs &&
 				currentTimeMs <= entry.annotation.endMs;
 		}
-	}
-
-	private setupCaptionResources(): void {
-		if (!this.config.autoCaptions?.length || !this.config.autoCaptionSettings) {
-			return;
-		}
-
-		this.captionMeasureCanvas = document.createElement("canvas");
-		this.captionMeasureCanvas.width = 1;
-		this.captionMeasureCanvas.height = 1;
-		this.captionMeasureCtx = configureHighQuality2DContext(
-			this.captionMeasureCanvas.getContext("2d"),
-		);
-	}
-
-	private buildCaptionRenderState(timeMs: number): CaptionRenderState | null {
-		const settings = this.config.autoCaptionSettings;
-		const cues = this.config.autoCaptions;
-		const measureCtx = this.captionMeasureCtx;
-
-		if (!settings || !cues?.length || !measureCtx) {
-			return null;
-		}
-
-		const fontFamily = settings.fontFamily || getDefaultCaptionFontFamily();
-		const fontSize = getCaptionScaledFontSize(
-			settings.fontSize,
-			this.config.width,
-			settings.maxWidth,
-		);
-		measureCtx.font = `${CAPTION_FONT_WEIGHT} ${fontSize}px ${fontFamily}`;
-
-		const layout = buildActiveCaptionLayout({
-			cues,
-			timeMs,
-			settings,
-			maxWidthPx: getCaptionTextMaxWidth(this.config.width, settings.maxWidth, fontSize),
-			measureText: (text) => measureCtx.measureText(text).width,
-		});
-		if (!layout) {
-			return null;
-		}
-
-		const padding = getCaptionPadding(fontSize);
-		const lineHeight = fontSize * CAPTION_LINE_HEIGHT;
-		const textBlockHeight = layout.visibleLines.length * lineHeight;
-		const boxHeight = textBlockHeight + padding.y * 2;
-		const maxMeasuredWidth = layout.visibleLines.reduce(
-			(largest, line) => Math.max(largest, line.width),
-			0,
-		);
-		const boxWidth = Math.min(
-			this.config.width * (settings.maxWidth / 100) + padding.x * 2,
-			maxMeasuredWidth + padding.x * 2,
-		);
-		const centerX = this.config.width / 2;
-		const centerY =
-			this.config.height - (this.config.height * settings.bottomOffset) / 100 - boxHeight / 2;
-
-		return {
-			key: `${layout.blockKey}:${layout.visiblePageIndex}:${layout.activeWordIndex}`,
-			layout,
-			fontFamily,
-			fontSize,
-			lineHeight,
-			boxWidth,
-			boxHeight,
-			centerX,
-			centerY,
-		};
-	}
-
-	private ensureCaptionCanvas(width: number, height: number): void {
-		const targetWidth = Math.max(1, Math.ceil(width));
-		const targetHeight = Math.max(1, Math.ceil(height));
-
-		if (
-			this.captionCanvas &&
-			this.captionCanvas.width === targetWidth &&
-			this.captionCanvas.height === targetHeight &&
-			this.captionCtx &&
-			this.captionSprite
-		) {
-			return;
-		}
-
-		this.captionCanvas = document.createElement("canvas");
-		this.captionCanvas.width = targetWidth;
-		this.captionCanvas.height = targetHeight;
-		this.captionCtx = configureHighQuality2DContext(this.captionCanvas.getContext("2d"));
-
-		if (!this.captionCtx) {
-			throw new Error("Failed to create caption export canvas");
-		}
-
-		const nextTexture = Texture.from(this.captionCanvas);
-		if (this.captionSprite) {
-			const previousTexture = this.captionSprite.texture;
-			this.captionSprite.texture = nextTexture;
-			this.captionTextureSource = nextTexture.source as unknown as MutableVideoTextureSource;
-			previousTexture.destroy(true);
-		} else {
-			this.captionSprite = new Sprite(nextTexture);
-			this.captionSprite.anchor.set(0.5);
-			this.captionContainer?.addChild(this.captionSprite);
-			this.captionTextureSource = nextTexture.source as unknown as MutableVideoTextureSource;
-		}
-	}
-
-	private rasterizeCaptionSprite(state: CaptionRenderState): void {
-		this.ensureCaptionCanvas(state.boxWidth, state.boxHeight);
-
-		if (!this.captionCtx || !this.captionCanvas || !this.captionSprite) {
-			return;
-		}
-
-		const ctx = this.captionCtx;
-		const settings = this.config.autoCaptionSettings;
-		if (!settings) {
-			return;
-		}
-
-		ctx.clearRect(0, 0, this.captionCanvas.width, this.captionCanvas.height);
-		ctx.font = `${CAPTION_FONT_WEIGHT} ${state.fontSize}px ${state.fontFamily}`;
-		ctx.fillStyle = `rgba(0, 0, 0, ${settings.backgroundOpacity})`;
-		drawSquircleOnCanvas(ctx, {
-			x: 0,
-			y: 0,
-			width: state.boxWidth,
-			height: state.boxHeight,
-			radius: getCaptionScaledRadius(settings.boxRadius, state.fontSize),
-		});
-		ctx.fill();
-
-		const padding = getCaptionPadding(state.fontSize);
-		ctx.textAlign = "left";
-		ctx.textBaseline = "middle";
-
-		state.layout.visibleLines.forEach((line, lineIndex) => {
-			let cursorX = (state.boxWidth - line.width) / 2;
-			const lineY = padding.y + state.lineHeight * lineIndex + state.lineHeight / 2;
-
-			line.words.forEach((word) => {
-				const visualState = getCaptionWordVisualState(
-					state.layout.hasWordTimings,
-					word.state,
-				);
-				const segmentWidth = drawCaptionWordOnCanvas({
-					ctx,
-					word,
-					settings,
-					fontSize: state.fontSize,
-					fontFamily: state.fontFamily,
-					cursorX,
-					lineY,
-					opacity: visualState.opacity,
-					measureText: (text) => ctx.measureText(text).width,
-				});
-
-				cursorX += segmentWidth;
-			});
-		});
-
-		this.captionTextureSource?.update();
-		this.captionRenderKey = state.key;
-	}
-
-	private updateCaptionLayer(timeMs: number): void {
-		const state = this.buildCaptionRenderState(timeMs);
-		if (!state || !this.captionContainer) {
-			if (this.captionSprite) {
-				this.captionSprite.visible = false;
-			}
-			if (this.captionContainer) {
-				this.captionContainer.visible = false;
-			}
-			this.captionRenderKey = null;
-			return;
-		}
-
-		const needsReraster =
-			!this.captionSprite ||
-			!this.captionCanvas ||
-			this.captionCanvas.width !== Math.max(1, Math.ceil(state.boxWidth)) ||
-			this.captionCanvas.height !== Math.max(1, Math.ceil(state.boxHeight)) ||
-			this.captionRenderKey !== state.key;
-
-		if (needsReraster) {
-			this.rasterizeCaptionSprite(state);
-		}
-
-		if (!this.captionSprite) {
-			return;
-		}
-
-		this.captionContainer.visible = true;
-		this.captionSprite.visible = true;
-		this.captionSprite.position.set(state.centerX, state.centerY + state.layout.translateY);
-		this.captionSprite.scale.set(state.layout.scale);
-		this.captionSprite.alpha = state.layout.opacity;
 	}
 
 	private async syncBackgroundFrame(timeSeconds: number): Promise<void> {
@@ -3114,18 +2852,13 @@ export class FrameRenderer {
 
 		if (includeOverlayLayers) {
 			this.updateAnnotationLayer(timeMs);
-			this.updateCaptionLayer(timeMs);
 		}
 		this.updateWebcamOverlay(webcamRenderTimeSeconds);
 
 		const annotationContainerVisible = this.annotationContainer?.visible ?? true;
-		const captionContainerVisible = this.captionContainer?.visible ?? true;
 		if (!includeOverlayLayers) {
 			if (this.annotationContainer) {
 				this.annotationContainer.visible = false;
-			}
-			if (this.captionContainer) {
-				this.captionContainer.visible = false;
 			}
 		}
 
@@ -3134,9 +2867,6 @@ export class FrameRenderer {
 		if (!includeOverlayLayers) {
 			if (this.annotationContainer) {
 				this.annotationContainer.visible = annotationContainerVisible;
-			}
-			if (this.captionContainer) {
-				this.captionContainer.visible = captionContainerVisible;
 			}
 		}
 
@@ -3228,11 +2958,7 @@ export class FrameRenderer {
 			return null;
 		}
 
-		this.updateCaptionLayer(resolvedSnapshot.timeMs);
-
-		const hasOverlayCanvasWork =
-			(this.config.annotationRegions?.length ?? 0) > 0 ||
-			Boolean(this.captionCanvas && this.captionSprite?.visible);
+		const hasOverlayCanvasWork = (this.config.annotationRegions?.length ?? 0) > 0;
 		if (hasOverlayCanvasWork) {
 			await this.composeBlurAnnotationFrame(resolvedSnapshot.timeMs, compositeState.canvas);
 		} else {
@@ -3399,27 +3125,19 @@ export class FrameRenderer {
 		}
 
 		this.updateAnnotationLayer(timeMs);
-		this.updateCaptionLayer(timeMs);
 		this.updateWebcamOverlay();
 
 		if (this.hasActiveBlurAnnotations(timeMs)) {
 			const annotationContainerVisible = this.annotationContainer?.visible ?? true;
-			const captionContainerVisible = this.captionContainer?.visible ?? true;
 
 			if (this.annotationContainer) {
 				this.annotationContainer.visible = false;
-			}
-			if (this.captionContainer) {
-				this.captionContainer.visible = false;
 			}
 
 			this.app.render();
 
 			if (this.annotationContainer) {
 				this.annotationContainer.visible = annotationContainerVisible;
-			}
-			if (this.captionContainer) {
-				this.captionContainer.visible = captionContainerVisible;
 			}
 
 			await this.composeBlurAnnotationFrame(timeMs);
@@ -4040,9 +3758,6 @@ export class FrameRenderer {
 		if (this.webcamSprite?.texture) {
 			texturesToDestroy.add(this.webcamSprite.texture);
 		}
-		if (this.captionSprite?.texture) {
-			texturesToDestroy.add(this.captionSprite.texture);
-		}
 		if (this.frameSprite?.texture) {
 			texturesToDestroy.add(this.frameSprite.texture);
 		}
@@ -4102,7 +3817,6 @@ export class FrameRenderer {
 		this.cursorContainer = null;
 		this.overlayContainer = null;
 		this.annotationContainer = null;
-		this.captionContainer = null;
 		this.webcamRootContainer = null;
 		this.webcamContainer = null;
 		this.videoSprite = null;
@@ -4166,13 +3880,6 @@ export class FrameRenderer {
 		this.closeRetainedBitmap("scene");
 		this.closeRetainedBitmap("background");
 
-		this.captionCanvas = null;
-		this.captionCtx = null;
-		this.captionMeasureCanvas = null;
-		this.captionMeasureCtx = null;
-		this.captionSprite = null;
-		this.captionTextureSource = null;
-		this.captionRenderKey = null;
 		this.frameSprite = null;
 		this.frameImage = null;
 		this.frameDraw = null;
