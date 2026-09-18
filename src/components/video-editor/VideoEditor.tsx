@@ -591,18 +591,18 @@ export default function VideoEditor() {
 	const [defaultSourceAudioTrackSettings, setDefaultSourceAudioTrackSettings] =
 		useState<SourceAudioTrackSettings>({});
 	const [hasClipSourceAudio, setHasClipSourceAudio] = useState(false);
-	
-	
+
+
 	const [audioDuckingSettings, setAudioDuckingSettings] = useState<AudioDuckingSettings>(
 		DEFAULT_AUDIO_DUCKING_SETTINGS,
 	);
 	const [showSocialSafeZone, setShowSocialSafeZone] = useState(false);
-	
-	
-	
-	
-	
-	
+
+
+
+
+
+
 	const [silenceModalOpen, setSilenceModalOpen] = useState(false);
 	const [isAnalyzingSilence, setIsAnalyzingSilence] = useState(false);
 	const [detectedSilences, setDetectedSilences] = useState<SilenceRegion[]>([]);
@@ -2382,7 +2382,7 @@ export default function VideoEditor() {
 		[currentProjectPath, currentSourcePath, webcam.timeOffsetMs],
 	);
 
-	
+
 
 	const handleUploadWebcam = useCallback(async () => {
 		const result = await window.electronAPI.openVideoFilePicker();
@@ -2927,7 +2927,7 @@ export default function VideoEditor() {
 		gifSizePreset,
 	]);
 
-	
+
 
 	const handleOpenRecorderHud = useCallback(async () => {
 		try {
@@ -3233,17 +3233,17 @@ export default function VideoEditor() {
 		[clips, buildHistorySnapshot, syncHistoryButtons],
 	);
 
-	
 
-	
 
-	
 
-	
 
-	
 
-	
+
+
+
+
+
+
 
 	const saveProject = useCallback(
 		async (forceSaveAs: boolean, options?: SaveProjectOptions) => {
@@ -7449,7 +7449,7 @@ export default function VideoEditor() {
 							onAnnotationBlurColorChange={handleAnnotationBlurColorChange}
 							onAnnotationAnimationChange={handleAnnotationAnimationChange}
 							onAnnotationLayerChange={handleAnnotationLayerChange}
-							onAnnotationDelete={handleAnnotationDelete} 
+							onAnnotationDelete={handleAnnotationDelete}
 						/>
 						</div>
 
@@ -8148,7 +8148,8 @@ export default function VideoEditor() {
 								annotationRegions={annotationRegions}
 								onAnnotationAdded={handleAnnotationAdded}
 								onAnnotationSpanChange={handleAnnotationSpanChange}
-								onAnnotationDelete={handleAnnotationDelete} onAnnotationKeyframesChange={(id, keyframes) => handleAnnotationLayerChange(id, { keyframes })} 
+								onAnnotationDelete={handleAnnotationDelete}
+								onAnnotationKeyframesChange={(id, keyframes) => handleAnnotationLayerChange(id, { keyframes })}
 								selectedAnnotationId={selectedAnnotationId}
 								onSelectAnnotation={handleSelectAnnotation}
 								showSourceAudioTrack={false}

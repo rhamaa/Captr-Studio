@@ -950,4 +950,3 @@ interface SystemCursorAsset {
 	width: number;
 	height: number;
 }
-
