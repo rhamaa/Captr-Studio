@@ -499,6 +499,8 @@ function LaunchWindowContent() {
 								// handle.  We still need JS pointer handlers in webcam-preview
 								// mode (which translates via CSS inside the window), so only
 								// mark the handle as a native drag region for the IPC path.
+								aria-label="Move recording hub"
+								style={{ touchAction: "none" }}
 								className={`flex items-center px-0.5 cursor-grab active:cursor-grabbing pointer-events-auto ${
 									platform === "linux" && !showRecordingWebcamPreview
 										? styles.electronDrag

@@ -807,6 +807,10 @@ ipcMain.handle("window:set-mode", (event, mode: "welcome" | "editor") => {
 	const win = BrowserWindow.fromWebContents(event.sender) ?? mainWindow;
 	if (!win || win.isDestroyed()) return { success: false };
 
+	// Overlay windows must never inherit the editor's compact welcome geometry.
+	const windowType = new URL(win.webContents.getURL()).searchParams.get("windowType");
+	if (windowType && windowType !== "editor") return { success: false };
+
 	if (mode === "welcome") {
 		if (win.isMaximized()) {
 			win.unmaximize();

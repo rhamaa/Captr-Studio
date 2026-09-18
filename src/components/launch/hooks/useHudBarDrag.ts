@@ -47,7 +47,7 @@ export function useHudBarDrag({
 		const deltaY = clientY - latestDragState.startY;
 		const viewportWidth = window.innerWidth;
 		const viewportHeight = window.innerHeight;
-		const EDGE_MARGIN = 16;
+		const EDGE_MARGIN = 0;
 
 		const unclampedLeft = latestDragState.initialLeft + deltaX;
 		const unclampedTop = latestDragState.initialTop + deltaY;
@@ -74,6 +74,7 @@ export function useHudBarDrag({
 		if (event.button !== 0) {
 			return;
 		}
+		if (!hudBarRef.current) return;
 
 		event.preventDefault();
 		event.stopPropagation();
@@ -81,9 +82,10 @@ export function useHudBarDrag({
 		setIsHudDragging(true);
 		window.electronAPI?.hudOverlaySetIgnoreMouse?.(false);
 
-		if (!hudBarRef.current) {
-			return;
-		}
+		// Keep receiving moves when the pointer leaves the small grip or the
+		// transparent overlay changes its hit-test region during the gesture.
+		const captureTarget = event.currentTarget;
+		captureTarget.setPointerCapture(event.pointerId);
 
 		const hudRect = hudBarRef.current.getBoundingClientRect();
 		hudDragStartRef.current = {
@@ -118,6 +120,7 @@ export function useHudBarDrag({
 		const onWindowPointerUp = (ev: globalThis.PointerEvent) => {
 			if (hudDragStartRef.current?.pointerId !== ev.pointerId) return;
 			cleanupWindowListenersRef.current?.();
+			if (captureTarget.hasPointerCapture(ev.pointerId)) captureTarget.releasePointerCapture(ev.pointerId);
 
 			if (hudDragMoveRafRef.current !== null) {
 				cancelAnimationFrame(hudDragMoveRafRef.current);
@@ -182,7 +185,7 @@ export function useHudBarDrag({
 			const hudRect = hudBarRef.current.getBoundingClientRect();
 			const viewportWidth = window.innerWidth;
 			const viewportHeight = window.innerHeight;
-			const EDGE_MARGIN = 16;
+			const EDGE_MARGIN = 0;
 			const minLeft = EDGE_MARGIN;
 			const maxLeft = Math.max(minLeft, viewportWidth - hudRect.width - EDGE_MARGIN);
 			const minTop = EDGE_MARGIN;

@@ -633,7 +633,7 @@ export function registerProjectHandlers() {
 			await replaceApprovedSessionLocalReadPaths([
 				resolvedSession.videoPath,
 				resolvedSession.webcamPath,
-			]);
+			], options?.preserveProjectPath);
 
 			if (nextSession.webcamPath) {
 				await persistRecordingSessionManifest(nextSession);

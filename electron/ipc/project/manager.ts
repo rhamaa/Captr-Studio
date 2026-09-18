@@ -181,6 +181,7 @@ export async function resolveApprovedLocalMediaPath(candidatePath: string): Prom
 
 export async function replaceApprovedSessionLocalReadPaths(
 	filePaths: Array<string | null | undefined>,
+	preserveExisting = false,
 ) {
 	const nextApprovedPaths = new Set<string>();
 	const approvedPathLists = await Promise.all(
@@ -193,7 +194,7 @@ export async function replaceApprovedSessionLocalReadPaths(
 		}
 	}
 
-	approvedLocalReadPaths.clear();
+	if (!preserveExisting) approvedLocalReadPaths.clear();
 	for (const approvedPath of nextApprovedPaths) {
 		approvedLocalReadPaths.add(approvedPath);
 	}

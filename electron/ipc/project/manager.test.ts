@@ -47,6 +47,20 @@ describe("local media path policy", () => {
 		}
 	});
 
+	it("preserves other scene approvals while selecting a project's source", async () => {
+		const external = path.join(tempRoot, "External");
+		await fs.mkdir(external);
+		const first = path.join(external, "first.mp4");
+		const second = path.join(external, "second.mp4");
+		await Promise.all([first, second].map(file => fs.writeFile(file, "media")));
+		const { replaceApprovedSessionLocalReadPaths, isAllowedLocalMediaPath } = await import("./manager");
+		await replaceApprovedSessionLocalReadPaths([first, second]);
+		await replaceApprovedSessionLocalReadPaths([first], true);
+		expect(await isAllowedLocalMediaPath(second)).toBe(true);
+		await replaceApprovedSessionLocalReadPaths([first]);
+		expect(await isAllowedLocalMediaPath(second)).toBe(false);
+	});
+
 	it("opens scene-only projects and approves media from every scene without approving unrelated files", async () => {
 		const external = path.join(tempRoot, "External");
 		await fs.mkdir(external, { recursive: true });

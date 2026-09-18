@@ -19,13 +19,14 @@ export function useLaunchHudInteractionState({
 			window.electronAPI?.hudOverlaySetIgnoreMouse?.(false);
 		} else {
 			// Proactively check if we should ignore mouse when popover closes
-			setTimeout(() => {
-				if (!isMouseOverHudRef.current) {
+			const timer = setTimeout(() => {
+				if (!isMouseOverHudRef.current && !isHudDraggingRef.current && !isWebcamPreviewDraggingRef.current && !webcamPreviewDragStartRef.current) {
 					window.electronAPI?.hudOverlaySetIgnoreMouse?.(true);
 				}
 			}, 150);
+			return () => clearTimeout(timer);
 		}
-	}, [openId]);
+	}, [openId, isHudDraggingRef, isWebcamPreviewDraggingRef, webcamPreviewDragStartRef]);
 
 	useEffect(() => {
 		const handleMouseOver = (e: globalThis.MouseEvent) => {

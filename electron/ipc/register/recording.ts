@@ -2015,6 +2015,7 @@ export function registerRecordingHandlers(
 		if (result.canceled || result.filePaths.length === 0) {
 			return { success: false };
 		}
+		await rememberApprovedLocalReadPath(result.filePaths[0]);
 		return { success: true, path: result.filePaths[0] };
 	});
 }

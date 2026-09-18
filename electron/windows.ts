@@ -186,13 +186,9 @@ function getHudOverlayDisplay() {
 }
 
 function getHudOverlayBounds() {
-	const { workArea } = getHudOverlayDisplay();
-	return {
-		x: workArea.x,
-		y: workArea.y,
-		width: workArea.width,
-		height: workArea.height,
-	};
+	// Dragging uses renderer coordinates, so the overlay must cover the entire
+	// display, including the strip reserved for the taskbar.
+	return { ...getHudOverlayDisplay().bounds };
 }
 
 function applyHudOverlayBounds() {
