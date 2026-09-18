@@ -287,6 +287,9 @@ export interface ClipEntry {
 	transitionIn?: ClipTransition;
 	/** @deprecated Legacy field was rendered as an incoming transition. */
 	transitionToNext?: ClipTransition;
+	annotationRegions?: AnnotationRegion[];
+	audioRegions?: AudioRegion[];
+	/** Legacy read-only format; new edits use annotationRegions. */
 	mediaTrackLayers?: MediaTrackLayer[];
 	keyframes?: PropertyKeyframe[];
 }
@@ -458,7 +461,7 @@ export function trimsToClips(trims: TrimRegion[], totalDurationMs: number): Clip
 	return clips;
 }
 
-export type AnnotationType = "text" | "image" | "gif" | "figure" | "blur";
+export type AnnotationType = "video" | "text" | "image" | "gif" | "figure" | "blur";
 export const BLUR_ANNOTATION_STRENGTH = 20;
 export const BASE_PREVIEW_WIDTH = 1920;
 export const BASE_PREVIEW_HEIGHT = 1080;
@@ -528,6 +531,7 @@ export interface PropertyKeyframe {
 	property: KeyframeProperty;
 	value: number | { x: number; y: number };
 	easing: KeyframeEasing;
+	bezier?: [number, number, number, number];
 }
 
 export interface MediaTrackLayer {
@@ -574,7 +578,10 @@ export interface AnnotationRegion {
 	gifPath?: string; // persisted to disk — absolute path to .gif file
 	gifDataUrl?: string; // TRANSIENT: runtime-only, re-loaded from gifPath on project open, NOT serialized
 	imageFilePath?: string; // absolute file path for file-based images (Piece 2)
+	keyframeTimeOffsetMs?: number;
 	videoFilePath?: string; // absolute file path for overlay video B-roll
+	sourceOffsetMs?: number;
+	playbackRate?: number;
 	animationIn?: "none" | "fade" | "slide-up";
 	animationOut?: "none" | "fade";
 	animationDurationMs?: number;
@@ -661,6 +668,8 @@ export interface AudioRegion {
 	startMs: number;
 	endMs: number;
 	audioPath: string;
+	sourceOffsetMs?: number;
+	playbackRate?: number;
 	volume: number;
 	normalize?: boolean;
 	trackIndex?: number;

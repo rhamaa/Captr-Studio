@@ -1,3 +1,4 @@
+import { LocalMediaImage } from "@/components/LocalMediaImage";
 import {
 	FolderOpen as FolderOpenIcon,
 	Gear as GearIcon,
@@ -346,7 +347,7 @@ export function WelcomeScreen({
 										<div className="flex items-center gap-3 min-w-0">
 											<div className="w-10 h-7 rounded-md overflow-hidden bg-foreground/10 border border-foreground/10 flex-shrink-0 flex items-center justify-center relative">
 												{thumbUrl ? (
-													<img
+													<LocalMediaImage
 														src={thumbUrl}
 														alt={proj.name}
 														className="w-full h-full object-cover"

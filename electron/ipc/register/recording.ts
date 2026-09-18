@@ -1,3 +1,4 @@
+import { registerOwnedExportPath } from "../export/exportStream";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { execFile, spawn } from "node:child_process";
 import fs from "node:fs/promises";
@@ -1959,7 +1960,7 @@ export function registerRecordingHandlers(
 		}
 
 		try {
-			const timestamp = Date.now();
+			const timestamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 			const listPath = path.join(app.getPath("temp"), `captr-concat-list-${timestamp}.txt`);
 			const outputPath = path.join(app.getPath("temp"), `captr-stitched-${timestamp}.mp4`);
 
@@ -1996,6 +1997,8 @@ export function registerRecordingHandlers(
 				proc.on("error", reject);
 			});
 
+			await fs.rm(listPath, { force: true });
+			registerOwnedExportPath(outputPath);
 			return { success: true, outputPath };
 		} catch (error) {
 			console.error("Failed to stitch video clips:", error);

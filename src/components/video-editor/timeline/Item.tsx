@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AudioPeaksData, SlideMedia4in1 } from "./core/timelineTypes";
-import { toFileUrl } from "../projectPersistence";
+import { useLocalMediaUrl } from "@/hooks/useLocalMediaUrl";
 import glassStyles from "./ItemGlass.module.css";
 import { formatMs, getGlassClass } from "./items/itemUtils";
 import { ClipTimelineItem } from "./items/ClipTimelineItem";
@@ -69,29 +69,8 @@ export default function Item({
 		[span.start, span.end],
 	);
 
-	const webcamSrc = useMemo(() => {
-		if (!media4in1?.webcamPath || typeof media4in1.webcamPath !== "string") return null;
-		if (
-			media4in1.webcamPath.startsWith("http://") ||
-			media4in1.webcamPath.startsWith("https://") ||
-			media4in1.webcamPath.startsWith("file://")
-		) {
-			return media4in1.webcamPath;
-		}
-		return toFileUrl(media4in1.webcamPath);
-	}, [media4in1?.webcamPath]);
-
-	const videoSrc = useMemo(() => {
-		if (!media4in1?.videoPath || typeof media4in1.videoPath !== "string") return null;
-		if (
-			media4in1.videoPath.startsWith("http://") ||
-			media4in1.videoPath.startsWith("https://") ||
-			media4in1.videoPath.startsWith("file://")
-		) {
-			return media4in1.videoPath;
-		}
-		return toFileUrl(media4in1.videoPath);
-	}, [media4in1?.videoPath]);
+	const webcamSrc = useLocalMediaUrl(media4in1?.webcamPath);
+	const videoSrc = useLocalMediaUrl(media4in1?.videoPath);
 
 	if (isLoading) {
 		return (
@@ -174,8 +153,8 @@ export default function Item({
 				>
 					{isClip ? (
 						<ClipTimelineItem
-							videoSrc={videoSrc}
-							webcamSrc={webcamSrc}
+							videoSrc={videoSrc ?? null}
+							webcamSrc={webcamSrc ?? null}
 							media4in1={media4in1}
 							transitionIn={transitionIn}
 							timeLabel={timeLabel}

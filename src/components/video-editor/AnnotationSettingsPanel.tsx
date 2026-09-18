@@ -175,6 +175,10 @@ export function AnnotationSettingsPanel({
 						</TabsContent>
 					</Tabs>
 
+					{annotation.type === "video" && <fieldset disabled={annotation.locked} className="space-y-2 py-3">
+						<label className="flex justify-between text-xs">Source offset (seconds)<input aria-label="Video source offset" type="number" min="0" step="0.1" value={(annotation.sourceOffsetMs ?? 0) / 1000} onChange={event => { if (Number.isFinite(event.target.valueAsNumber)) onLayerChange?.({ sourceOffsetMs: Math.max(0, event.target.valueAsNumber * 1000) }); }} className="w-20 bg-foreground/5" /></label>
+						<label className="flex justify-between text-xs">Playback speed<input aria-label="Video layer speed" type="number" min="0.25" max="4" step="0.25" value={annotation.playbackRate ?? 1} onChange={event => { if (Number.isFinite(event.target.valueAsNumber)) onLayerChange?.({ playbackRate: Math.max(0.25, Math.min(4, event.target.valueAsNumber)) }); }} className="w-20 bg-foreground/5" /></label>
+					</fieldset>}
 					<AnnotationEffectsSection
 						annotation={annotation}
 						onStyleChange={onStyleChange}

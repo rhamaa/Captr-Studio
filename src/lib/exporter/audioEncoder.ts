@@ -1,3 +1,4 @@
+import { buildLayerAudioSchedule } from "./layerAudioSchedule";
 import { WebDemuxer } from "web-demuxer";
 import type {
 	AudioDuckingSettings,
@@ -1001,27 +1002,8 @@ export class AudioProcessor {
 		speechIntervals?: SpeechInterval[],
 		audioDuckingSettings?: AudioDuckingSettings,
 	): void {
-		const outputStartMs = this.sourceTimeToOutputTime(region.startMs, slices);
-		const outputEndMs = this.sourceTimeToOutputTime(region.endMs, slices);
-
-		let localStartSec = outputStartMs / 1000 - chunkOutputStartSec;
-		let localEndSec = outputEndMs / 1000 - chunkOutputStartSec;
-
-		// Skip if region doesn't overlap with this chunk
-		if (localEndSec <= 0 || localStartSec >= chunkDurationSec) return;
-
-		// Clip to chunk bounds
-		let bufferOffsetSec = 0;
-		if (localStartSec < 0) {
-			bufferOffsetSec = -localStartSec;
-			localStartSec = 0;
-		}
-		if (localEndSec > chunkDurationSec) {
-			localEndSec = chunkDurationSec;
-		}
-
-		const duration = Math.min(localEndSec - localStartSec, buffer.duration - bufferOffsetSec);
-		if (duration <= 0.001) return;
+		const schedule = buildLayerAudioSchedule(region, slices, chunkOutputStartSec, chunkDurationSec, buffer.duration);
+		if (schedule.length === 0) return;
 
 		const gainNode = ctx.createGain();
 		const normalizeGain = region.normalize ? SOURCE_AUDIO_NORMALIZE_GAIN : 1;
@@ -1048,10 +1030,13 @@ export class AudioProcessor {
 
 		gainNode.connect(ctx.destination);
 
-		const source = ctx.createBufferSource();
-		source.buffer = buffer;
-		source.connect(gainNode);
-		source.start(localStartSec, bufferOffsetSec, duration);
+		for (const segment of schedule) {
+			const source = ctx.createBufferSource();
+			source.buffer = buffer;
+			source.playbackRate.value = segment.rate;
+			source.connect(gainNode);
+			source.start(segment.start, segment.offset, segment.duration);
+		}
 	}
 
 	// Feed a rendered AudioBuffer chunk to an AudioEncoder with a timestamp offset.

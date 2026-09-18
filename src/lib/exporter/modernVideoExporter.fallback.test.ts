@@ -1,3 +1,4 @@
+import { ModernVideoExporter } from "./modernVideoExporter";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
@@ -73,7 +74,6 @@ describe("ModernVideoExporter native fallback routing", () => {
 	});
 
 	it("falls back to WebCodecs instead of surfacing a native error when Breeze is unavailable", async () => {
-		const { ModernVideoExporter } = await import("./modernVideoExporter");
 		const exporter = new ModernVideoExporter({
 			videoUrl: "file:///recording.mp4",
 			width: 1920,
@@ -124,7 +124,6 @@ describe("ModernVideoExporter native fallback routing", () => {
 			userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
 		});
 
-		const { ModernVideoExporter } = await import("./modernVideoExporter");
 		const staticLayoutResult = {
 			success: true,
 			blob: new Blob([], { type: "video/mp4" }),
@@ -177,7 +176,6 @@ describe("ModernVideoExporter native fallback routing", () => {
 	}, 15_000);
 
 	it("retries the main decode path once with a readable file-backed source", async () => {
-		const { ModernVideoExporter } = await import("./modernVideoExporter");
 		mocks.streamingDecoderGetEffectiveDuration.mockReturnValue(1);
 		mocks.streamingDecoderDecodeAll
 			.mockRejectedValueOnce(

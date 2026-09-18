@@ -74,7 +74,7 @@ import {
 	getEffectiveVideoStreamDurationSeconds,
 } from "@/lib/mediaTiming";
 import { isVideoWallpaperSource } from "@/lib/wallpapers";
-import { renderAnnotations } from "./annotationRenderer";
+import { renderAnnotations, preloadAnnotationAssets, destroyAnnotationAssets, type AnnotationRenderAssets } from "./annotationRenderer";
 import { ForwardFrameSource } from "./forwardFrameSource";
 import { resolveMediaElementSource } from "./localMediaSource";
 import { buildTemporalSamplePlanUs, getTemporalMotionBlurConfig } from "./temporalMotionBlur";
@@ -255,6 +255,7 @@ function configureHighQuality2DContext(
 // Renders video frames with all effects (background, zoom, crop, blur, shadow) to an offscreen canvas for export.
 
 export class FrameRenderer {
+	private annotationAssets: AnnotationRenderAssets | null = null;
 	private app: Application | null = null;
 	private cameraContainer: Container | null = null;
 	private videoContainer: Container | null = null;
@@ -393,6 +394,7 @@ export class FrameRenderer {
 	}
 
 	async initialize(): Promise<void> {
+		this.annotationAssets = await preloadAnnotationAssets(this.config.annotationRegions ?? []);
 		let cursorOverlayEnabled = true;
 		try {
 			await preloadCursorAssets();
@@ -1532,6 +1534,7 @@ export class FrameRenderer {
 					this.config.height,
 					temporalSnapshot.timeMs,
 					scaleFactor,
+					this.annotationAssets ?? undefined,
 				);
 			}
 
@@ -1700,6 +1703,7 @@ export class FrameRenderer {
 				this.config.height,
 				timeMs,
 				scaleFactor,
+				this.annotationAssets ?? undefined,
 			);
 		}
 
@@ -2601,6 +2605,8 @@ export class FrameRenderer {
 	}
 
 	destroy(): void {
+		destroyAnnotationAssets(this.annotationAssets);
+		this.annotationAssets = null;
 		if (this.videoSprite) {
 			const videoTexture = this.videoSprite.texture;
 			this.videoSprite.destroy({ texture: false, textureSource: false });

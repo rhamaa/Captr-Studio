@@ -1,3 +1,4 @@
+import { migrateMediaTrackLayers } from "./sceneLayers";
 import { normalizePropertyKeyframes } from "./annotationKeyframes";
 import { normalizeClipTransition, normalizeClipTransitionType } from "./transitionContract";
 import type { SourceAudioTrackSettings } from "@/components/video-editor/audio/audioTypes";
@@ -357,9 +358,9 @@ export function normalizeClipEntries(candidateClips: unknown): ClipEntry[] {
 						: origin === "uploaded"
 							? "video"
 							: "record",
-				mediaTrackLayers: Array.isArray(raw.mediaTrackLayers)
-					? (raw.mediaTrackLayers as import("./types").MediaTrackLayer[])
-					: undefined,
+				annotationRegions: Array.isArray(raw.annotationRegions) || Array.isArray(raw.mediaTrackLayers)
+					? normalizeProjectEditor({ annotationRegions: Array.isArray(raw.annotationRegions) ? raw.annotationRegions as AnnotationRegion[] : migrateMediaTrackLayers(raw.mediaTrackLayers as import("./types").MediaTrackLayer[]) }).annotationRegions : undefined,
+				audioRegions: Array.isArray(raw.audioRegions) ? normalizeProjectEditor({ audioRegions: raw.audioRegions as AudioRegion[] }).audioRegions : undefined,
 				keyframes: normalizePropertyKeyframes(raw.keyframes),
 				transitionIn: normalizeClipTransition(raw.transitionIn ?? raw.transitionToNext),
 			};
@@ -642,6 +643,8 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 						startMs,
 						endMs,
 						type:
+							region.type === "video" ||
+							region.type === "gif" ||
 							region.type === "image" ||
 							region.type === "figure" ||
 							region.type === "blur"
@@ -729,6 +732,9 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 							: 0,
 						videoFilePath:
 							typeof region.videoFilePath === "string" ? region.videoFilePath : undefined,
+						keyframeTimeOffsetMs: isFiniteNumber(region.keyframeTimeOffsetMs) ? Math.max(0, region.keyframeTimeOffsetMs) : 0,
+						sourceOffsetMs: isFiniteNumber(region.sourceOffsetMs) ? Math.max(0, region.sourceOffsetMs) : 0,
+						playbackRate: isFiniteNumber(region.playbackRate) ? clamp(region.playbackRate, 0.25, 4) : 1,
 						name: typeof region.name === "string" ? region.name : undefined,
 						locked: typeof region.locked === "boolean" ? region.locked : false,
 						visible: typeof region.visible === "boolean" ? region.visible : true,

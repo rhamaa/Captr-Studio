@@ -35,7 +35,11 @@ export function collectProjectMediaPaths(project: unknown): string[] {
 		for (const layer of objects(entry.mediaTrackLayers)) add(layer.sourcePath);
 		for (const track of objects(entry.audioTracks)) add(track.sourcePath);
 		for (const region of objects(entry.audioRegions)) add(region.audioPath);
-		for (const region of objects(entry.annotationRegions)) add(region.imageFilePath);
+		for (const region of objects(entry.annotationRegions)) {
+			add(region.imageFilePath);
+			add(region.videoFilePath);
+			add(region.gifPath);
+		}
 	};
 	collect(root);
 	collect(object(root.editor));

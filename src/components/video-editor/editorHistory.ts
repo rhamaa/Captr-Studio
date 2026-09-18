@@ -2,12 +2,21 @@ import type {
 	AnnotationRegion,
 	AudioRegion,
 	ClipRegion,
+	ClipEntry,
+	WebcamOverlaySettings,
+	CropRegion,
 	LayoutRegion,
 	SpeedRegion,
 	ZoomRegion,
 } from "./types";
 
 export type EditorHistorySnapshot = {
+	clips?: ClipEntry[];
+	activeSceneId?: string | null;
+	videoSourcePath?: string | null;
+	wallpaper?: string;
+	cropRegion?: CropRegion;
+	webcam?: WebcamOverlaySettings;
 	zoomRegions: ZoomRegion[];
 	clipRegions: ClipRegion[];
 	speedRegions: SpeedRegion[];

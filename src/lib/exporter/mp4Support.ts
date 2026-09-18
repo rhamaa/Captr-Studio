@@ -124,6 +124,7 @@ export function getOrderedSupportedMp4EncoderCandidates(options: {
 export async function resolveSupportedMp4EncoderPath(
 	options: ResolveMp4EncoderPathOptions,
 ): Promise<SupportedMp4EncoderPath | null> {
+	if (typeof VideoEncoder === "undefined" || typeof VideoEncoder.isConfigSupported !== "function") return null;
 	const codec = options.codec ?? DEFAULT_MP4_CODEC;
 	const width = normalizeEvenDimension(options.width);
 	const height = normalizeEvenDimension(options.height);

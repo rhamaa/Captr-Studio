@@ -1,3 +1,4 @@
+import { LocalMediaImage } from "@/components/LocalMediaImage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toFileUrl } from "./projectPersistence";
 
@@ -193,7 +194,7 @@ export default function ProjectBrowserDialog({
 									>
 										<div className="relative aspect-[16/10] w-full overflow-hidden rounded-[5px] bg-editor-dialog-alt shadow-[0_10px_18px_rgba(0,0,0,0.28)] transition duration-200 group-hover:-translate-y-0.5 group-hover:shadow-[0_16px_30px_rgba(0,0,0,0.38)]">
 											{thumbnailSrc ? (
-												<img
+												<LocalMediaImage
 													src={thumbnailSrc}
 													alt=""
 													className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]"
@@ -264,7 +265,7 @@ export default function ProjectBrowserDialog({
 									>
 										<div className="relative aspect-[16/10] w-full overflow-hidden rounded-[5px] bg-editor-dialog-alt shadow-[0_10px_18px_rgba(0,0,0,0.28)] transition duration-200 group-hover:-translate-y-0.5 group-hover:shadow-[0_16px_30px_rgba(0,0,0,0.38)]">
 											{thumbnailSrc ? (
-												<img
+												<LocalMediaImage
 													src={thumbnailSrc}
 													alt=""
 													className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]"

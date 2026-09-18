@@ -790,7 +790,8 @@ export function createEditorWindow(): BrowserWindow {
 			preload: path.join(electronWindowsDir, "preload.mjs"),
 			nodeIntegration: false,
 			contextIsolation: true,
-			webSecurity: false,
+			// WebCodecs requires web security; local media uses the approved HTTP media server.
+			webSecurity: true,
 			backgroundThrottling: false,
 		},
 	});

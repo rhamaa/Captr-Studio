@@ -57,8 +57,8 @@ export function useTimelineSelection({
 }: UseTimelineSelectionParams) {
 	const selectedAnnotation = annotationRegions.find((region) => region.id === selectedAnnotationId);
 	const keyframes = useMemo(() => (selectedAnnotation?.keyframes ?? []).map((frame) => ({
-		id: frame.id, time: selectedAnnotation!.startMs + frame.timeMs, property: frame.property, easing: frame.easing,
-	})).sort((a, b) => a.time - b.time), [selectedAnnotation]);
+		id: frame.id, time: selectedAnnotation!.startMs + frame.timeMs - (selectedAnnotation!.keyframeTimeOffsetMs ?? 0), property: frame.property, easing: frame.easing,
+	})).filter(frame => frame.time >= selectedAnnotation!.startMs && frame.time <= selectedAnnotation!.endMs).sort((a, b) => a.time - b.time), [selectedAnnotation]);
 	const [selectedKeyframeId, setSelectedKeyframeId] = useState<string | null>(null);
 	useEffect(() => {
 		setSelectedKeyframeId(null);

@@ -92,9 +92,9 @@ import {
 import { isVideoWallpaperSource } from "@/lib/wallpapers";
 import {
 	type AnnotationRenderAssets,
+	destroyAnnotationAssets,
 	preloadAnnotationAssets,
 	renderAnnotations,
-	renderAnnotationToCanvas,
 } from "./annotationRenderer";
 import { ForwardFrameSource } from "./forwardFrameSource";
 import { resolveMediaElementSource } from "./localMediaSource";
@@ -647,7 +647,7 @@ export class FrameRenderer {
 
 		this.annotationScaleFactor = this.calculateAnnotationScaleFactor();
 		this.annotationAssets = await preloadAnnotationAssets(this.config.annotationRegions ?? []);
-		await this.setupAnnotationLayer();
+		// Dynamic overlays are composited after the scene render.
 
 		if (this.shouldUseZoomMotionBlur()) {
 			this.zoomBlurFilter = new ZoomBlurFilter({
@@ -1471,12 +1471,9 @@ export class FrameRenderer {
 	}
 
 	private hasActiveBlurAnnotations(timeMs: number): boolean {
-		return (this.config.annotationRegions ?? []).some(
-			(annotation) =>
-				annotation.type === "blur" &&
-				timeMs >= annotation.startMs &&
-				timeMs <= annotation.endMs,
-		);
+		// All overlays share the dynamic compositor: keyframes, GIFs and video need per-frame sampling.
+		return (this.config.annotationRegions ?? []).some(annotation =>
+			annotation.visible !== false && timeMs >= annotation.startMs && timeMs < annotation.endMs);
 	}
 
 	private ensureExportCompositeCanvas(): ExportCompositeCanvasState | null {
@@ -1569,51 +1566,6 @@ export class FrameRenderer {
 		this.outputCanvasOverride = canvas;
 	}
 
-	private async setupAnnotationLayer(): Promise<void> {
-		if (!this.annotationContainer) {
-			return;
-		}
-
-		for (const entry of this.annotationSprites) {
-			entry.sprite.destroy({ texture: false, textureSource: false });
-			entry.texture.destroy(true);
-		}
-		this.annotationSprites = [];
-		this.annotationContainer.removeChildren();
-
-		const annotations = [...(this.config.annotationRegions ?? [])].sort(
-			(first, second) => first.zIndex - second.zIndex,
-		);
-
-		for (const annotation of annotations) {
-			const x = (annotation.position.x / 100) * this.config.width;
-			const y = (annotation.position.y / 100) * this.config.height;
-			const width = (annotation.size.width / 100) * this.config.width;
-			const height = (annotation.size.height / 100) * this.config.height;
-
-			if (width <= 0 || height <= 0) {
-				continue;
-			}
-
-			const canvas = await renderAnnotationToCanvas(
-				annotation,
-				width,
-				height,
-				this.annotationScaleFactor,
-				this.annotationAssets ?? undefined,
-			);
-			if (!canvas) {
-				continue;
-			}
-
-			const texture = Texture.from(canvas);
-			const sprite = new Sprite(texture);
-			sprite.position.set(x, y);
-			sprite.visible = false;
-			this.annotationContainer.addChild(sprite);
-			this.annotationSprites.push({ annotation, sprite, texture });
-		}
-	}
 
 	private updateAnnotationLayer(currentTimeMs: number): void {
 		for (const entry of this.annotationSprites) {
@@ -3833,6 +3785,7 @@ export class FrameRenderer {
 		this.zoomBlurFilter = null;
 		this.motionBlurFilter = null;
 		this.backgroundBlurFilter = null;
+		destroyAnnotationAssets(this.annotationAssets);
 		this.annotationAssets = null;
 		this.annotationSprites = [];
 		this.videoShadowLayers = [];

@@ -15,14 +15,22 @@ Fondasi yang diperbaiki:
 - Load dan pruning memakai daftar referensi media proyek yang sama, termasuk scene, layer, audio, dan gambar anotasi.
 - Integrasi caption yang telah dihapus dibersihkan dari editor dan preload. Caption belum tersedia kembali.
 
-Gerbang sebelum Phase 8:
-- [ ] Implementasikan compositor video multi-layer nyata: source clock, trim, speed, z-order, visibility, audio, serta lifecycle decoder per layer.
-- [ ] Buktikan paritas preview/export lewat proyek dua video bertumpuk, seek, split, save/load, dan hasil ekspor.
-- [ ] Satukan history operasi scene dan layer; uji undo/redo lintas pergantian scene.
-- [ ] Pisahkan orchestration proyek, playback, dan export dari komponen VideoEditor secara bertahap.
-- [ ] Bangun ulang caption dengan kontrak data, IPC, dan pengujian preview/export yang lengkap.
+Status implementasi Phase 7 (19 September 2026):
+- [x] Compositor video berlapis: decoder/source clock per layer, offset, speed, split, z-order, visibility, mute, opacity, dan blend mode.
+- [x] History scene/layer: load, duplicate, undo, redo, dan save layer per scene diuji lewat Electron.
+- [x] Preview/export memakai sampler transform dan envelope fade/slide bersama; GIF mengikuti playhead.
+- [x] MP4 dua video bertumpuk: 120 frame pada 30 fps, warna z-order benar, H.264 dan AAC terbaca.
+- [x] Ekspor dua scene dengan layer berbeda berhasil; pemeriksaan frame detik 1 dan 5 sesuai scene.
+- [x] Custom cubic Bezier dan nilai property keyframe tersedia di inspector.
 
-Kontrak arah arsitektur: satu proyek berisi scene, setiap scene memiliki layer bertipe; Record Editor dan Video Editor menjadi dua tampilan atas model tersebut. `MediaTrackLayer` tersimpan saat ini, tetapi keberadaan tipe/persistensi belum berarti compositor videonya selesai.
+Gerbang penerimaan penuh sebelum Phase 8:
+- [ ] Perluas matriks paritas visual: semua blend mode, motion blur, GIF disposal, kombinasi trim/speed lintas scene.
+- [ ] Validasi voiceover dengan mikrofon nyata; putaran ini memakai audio sintetis.
+- [ ] Pisahkan orchestration proyek, playback, dan export dari VideoEditor secara bertahap.
+
+Caption tetap di luar lingkup Phase 7 karena fiturnya telah ditarik; pembangunan ulang memerlukan milestone tersendiri.
+
+Kontrak arsitektur: scene menyimpan `annotationRegions` dan `audioRegions`; `mediaTrackLayers` lama dimigrasikan saat load. Record Editor dan Video Editor memakai model layer yang sama. Phase 7 tetap parsial sampai gerbang penerimaan terpenuhi.
 
 ---
 
@@ -210,10 +218,10 @@ Captr Studio memisahkan alur kerja pembuatan konten ke dalam **2 Editor Utama** 
 > Sementara *Slide Record* sudah matang untuk alur tangkapan layar, Phase 7 berpusat pada perancangan lingkungan kerja penuh bagi slide video mandiri: kanvas media multi-track (ala CapCut/Filmora), studio rekaman audio langsung per-slide, dan engine keyframing dinamis.
 
 #### 📦 Sub-Phase 7.1: Multi-Track Media Layers Engine (CapCut / Filmora Style)
-- [ ] **Multi-Track Timeline Canvas**:
+- [x] **Multi-Track Timeline Canvas**:
   - Kemampuan menyisipkan banyak media sekaligus di dalam satu slide/timeline (Video B-Roll, Tangkapan Gambar, Logo PNG, Stiker Animasi, GIF, Text Overlays).
   - Sistem susunan *Z-Index Stacking* visual (drag-and-drop antar track untuk reordering layer).
-- [ ] **Layer Controls & Blend Modes**:
+- [x] **Layer Controls & Blend Modes**:
   - Kontrol per-layer: Visibility toggle (👁️), Lock track (🔒), Mute media audio (🔇), dan Opacity slider.
   - Dukungan Blend Mode grafis (*Multiply, Screen, Overlay, Soft Light*) untuk efek visual estetik.
 - [x] **Canvas Safe Zones & Snapping Guides**:
@@ -239,7 +247,7 @@ Captr Studio memisahkan alur kerja pembuatan konten ke dalam **2 Editor Utama** 
     - **Scale** (`Width`, `Height` / Uniform Scale) — efek zoom in/out dan pop visual.
     - **Rotation** (`Degree` / `Rad`) — rotasi miring atau berputar.
     - **Opacity** (`0% - 100%`) — animasi fade-in / fade-out kustom.
-- [ ] **Visual Curve & Bezier Easing Selector**:
+- [x] **Visual Curve & Bezier Easing Selector**:
   - Pilihan kurva interpolasi per keyframe: *Linear*, *Ease-In*, *Ease-Out*, *Ease-In-Out*, *Spring Bounce*, dan *Custom Cubic Bezier*.
 - [x] **Keyframe Manipulation UI**:
   - Drag-to-move keyframe pada timeline, quick add/remove per property, serta list keyframe interaktif di Inspector panel.

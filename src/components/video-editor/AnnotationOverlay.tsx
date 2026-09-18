@@ -1,3 +1,7 @@
+import { sampleLayerAnimation } from "./layerAnimation";
+import { ImageLayerPreview } from "./ImageLayerPreview";
+import { GifLayerPreview } from "./GifLayerPreview";
+import { VideoLayerPreview } from "./VideoLayerPreview";
 import { sampleAnnotationTransform } from "./annotationKeyframes";
 import { useRef, useState } from "react";
 import { Rnd } from "react-rnd";
@@ -17,6 +21,7 @@ interface AnnotationOverlayProps {
 	zIndex: number;
 	isSelectedBoost: boolean; // Boost z-index when selected for easy editing
 	currentTimeMs?: number;
+	isPlaying?: boolean;
 }
 
 export function AnnotationOverlay({
@@ -30,6 +35,7 @@ export function AnnotationOverlay({
 	zIndex,
 	isSelectedBoost,
 	currentTimeMs,
+	isPlaying = false,
 }: AnnotationOverlayProps) {
 	const isDraggingRef = useRef(false);
 	const [snapGuides, setSnapGuides] = useState<{
@@ -38,7 +44,7 @@ export function AnnotationOverlay({
 	}>({});
 
 	// If explicitly set to not visible, don't render
-	if (annotation.visible === false && !isSelected) {
+	if (annotation.visible === false) {
 		return null;
 	}
 
@@ -50,28 +56,9 @@ export function AnnotationOverlay({
 	const width = (annotation.size.width / 100) * containerWidth * interpolatedScale;
 	const height = (annotation.size.height / 100) * containerHeight * interpolatedScale;
 
-	const animDuration = annotation.animationDurationMs ?? 500;
-	let animOpacity = interpolatedOpacity;
-	let animTranslateY = 0;
-
-	if (currentTimeMs !== undefined && animDuration > 0) {
-		const elapsed = currentTimeMs - annotation.startMs;
-		const remaining = annotation.endMs - currentTimeMs;
-
-		if (annotation.animationIn === "fade") {
-			const progress = Math.min(1, Math.max(0, elapsed / animDuration));
-			animOpacity *= progress;
-		} else if (annotation.animationIn === "slide-up") {
-			const progress = Math.min(1, Math.max(0, elapsed / animDuration));
-			animOpacity *= progress;
-			animTranslateY = (1 - progress) * 20;
-		}
-
-		if (annotation.animationOut === "fade") {
-			const progress = Math.min(1, Math.max(0, remaining / animDuration));
-			animOpacity *= progress;
-		}
-	}
+	const animation = sampleLayerAnimation(annotation, currentTimeMs ?? annotation.startMs);
+	const animOpacity = interpolatedOpacity * animation.opacity;
+	const animTranslateY = animation.translateY;
 
 	const renderArrow = () => {
 		const direction = annotation.figureData?.arrowDirection || "right";
@@ -84,6 +71,8 @@ export function AnnotationOverlay({
 
 	const renderContent = () => {
 		switch (annotation.type) {
+			case "video":
+				return <VideoLayerPreview layer={annotation} timeMs={currentTimeMs ?? annotation.startMs} playing={isPlaying} />;
 			case "text":
 				return (
 					<div
@@ -126,35 +115,7 @@ export function AnnotationOverlay({
 				);
 
 			case "image":
-				if (annotation.imageContent || annotation.content) {
-					const src = annotation.imageContent || annotation.content;
-					if (src && src.startsWith("data:image")) {
-						const style: React.CSSProperties = {
-							opacity: annotation.style?.opacity ?? 1,
-						};
-						if (annotation.style?.dropShadow) {
-							const blur = annotation.style.dropShadowBlur ?? 8;
-							const offsetX = annotation.style.dropShadowOffsetX ?? 0;
-							const offsetY = annotation.style.dropShadowOffsetY ?? 4;
-							const color = annotation.style.dropShadowColor || "rgba(0,0,0,0.5)";
-							style.filter = `drop-shadow(${offsetX}px ${offsetY}px ${blur}px ${color})`;
-						}
-						return (
-							<img
-								src={src}
-								alt="Sticker"
-								className="w-full h-full object-contain"
-								draggable={false}
-								style={style}
-							/>
-						);
-					}
-				}
-				return (
-					<div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-						No image
-					</div>
-				);
+				return <ImageLayerPreview layer={annotation} />;
 
 			case "figure":
 				if (!annotation.figureData) {
@@ -191,50 +152,9 @@ export function AnnotationOverlay({
 			}
 
 			case "gif":
-				if (annotation.gifDataUrl || annotation.gifPath) {
-					const style: React.CSSProperties = {
-						opacity: annotation.style?.opacity ?? 1,
-						imageRendering: 'auto'
-					};
-					if (annotation.style?.dropShadow) {
-						const blur = annotation.style.dropShadowBlur ?? 8;
-						const offsetX = annotation.style.dropShadowOffsetX ?? 0;
-						const offsetY = annotation.style.dropShadowOffsetY ?? 4;
-						const color = annotation.style.dropShadowColor || "rgba(0,0,0,0.5)";
-						style.filter = `drop-shadow(${offsetX}px ${offsetY}px ${blur}px ${color})`;
-					}
-					return (
-						<img
-							src={annotation.gifDataUrl || ''}
-							alt="GIF overlay"
-							className="w-full h-full object-contain"
-							draggable={false}
-							style={style}
-						/>
-					);
-				}
-				return (
-					<div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-						No GIF loaded
-					</div>
-				);
+				return <GifLayerPreview layer={annotation} timeMs={currentTimeMs ?? annotation.startMs} />;
 
 			default:
-				if (annotation.videoFilePath) {
-					const videoSrc = annotation.videoFilePath.startsWith("http") || annotation.videoFilePath.startsWith("file:")
-						? annotation.videoFilePath
-						: `file://${annotation.videoFilePath.replace(/\\/g, "/")}`;
-					return (
-						<video
-							src={videoSrc}
-							className="w-full h-full object-contain pointer-events-none rounded-md"
-							autoPlay
-							loop
-							muted={annotation.muted ?? true}
-							playsInline
-						/>
-					);
-				}
 				return null;
 		}
 	};

@@ -12,6 +12,8 @@ export interface ResolvedAudioTrack {
 		path: string;
 		startDelayMs: number;
 	};
+	sourceOffsetMs?: number;
+	playbackRate?: number;
 	gain: number;
 	timelineBinding: {
 		startMs: number;
@@ -72,6 +74,8 @@ export function buildResolvedAudioPlan(input: {
 	const resolvedRegions = (input.audioRegions ?? []).slice().sort((a, b) => a.startMs - b.startMs);
 	const tracks: ResolvedAudioTrack[] = resolvedRegions.map((region) => ({
 		id: `user:${region.id}`,
+	sourceOffsetMs: region.sourceOffsetMs,
+	playbackRate: region.playbackRate,
 		kind: "user",
 		sourceRef: {
 			path: region.audioPath,

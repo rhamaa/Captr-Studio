@@ -1,13 +1,17 @@
+import { sampleLayerAnimation } from "@/components/video-editor/layerAnimation";
+import { resolveMediaElementSource } from "./localMediaSource";
+import { LayerVideoSource } from "./layerVideoSource";
+import { mediaLayerSourceTime } from "@/components/video-editor/mediaLayerTiming";
 import { sampleAnnotationTransform } from "@/components/video-editor/annotationKeyframes";
 import {
 	type AnnotationRegion,
 	type ArrowDirection,
 	BLUR_ANNOTATION_STRENGTH,
-	type AnnotationTextStyle,
 } from "@/components/video-editor/types";
 import { decodeGif, getGifFrameAtTime } from '@/lib/gifDecoder';
 
 export interface AnnotationRenderAssets {
+	videoCache?: Map<string, LayerVideoSource>;
 	imageCache: Map<string, HTMLImageElement>;
 	gifCache: Map<string, import('@/lib/gifDecoder').DecodedGif>;
 	fileImageCache: Map<string, HTMLImageElement>;
@@ -44,6 +48,7 @@ function loadAnnotationImage(source: string): Promise<HTMLImageElement | null> {
 
 	const loadPromise = new Promise<HTMLImageElement | null>((resolve) => {
 		const img = new Image();
+		img.crossOrigin = "anonymous";
 		img.onload = () => resolve(img);
 		img.onerror = () => {
 			console.error("[AnnotationRenderer] Failed to load image annotation");
@@ -82,11 +87,9 @@ export async function preloadAnnotationAssets(
 				if (source.startsWith('file:')) {
 					const filePath = source.slice(5);
 					try {
-						const res = await fetch('file://' + filePath.replace(/\\/g, '/'));
-						const blob = await res.blob();
-						const url = URL.createObjectURL(blob);
-						const image = await loadAnnotationImage(url);
-						if (image) fileImageCache.set(filePath, image);
+						const resolved = await resolveMediaElementSource(filePath);
+						try { const image = await loadAnnotationImage(resolved.src); if (image) fileImageCache.set(filePath, image); }
+						finally { resolved.revoke(); }
 					} catch (e) {
 						console.error("[AnnotationRenderer] Failed to load file image", filePath, e);
 					}
@@ -98,16 +101,30 @@ export async function preloadAnnotationAssets(
 		);
 	}
 
-	const gifAnnotations = annotations.filter((a) => a.type === 'gif' && a.gifDataUrl);
+	const gifAnnotations = annotations.filter((a) => a.type === "gif" && (a.gifDataUrl || a.gifPath));
 	const gifCacheMap = new Map<string, import('@/lib/gifDecoder').DecodedGif>();
 	for (const ann of gifAnnotations) {
-		if (ann.gifDataUrl && !gifCacheMap.has(ann.gifDataUrl)) {
-			const decoded = await decodeGif(ann.gifDataUrl);
-			if (decoded) gifCacheMap.set(ann.gifDataUrl, decoded);
-		}
+		const key = ann.gifDataUrl || ann.gifPath!;
+		if (gifCacheMap.has(key)) continue;
+		const source = await resolveMediaElementSource(key);
+		try { const decoded = await decodeGif(source.src); if (decoded) gifCacheMap.set(key, decoded); }
+		finally { source.revoke(); }
 	}
 
+	const videoCache = new Map<string, LayerVideoSource>();
+	try {
+		for (const annotation of annotations) {
+			if (annotation.type !== "video" || annotation.visible === false || !annotation.videoFilePath) continue;
+			const decoder = new LayerVideoSource();
+			videoCache.set(annotation.id, decoder);
+			await decoder.load(annotation.videoFilePath);
+		}
+	} catch (error) {
+		for (const decoder of videoCache.values()) decoder.destroy();
+		throw error;
+	}
 	return {
+		videoCache,
 		imageCache,
 		fileImageCache,
 		gifCache: gifCacheMap,
@@ -214,34 +231,11 @@ function renderText(
 	width: number,
 	height: number,
 	scaleFactor: number,
-	currentTimeMs?: number,
 ) {
 	const style = annotation.style;
 
 	ctx.save();
 
-	const animDuration = annotation.animationDurationMs ?? 500;
-	let animAlpha = (annotation.style.opacity ?? 1);
-	let slideY = 0;
-
-	if (currentTimeMs !== undefined && animDuration > 0) {
-		const elapsed = currentTimeMs - annotation.startMs;
-		const remaining = annotation.endMs - currentTimeMs;
-
-		if (annotation.animationIn === "fade") {
-			animAlpha *= Math.min(1, Math.max(0, elapsed / animDuration));
-		} else if (annotation.animationIn === "slide-up") {
-			const progress = Math.min(1, Math.max(0, elapsed / animDuration));
-			animAlpha *= progress;
-			slideY = (1 - progress) * (20 * scaleFactor);
-		}
-
-		if (annotation.animationOut === "fade") {
-			animAlpha *= Math.min(1, Math.max(0, remaining / animDuration));
-		}
-	}
-
-	ctx.globalAlpha = Math.max(0, Math.min(1, animAlpha));
 
 	if (style.dropShadow) {
 		ctx.shadowColor = style.dropShadowColor || "rgba(0, 0, 0, 0.5)";
@@ -263,7 +257,7 @@ function renderText(
 	const containerPadding = 8 * scaleFactor;
 
 	let textX = x;
-	const textY = y + height / 2 + slideY;
+	const textY = y + height / 2;
 
 	if (style.textAlign === "center") {
 		textX = x + width / 2;
@@ -367,7 +361,7 @@ async function renderImage(
 ): Promise<void> {
 	let img: HTMLImageElement | undefined | null = null;
 	const source = getAnnotationImageContent(annotation);
-	
+
 	if (source?.startsWith('file:')) {
 		const filePath = source.slice(5);
 		img = assets?.fileImageCache.get(filePath);
@@ -399,9 +393,7 @@ async function renderImage(
 
 	const style = annotation.style;
 	ctx.save();
-	if (style.opacity !== undefined && style.opacity !== 1) {
-		ctx.globalAlpha = style.opacity;
-	}
+
 	if (style.dropShadow) {
 		ctx.shadowColor = style.dropShadowColor || 'rgba(0,0,0,0.5)';
 		ctx.shadowBlur = (style.dropShadowBlur ?? 8) * scaleFactor;
@@ -419,7 +411,7 @@ async function renderGif(
 	currentTimeMs: number,
 	assets?: AnnotationRenderAssets,
 ): Promise<void> {
-	const dataUrl = annotation.gifDataUrl;
+	const dataUrl = annotation.gifDataUrl || annotation.gifPath;
 	if (!dataUrl) return;
 
 	let gif = assets?.gifCache.get(dataUrl) ?? null;
@@ -436,12 +428,9 @@ async function renderGif(
 	const offCtx = offscreen.getContext('2d')!;
 	offCtx.putImageData(frame.imageData, 0, 0);
 
-	// Respect opacity if set
-	const opacity = (annotation.style as AnnotationTextStyle & { opacity?: number }).opacity ?? 1;
-	ctx.save();
-	ctx.globalAlpha = opacity;
-	ctx.drawImage(offscreen, x, y, width, height);
-	ctx.restore();
+	const ratio = Math.min(width / gif.width, height / gif.height);
+	const w = gif.width * ratio, h = gif.height * ratio;
+	ctx.drawImage(offscreen, x + (width - w) / 2, y + (height - h) / 2, w, h);
 }
 
 
@@ -459,7 +448,7 @@ export async function renderAnnotations(
 		(ann) =>
 			ann.visible !== false &&
 			currentTimeMs >= ann.startMs &&
-			currentTimeMs <= ann.endMs,
+			currentTimeMs < ann.endMs,
 	);
 
 	const sortedAnnotations = [...activeAnnotations].sort((a, b) => a.zIndex - b.zIndex);
@@ -473,16 +462,9 @@ export async function renderAnnotations(
 		const height = (annotation.size.height / 100) * canvasHeight * interpolatedScale;
 
 		ctx.save();
-		if (annotation.blendMode && annotation.blendMode !== "normal") {
-			ctx.globalCompositeOperation =
-				annotation.blendMode === "multiply"
-					? "multiply"
-					: annotation.blendMode === "screen"
-						? "screen"
-						: annotation.blendMode === "overlay"
-							? "overlay"
-							: "source-over";
-		}
+		const animation = sampleLayerAnimation(annotation, currentTimeMs);
+		if (animation.translateY) ctx.translate(0, animation.translateY * scaleFactor);
+		ctx.globalCompositeOperation = annotation.blendMode && annotation.blendMode !== "normal" ? annotation.blendMode : "source-over";
 		if (interpolatedRotation !== 0) {
 			const cx = x + width / 2;
 			const cy = y + height / 2;
@@ -490,19 +472,28 @@ export async function renderAnnotations(
 			ctx.rotate((interpolatedRotation * Math.PI) / 180);
 			ctx.translate(-cx, -cy);
 		}
-		if (interpolatedOpacity !== 1) {
-			ctx.globalAlpha = interpolatedOpacity;
+		if (interpolatedOpacity * animation.opacity !== 1) {
+			ctx.globalAlpha = interpolatedOpacity * animation.opacity;
 		}
 
 		switch (annotation.type) {
+			case "video": {
+				const decoder = assets?.videoCache?.get(annotation.id);
+				if (!decoder) throw new Error(`Missing video layer decoder: ${annotation.id}`);
+				const video = await decoder.frame(mediaLayerSourceTime(annotation, currentTimeMs));
+				const ratio = Math.min(width / video.videoWidth, height / video.videoHeight);
+				const w = video.videoWidth * ratio, h = video.videoHeight * ratio;
+				ctx.drawImage(video, x + (width - w) / 2, y + (height - h) / 2, w, h);
+				break;
+			}
 			case "text":
-				renderText(ctx, annotation, x, y, width, height, scaleFactor, currentTimeMs);
+				renderText(ctx, annotation, x, y, width, height, scaleFactor);
 				break;
 
 			case "image":
 				await renderImage(ctx, annotation, x, y, width, height, scaleFactor, assets);
 				break;
-			
+
 			case "gif":
 				await renderGif(ctx, annotation, x, y, width, height, currentTimeMs, assets);
 				break;
@@ -593,13 +584,14 @@ export async function renderAnnotationToCanvas(
 
 	switch (annotation.type) {
 		case "text":
-			renderText(ctx, annotation, 0, 0, canvasWidth, canvasHeight, scaleFactor, undefined);
+			renderText(ctx, annotation, 0, 0, canvasWidth, canvasHeight, scaleFactor);
 			break;
 
 		case "image":
 			await renderImage(ctx, annotation, 0, 0, canvasWidth, canvasHeight, scaleFactor, assets);
 			break;
 
+		case "video":
 		case "gif":
 			// GIF cannot be rendered standalone (needs currentTime for frame selection)
 			return null;
@@ -631,3 +623,8 @@ export async function renderAnnotationToCanvas(
 }
 
 
+
+export function destroyAnnotationAssets(assets: AnnotationRenderAssets | null): void {
+	for (const decoder of assets?.videoCache?.values() ?? []) decoder.destroy();
+	assets?.videoCache?.clear();
+}

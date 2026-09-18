@@ -3,7 +3,7 @@ import type { KeyframeEasing, KeyframeProperty, PropertyKeyframe } from "./types
 /**
  * Calculates easing progress (0 to 1) based on KeyframeEasing type.
  */
-export function calculateEasingProgress(t: number, easing: KeyframeEasing = "ease-in-out"): number {
+export function calculateEasingProgress(t: number, easing: KeyframeEasing = "ease-in-out", bezier?: [number, number, number, number]): number {
 	const clamped = Math.max(0, Math.min(1, t));
 
 	switch (easing) {
@@ -26,7 +26,13 @@ export function calculateEasingProgress(t: number, easing: KeyframeEasing = "eas
 					? 1
 					: Math.pow(2, -10 * clamped) * Math.sin((clamped * 10 - 0.75) * c4) + 1;
 		}
-		case "cubic-bezier":
+		case "cubic-bezier": {
+			const [x1, y1, x2, y2] = bezier ?? [0.42, 0, 0.58, 1];
+			const sample = (u: number, a: number, b: number) => 3 * (1-u) ** 2 * u * a + 3 * (1-u) * u*u * b + u*u*u;
+			let low = 0, high = 1;
+			for (let i = 0; i < 30; i++) { const mid = (low + high) / 2; if (sample(mid, x1, x2) < clamped) low = mid; else high = mid; }
+			return sample((low + high) / 2, y1, y2);
+		}
 		default:
 			// Default smooth cubic bezier-like curve
 			return clamped * clamped * (3 - 2 * clamped);
@@ -69,7 +75,7 @@ export function interpolateNumericKeyframe(
 		if (currentTimeMs >= kfStart.timeMs && currentTimeMs <= kfEnd.timeMs) {
 			const segmentDuration = Math.max(1, kfEnd.timeMs - kfStart.timeMs);
 			const rawProgress = (currentTimeMs - kfStart.timeMs) / segmentDuration;
-			const easedProgress = calculateEasingProgress(rawProgress, kfStart.easing);
+			const easedProgress = calculateEasingProgress(rawProgress, kfStart.easing, kfStart.bezier);
 
 			const startVal = kfStart.value as number;
 			const endVal = kfEnd.value as number;
@@ -120,7 +126,7 @@ export function interpolatePositionKeyframe(
 		if (currentTimeMs >= kfStart.timeMs && currentTimeMs <= kfEnd.timeMs) {
 			const segmentDuration = Math.max(1, kfEnd.timeMs - kfStart.timeMs);
 			const rawProgress = (currentTimeMs - kfStart.timeMs) / segmentDuration;
-			const easedProgress = calculateEasingProgress(rawProgress, kfStart.easing);
+			const easedProgress = calculateEasingProgress(rawProgress, kfStart.easing, kfStart.bezier);
 
 			const startVal = kfStart.value as { x: number; y: number };
 			const endVal = kfEnd.value as { x: number; y: number };

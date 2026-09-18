@@ -1,3 +1,4 @@
+import { KeyframeValueEditor } from "./KeyframeValueEditor";
 import { addAnnotationKeyframe, getAnnotationLocalTime } from "../annotationKeyframes";
 import { Diamond, Plus, Trash as Trash2 } from "@phosphor-icons/react";
 import { toast } from "sonner";
@@ -133,6 +134,7 @@ export function AnnotationKeyframeSection({
 												"bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]",
 										)}
 									/>
+									<KeyframeValueEditor frame={kf} disabled={annotation.locked} onChange={changes => onLayerChange?.({ keyframes: annotation.keyframes?.map(frame => frame.id === kf.id ? { ...frame, ...changes } : frame) })} />
 									<span className="capitalize font-medium text-foreground text-[11px] truncate">
 										{kf.property}
 									</span>
@@ -156,6 +158,7 @@ export function AnnotationKeyframeSection({
 											<SelectItem value="ease-in">Ease In</SelectItem>
 											<SelectItem value="ease-out">Ease Out</SelectItem>
 											<SelectItem value="ease-in-out">Ease In-Out</SelectItem>
+											<SelectItem value="cubic-bezier">Custom Bezier</SelectItem>
 											<SelectItem value="spring-bounce">Spring</SelectItem>
 										</SelectContent>
 									</Select>
