@@ -226,5 +226,32 @@
 		"duckingDesc": "Lower volume when voice is detected",
 		"duckingSettings": "Ducking Reduction",
 		"duckingAmount": "Reduction"
+	},
+	"layout": {
+		"title": "Layout scene",
+		"subtitle": "Screen and webcam composition",
+		"category": "Layout",
+		"details": "Details",
+		"transition": "Transition",
+		"easing": "Easing",
+		"empty": "Select or add a layout scene on the timeline.",
+		"categories": {
+			"camera-bubble": {
+				"label": "Camera Bubble",
+				"description": "Floating camera over screen"
+			},
+			"side-by-side": {
+				"label": "Side by Side",
+				"description": "Split screen & camera"
+			},
+			"camera-only": {
+				"label": "Camera Only",
+				"description": "Full webcam focus"
+			},
+			"screen-only": {
+				"label": "Screen Only",
+				"description": "Full screen focus"
+			}
+		}
 	}
 }
