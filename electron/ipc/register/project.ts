@@ -950,4 +950,40 @@ export function registerProjectHandlers() {
 		}
 		return { success: true as const, url: buildMediaUrl(baseUrl, resolved) };
 	});
+
+	ipcMain.handle("open-video-file-picker", async () => {
+		const result = await dialog.showOpenDialog({
+			title: "Select Video File",
+			filters: [{ name: "Videos", extensions: ["mp4", "webm", "mov", "mkv"] }],
+			properties: ["openFile"],
+		});
+		if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+			return { canceled: true, filePath: null };
+		}
+		const chosen = result.filePaths[0];
+		await rememberApprovedLocalReadPath(chosen);
+		return { canceled: false, filePath: chosen };
+	});
+
+	ipcMain.handle("open-audio-file-picker", async () => {
+		const result = await dialog.showOpenDialog({
+			title: "Select Audio File",
+			filters: [{ name: "Audio", extensions: ["mp3", "wav", "aac", "m4a", "ogg"] }],
+			properties: ["openFile"],
+		});
+		if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+			return { canceled: true, filePath: null };
+		}
+		const chosen = result.filePaths[0];
+		await rememberApprovedLocalReadPath(chosen);
+		return { canceled: false, filePath: chosen };
+	});
+
+	ipcMain.handle("approve-local-media-path", async (_, filePath: string) => {
+		if (typeof filePath === "string" && filePath.trim()) {
+			await rememberApprovedLocalReadPath(filePath);
+			return { success: true };
+		}
+		return { success: false };
+	});
 }

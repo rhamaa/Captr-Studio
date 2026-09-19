@@ -708,6 +708,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
 			{ success: true; url: string } | { success: false }
 		>;
 	},
+	approveLocalMediaPath: (filePath: string) => {
+		return ipcRenderer.invoke("approve-local-media-path", filePath) as Promise<{
+			success: boolean;
+		}>;
+	},
 	saveProjectFile: (
 		projectData: unknown,
 		suggestedName?: string,

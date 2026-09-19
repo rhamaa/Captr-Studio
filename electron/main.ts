@@ -25,6 +25,7 @@ import {
 	killWindowsCaptureProcess,
 	registerIpcHandlers,
 } from "./ipc/handlers";
+import { rememberApprovedLocalReadPath } from "./ipc/project/manager";
 import { getScreen } from "./ipc/utils";
 import { ensureMediaServer } from "./mediaServer";
 import { ensurePackagedRendererServer } from "./rendererServer";
@@ -699,6 +700,11 @@ function getUpdateDialogWindow() {
 
 ipcMain.handle("show-open-dialog", async (_event, options: Electron.OpenDialogOptions) => {
 	const result = await dialog.showOpenDialog(options);
+	if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
+		for (const filePath of result.filePaths) {
+			await rememberApprovedLocalReadPath(filePath);
+		}
+	}
 	return result;
 });
 

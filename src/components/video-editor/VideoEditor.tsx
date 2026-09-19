@@ -3196,6 +3196,9 @@ export default function VideoEditor() {
 					}
 					filePath = result.filePaths[0];
 				}
+				if (window.electronAPI?.approveLocalMediaPath) {
+					await window.electronAPI.approveLocalMediaPath(filePath);
+				}
 				const newVideoUrl = await resolveVideoUrl(filePath);
 				const durationMs = await new Promise<number>((resolve) => {
 					const video = document.createElement("video");
@@ -3277,6 +3280,19 @@ export default function VideoEditor() {
 			}
 		},
 		[deriveUniqueClipId, videoPath, handleSelectClip, buildHistorySnapshot, syncHistoryButtons],
+	);
+
+	const handleVideoPlaybackError = useCallback(
+		(errorMessage: string) => {
+			console.error("[VideoEditor] Playback error:", errorMessage);
+			toast.error(errorMessage, {
+				description: "Format video tidak didukung atau file tidak dapat dimuat di player.",
+			});
+			if (!clipsRef.current.length && !videoSourcePathRef.current) {
+				setError(errorMessage);
+			}
+		},
+		[],
 	);
 
 	const handleDuplicateSlide = useCallback(
@@ -8315,7 +8331,7 @@ export default function VideoEditor() {
 													onTimeUpdate={setCurrentTime}
 													currentTime={currentTime}
 													onPlayStateChange={setIsPlaying}
-													onError={setError}
+													onError={handleVideoPlaybackError}
 													wallpaper={wallpaper}
 													zoomRegions={effectiveZoomRegions}
 													selectedZoomId={selectedZoomId}

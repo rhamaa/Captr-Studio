@@ -942,6 +942,7 @@ interface Window {
 		closeWindow: () => Promise<{ success: boolean }>;
 		setWindowMode: (mode: "welcome" | "editor") => Promise<{ success: boolean }>;
 		onWindowMaximizedChange: (callback: (isMaximized: boolean) => void) => () => void;
+		approveLocalMediaPath?: (filePath: string) => Promise<{ success: boolean }>;
 	};
 }
 

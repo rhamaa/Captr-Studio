@@ -308,6 +308,9 @@ export function deriveNextId(prefix: string, ids: string[]): number {
  */
 export async function resolveVideoUrl(sourcePath: string): Promise<string> {
 	try {
+		if (window.electronAPI?.approveLocalMediaPath) {
+			await window.electronAPI.approveLocalMediaPath(sourcePath);
+		}
 		const result = await window.electronAPI.getLocalMediaUrl(sourcePath);
 		if (result.success) {
 			return result.url;
