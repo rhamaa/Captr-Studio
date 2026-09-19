@@ -9,10 +9,7 @@ import {
 	DEFAULT_LAYOUT_SCENE_PRESET,
 	DEFAULT_LAYOUT_SCENE_TRANSITION_MS,
 } from "./types";
-import {
-	getWebcamOverlayPosition,
-	getWebcamOverlaySizePx,
-} from "./webcamOverlay";
+import { getWebcamOverlayPosition, getWebcamOverlaySizePx } from "./webcamOverlay";
 
 export interface LayoutSceneLayerTransform {
 	x: number;
@@ -33,26 +30,31 @@ export interface ResolvedLayoutScene {
 export const LAYOUT_SCENE_CATEGORIES: Array<{
 	id: "camera-bubble" | "side-by-side" | "camera-only" | "screen-only";
 	label: string;
+	description: string;
 	value: LayoutScenePreset;
 }> = [
 	{
 		id: "camera-bubble",
 		label: "Camera Bubble",
+		description: "Floating camera over screen",
 		value: "bubble",
 	},
 	{
 		id: "side-by-side",
 		label: "Side-by-side",
+		description: "Split screen & camera",
 		value: "side-by-side",
 	},
 	{
 		id: "camera-only",
 		label: "Camera Only",
+		description: "Full webcam focus",
 		value: "webcam-only",
 	},
 	{
 		id: "screen-only",
 		label: "Screen Only",
+		description: "Full screen focus",
 		value: "screen-only",
 	},
 ];
@@ -185,14 +187,8 @@ function bubbleAt(params: {
 			? Math.round(params.stageWidth * 0.22)
 			: Math.round(Math.min(params.stageWidth, params.stageHeight) * 0.2);
 	const height = params.shape === "landscape" ? Math.round(width * 0.66) : width;
-	const x =
-		params.position === "bottom-left"
-			? margin
-			: params.stageWidth - width - margin;
-	const y =
-		params.position === "top-right"
-			? margin
-			: params.stageHeight - height - margin;
+	const x = params.position === "bottom-left" ? margin : params.stageWidth - width - margin;
+	const y = params.position === "top-right" ? margin : params.stageHeight - height - margin;
 
 	return layer({
 		x,
@@ -435,9 +431,7 @@ export function resolveLayoutSceneAtTime(params: {
 	const sorted = [...params.layoutRegions].sort((left, right) => left.startMs - right.startMs);
 
 	if (!active) {
-		const previous = [...sorted]
-			.reverse()
-			.find((region) => params.timeMs >= region.endMs);
+		const previous = [...sorted].reverse().find((region) => params.timeMs >= region.endMs);
 		if (!previous) return null;
 
 		const transitionMs = clamp(
@@ -460,19 +454,13 @@ export function resolveLayoutSceneAtTime(params: {
 	const activeIndex = sorted.findIndex((region) => region.id === active.id);
 	const previous = activeIndex > 0 ? sorted[activeIndex - 1] : null;
 	const base = getLayoutPresetTransform({ ...params, preset: active.preset });
-	const transitionMs = clamp(
-		active.transitionMs || DEFAULT_LAYOUT_SCENE_TRANSITION_MS,
-		0,
-		4000,
-	);
+	const transitionMs = clamp(active.transitionMs || DEFAULT_LAYOUT_SCENE_TRANSITION_MS, 0, 4000);
 
 	if (previous && transitionMs > 0 && params.timeMs - active.startMs < transitionMs) {
 		const from = getLayoutPresetTransform({
 			...params,
 			preset:
-				previous.endMs >= active.startMs
-					? previous.preset
-					: DEFAULT_LAYOUT_SCENE_PRESET,
+				previous.endMs >= active.startMs ? previous.preset : DEFAULT_LAYOUT_SCENE_PRESET,
 		});
 		const progress = ease((params.timeMs - active.startMs) / transitionMs, active.easing);
 		return {
@@ -497,9 +485,7 @@ export function resolveLayoutSceneAtTime(params: {
 
 export function normalizeLayoutRegion(region: Partial<LayoutRegion>, index = 0): LayoutRegion {
 	const startMs = Number.isFinite(region.startMs) ? Math.max(0, Math.round(region.startMs!)) : 0;
-	const rawEnd = Number.isFinite(region.endMs)
-		? Math.round(region.endMs!)
-		: startMs + 4000;
+	const rawEnd = Number.isFinite(region.endMs) ? Math.round(region.endMs!) : startMs + 4000;
 	const preset = LAYOUT_SCENE_PRESETS.some((option) => option.value === region.preset)
 		? region.preset!
 		: DEFAULT_LAYOUT_SCENE_PRESET;
