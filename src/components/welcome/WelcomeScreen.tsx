@@ -1,5 +1,5 @@
-import { LocalMediaImage } from "@/components/LocalMediaImage";
 import {
+	Eye as EyeIcon,
 	FolderOpen as FolderOpenIcon,
 	Gear as GearIcon,
 	MagnifyingGlass as MagnifyingGlassIcon,
@@ -10,9 +10,11 @@ import {
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { CaptrLogo } from "@/components/brand/CaptrLogo";
+import { LocalMediaImage } from "@/components/LocalMediaImage";
 import { Button } from "@/components/ui/button";
 import type { ProjectLibraryEntry } from "@/components/video-editor/ProjectBrowserDialog";
 import { toFileUrl } from "@/components/video-editor/projectPersistence";
+import { type ProjectInspectionResult, ProjectPreviewModal } from "./ProjectPreviewModal";
 
 interface WelcomeScreenProps {
 	onClose?: () => void;
@@ -54,7 +56,15 @@ function formatRelativeTime(timestamp: number): string {
 
 function MinimizeIcon({ className }: { className?: string }) {
 	return (
-		<svg className={className} width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.2">
+		<svg
+			className={className}
+			width="11"
+			height="11"
+			viewBox="0 0 11 11"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.2"
+		>
 			<line x1="1" y1="5.5" x2="10" y2="5.5" />
 		</svg>
 	);
@@ -62,7 +72,15 @@ function MinimizeIcon({ className }: { className?: string }) {
 
 function MaximizeIcon({ className }: { className?: string }) {
 	return (
-		<svg className={className} width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.2">
+		<svg
+			className={className}
+			width="11"
+			height="11"
+			viewBox="0 0 11 11"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.2"
+		>
 			<rect x="1" y="1" width="9" height="9" rx="1" />
 		</svg>
 	);
@@ -70,7 +88,15 @@ function MaximizeIcon({ className }: { className?: string }) {
 
 function RestoreIcon({ className }: { className?: string }) {
 	return (
-		<svg className={className} width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.2">
+		<svg
+			className={className}
+			width="11"
+			height="11"
+			viewBox="0 0 11 11"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.2"
+		>
 			<rect x="1.5" y="3.5" width="6.5" height="6.5" rx="1" />
 			<path d="M3.5 3.5V2C3.5 1.45 3.95 1 4.5 1H9C9.55 1 10 1.45 10 2V6.5C10 7.05 9.55 7.5 9 7.5H7.5" />
 		</svg>
@@ -79,7 +105,16 @@ function RestoreIcon({ className }: { className?: string }) {
 
 function CloseIcon({ className }: { className?: string }) {
 	return (
-		<svg className={className} width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
+		<svg
+			className={className}
+			width="11"
+			height="11"
+			viewBox="0 0 11 11"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.2"
+			strokeLinecap="round"
+		>
 			<line x1="1.5" y1="1.5" x2="9.5" y2="9.5" />
 			<line x1="9.5" y1="1.5" x2="1.5" y2="9.5" />
 		</svg>
@@ -100,9 +135,12 @@ export function WelcomeScreen({
 	const [isMaximized, setIsMaximized] = useState(false);
 
 	useEffect(() => {
-		window.electronAPI?.isWindowMaximized?.().then((maximized) => {
-			setIsMaximized(Boolean(maximized));
-		}).catch(() => {});
+		window.electronAPI
+			?.isWindowMaximized?.()
+			.then((maximized) => {
+				setIsMaximized(Boolean(maximized));
+			})
+			.catch(() => undefined);
 
 		const unsubscribe = window.electronAPI?.onWindowMaximizedChange?.((maximized) => {
 			setIsMaximized(maximized);
@@ -137,6 +175,42 @@ export function WelcomeScreen({
 		);
 	}, [recentProjects, searchQuery]);
 
+	const [inspectingResult, setInspectingResult] = useState<ProjectInspectionResult | null>(null);
+	const [isInspecting, setIsInspecting] = useState(false);
+
+	const handlePreviewRecentProject = async (projectPath: string, e: React.MouseEvent) => {
+		e.stopPropagation();
+		if (!window.electronAPI?.inspectProjectFile) return;
+		try {
+			setIsInspecting(true);
+			const result = await window.electronAPI.inspectProjectFile(projectPath);
+			if (result && result.success) {
+				setInspectingResult(result);
+			} else {
+				console.error("Failed to inspect project:", result?.error);
+			}
+		} catch (err) {
+			console.error("Failed to inspect project file:", err);
+		} finally {
+			setIsInspecting(false);
+		}
+	};
+
+	const handlePickAndPreviewProject = async () => {
+		if (!window.electronAPI?.pickAndInspectProjectFile) return;
+		try {
+			setIsInspecting(true);
+			const result = await window.electronAPI.pickAndInspectProjectFile();
+			if (result && result.success && !result.canceled) {
+				setInspectingResult(result);
+			}
+		} catch (err) {
+			console.error("Failed to pick and inspect project file:", err);
+		} finally {
+			setIsInspecting(false);
+		}
+	};
+
 	const handleOpenProjectsDirectory = async () => {
 		try {
 			await window.electronAPI?.openProjectsDirectory?.();
@@ -161,7 +235,9 @@ export function WelcomeScreen({
 								v2.4
 							</span>
 						</h2>
-						<p className="text-[11px] text-muted-foreground">Select an option to begin</p>
+						<p className="text-[11px] text-muted-foreground">
+							Select an option to begin
+						</p>
 					</div>
 				</div>
 
@@ -227,185 +303,232 @@ export function WelcomeScreen({
 				</div>
 			</div>
 
-				{/* Quick Actions (3 Core Pillars) */}
-				<div className="p-5 border-b border-foreground/10 bg-foreground/[0.01]">
-					<div className="grid grid-cols-3 gap-3">
-						{/* Action 1: New Project */}
-						<div className="flex flex-col justify-between p-3.5 rounded-xl border border-primary/25 bg-primary/[0.06] hover:bg-primary/[0.1] hover:border-primary/40 transition-all group">
-							<div>
-								<div className="w-8 h-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center mb-2.5">
-									<PlusIcon className="w-4 h-4" weight="bold" />
-								</div>
-								<h3 className="text-xs font-bold text-foreground">New Project</h3>
-								<p className="text-[10px] text-muted-foreground mt-0.5">Choose aspect ratio</p>
+			{/* Quick Actions (3 Core Pillars) */}
+			<div className="p-5 border-b border-foreground/10 bg-foreground/[0.01]">
+				<div className="grid grid-cols-3 gap-3">
+					{/* Action 1: New Project */}
+					<div className="flex flex-col justify-between p-3.5 rounded-xl border border-primary/25 bg-primary/[0.06] hover:bg-primary/[0.1] hover:border-primary/40 transition-all group">
+						<div>
+							<div className="w-8 h-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center mb-2.5">
+								<PlusIcon className="w-4 h-4" weight="bold" />
 							</div>
-
-							<div className="mt-3 pt-2.5 border-t border-foreground/10 space-y-2">
-								<div className="flex items-center gap-1">
-									{ASPECT_RATIO_OPTIONS.map((ratio) => (
-										<button
-											key={ratio.id}
-											type="button"
-											onClick={() => setSelectedAspectRatio(ratio.id)}
-											className={`flex-1 py-1 rounded-md text-[10px] font-semibold transition-all ${
-												selectedAspectRatio === ratio.id
-													? "bg-primary text-white shadow-sm"
-													: "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
-											}`}
-										>
-											{ratio.label}
-										</button>
-									))}
-								</div>
-								<Button
-									type="button"
-									size="sm"
-									onClick={() => onNewProject(selectedAspectRatio)}
-									className="w-full h-7 rounded-lg bg-primary text-white text-[11px] font-semibold"
-								>
-									Start ({selectedAspectRatio})
-								</Button>
-							</div>
+							<h3 className="text-xs font-bold text-foreground">New Project</h3>
+							<p className="text-[10px] text-muted-foreground mt-0.5">
+								Choose aspect ratio
+							</p>
 						</div>
 
-						{/* Action 2: Open Project */}
-						<button
-							type="button"
-							onClick={onOpenProjectFile}
-							className="flex flex-col justify-between p-3.5 rounded-xl border border-foreground/10 bg-foreground/[0.02] hover:bg-foreground/[0.06] hover:border-foreground/20 transition-all text-left group"
-						>
-							<div>
-								<div className="w-8 h-8 rounded-lg bg-foreground/10 text-foreground flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
-									<FolderOpenIcon className="w-4 h-4" />
-								</div>
-								<h3 className="text-xs font-bold text-foreground">Open Project</h3>
-								<p className="text-[10px] text-muted-foreground mt-0.5">Browse .captr files</p>
-							</div>
-							<div className="text-[10px] text-muted-foreground/60 font-mono mt-4">
-								Ctrl + O
-							</div>
-						</button>
-
-						{/* Action 3: Record Screen */}
-						<button
-							type="button"
-							onClick={onOpenRecorderHud}
-							className="flex flex-col justify-between p-3.5 rounded-xl border border-red-500/20 bg-red-500/[0.04] hover:bg-red-500/[0.08] hover:border-red-500/30 transition-all text-left group"
-						>
-							<div>
-								<div className="w-8 h-8 rounded-lg bg-red-500/20 text-red-500 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
-									<RecordIcon className="w-4 h-4 fill-current animate-pulse" />
-								</div>
-								<h3 className="text-xs font-bold text-foreground group-hover:text-red-400 transition-colors">
-									Record Screen
-								</h3>
-								<p className="text-[10px] text-muted-foreground mt-0.5">Screen & camera take</p>
-							</div>
-							<div className="text-[10px] text-red-400 font-semibold mt-4">
-								Launch HUD
-							</div>
-						</button>
-					</div>
-				</div>
-
-				{/* Recent Projects List Section */}
-				<div className="flex-1 min-h-0 flex flex-col p-5">
-					<div className="flex items-center justify-between mb-3">
-						<div className="flex items-center gap-2">
-							<span className="text-xs font-bold text-foreground">Recent Projects</span>
-							<span className="px-1.5 py-0.2 rounded-full bg-foreground/10 text-[10px] text-muted-foreground font-semibold">
-								{filteredProjects.length}
-							</span>
-						</div>
-
-						{/* Search Input */}
-						{recentProjects.length > 3 && (
-							<div className="relative w-44">
-								<MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-								<input
-									type="text"
-									placeholder="Search..."
-									value={searchQuery}
-									onChange={(e) => setSearchQuery(e.target.value)}
-									className="w-full h-7 pl-7 pr-2 rounded-lg border border-foreground/10 bg-foreground/[0.03] text-foreground text-[11px] placeholder:text-muted-foreground/60 outline-none focus:border-primary"
-								/>
-							</div>
-						)}
-					</div>
-
-					{/* Project List */}
-					<div className="flex-1 overflow-y-auto max-h-[260px] space-y-1.5 pr-1">
-						{filteredProjects.length > 0 ? (
-							filteredProjects.map((proj) => {
-								const thumbUrl = proj.thumbnailPath ? toFileUrl(proj.thumbnailPath) : null;
-								return (
-									<div
-										key={proj.path}
-										onClick={() => onOpenRecentProject(proj.path)}
-										className="group flex items-center justify-between px-3 py-2 rounded-xl border border-foreground/5 bg-foreground/[0.02] hover:bg-foreground/[0.06] hover:border-primary/30 transition-all cursor-pointer select-none"
+						<div className="mt-3 pt-2.5 border-t border-foreground/10 space-y-2">
+							<div className="flex items-center gap-1">
+								{ASPECT_RATIO_OPTIONS.map((ratio) => (
+									<button
+										key={ratio.id}
+										type="button"
+										onClick={() => setSelectedAspectRatio(ratio.id)}
+										className={`flex-1 py-1 rounded-md text-[10px] font-semibold transition-all ${
+											selectedAspectRatio === ratio.id
+												? "bg-primary text-white shadow-sm"
+												: "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
+										}`}
 									>
-										<div className="flex items-center gap-3 min-w-0">
-											<div className="w-10 h-7 rounded-md overflow-hidden bg-foreground/10 border border-foreground/10 flex-shrink-0 flex items-center justify-center relative">
-												{thumbUrl ? (
-													<LocalMediaImage
-														src={thumbUrl}
-														alt={proj.name}
-														className="w-full h-full object-cover"
-													/>
-												) : (
-													<VideoIcon className="w-3.5 h-3.5 text-muted-foreground" />
-												)}
-											</div>
-											<div className="min-w-0">
-												<h4 className="text-xs font-semibold text-foreground truncate group-hover:text-primary transition-colors">
-													{proj.name}
-												</h4>
-												<p className="text-[10px] text-muted-foreground truncate max-w-xs font-mono">
-													{proj.path}
-												</p>
-											</div>
-										</div>
-
-										<div className="flex items-center gap-3">
-											<span className="text-[10px] text-muted-foreground whitespace-nowrap">
-												{formatRelativeTime(proj.updatedAt)}
-											</span>
-											<div className="w-6 h-6 rounded-md bg-primary/10 text-primary opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-												<PlayIcon className="w-3 h-3 fill-current" />
-											</div>
-										</div>
-									</div>
-								);
-							})
-						) : (
-							<div className="py-8 text-center text-xs text-muted-foreground">
-								{searchQuery ? "No matching projects found." : "No recent projects yet."}
+										{ratio.label}
+									</button>
+								))}
 							</div>
-						)}
+							<Button
+								type="button"
+								size="sm"
+								onClick={() => onNewProject(selectedAspectRatio)}
+								className="w-full h-7 rounded-lg bg-primary text-white text-[11px] font-semibold"
+							>
+								Start ({selectedAspectRatio})
+							</Button>
+						</div>
 					</div>
-				</div>
 
-				{/* Footer */}
-				<div className="px-6 py-2.5 border-t border-foreground/10 bg-foreground/[0.02] flex items-center justify-between text-[11px] text-muted-foreground">
+					{/* Action 2: Open & Preview Project */}
+					<div className="flex flex-col justify-between p-3.5 rounded-xl border border-foreground/10 bg-foreground/[0.02] hover:border-foreground/20 transition-all text-left">
+						<div>
+							<div className="w-8 h-8 rounded-lg bg-foreground/10 text-foreground flex items-center justify-center mb-2.5">
+								<FolderOpenIcon className="w-4 h-4" />
+							</div>
+							<h3 className="text-xs font-bold text-foreground">Open & Preview</h3>
+							<p className="text-[10px] text-muted-foreground mt-0.5">
+								Browse or inspect .captr
+							</p>
+						</div>
+						<div className="mt-3 pt-2.5 border-t border-foreground/10 space-y-1.5">
+							<Button
+								type="button"
+								size="sm"
+								variant="outline"
+								onClick={onOpenProjectFile}
+								className="w-full h-7 rounded-md text-[11px] font-semibold flex items-center justify-between px-2.5 bg-foreground/[0.03] hover:bg-foreground/10 border-foreground/10"
+							>
+								<span>Open Project</span>
+								<span className="text-[9px] text-muted-foreground/60 font-mono">
+									Ctrl+O
+								</span>
+							</Button>
+							<Button
+								type="button"
+								size="sm"
+								variant="outline"
+								onClick={handlePickAndPreviewProject}
+								disabled={isInspecting}
+								className="w-full h-7 rounded-md text-[11px] font-semibold flex items-center justify-center gap-1.5 px-2.5 bg-primary/10 text-primary hover:bg-primary/20 border-primary/25"
+							>
+								<EyeIcon className="w-3.5 h-3.5" weight="bold" />
+								<span>{isInspecting ? "Inspecting..." : "Preview .captr"}</span>
+							</Button>
+						</div>
+					</div>
+
+					{/* Action 3: Record Screen */}
 					<button
 						type="button"
-						onClick={handleOpenProjectsDirectory}
-						className="hover:text-foreground transition-colors flex items-center gap-1.5"
+						onClick={onOpenRecorderHud}
+						className="flex flex-col justify-between p-3.5 rounded-xl border border-red-500/20 bg-red-500/[0.04] hover:bg-red-500/[0.08] hover:border-red-500/30 transition-all text-left group"
 					>
-						<FolderOpenIcon className="w-3.5 h-3.5" />
-						<span>Open Projects Directory</span>
+						<div>
+							<div className="w-8 h-8 rounded-lg bg-red-500/20 text-red-500 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
+								<RecordIcon className="w-4 h-4 fill-current animate-pulse" />
+							</div>
+							<h3 className="text-xs font-bold text-foreground group-hover:text-red-400 transition-colors">
+								Record Screen
+							</h3>
+							<p className="text-[10px] text-muted-foreground mt-0.5">
+								Screen & camera take
+							</p>
+						</div>
+						<div className="text-[10px] text-red-400 font-semibold mt-4">
+							Launch HUD
+						</div>
 					</button>
+				</div>
+			</div>
 
-					{onClose && (
-						<button
-							type="button"
-							onClick={onClose}
-							className="hover:text-foreground transition-colors"
-						>
-							Continue to Editor &rarr;
-						</button>
+			{/* Recent Projects List Section */}
+			<div className="flex-1 min-h-0 flex flex-col p-5">
+				<div className="flex items-center justify-between mb-3">
+					<div className="flex items-center gap-2">
+						<span className="text-xs font-bold text-foreground">Recent Projects</span>
+						<span className="px-1.5 py-0.2 rounded-full bg-foreground/10 text-[10px] text-muted-foreground font-semibold">
+							{filteredProjects.length}
+						</span>
+					</div>
+
+					{/* Search Input */}
+					{recentProjects.length > 3 && (
+						<div className="relative w-44">
+							<MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+							<input
+								type="text"
+								placeholder="Search..."
+								value={searchQuery}
+								onChange={(e) => setSearchQuery(e.target.value)}
+								className="w-full h-7 pl-7 pr-2 rounded-lg border border-foreground/10 bg-foreground/[0.03] text-foreground text-[11px] placeholder:text-muted-foreground/60 outline-none focus:border-primary"
+							/>
+						</div>
 					)}
 				</div>
+
+				{/* Project List */}
+				<div className="flex-1 overflow-y-auto max-h-[260px] space-y-1.5 pr-1">
+					{filteredProjects.length > 0 ? (
+						filteredProjects.map((proj) => {
+							const thumbUrl = proj.thumbnailPath
+								? toFileUrl(proj.thumbnailPath)
+								: null;
+							return (
+								<div
+									key={proj.path}
+									onClick={() => onOpenRecentProject(proj.path)}
+									className="group flex items-center justify-between px-3 py-2 rounded-xl border border-foreground/5 bg-foreground/[0.02] hover:bg-foreground/[0.06] hover:border-primary/30 transition-all cursor-pointer select-none"
+								>
+									<div className="flex items-center gap-3 min-w-0">
+										<div className="w-10 h-7 rounded-md overflow-hidden bg-foreground/10 border border-foreground/10 flex-shrink-0 flex items-center justify-center relative">
+											{thumbUrl ? (
+												<LocalMediaImage
+													src={thumbUrl}
+													alt={proj.name}
+													className="w-full h-full object-cover"
+												/>
+											) : (
+												<VideoIcon className="w-3.5 h-3.5 text-muted-foreground" />
+											)}
+										</div>
+										<div className="min-w-0">
+											<h4 className="text-xs font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+												{proj.name}
+											</h4>
+											<p className="text-[10px] text-muted-foreground truncate max-w-xs font-mono">
+												{proj.path}
+											</p>
+										</div>
+									</div>
+
+									<div className="flex items-center gap-2">
+										<span className="text-[10px] text-muted-foreground whitespace-nowrap">
+											{formatRelativeTime(proj.updatedAt)}
+										</span>
+										<button
+											type="button"
+											onClick={(e) =>
+												handlePreviewRecentProject(proj.path, e)
+											}
+											title="Preview .captr file content & configuration"
+											className="w-6 h-6 rounded-md bg-foreground/10 text-foreground opacity-0 group-hover:opacity-100 hover:bg-primary/20 hover:text-primary transition-all flex items-center justify-center"
+										>
+											<EyeIcon className="w-3.5 h-3.5" />
+										</button>
+										<div className="w-6 h-6 rounded-md bg-primary/10 text-primary opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+											<PlayIcon className="w-3 h-3 fill-current" />
+										</div>
+									</div>
+								</div>
+							);
+						})
+					) : (
+						<div className="py-8 text-center text-xs text-muted-foreground">
+							{searchQuery
+								? "No matching projects found."
+								: "No recent projects yet."}
+						</div>
+					)}
+				</div>
+			</div>
+
+			{/* Footer */}
+			<div className="px-6 py-2.5 border-t border-foreground/10 bg-foreground/[0.02] flex items-center justify-between text-[11px] text-muted-foreground">
+				<button
+					type="button"
+					onClick={handleOpenProjectsDirectory}
+					className="hover:text-foreground transition-colors flex items-center gap-1.5"
+				>
+					<FolderOpenIcon className="w-3.5 h-3.5" />
+					<span>Open Projects Directory</span>
+				</button>
+
+				{onClose && (
+					<button
+						type="button"
+						onClick={onClose}
+						className="hover:text-foreground transition-colors"
+					>
+						Continue to Editor &rarr;
+					</button>
+				)}
+			</div>
+
+			{/* Project Inspection Modal */}
+			{inspectingResult && (
+				<ProjectPreviewModal
+					inspection={inspectingResult}
+					onClose={() => setInspectingResult(null)}
+					onOpenProject={(path) => onOpenRecentProject(path)}
+				/>
+			)}
 		</div>
 	);
 }

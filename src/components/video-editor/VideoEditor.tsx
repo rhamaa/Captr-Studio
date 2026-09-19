@@ -5405,37 +5405,62 @@ export default function VideoEditor() {
 
 			const videoExts = ["mp4", "webm", "mov", "mkv"];
 			const audioExts = ["mp3", "wav", "aac", "m4a", "ogg", "flac"];
+			const activeProjectId = lastSavedSnapshot?.projectId || "project-active";
 
-			const newAssets: SlideAssetFile[] = result.filePaths.map((filePath) => {
-				const ext = (filePath.split(".").pop() || "").toLowerCase();
-				const isVideo = videoExts.includes(ext);
-				const isAudio = audioExts.includes(ext);
-				const type: "video" | "audio" | "image" = isVideo
-					? "video"
-					: isAudio
-						? "audio"
-						: "image";
-
-				let subfolder = targetSubfolder;
-				if (!subfolder || subfolder === "Imported Media") {
-					subfolder = isVideo
-						? "Video Layers"
+			const newAssets: SlideAssetFile[] = await Promise.all(
+				result.filePaths.map(async (filePath) => {
+					const ext = (filePath.split(".").pop() || "").toLowerCase();
+					const isVideo = videoExts.includes(ext);
+					const isAudio = audioExts.includes(ext);
+					const type: "video" | "audio" | "image" = isVideo
+						? "video"
 						: isAudio
-							? "Audio & Voiceovers"
-							: "Graphics & Overlays";
-				}
+							? "audio"
+							: "image";
 
-				return {
-					id: `asset-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-					name: filePath.split(/[/\\]/).pop() || "Asset",
-					path: filePath,
-					size: 0,
-					mtimeMs: Date.now(),
-					type,
-					subfolder,
-					category: "imported",
-				};
-			});
+					let subfolder = targetSubfolder;
+					if (!subfolder || subfolder === "Imported Media") {
+						subfolder = isVideo
+							? "Video Layers"
+							: isAudio
+								? "Audio & Voiceovers"
+								: "Graphics & Overlays";
+					}
+
+					let importedPath = filePath;
+					let fileSize = 0;
+					let finalName = filePath.split(/[/\\]/).pop() || "Asset";
+
+					if (window.electronAPI.importAssetToSlide) {
+						try {
+							const importRes = await window.electronAPI.importAssetToSlide(
+								activeProjectId,
+								activeId,
+								filePath,
+								subfolder,
+							);
+							if (importRes.success && importRes.absolutePath) {
+								importedPath = importRes.absolutePath;
+								if (importRes.size) fileSize = importRes.size;
+								if (importRes.fileName) finalName = importRes.fileName;
+							}
+						} catch {
+							// Fall back to original filePath
+						}
+					}
+
+					return {
+						id: `asset-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+						name: finalName,
+						path: importedPath,
+						size: fileSize,
+						mtimeMs: Date.now(),
+						type,
+						subfolder,
+						category: "imported",
+					};
+				}),
+			);
 
 			setClips((prevClips) =>
 				prevClips.map((clip) => {

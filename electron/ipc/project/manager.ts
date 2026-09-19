@@ -1,8 +1,8 @@
+import { randomUUID } from "node:crypto";
 import { existsSync, constants as fsConstants, realpathSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { app } from "electron";
-import { collectProjectMediaPaths, getProjectPrimaryMedia } from "./mediaReferences";
 import { RECORDINGS_DIR, USER_DATA_PATH } from "../../appPaths";
 import { isSupportedLocalMediaPath } from "../../mediaTypes";
 import {
@@ -30,6 +30,9 @@ import {
 	normalizeVideoSourcePath,
 	parseJsonWithByteOrderMark,
 } from "../utils";
+import { collectProjectMediaPaths, getProjectPrimaryMedia } from "./mediaReferences";
+import { isProjectBundle, unpackProjectBundle } from "./projectBundle";
+import { convertProjectToWorkspaceAbsolute, ensureProjectWorkspace } from "./projectWorkspace";
 
 export { normalizePath, normalizeVideoSourcePath };
 
@@ -423,15 +426,43 @@ export async function listProjectLibraryEntries() {
 export async function loadProjectFromPath(projectPath: string) {
 	const normalizedPath = normalizePath(projectPath);
 	let project: unknown;
-	try {
-		const content = await fs.readFile(normalizedPath, "utf-8");
-		project = parseJsonWithByteOrderMark(content);
-	} catch (error) {
-		return {
-			success: false,
-			canceled: false,
-			message: `Failed to read project file: ${error instanceof Error ? error.message : String(error)}`,
-		};
+
+	if (await isProjectBundle(normalizedPath)) {
+		try {
+			const tempExtractDir = path.join(app.getPath("temp"), `captr-extract-${Date.now()}`);
+			await unpackProjectBundle(normalizedPath, tempExtractDir);
+
+			const projectJsonPath = path.join(tempExtractDir, "project.json");
+			const content = await fs.readFile(projectJsonPath, "utf-8");
+			const rawProject = parseJsonWithByteOrderMark(content) as Record<string, unknown>;
+			const projectId =
+				typeof rawProject?.projectId === "string" && rawProject.projectId
+					? rawProject.projectId
+					: randomUUID();
+
+			const finalWorkspace = await ensureProjectWorkspace(projectId);
+			await fs.cp(tempExtractDir, finalWorkspace, { recursive: true });
+			await fs.rm(tempExtractDir, { recursive: true, force: true }).catch(() => undefined);
+
+			project = convertProjectToWorkspaceAbsolute(rawProject, finalWorkspace);
+		} catch (error) {
+			return {
+				success: false,
+				canceled: false,
+				message: `Failed to unpack project bundle: ${error instanceof Error ? error.message : String(error)}`,
+			};
+		}
+	} else {
+		try {
+			const content = await fs.readFile(normalizedPath, "utf-8");
+			project = parseJsonWithByteOrderMark(content);
+		} catch (error) {
+			return {
+				success: false,
+				canceled: false,
+				message: `Failed to read project file: ${error instanceof Error ? error.message : String(error)}`,
+			};
+		}
 	}
 	const mediaSources = await resolveProjectMediaSources(project);
 

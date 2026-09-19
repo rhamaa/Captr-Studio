@@ -213,9 +213,34 @@ interface RendererNativeExportCapabilities {
 	gpuEncoders?: GpuEncoderInfo;
 }
 
+interface ProjectInspectionEntry {
+	path: string;
+	size: number;
+	compressedSize: number;
+	isDirectory: boolean;
+	slideId?: string;
+	category: "config" | "thumbnail" | "video" | "audio" | "graphic" | "telemetry" | "other";
+}
+
+interface ProjectInspectionResult {
+	success: boolean;
+	filePath?: string;
+	fileName?: string;
+	fileSize?: number;
+	lastModified?: number;
+	isBundle?: boolean;
+	thumbnailDataUrl?: string | null;
+	projectData?: any;
+	entries?: ProjectInspectionEntry[];
+	error?: string;
+	canceled?: boolean;
+}
+
 interface Window {
 	electronAPI: {
-		showOpenDialog: (options: import("electron").OpenDialogOptions) => Promise<import("electron").OpenDialogReturnValue>;
+		showOpenDialog: (
+			options: import("electron").OpenDialogOptions,
+		) => Promise<import("electron").OpenDialogReturnValue>;
 		readFileAsDataUrl: (filePath: string) => Promise<string | null>;
 		hudOverlaySetIgnoreMouse: (ignore: boolean) => void;
 		hudOverlayDrag: (phase: "start" | "move" | "end", screenX: number, screenY: number) => void;
@@ -756,6 +781,21 @@ interface Window {
 			message?: string;
 			error?: string;
 		}>;
+		inspectProjectFile: (filePath: string) => Promise<ProjectInspectionResult>;
+		pickAndInspectProjectFile: () => Promise<ProjectInspectionResult>;
+		importAssetToSlide: (
+			projectId: string,
+			slideId: string,
+			sourcePath: string,
+			subfolder?: string,
+		) => Promise<{
+			success: boolean;
+			absolutePath?: string;
+			bundleRelativePath?: string;
+			fileName?: string;
+			size?: number;
+			error?: string;
+		}>;
 		installDownloadedUpdate: () => Promise<{ success: boolean }>;
 		downloadAvailableUpdate: (
 			installAfterDownload?: boolean,
@@ -789,9 +829,7 @@ interface Window {
 		revealInFolder: (
 			filePath: string,
 		) => Promise<{ success: boolean; error?: string; message?: string }>;
-		openPath: (
-			targetPath: string,
-		) => Promise<{ success: boolean; error?: string }>;
+		openPath: (targetPath: string) => Promise<{ success: boolean; error?: string }>;
 		openRecordingsFolder: () => Promise<{ success: boolean; error?: string; message?: string }>;
 		listRecordingsFiles: () => Promise<{
 			success: boolean;

@@ -752,6 +752,26 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	openProjectsDirectory: () => {
 		return ipcRenderer.invoke("open-projects-directory");
 	},
+	inspectProjectFile: (filePath: string) => {
+		return ipcRenderer.invoke("inspect-project-file", filePath);
+	},
+	pickAndInspectProjectFile: () => {
+		return ipcRenderer.invoke("pick-and-inspect-project-file");
+	},
+	importAssetToSlide: (
+		projectId: string,
+		slideId: string,
+		sourcePath: string,
+		subfolder?: string,
+	) => {
+		return ipcRenderer.invoke(
+			"import-asset-to-slide",
+			projectId,
+			slideId,
+			sourcePath,
+			subfolder,
+		);
+	},
 	installDownloadedUpdate: () => {
 		return ipcRenderer.invoke("install-downloaded-update");
 	},
@@ -966,7 +986,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	closeWindow: () => ipcRenderer.invoke("window:close"),
 	setWindowMode: (mode: "welcome" | "editor") => ipcRenderer.invoke("window:set-mode", mode),
 	onWindowMaximizedChange: (callback: (isMaximized: boolean) => void) => {
-		const listener = (_event: Electron.IpcRendererEvent, isMaximized: boolean) => callback(isMaximized);
+		const listener = (_event: Electron.IpcRendererEvent, isMaximized: boolean) =>
+			callback(isMaximized);
 		ipcRenderer.on("window:maximized-change", listener);
 		return () => ipcRenderer.removeListener("window:maximized-change", listener);
 	},

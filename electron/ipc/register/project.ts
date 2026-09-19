@@ -22,6 +22,13 @@ import {
 	saveProjectThumbnail,
 	saveRecentProjectPaths,
 } from "../project/manager";
+import { inspectProjectBundle, packProjectWorkspace } from "../project/projectBundle";
+import {
+	assignRecordingToSlide,
+	convertProjectToBundleRelative,
+	copyAssetToSlideWorkspace,
+	ensureProjectWorkspace,
+} from "../project/projectWorkspace";
 import { persistRecordingSessionManifest, resolveRecordingSession } from "../project/session";
 import {
 	currentProjectPath,
@@ -322,6 +329,130 @@ export function registerProjectHandlers() {
 		}
 	});
 
+	async function saveAndBundleProject(
+		targetPath: string,
+		preparedProject: { projectId: string; projectData: Record<string, unknown> },
+		thumbnailDataUrl?: string | null,
+	) {
+		const projectId = preparedProject.projectId;
+		const workspaceDir = await ensureProjectWorkspace(projectId);
+
+		// Ensure any external files in clips are copied into their respective slide folders
+		const stagedProjectData = JSON.parse(JSON.stringify(preparedProject.projectData));
+		const normWorkspace = workspaceDir.replace(/\\/g, "/").toLowerCase();
+
+		if (Array.isArray(stagedProjectData.clips)) {
+			for (const clip of stagedProjectData.clips) {
+				const slideId = clip.id || "slide-1";
+				if (
+					clip.videoPath &&
+					!clip.videoPath.replace(/\\/g, "/").toLowerCase().startsWith(normWorkspace)
+				) {
+					try {
+						await fs.access(clip.videoPath);
+						const res = await assignRecordingToSlide(
+							workspaceDir,
+							slideId,
+							clip.videoPath,
+							"main",
+						);
+						clip.videoPath = res.absolutePath;
+					} catch {
+						// keep original
+					}
+				}
+				if (
+					clip.webcamPath &&
+					!clip.webcamPath.replace(/\\/g, "/").toLowerCase().startsWith(normWorkspace)
+				) {
+					try {
+						await fs.access(clip.webcamPath);
+						const res = await assignRecordingToSlide(
+							workspaceDir,
+							slideId,
+							clip.webcamPath,
+							"webcam",
+						);
+						clip.webcamPath = res.absolutePath;
+					} catch {
+						// keep original
+					}
+				}
+				if (
+					clip.cursorTelemetryPath &&
+					!clip.cursorTelemetryPath
+						.replace(/\\/g, "/")
+						.toLowerCase()
+						.startsWith(normWorkspace)
+				) {
+					try {
+						await fs.access(clip.cursorTelemetryPath);
+						const res = await assignRecordingToSlide(
+							workspaceDir,
+							slideId,
+							clip.cursorTelemetryPath,
+							"cursor",
+						);
+						clip.cursorTelemetryPath = res.absolutePath;
+					} catch {
+						// keep original
+					}
+				}
+				if (Array.isArray(clip.assetFiles)) {
+					for (const asset of clip.assetFiles) {
+						if (
+							asset.path &&
+							!asset.path.replace(/\\/g, "/").toLowerCase().startsWith(normWorkspace)
+						) {
+							try {
+								await fs.access(asset.path);
+								const res = await copyAssetToSlideWorkspace(
+									workspaceDir,
+									slideId,
+									asset.path,
+									asset.subfolder,
+								);
+								asset.path = res.absolutePath;
+							} catch {
+								// keep original
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Write thumbnail into workspace if provided
+		if (thumbnailDataUrl) {
+			const match = thumbnailDataUrl.match(/^data:image\/png;base64,(.+)$/);
+			if (match) {
+				await fs
+					.writeFile(
+						path.join(workspaceDir, "thumbnail.png"),
+						Buffer.from(match[1], "base64"),
+					)
+					.catch(() => undefined);
+			}
+		}
+
+		// Write project.json with bundle-relative paths for serialization
+		const bundleRelativeData = convertProjectToBundleRelative(stagedProjectData, workspaceDir);
+		await fs.writeFile(
+			path.join(workspaceDir, "project.json"),
+			JSON.stringify(bundleRelativeData, null, 2),
+			"utf-8",
+		);
+
+		// Pack workspace into .captr ZIP bundle
+		await packProjectWorkspace(workspaceDir, targetPath);
+
+		setCurrentProjectPath(targetPath);
+		await saveProjectThumbnail(targetPath, thumbnailDataUrl);
+		await rememberRecentProject(targetPath);
+
+		return stagedProjectData;
+	}
+
 	ipcMain.handle(
 		"save-project-file",
 		async (
@@ -339,14 +470,11 @@ export function registerProjectHandlers() {
 					: null;
 
 				if (trustedExistingProjectPath) {
-					await fs.writeFile(
+					await saveAndBundleProject(
 						trustedExistingProjectPath,
-						JSON.stringify(preparedProject.projectData, null, 2),
-						"utf-8",
+						preparedProject,
+						thumbnailDataUrl,
 					);
-					setCurrentProjectPath(trustedExistingProjectPath);
-					await saveProjectThumbnail(trustedExistingProjectPath, thumbnailDataUrl);
-					await rememberRecentProject(trustedExistingProjectPath);
 					return {
 						success: true,
 						path: trustedExistingProjectPath,
@@ -376,14 +504,7 @@ export function registerProjectHandlers() {
 					};
 				}
 
-				await fs.writeFile(
-					result.filePath,
-					JSON.stringify(preparedProject.projectData, null, 2),
-					"utf-8",
-				);
-				setCurrentProjectPath(result.filePath);
-				await saveProjectThumbnail(result.filePath, thumbnailDataUrl);
-				await rememberRecentProject(result.filePath);
+				await saveAndBundleProject(result.filePath, preparedProject, thumbnailDataUrl);
 
 				return {
 					success: true,
@@ -433,13 +554,7 @@ export function registerProjectHandlers() {
 					return overwriteCheck;
 				}
 
-				await fs.writeFile(
-					targetProjectPath,
-					JSON.stringify(preparedProject.projectData, null, 2),
-					"utf-8",
-				);
-				await saveProjectThumbnail(targetProjectPath, thumbnailDataUrl);
-				await rememberRecentProject(targetProjectPath);
+				await saveAndBundleProject(targetProjectPath, preparedProject, thumbnailDataUrl);
 
 				if (activeProjectPath) {
 					const [activeResolvedPath, targetResolvedPath] = await Promise.all([
@@ -607,6 +722,83 @@ export function registerProjectHandlers() {
 			};
 		}
 	});
+
+	ipcMain.handle("inspect-project-file", async (_, filePath: string) => {
+		try {
+			if (!filePath) {
+				return { success: false, error: "Project file path is required" };
+			}
+			return await inspectProjectBundle(filePath);
+		} catch (error) {
+			console.error("Failed to inspect project file:", error);
+			return {
+				success: false,
+				filePath,
+				fileName: path.basename(filePath),
+				fileSize: 0,
+				lastModified: 0,
+				isBundle: false,
+				entries: [],
+				error: String(error),
+			};
+		}
+	});
+
+	ipcMain.handle("pick-and-inspect-project-file", async () => {
+		try {
+			const projectsDir = await getProjectsDir();
+			const result = await dialog.showOpenDialog({
+				title: "Select Captr Project to Preview",
+				defaultPath: projectsDir,
+				filters: [
+					{
+						name: "Captr Studio Project",
+						extensions: [PROJECT_FILE_EXTENSION, ...LEGACY_PROJECT_FILE_EXTENSIONS],
+					},
+					{ name: "JSON", extensions: ["json"] },
+					{ name: "All Files", extensions: ["*"] },
+				],
+				properties: ["openFile"],
+			});
+
+			if (result.canceled || result.filePaths.length === 0) {
+				return { success: false, canceled: true };
+			}
+
+			return await inspectProjectBundle(result.filePaths[0]);
+		} catch (error) {
+			console.error("Failed to pick and inspect project file:", error);
+			return {
+				success: false,
+				error: String(error),
+			};
+		}
+	});
+
+	ipcMain.handle(
+		"import-asset-to-slide",
+		async (_, projectId: string, slideId: string, sourcePath: string, subfolder?: string) => {
+			try {
+				const workspaceDir = await ensureProjectWorkspace(projectId);
+				const result = await copyAssetToSlideWorkspace(
+					workspaceDir,
+					slideId,
+					sourcePath,
+					subfolder,
+				);
+				await rememberApprovedLocalReadPath(result.absolutePath);
+				return {
+					success: true,
+					...result,
+				};
+			} catch (error) {
+				return {
+					success: false,
+					error: String(error),
+				};
+			}
+		},
+	);
 	ipcMain.handle(
 		"set-current-video-path",
 		async (
@@ -630,10 +822,10 @@ export function registerProjectHandlers() {
 			};
 
 			setCurrentRecordingSession(nextSession);
-			await replaceApprovedSessionLocalReadPaths([
-				resolvedSession.videoPath,
-				resolvedSession.webcamPath,
-			], options?.preserveProjectPath);
+			await replaceApprovedSessionLocalReadPaths(
+				[resolvedSession.videoPath, resolvedSession.webcamPath],
+				options?.preserveProjectPath,
+			);
 
 			if (nextSession.webcamPath) {
 				await persistRecordingSessionManifest(nextSession);
