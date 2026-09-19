@@ -3896,6 +3896,16 @@ export default function VideoEditor() {
 	}, [handleOpenProjectBrowser, handleSaveProject, handleSaveProjectAs]);
 
 	useEffect(() => {
+		if (!window.electronAPI?.onOpenProjectFilePath) return;
+		const removeListener = window.electronAPI.onOpenProjectFilePath((filePath) => {
+			void handleOpenProjectFromLibrary(filePath);
+		});
+		return () => {
+			removeListener?.();
+		};
+	}, [handleOpenProjectFromLibrary]);
+
+	useEffect(() => {
 		let mounted = true;
 		let retryAttempts = 0;
 
@@ -8562,7 +8572,9 @@ export default function VideoEditor() {
 										>
 											{t("timeline.annotation.label")}
 										</DropdownMenuItem>
-										<DropdownMenuItem onClick={() => void handleAddVideoLayer()}>
+										<DropdownMenuItem
+											onClick={() => void handleAddVideoLayer()}
+										>
 											Add Video Layer
 										</DropdownMenuItem>
 										<DropdownMenuItem

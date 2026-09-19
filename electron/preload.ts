@@ -877,6 +877,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		ipcRenderer.on("menu-save-project-as", listener);
 		return () => ipcRenderer.removeListener("menu-save-project-as", listener);
 	},
+	onOpenProjectFilePath: (callback: (filePath: string) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, filePath: string) =>
+			callback(filePath);
+		ipcRenderer.on("open-project-file-request", listener);
+		return () => ipcRenderer.removeListener("open-project-file-request", listener);
+	},
 	getPlatform: () => {
 		return ipcRenderer.invoke("get-platform");
 	},

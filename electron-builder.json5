@@ -48,6 +48,16 @@
     }
   ],
 
+  "fileAssociations": [
+    {
+      "ext": "captr",
+      "name": "Captr Studio Project",
+      "description": "Captr Studio Project File",
+      "role": "Editor",
+      "mimeType": "application/x-captr-project",
+      "icon": "icons/icons/win/icon.ico"
+    }
+  ],
   "mac": {
     "hardenedRuntime": true,
     "entitlements": "build/entitlements.mac.plist",
@@ -64,6 +74,15 @@
     ],
     "icon": "icons/icons/mac/icon.icns",
     "artifactName": "${productName}-${arch}.${ext}",
+    "fileAssociations": [
+      {
+        "ext": "captr",
+        "name": "Captr Studio Project",
+        "description": "Captr Studio Project File",
+        "role": "Editor",
+        "icon": "icons/icons/mac/icon.icns"
+      }
+    ],
     "extendInfo": {
       "NSAudioCaptureUsageDescription": "Captr Studio needs audio capture permission to record system audio.",
       "NSCameraUsageDescription": "Captr Studio needs camera access to record webcam video.",
@@ -84,9 +103,17 @@
     "target": [
       "nsis"
     ],
-    "icon": "icons/icons/win/icon.ico"
-    ,
+    "icon": "icons/icons/win/icon.ico",
     "executableName": "Captr Studio",
-    "artifactName": "${productName}-windows-${arch}.${ext}"
+    "artifactName": "${productName}-windows-${arch}.${ext}",
+    "fileAssociations": [
+      {
+        "ext": "captr",
+        "name": "Captr Studio Project",
+        "description": "Captr Studio Project File",
+        "role": "Editor",
+        "icon": "icons/icons/win/icon.ico"
+      }
+    ]
   }
 }

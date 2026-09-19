@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,7 +26,7 @@ import {
 	killWindowsCaptureProcess,
 	registerIpcHandlers,
 } from "./ipc/handlers";
-import { rememberApprovedLocalReadPath } from "./ipc/project/manager";
+import { loadProjectFromPath, rememberApprovedLocalReadPath } from "./ipc/project/manager";
 import { getScreen } from "./ipc/utils";
 import { ensureMediaServer } from "./mediaServer";
 import { ensurePackagedRendererServer } from "./rendererServer";
@@ -1010,8 +1011,57 @@ app.on("activate", () => {
 	focusOrCreateMainWindow();
 });
 
-app.on("second-instance", () => {
+let pendingCaptrFilePathToOpen: string | null = null;
+
+function extractCaptrFilePath(args: string[]): string | null {
+	for (const arg of args) {
+		if (typeof arg === "string" && arg.toLowerCase().endsWith(".captr")) {
+			try {
+				if (existsSync(arg)) {
+					return path.resolve(arg);
+				}
+			} catch {
+				// ignore invalid path
+			}
+		}
+	}
+	return null;
+}
+
+app.on("second-instance", async (_event, commandLine) => {
+	const captrPath = extractCaptrFilePath(commandLine);
+	if (captrPath) {
+		try {
+			await loadProjectFromPath(captrPath);
+			const win = createEditorWindowWrapper();
+			if (win && !win.isDestroyed()) {
+				win.webContents.send("open-project-file-request", captrPath);
+			}
+			return;
+		} catch (error) {
+			console.error("[main] Failed to open project from second-instance:", error);
+		}
+	}
 	focusOrCreateMainWindow();
+});
+
+app.on("open-file", async (event, filePath) => {
+	event.preventDefault();
+	if (filePath && filePath.toLowerCase().endsWith(".captr")) {
+		if (app.isReady()) {
+			try {
+				await loadProjectFromPath(filePath);
+				const win = createEditorWindowWrapper();
+				if (win && !win.isDestroyed()) {
+					win.webContents.send("open-project-file-request", filePath);
+				}
+			} catch (error) {
+				console.error("[main] Failed to open project from open-file:", error);
+			}
+		} else {
+			pendingCaptrFilePathToOpen = filePath;
+		}
+	}
 });
 
 // Register all IPC handlers when app is ready
@@ -1115,7 +1165,11 @@ app.whenReady().then(async () => {
 
 	registerExtensionIpcHandlers();
 
-	if (IS_SMOKE_EXPORT || process.env.RECORDLY_DEV_OPEN_RECORDING_INPUT || process.env.RECORDLY_DEV_OPEN_EDITOR === "1") {
+	if (
+		IS_SMOKE_EXPORT ||
+		process.env.RECORDLY_DEV_OPEN_RECORDING_INPUT ||
+		process.env.RECORDLY_DEV_OPEN_EDITOR === "1"
+	) {
 		await logSmokeExportGpuDiagnostics();
 		if (IS_SMOKE_EXPORT) {
 			const smokeSource =
@@ -1129,6 +1183,19 @@ app.whenReady().then(async () => {
 			);
 		}
 		createEditorWindowWrapper();
+		return;
+	}
+
+	const startupCaptrPath = pendingCaptrFilePathToOpen || extractCaptrFilePath(process.argv);
+	if (startupCaptrPath) {
+		console.log(`[main] Opening project from startup argument: ${startupCaptrPath}`);
+		try {
+			await loadProjectFromPath(startupCaptrPath);
+		} catch (error) {
+			console.error(`[main] Failed to load startup project: ${startupCaptrPath}`, error);
+		}
+		createEditorWindowWrapper();
+		setupAutoUpdates(getUpdateDialogWindow, sendUpdateToastToWindows);
 		return;
 	}
 

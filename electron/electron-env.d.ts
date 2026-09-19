@@ -833,6 +833,7 @@ interface Window {
 		onMenuLoadProject: (callback: () => void) => () => void;
 		onMenuSaveProject: (callback: () => void) => () => void;
 		onMenuSaveProjectAs: (callback: () => void) => () => void;
+		onOpenProjectFilePath?: (callback: (filePath: string) => void) => () => void;
 		getPlatform: () => Promise<string>;
 		getLinuxWindowSystem: () => Promise<"wayland" | "x11" | null>;
 		revealInFolder: (
