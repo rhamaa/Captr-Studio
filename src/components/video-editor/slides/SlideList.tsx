@@ -36,7 +36,6 @@ export interface SlideListProps {
 		transition: ClipTransitionType,
 		durationMs: number,
 	) => void;
-	onToggleSlideMode?: (slideId: string) => void;
 	currentTimeMs?: number;
 }
 
@@ -78,7 +77,6 @@ export function SlideList({
 	onSplitSlide,
 	onReorderSlide: _onReorderSlide,
 	onTransitionChange,
-	onToggleSlideMode,
 }: SlideListProps) {
 	const [activeTransitionSlideId, setActiveTransitionSlideId] = useState<string | null>(null);
 	const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
@@ -370,34 +368,10 @@ export function SlideList({
 											#{index + 1}
 										</span>
 
-										{/* Mode Badge (REC vs VID) — interactive toggle */}
-										{isVideoMode ? (
-											<button
-												type="button"
-												onClick={(e) => {
-													e.stopPropagation();
-													onToggleSlideMode?.(slide.id);
-												}}
-												className="flex items-center gap-0.5 text-[8.5px] px-1 py-0.2 rounded-full font-bold font-mono bg-cyan-500/15 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/25 transition-all cursor-pointer"
-												title="Video Editor Mode (Click to switch to Record Mode)"
-											>
-												<FilmSlate className="w-2.5 h-2.5" weight="fill" />
-												VID
-											</button>
-										) : (
-											<button
-												type="button"
-												onClick={(e) => {
-													e.stopPropagation();
-													onToggleSlideMode?.(slide.id);
-												}}
-												className="flex items-center gap-0.5 text-[8.5px] px-1 py-0.2 rounded-full font-bold font-mono bg-rose-500/15 hover:bg-rose-500/30 text-rose-400 border border-rose-500/25 transition-all cursor-pointer"
-												title="Record Mode (Click to switch to Video Editor Mode)"
-											>
-												<span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-												REC
-											</button>
-										)}
+										{/* Slide kind is fixed; editing one kind never reconfigures another. */}
+										<span title={isVideoMode ? "Video Editor Mode" : "Record Mode"} className="text-[9px] font-bold px-1 text-muted-foreground">
+											{isVideoMode ? "VID" : "REC"}
+										</span>
 									</div>
 
 									{/* Action buttons on hover */}

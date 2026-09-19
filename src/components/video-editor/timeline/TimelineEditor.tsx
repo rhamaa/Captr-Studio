@@ -36,6 +36,7 @@ import TimelineCanvas from "./components/viewport/TimelineCanvas";
 import type { SlideMedia4in1 } from "./core/timelineTypes";
 
 export interface TimelineEditorProps {
+	recordToolsEnabled?: boolean;
 	videoDuration: number;
 	currentTime: number;
 	playheadTime?: number;
@@ -138,6 +139,7 @@ export interface TimelineEditorHandle {
 const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 	function TimelineEditor(
 		{
+	recordToolsEnabled = true,
 			videoDuration,
 			currentTime,
 			playheadTime,
@@ -506,13 +508,14 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 							timelineRef={timelineContainerRef}
 						/>
 						<TimelineCanvas
+							recordToolsEnabled={recordToolsEnabled}
 							items={timelineItems}
 							videoDurationMs={totalMs}
 							currentTimeMs={currentTimeMs}
 							onSeek={onSeek}
-							onAddZoomAtMs={addZoomAtMs}
+							onAddZoomAtMs={recordToolsEnabled ? addZoomAtMs : undefined}
 							canPlaceZoomAtMs={canPlaceZoomAtMs}
-							onAddLayoutAtMs={addLayoutAtMs}
+							onAddLayoutAtMs={recordToolsEnabled ? addLayoutAtMs : undefined}
 							canPlaceLayoutAtMs={canPlaceLayoutAtMs}
 							onSelectZoom={handleSelectZoom}
 							onSelectClip={handleSelectClip}

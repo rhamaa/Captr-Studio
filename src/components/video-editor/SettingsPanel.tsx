@@ -1,10 +1,15 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { Palette, Trash as Trash2 } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "motion/react";
-import {
-	Palette,
-	Trash as Trash2,
-} from "@phosphor-icons/react";
+import React, { useEffect, useMemo, useState } from "react";
+import minimalCursorUrl from "@/assets/cursors/custom/minimal-cursor.svg";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/contexts/ThemeContext";
+import {
+	getAssetPath,
+	getRenderableAssetUrl,
+	getRenderableVideoUrl,
+	getWallpaperThumbnailUrl,
+} from "@/lib/assetPath";
 import type { FrameInstance } from "@/lib/extensions";
 import { extensionHost } from "@/lib/extensions";
 import { cn } from "@/lib/utils";
@@ -14,51 +19,37 @@ import {
 	getAvailableWallpapers,
 	isVideoWallpaperSource,
 } from "@/lib/wallpapers";
-import {
-	BUILTIN_CURSOR_STYLE_OPTIONS,
-	createTrimmedSvgPreview,
-	createInvertedPreview,
-	tahoeCursorUrl,
-	type CursorStyleOption,
-} from "./settings/utils/cursorPreviewUtils";
-import { cursorSetAssets } from "./videoPlayback/uploadedCursorAssets";
-import minimalCursorUrl from "@/assets/cursors/custom/minimal-cursor.svg";
-import {
-	getAssetPath,
-	getRenderableAssetUrl,
-	getRenderableVideoUrl,
-	getWallpaperThumbnailUrl,
-} from "@/lib/assetPath";
+import type { AspectRatio } from "@/utils/aspectRatioUtils";
+import { useI18n, useScopedT } from "../../contexts/I18nContext";
+import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
 import {
 	CURSOR_MOTION_PRESETS,
 	type CursorMotionPresetId,
 	getMatchingCursorMotionPresetId,
 } from "./cursorMotionPresets";
-import {
-	getWebcamPositionForPreset,
-	normalizeWebcamCropRegion,
-	resolveWebcamCorner,
-} from "./webcamOverlay";
 import { loadEditorPreferences } from "./editorPreferences";
-import { useTheme } from "@/contexts/ThemeContext";
-import type { AspectRatio } from "@/utils/aspectRatioUtils";
-import { useI18n, useScopedT } from "../../contexts/I18nContext";
-import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
-import { SceneSection } from "./settings/sections/SceneSection";
-import { ZoomItemSection } from "./settings/sections/ZoomItemSection";
-import { ClipItemSection } from "./settings/sections/ClipItemSection";
-import { LayoutItemSection } from "./settings/sections/LayoutItemSection";
-import { AudioTrackSection } from "./settings/sections/AudioTrackSection";
-import { AudioRecordSection } from "./settings/sections/AudioRecordSection";
-import { VideoAdjustSection } from "./settings/sections/VideoAdjustSection";
-import { TransitionsSection } from "./settings/sections/TransitionsSection";
-import { GeneralPreferencesSection } from "./settings/sections/GeneralPreferencesSection";
-import { ColorGradingSection } from "./settings/sections/ColorGradingSection";
-import { MediaSection } from "./settings/sections/MediaSection";
-import { CursorSection } from "./settings/sections/CursorSection";
-import { WebcamSection } from "./settings/sections/WebcamSection";
-import { SectionLabel } from "./settings/components/SettingsSectionLabel";
 import { ExtensionSettingsSection } from "./settings/components/ExtensionSettingsSection";
+import { SectionLabel } from "./settings/components/SettingsSectionLabel";
+import { AudioRecordSection } from "./settings/sections/AudioRecordSection";
+import { AudioTrackSection } from "./settings/sections/AudioTrackSection";
+import { ClipItemSection } from "./settings/sections/ClipItemSection";
+import { ColorGradingSection } from "./settings/sections/ColorGradingSection";
+import { CursorSection } from "./settings/sections/CursorSection";
+import { GeneralPreferencesSection } from "./settings/sections/GeneralPreferencesSection";
+import { LayoutItemSection } from "./settings/sections/LayoutItemSection";
+import { MediaSection } from "./settings/sections/MediaSection";
+import { SceneSection } from "./settings/sections/SceneSection";
+import { TransitionsSection } from "./settings/sections/TransitionsSection";
+import { VideoAdjustSection } from "./settings/sections/VideoAdjustSection";
+import { WebcamSection } from "./settings/sections/WebcamSection";
+import { ZoomItemSection } from "./settings/sections/ZoomItemSection";
+import {
+	BUILTIN_CURSOR_STYLE_OPTIONS,
+	type CursorStyleOption,
+	createInvertedPreview,
+	createTrimmedSvgPreview,
+	tahoeCursorUrl,
+} from "./settings/utils/cursorPreviewUtils";
 import type {
 	AnnotationRegion,
 	AnnotationType,
@@ -94,12 +85,19 @@ import {
 	DEFAULT_ZOOM_MOTION_BLUR_TUNING,
 	DEFAULT_ZOOM_OUT_DURATION_MS,
 } from "./types";
+import { cursorSetAssets } from "./videoPlayback/uploadedCursorAssets";
+import {
+	getWebcamPositionForPreset,
+	normalizeWebcamCropRegion,
+	resolveWebcamCorner,
+} from "./webcamOverlay";
 
 interface SettingsPanelProps {
 	className?: string;
 	style?: React.CSSProperties;
 	panelMode?: "editor" | "background";
 	activeEffectSection?: EditorEffectSection;
+	recordToolsEnabled?: boolean;
 	slides?: ClipEntry[];
 	onAddAsSlide?: (filePath: string, label?: string) => void;
 	onImportMedia?: () => void;
@@ -257,13 +255,12 @@ interface SettingsPanelProps {
 	onOpenNativeCaptureUnavailableModal?: () => void;
 }
 
-
-
 export function SettingsPanel({
 	className,
 	style,
 	panelMode = "editor",
 	activeEffectSection: activeEffectSectionProp,
+	recordToolsEnabled = true,
 	slides = [],
 	onAddAsSlide,
 	onImportMedia,
@@ -555,7 +552,14 @@ export function SettingsPanel({
 
 	const defaultWebcam = initialEditorPreferences.webcam;
 	const [internalActiveEffectSection] = useState<EditorEffectSection>("scene");
-	const activeEffectSection = activeEffectSectionProp ?? internalActiveEffectSection;
+	const rawActiveEffectSection = activeEffectSectionProp ?? internalActiveEffectSection;
+	const activeEffectSection: EditorEffectSection =
+		!recordToolsEnabled &&
+		["scene", "layout", "zoom", "cursor", "webcam", "frame", "crop"].includes(
+			rawActiveEffectSection,
+		)
+			? "media"
+			: rawActiveEffectSection;
 	const [extensionCursorStyles, setExtensionCursorStyles] = useState<
 		ReturnType<typeof extensionHost.getContributedCursorStyles>
 	>([]);
@@ -1120,6 +1124,17 @@ export function SettingsPanel({
 						);
 					}
 				}
+				if (!recordToolsEnabled) {
+					return (
+						<MediaSection
+							slides={slides}
+							selectedClipId={selectedClipId}
+							onAddAsSlide={onAddAsSlide}
+							onImportMedia={onImportMedia}
+							tSettings={tSettings}
+						/>
+					);
+				}
 				return sceneSectionContent;
 			}
 		}
@@ -1155,8 +1170,8 @@ export function SettingsPanel({
 					"flex-shrink-0 border-t border-foreground/10 bg-editor-panel p-4 pt-3",
 					(() => {
 						if (activeEffectSection === "clip" && selectedClipId) return false;
-						if (activeEffectSection === "layout" && selectedLayoutId) return false;
-						if (activeEffectSection === "zoom" && selectedZoomId) return false;
+						if (recordToolsEnabled && activeEffectSection === "layout" && selectedLayoutId) return false;
+						if (recordToolsEnabled && activeEffectSection === "zoom" && selectedZoomId) return false;
 						if (activeEffectSection === "audio" && selectedAudioId) return false;
 						if (selectedAnnotationId) return false; // Annotation editor handles its own but let's see
 						return true;
@@ -1194,7 +1209,7 @@ export function SettingsPanel({
 						</Button>
 					</div>
 				)}
-				{activeEffectSection === "zoom" && selectedZoomId && (
+				{recordToolsEnabled && activeEffectSection === "zoom" && selectedZoomId && (
 					<Button
 						onClick={() => {
 							if (selectedZoomId && onZoomDelete) onZoomDelete(selectedZoomId);
@@ -1207,7 +1222,7 @@ export function SettingsPanel({
 						{tSettings("zoom.deleteZoom", "Delete Zoom")}
 					</Button>
 				)}
-				{activeEffectSection === "layout" && selectedLayoutId && (
+				{recordToolsEnabled && activeEffectSection === "layout" && selectedLayoutId && (
 					<Button
 						onClick={() => {
 							if (selectedLayoutId && onLayoutDelete)

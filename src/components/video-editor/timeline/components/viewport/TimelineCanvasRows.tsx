@@ -26,6 +26,7 @@ const HINT_ANNOTATION = "Press A to add annotation";
 const HINT_AUDIO = "Click music icon to add audio";
 
 export interface TimelineCanvasRowsProps {
+	recordToolsEnabled?: boolean;
 	items: TimelineRenderItem[];
 	videoDurationMs: number;
 	selectAllBlocksActive: boolean;
@@ -65,6 +66,7 @@ export interface TimelineCanvasRowsProps {
 }
 
 export const TimelineCanvasRows = memo(function TimelineCanvasRows({
+	recordToolsEnabled = true,
 	items,
 	videoDurationMs,
 	selectAllBlocksActive,
@@ -193,6 +195,7 @@ export const TimelineCanvasRows = memo(function TimelineCanvasRows({
 				))}
 			</Row>
 
+			{recordToolsEnabled && <> 
 			<Row
 				id={ZOOM_ROW_ID}
 				isEmpty={zoomItems.length === 0}
@@ -309,6 +312,8 @@ export const TimelineCanvasRows = memo(function TimelineCanvasRows({
 					</Item>
 				))}
 			</Row>
+
+			</>}
 
 			{annotationRows.map(({ rowId, items: rowItems }, index) => (
 				<Row

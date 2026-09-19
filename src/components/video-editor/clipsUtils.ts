@@ -1,15 +1,19 @@
+import { isRecordSlide } from "./sceneEditing";
 import {
-	DEFAULT_WEBCAM_OVERLAY,
 	type ClipEntry,
 	type ClipRegion,
 	type CropRegion,
+	DEFAULT_WEBCAM_OVERLAY,
 	type LayoutRegion,
 	type WebcamOverlaySettings,
 	type ZoomRegion,
 } from "./types";
 
 /** Rebuild scene placement without discarding mute, audio, or transition edits. */
-export function buildSceneClipRegions(clips: ClipEntry[], previous: ClipRegion[] = []): ClipRegion[] {
+export function buildSceneClipRegions(
+	clips: ClipEntry[],
+	previous: ClipRegion[] = [],
+): ClipRegion[] {
 	const byId = new Map(previous.map((region) => [region.id, region]));
 	return clips.map((clip) => {
 		const existing = byId.get(clip.id);
@@ -20,7 +24,8 @@ export function buildSceneClipRegions(clips: ClipEntry[], previous: ClipRegion[]
 			endMs: clip.startMsOffset + clip.durationMs,
 			speed: existing?.speed ?? clip.speed ?? 1,
 			transitionIn: existing?.transitionIn ?? clip.transitionIn?.type,
-			transitionInDurationMs: existing?.transitionInDurationMs ?? clip.transitionIn?.durationMs,
+			transitionInDurationMs:
+				existing?.transitionInDurationMs ?? clip.transitionIn?.durationMs,
 		};
 	});
 }
@@ -116,12 +121,15 @@ export function getEffectiveClipSettings(
 	clip: ClipEntry,
 	defaults: ProjectDefaultSettings,
 ): EffectiveClipSettings {
+	const record = isRecordSlide(clip);
 	return {
 		wallpaper: clip.wallpaper ?? defaults.wallpaper,
 		cropRegion: clip.cropRegion ?? defaults.cropRegion,
-		layoutRegions: clip.layoutRegions ?? defaults.layoutRegions,
-		webcam: clip.webcam ?? defaults.webcam,
-		zoomRegions: clip.zoomRegions ?? defaults.zoomRegions,
+		layoutRegions: record ? (clip.layoutRegions ?? defaults.layoutRegions) : [],
+		webcam: record
+			? (clip.webcam ?? defaults.webcam)
+			: { ...DEFAULT_WEBCAM_OVERLAY, enabled: false, sourcePath: null },
+		zoomRegions: record ? (clip.zoomRegions ?? defaults.zoomRegions) : [],
 	};
 }
 
@@ -133,7 +141,9 @@ export function isRecordedClip(clip: ClipEntry): boolean {
 		return clip.origin === "recorded";
 	}
 	// Fallback heuristic for legacy clips:
-	return Boolean(clip.webcamPath || clip.cursorTelemetry || clip.videoPath.includes("recording-"));
+	return Boolean(
+		clip.webcamPath || clip.cursorTelemetry || clip.videoPath.includes("recording-"),
+	);
 }
 
 /**
@@ -179,6 +189,10 @@ export function createUploadedClip(params: {
 		id: params.id,
 		origin: "uploaded",
 		slideMode: "video",
+		layoutRegions: [],
+		zoomRegions: [],
+		annotationRegions: [],
+		audioRegions: [],
 		videoPath: params.videoPath,
 		webcamPath: null, // Strictly no webcam sidecar
 		microphoneAudioPath: null,

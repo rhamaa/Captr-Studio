@@ -1,6 +1,3 @@
-import { migrateMediaTrackLayers } from "./sceneLayers";
-import { normalizePropertyKeyframes } from "./annotationKeyframes";
-import { normalizeClipTransition, normalizeClipTransitionType } from "./transitionContract";
 import type { SourceAudioTrackSettings } from "@/components/video-editor/audio/audioTypes";
 import type {
 	ExportBackendPreference,
@@ -23,9 +20,12 @@ import {
 } from "@/lib/exporter/temporalMotionBlur";
 import { DEFAULT_WALLPAPER_PATH } from "@/lib/wallpapers";
 import { ASPECT_RATIOS, type AspectRatio, isCustomAspectRatio } from "@/utils/aspectRatioUtils";
+import { normalizePropertyKeyframes } from "./annotationKeyframes";
 import { normalizeColorGrading } from "./colorGrading";
 import { CURSOR_MOTION_PRESETS, resolveCursorMotionPresetId } from "./cursorMotionPresets";
 import { normalizeLayoutRegion } from "./layoutScenes";
+import { migrateMediaTrackLayers } from "./sceneLayers";
+import { normalizeClipTransition, normalizeClipTransitionType } from "./transitionContract";
 import {
 	type AnnotationRegion,
 	type AudioDuckingSettings,
@@ -318,49 +318,122 @@ export async function resolveVideoUrl(sourcePath: string): Promise<string> {
 	return toFileUrl(sourcePath);
 }
 
+export function normalizeSceneVisualSettings(
+	value?: Partial<ProjectEditorState>,
+): import("./types").SceneVisualSettings {
+	const normalized = normalizeProjectEditor(value ?? {});
+	const {
+		padding,
+		borderRadius,
+		shadowIntensity,
+		backgroundBlur,
+		colorGrading,
+		frame,
+		audioDuckingSettings,
+	} = normalized;
+	return {
+		padding,
+		borderRadius,
+		shadowIntensity,
+		backgroundBlur,
+		colorGrading,
+		frame,
+		audioDuckingSettings,
+	};
+}
+
 export function normalizeClipEntries(candidateClips: unknown): ClipEntry[] {
 	if (!Array.isArray(candidateClips)) return [];
 	return candidateClips
-		.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
+		.filter((item): item is Record<string, unknown> =>
+			Boolean(item && typeof item === "object"),
+		)
 		.map((raw, index) => {
 			const id = typeof raw.id === "string" && raw.id ? raw.id : `clip-${index + 1}`;
 			const videoPath = typeof raw.videoPath === "string" ? raw.videoPath : "";
-			const webcamPath = typeof raw.webcamPath === "string" && raw.webcamPath ? raw.webcamPath : null;
+			const webcamPath =
+				typeof raw.webcamPath === "string" && raw.webcamPath ? raw.webcamPath : null;
 			const origin = raw.origin === "uploaded" ? "uploaded" : "recorded";
-			const startMsOffset = isFiniteNumber(raw.startMsOffset) ? Math.max(0, Math.round(raw.startMsOffset)) : 0;
-			const durationMs = isFiniteNumber(raw.durationMs) ? Math.max(100, Math.round(raw.durationMs)) : 5000;
-			const label = typeof raw.label === "string" ? raw.label : (origin === "uploaded" ? `Video ${index + 1}` : `Take ${index + 1}`);
+			const startMsOffset = isFiniteNumber(raw.startMsOffset)
+				? Math.max(0, Math.round(raw.startMsOffset))
+				: 0;
+			const durationMs = isFiniteNumber(raw.durationMs)
+				? Math.max(100, Math.round(raw.durationMs))
+				: 5000;
+			const label =
+				typeof raw.label === "string"
+					? raw.label
+					: origin === "uploaded"
+						? `Video ${index + 1}`
+						: `Take ${index + 1}`;
+
+			const slideMode: import("./types").SlideMode =
+				raw.slideMode === "video" || raw.slideMode === "record"
+					? raw.slideMode
+					: origin === "uploaded"
+						? "video"
+						: "record";
+			const isRecord = slideMode === "record";
 
 			return {
 				id,
+				sceneSettings:
+					raw.sceneSettings && typeof raw.sceneSettings === "object"
+						? normalizeSceneVisualSettings(
+								raw.sceneSettings as Partial<ProjectEditorState>,
+							)
+						: undefined,
 				origin,
 				videoPath,
-				webcamPath,
-				microphoneAudioPath: typeof raw.microphoneAudioPath === "string" ? raw.microphoneAudioPath : null,
-				systemAudioPath: typeof raw.systemAudioPath === "string" ? raw.systemAudioPath : null,
-				cursorTelemetryPath: typeof raw.cursorTelemetryPath === "string" ? raw.cursorTelemetryPath : null,
+				webcamPath: isRecord ? webcamPath : null,
+				microphoneAudioPath:
+					typeof raw.microphoneAudioPath === "string" ? raw.microphoneAudioPath : null,
+				systemAudioPath:
+					typeof raw.systemAudioPath === "string" ? raw.systemAudioPath : null,
+				cursorTelemetryPath:
+					isRecord && typeof raw.cursorTelemetryPath === "string"
+						? raw.cursorTelemetryPath
+						: null,
 				startMsOffset,
 				durationMs,
 				label,
 				wallpaper: typeof raw.wallpaper === "string" ? raw.wallpaper : undefined,
 				cropRegion: raw.cropRegion as CropRegion | undefined,
-				layoutPreset: raw.layoutPreset as LayoutScenePreset | undefined,
-				layoutRegions: Array.isArray(raw.layoutRegions) ? (raw.layoutRegions as LayoutRegion[]) : undefined,
-				webcam: raw.webcam as WebcamOverlaySettings | undefined,
-				zoomRegions: Array.isArray(raw.zoomRegions) ? (raw.zoomRegions as ZoomRegion[]) : undefined,
+				layoutPreset: isRecord
+					? (raw.layoutPreset as LayoutScenePreset | undefined)
+					: undefined,
+				layoutRegions:
+					isRecord && Array.isArray(raw.layoutRegions)
+						? (raw.layoutRegions as LayoutRegion[])
+						: [],
+				webcam:
+					isRecord && raw.webcam
+						? (raw.webcam as WebcamOverlaySettings)
+						: { ...DEFAULT_WEBCAM_OVERLAY, enabled: false, sourcePath: null },
+				zoomRegions:
+					isRecord && Array.isArray(raw.zoomRegions)
+						? (raw.zoomRegions as ZoomRegion[])
+						: [],
 				trimStartMs: isFiniteNumber(raw.trimStartMs) ? raw.trimStartMs : undefined,
 				trimEndMs: isFiniteNumber(raw.trimEndMs) ? raw.trimEndMs : undefined,
 				speed: isFiniteNumber(raw.speed) ? raw.speed : undefined,
-				showCursor: typeof raw.showCursor === "boolean" ? raw.showCursor : origin === "recorded",
-				slideMode:
-					raw.slideMode === "video" || raw.slideMode === "record"
-						? raw.slideMode
-						: origin === "uploaded"
-							? "video"
-							: "record",
-				annotationRegions: Array.isArray(raw.annotationRegions) || Array.isArray(raw.mediaTrackLayers)
-					? normalizeProjectEditor({ annotationRegions: Array.isArray(raw.annotationRegions) ? raw.annotationRegions as AnnotationRegion[] : migrateMediaTrackLayers(raw.mediaTrackLayers as import("./types").MediaTrackLayer[]) }).annotationRegions : undefined,
-				audioRegions: Array.isArray(raw.audioRegions) ? normalizeProjectEditor({ audioRegions: raw.audioRegions as AudioRegion[] }).audioRegions : undefined,
+				showCursor:
+					isRecord && (typeof raw.showCursor === "boolean" ? raw.showCursor : true),
+				slideMode,
+				annotationRegions:
+					Array.isArray(raw.annotationRegions) || Array.isArray(raw.mediaTrackLayers)
+						? normalizeProjectEditor({
+								annotationRegions: Array.isArray(raw.annotationRegions)
+									? (raw.annotationRegions as AnnotationRegion[])
+									: migrateMediaTrackLayers(
+											raw.mediaTrackLayers as import("./types").MediaTrackLayer[],
+										),
+							}).annotationRegions
+						: undefined,
+				audioRegions: Array.isArray(raw.audioRegions)
+					? normalizeProjectEditor({ audioRegions: raw.audioRegions as AudioRegion[] })
+							.audioRegions
+					: undefined,
 				keyframes: normalizePropertyKeyframes(raw.keyframes),
 				transitionIn: normalizeClipTransition(raw.transitionIn ?? raw.transitionToNext),
 			};
@@ -731,10 +804,18 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 							? Math.max(0, Math.floor(region.trackIndex))
 							: 0,
 						videoFilePath:
-							typeof region.videoFilePath === "string" ? region.videoFilePath : undefined,
-						keyframeTimeOffsetMs: isFiniteNumber(region.keyframeTimeOffsetMs) ? Math.max(0, region.keyframeTimeOffsetMs) : 0,
-						sourceOffsetMs: isFiniteNumber(region.sourceOffsetMs) ? Math.max(0, region.sourceOffsetMs) : 0,
-						playbackRate: isFiniteNumber(region.playbackRate) ? clamp(region.playbackRate, 0.25, 4) : 1,
+							typeof region.videoFilePath === "string"
+								? region.videoFilePath
+								: undefined,
+						keyframeTimeOffsetMs: isFiniteNumber(region.keyframeTimeOffsetMs)
+							? Math.max(0, region.keyframeTimeOffsetMs)
+							: 0,
+						sourceOffsetMs: isFiniteNumber(region.sourceOffsetMs)
+							? Math.max(0, region.sourceOffsetMs)
+							: 0,
+						playbackRate: isFiniteNumber(region.playbackRate)
+							? clamp(region.playbackRate, 0.25, 4)
+							: 1,
 						name: typeof region.name === "string" ? region.name : undefined,
 						locked: typeof region.locked === "boolean" ? region.locked : false,
 						visible: typeof region.visible === "boolean" ? region.visible : true,

@@ -1,28 +1,19 @@
 import { useTimelineContext } from "dnd-timeline";
-import {
-	useCallback,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-	type MouseEvent,
-} from "react";
+import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
 	SourceAudioTrackSettings,
 	SourceAudioTrackWithPeaks,
 } from "@/components/video-editor/audio/audioTypes";
-import { getTimelineRowsMinHeightPx } from "../../timelineLayout";
+import { isAnnotationTrackRowId, isAudioTrackRowId } from "../../core/rows";
 import type { SlideMedia4in1, TimelineRenderItem } from "../../core/timelineTypes";
-import {
-	isAnnotationTrackRowId,
-	isAudioTrackRowId,
-} from "../../core/rows";
+import { getTimelineRowsMinHeightPx } from "../../timelineLayout";
 import TimelineAxis from "../axis/TimelineAxis";
 import PlaybackCursor from "../playhead/PlaybackCursor";
-import { useTimelineHover } from "./useTimelineHover";
 import { TimelineCanvasRows } from "./TimelineCanvasRows";
+import { useTimelineHover } from "./useTimelineHover";
 
 export interface TimelineCanvasProps {
+	recordToolsEnabled?: boolean;
 	items: TimelineRenderItem[];
 	videoDurationMs: number;
 	currentTimeMs: number;
@@ -43,11 +34,14 @@ export interface TimelineCanvasProps {
 	selectedAudioId?: string | null;
 	selectAllBlocksActive?: boolean;
 	onClearBlockSelection?: () => void;
-	keyframes?: { id: string; time: number; property?: "position" | "scale" | "rotation" | "opacity"; easing?: string }[];
+	keyframes?: {
+		id: string;
+		time: number;
+		property?: "position" | "scale" | "rotation" | "opacity";
+		easing?: string;
+	}[];
 	sourceAudioTracks?: SourceAudioTrackWithPeaks[];
-	getSourceAudioTrackSettingsForClip?: (
-		clipId: string,
-	) => SourceAudioTrackSettings | undefined;
+	getSourceAudioTrackSettingsForClip?: (clipId: string) => SourceAudioTrackSettings | undefined;
 	showSourceAudioTrack?: boolean;
 	media4in1?: SlideMedia4in1;
 	liveSpanPreviewById?: Record<string, { start: number; end: number }>;
@@ -56,6 +50,7 @@ export interface TimelineCanvasProps {
 }
 
 export default function TimelineCanvas({
+	recordToolsEnabled = true,
 	items,
 	videoDurationMs,
 	currentTimeMs,
@@ -85,15 +80,8 @@ export default function TimelineCanvas({
 	liveHiddenItemIds,
 	isLoading = false,
 }: TimelineCanvasProps) {
-	const {
-		setTimelineRef,
-		style,
-		sidebarWidth,
-		direction,
-		range,
-		valueToPixels,
-		pixelsToValue,
-	} = useTimelineContext();
+	const { setTimelineRef, style, sidebarWidth, direction, range, valueToPixels, pixelsToValue } =
+		useTimelineContext();
 	const localTimelineRef = useRef<HTMLDivElement | null>(null);
 	const [isSeeking, setIsSeeking] = useState(false);
 	const seekRafRef = useRef<number | null>(null);
@@ -129,10 +117,7 @@ export default function TimelineCanvas({
 					: e.clientX - rect.left - sidebarWidth;
 			if (clickX < 0) return;
 			const relativeMs = pixelsToValue(clickX);
-			const absoluteMs = Math.max(
-				0,
-				Math.min(range.start + relativeMs, videoDurationMs),
-			);
+			const absoluteMs = Math.max(0, Math.min(range.start + relativeMs, videoDurationMs));
 			onSeek(absoluteMs / 1000);
 		},
 		[
@@ -166,12 +151,7 @@ export default function TimelineCanvas({
 
 	const handleTimelineMouseDown = useCallback(
 		(e: MouseEvent<HTMLDivElement>) => {
-			if (
-				e.button !== 0 ||
-				!onSeek ||
-				videoDurationMs <= 0 ||
-				!localTimelineRef.current
-			)
+			if (e.button !== 0 || !onSeek || videoDurationMs <= 0 || !localTimelineRef.current)
 				return;
 			if ((e.target as HTMLElement).closest("[data-timeline-item]")) {
 				return;
@@ -210,11 +190,7 @@ export default function TimelineCanvas({
 
 		const flushSeek = () => {
 			seekRafRef.current = null;
-			if (
-				!onSeek ||
-				!localTimelineRef.current ||
-				pendingSeekClientXRef.current === null
-			)
+			if (!onSeek || !localTimelineRef.current || pendingSeekClientXRef.current === null)
 				return;
 			const rect = localTimelineRef.current.getBoundingClientRect();
 			onSeek(getAbsoluteMsFromClientX(pendingSeekClientXRef.current, rect) / 1000);
@@ -260,8 +236,8 @@ export default function TimelineCanvas({
 			if (isAnnotationTrackRowId(item.rowId)) annotationRowIds.add(item.rowId);
 			if (isAudioTrackRowId(item.rowId)) audioRowIds.add(item.rowId);
 		}
-		return 3 + annotationRowIds.size + audioRowIds.size;
-	}, [items]);
+		return (recordToolsEnabled ? 3 : 1) + annotationRowIds.size + audioRowIds.size;
+	}, [items, recordToolsEnabled]);
 	const timelineRowsMinHeightPx = getTimelineRowsMinHeightPx(timelineRowCount);
 	const sideProperty = direction === "rtl" ? "right" : "left";
 	const {
@@ -315,10 +291,7 @@ export default function TimelineCanvas({
 			onMouseMove={handleTimelineMouseMove}
 			onMouseLeave={handleTimelineMouseLeave}
 		>
-			<TimelineAxis
-				videoDurationMs={videoDurationMs}
-				currentTimeMs={currentTimeMs}
-			/>
+			<TimelineAxis videoDurationMs={videoDurationMs} currentTimeMs={currentTimeMs} />
 			<PlaybackCursor
 				currentTimeMs={currentTimeMs}
 				videoDurationMs={videoDurationMs}
@@ -331,7 +304,8 @@ export default function TimelineCanvas({
 				<div
 					className="absolute top-0 bottom-0 z-[45] pointer-events-none"
 					style={{
-						[sideProperty === "right" ? "marginRight" : "marginLeft"]: `${sidebarWidth - 1}px`,
+						[sideProperty === "right" ? "marginRight" : "marginLeft"]:
+							`${sidebarWidth - 1}px`,
 					}}
 				>
 					<div
@@ -346,6 +320,7 @@ export default function TimelineCanvas({
 				style={{ minHeight: timelineRowsMinHeightPx }}
 			>
 				<TimelineCanvasRows
+					recordToolsEnabled={recordToolsEnabled}
 					items={items}
 					videoDurationMs={videoDurationMs}
 					selectAllBlocksActive={selectAllBlocksActive}

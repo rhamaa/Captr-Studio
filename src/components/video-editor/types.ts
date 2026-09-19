@@ -259,7 +259,10 @@ export interface ClipTransition {
 	durationMs: number;
 }
 
+export type SceneVisualSettings = Pick<import("./projectPersistence").ProjectEditorState, "padding" | "borderRadius" | "shadowIntensity" | "backgroundBlur" | "colorGrading" | "frame" | "audioDuckingSettings">;
+
 export interface ClipEntry {
+	sceneSettings?: SceneVisualSettings;
 	id: string;
 	origin?: ClipOrigin; // "recorded" (internal screen/cam capture) vs "uploaded" (external media)
 	slideMode?: SlideMode; // "record" (screen/cam/telemetry) vs "video" (standard video editor mode)
