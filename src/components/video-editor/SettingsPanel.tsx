@@ -100,7 +100,12 @@ interface SettingsPanelProps {
 	recordToolsEnabled?: boolean;
 	slides?: ClipEntry[];
 	onAddAsSlide?: (filePath: string, label?: string) => void;
-	onImportMedia?: () => void;
+	onImportMedia?: (subfolder?: string) => void;
+	onUseAsset?: (
+		asset: import("./types").SlideAssetFile,
+		action: "set-main" | "add-video-layer" | "add-audio" | "add-overlay",
+	) => void;
+	onRemoveAsset?: (assetId: string) => void;
 	onAudioAdded?: (span: { start: number; end: number }, audioPath: string) => void;
 	currentTime?: number;
 	selected: string;
@@ -264,6 +269,8 @@ export function SettingsPanel({
 	slides = [],
 	onAddAsSlide,
 	onImportMedia,
+	onUseAsset,
+	onRemoveAsset,
 	onAudioAdded,
 	currentTime = 0,
 	selected,
@@ -849,6 +856,8 @@ export function SettingsPanel({
 						selectedClipId={selectedClipId}
 						onAddAsSlide={onAddAsSlide}
 						onImportMedia={onImportMedia}
+						onUseAsset={onUseAsset}
+						onRemoveAsset={onRemoveAsset}
 						tSettings={tSettings}
 					/>
 				);
@@ -929,9 +938,7 @@ export function SettingsPanel({
 						applyMotionPreset={applyMotionPreset}
 						showDevMotionControls={showDevMotionControls}
 						nativeCaptureUnavailableSession={nativeCaptureUnavailableSession}
-						onOpenNativeCaptureUnavailableModal={
-							onOpenNativeCaptureUnavailableModal
-						}
+						onOpenNativeCaptureUnavailableModal={onOpenNativeCaptureUnavailableModal}
 						zoomMotionBlurTuning={zoomMotionBlurTuning}
 						onZoomMotionBlurTuningChange={onZoomMotionBlurTuningChange}
 						initialEditorPreferences={initialEditorPreferences}
@@ -944,9 +951,7 @@ export function SettingsPanel({
 							onCameraSpringDampingMultiplierChange
 						}
 						cameraSpringMassMultiplier={cameraSpringMassMultiplier}
-						onCameraSpringMassMultiplierChange={
-							onCameraSpringMassMultiplierChange
-						}
+						onCameraSpringMassMultiplierChange={onCameraSpringMassMultiplierChange}
 						cursorSpringStiffnessMultiplier={cursorSpringStiffnessMultiplier}
 						onCursorSpringStiffnessMultiplierChange={
 							onCursorSpringStiffnessMultiplierChange
@@ -956,9 +961,7 @@ export function SettingsPanel({
 							onCursorSpringDampingMultiplierChange
 						}
 						cursorSpringMassMultiplier={cursorSpringMassMultiplier}
-						onCursorSpringMassMultiplierChange={
-							onCursorSpringMassMultiplierChange
-						}
+						onCursorSpringMassMultiplierChange={onCursorSpringMassMultiplierChange}
 						tSettings={tSettings}
 						t={t}
 					/>
@@ -1106,7 +1109,7 @@ export function SettingsPanel({
 				// Handle extension-contributed standalone section pages (ext:extensionId/panelId)
 				if (activeEffectSection?.startsWith("ext:")) {
 					const panels = extensionPanels.filter(
-						(p: any) =>
+						(p) =>
 							!p.panel.parentSection &&
 							`ext:${p.extensionId}/${p.panel.id}` === activeEffectSection,
 					);
@@ -1131,6 +1134,8 @@ export function SettingsPanel({
 							selectedClipId={selectedClipId}
 							onAddAsSlide={onAddAsSlide}
 							onImportMedia={onImportMedia}
+							onUseAsset={onUseAsset}
+							onRemoveAsset={onRemoveAsset}
 							tSettings={tSettings}
 						/>
 					);
@@ -1170,8 +1175,14 @@ export function SettingsPanel({
 					"flex-shrink-0 border-t border-foreground/10 bg-editor-panel p-4 pt-3",
 					(() => {
 						if (activeEffectSection === "clip" && selectedClipId) return false;
-						if (recordToolsEnabled && activeEffectSection === "layout" && selectedLayoutId) return false;
-						if (recordToolsEnabled && activeEffectSection === "zoom" && selectedZoomId) return false;
+						if (
+							recordToolsEnabled &&
+							activeEffectSection === "layout" &&
+							selectedLayoutId
+						)
+							return false;
+						if (recordToolsEnabled && activeEffectSection === "zoom" && selectedZoomId)
+							return false;
 						if (activeEffectSection === "audio" && selectedAudioId) return false;
 						if (selectedAnnotationId) return false; // Annotation editor handles its own but let's see
 						return true;

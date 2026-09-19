@@ -40,6 +40,7 @@ export function collectProjectMediaPaths(project: unknown): string[] {
 			add(region.videoFilePath);
 			add(region.gifPath);
 		}
+		for (const asset of objects(entry.assetFiles)) add(asset.path);
 	};
 	collect(root);
 	collect(object(root.editor));

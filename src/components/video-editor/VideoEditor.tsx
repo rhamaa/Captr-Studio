@@ -254,6 +254,7 @@ import {
 	type Padding,
 	mapSourceTimeToTimelineTime as resolveSourceTimeToTimelineTime,
 	mapTimelineTimeToSourceTime as resolveTimelineTimeToSourceTime,
+	type SlideAssetFile,
 	type SpeedRegion,
 	type TrimRegion,
 	trimsToClips,
@@ -5165,54 +5166,62 @@ export default function VideoEditor() {
 		setSelectedZoomId(null);
 	}, []);
 
-	const handleAddVideoLayer = useCallback(async () => {
-		const result = await window.electronAPI.showOpenDialog({
-			title: "Add video layer",
-			filters: [{ name: "Video", extensions: ["mp4", "webm", "mov", "mkv"] }],
-			properties: ["openFile"],
-		});
-		if (result.canceled || !result.filePaths?.[0]) return;
-		const decoder = new LayerVideoSource();
-		try {
-			const path = result.filePaths[0];
-			await decoder.load(path);
-			const startMs = Math.round(currentTime * 1000);
-			const endMs = Math.min(
-				Math.round(duration * 1000),
-				startMs + Math.round(decoder.video.duration * 1000),
-			);
-			if (!Number.isFinite(endMs) || endMs <= startMs)
-				throw new Error("Place the playhead inside the scene before adding a video layer");
-			const id = `annotation-${nextAnnotationIdRef.current++}`;
-			setAnnotationRegions((prev) => [
-				...prev,
-				{
-					id,
-					type: "video",
-					content: "",
-					videoFilePath: path,
-					name: path.split(/[\\/]/).pop(),
-					startMs,
-					endMs,
-					sourceOffsetMs: 0,
-					playbackRate: 1,
-					position: { x: 25, y: 25 },
-					size: { width: 50, height: 50 },
-					style: { ...DEFAULT_ANNOTATION_STYLE, opacity: 1 },
-					zIndex: nextAnnotationZIndexRef.current++,
-					trackIndex: Math.max(-1, ...prev.map((r) => r.trackIndex ?? 0)) + 1,
-					muted: false,
-					visible: true,
-				},
-			]);
-			setSelectedAnnotationId(id);
-			setSelectedZoomId(null);
-		} catch (error) {
-			toast.error(error instanceof Error ? error.message : "Unable to add video layer");
-		} finally {
-			decoder.destroy();
-		}
-	}, [currentTime, duration]);
+	const handleAddVideoLayer = useCallback(
+		async (filePathInput?: string) => {
+			let path = filePathInput;
+			if (!path) {
+				const result = await window.electronAPI.showOpenDialog({
+					title: "Add video layer",
+					filters: [{ name: "Video", extensions: ["mp4", "webm", "mov", "mkv"] }],
+					properties: ["openFile"],
+				});
+				if (result.canceled || !result.filePaths?.[0]) return;
+				path = result.filePaths[0];
+			}
+			const decoder = new LayerVideoSource();
+			try {
+				await decoder.load(path);
+				const startMs = Math.round(currentTime * 1000);
+				const endMs = Math.min(
+					Math.round(duration * 1000),
+					startMs + Math.round(decoder.video.duration * 1000),
+				);
+				if (!Number.isFinite(endMs) || endMs <= startMs)
+					throw new Error(
+						"Place the playhead inside the scene before adding a video layer",
+					);
+				const id = `annotation-${nextAnnotationIdRef.current++}`;
+				setAnnotationRegions((prev) => [
+					...prev,
+					{
+						id,
+						type: "video",
+						content: "",
+						videoFilePath: path,
+						name: path.split(/[\\/]/).pop(),
+						startMs,
+						endMs,
+						sourceOffsetMs: 0,
+						playbackRate: 1,
+						position: { x: 25, y: 25 },
+						size: { width: 50, height: 50 },
+						style: { ...DEFAULT_ANNOTATION_STYLE, opacity: 1 },
+						zIndex: nextAnnotationZIndexRef.current++,
+						trackIndex: Math.max(-1, ...prev.map((r) => r.trackIndex ?? 0)) + 1,
+						muted: false,
+						visible: true,
+					},
+				]);
+				setSelectedAnnotationId(id);
+				setSelectedZoomId(null);
+			} catch (error) {
+				toast.error(error instanceof Error ? error.message : "Unable to add video layer");
+			} finally {
+				decoder.destroy();
+			}
+		},
+		[currentTime, duration],
+	);
 
 	const handleAddGifAnnotation = useCallback(async () => {
 		const result = await window.electronAPI.showOpenDialog({
@@ -5252,90 +5261,249 @@ export default function VideoEditor() {
 		setSelectedZoomId(null);
 	}, [annotationRegions, duration, currentTime]);
 
-	const handleAddAudioTrack = useCallback(async () => {
-		const result = await window.electronAPI.showOpenDialog({
-			title: "Select Audio File",
-			filters: [
-				{ name: "Audio Files", extensions: ["mp3", "wav", "aac", "m4a", "ogg", "flac"] },
-			],
-			properties: ["openFile"],
-		});
-		if (!result || result.canceled || result.filePaths.length === 0) return;
-		const filePath = result.filePaths[0];
+	const handleAddAudioTrack = useCallback(
+		async (filePathInput?: string) => {
+			let filePath = filePathInput;
+			if (!filePath) {
+				const result = await window.electronAPI.showOpenDialog({
+					title: "Select Audio File",
+					filters: [
+						{
+							name: "Audio Files",
+							extensions: ["mp3", "wav", "aac", "m4a", "ogg", "flac"],
+						},
+					],
+					properties: ["openFile"],
+				});
+				if (!result || result.canceled || result.filePaths.length === 0) return;
+				filePath = result.filePaths[0];
+			}
 
-		// Detect duration using temporary HTMLAudioElement
-		const fileUrl = await resolveVideoUrl(filePath);
-		let audioDurationMs = 10000; // default fallback 10s
-		try {
-			const tempAudio = new Audio(fileUrl);
-			await new Promise<void>((resolve) => {
-				tempAudio.onloadedmetadata = () => {
-					if (Number.isFinite(tempAudio.duration) && tempAudio.duration > 0) {
-						audioDurationMs = Math.round(tempAudio.duration * 1000);
-					}
-					resolve();
-				};
-				tempAudio.onerror = () => resolve();
-				setTimeout(resolve, 2000); // 2s timeout
+			// Detect duration using temporary HTMLAudioElement
+			const fileUrl = await resolveVideoUrl(filePath);
+			let audioDurationMs = 10000; // default fallback 10s
+			try {
+				const tempAudio = new Audio(fileUrl);
+				await new Promise<void>((resolve) => {
+					tempAudio.onloadedmetadata = () => {
+						if (Number.isFinite(tempAudio.duration) && tempAudio.duration > 0) {
+							audioDurationMs = Math.round(tempAudio.duration * 1000);
+						}
+						resolve();
+					};
+					tempAudio.onerror = () => resolve();
+					setTimeout(resolve, 2000); // 2s timeout
+				});
+			} catch {
+				// ignore, fallback duration used
+			}
+
+			const currentMs = Math.round(
+				(videoPlaybackRef.current?.video?.currentTime ?? currentTime) * 1000,
+			);
+			const startMs = currentMs;
+			const endMs = startMs + audioDurationMs;
+
+			handleAudioAdded({ start: startMs, end: endMs }, filePath);
+			toast.success("Audio track added");
+		},
+		[currentTime, handleAudioAdded],
+	);
+
+	const handleAddStickerAnnotation = useCallback(
+		async (filePathInput?: string) => {
+			let filePath = filePathInput;
+			if (!filePath) {
+				const result = await window.electronAPI.showOpenDialog({
+					filters: [
+						{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "svg"] },
+					],
+					properties: ["openFile"],
+				});
+				if (!result || result.canceled || result.filePaths.length === 0) return;
+				filePath = result.filePaths[0];
+			}
+
+			const dataUrl = await window.electronAPI.readFileAsDataUrl(filePath);
+			if (!dataUrl) return;
+
+			const currentMs = Math.round(currentTime * 1000);
+			const durationMs = Math.round(duration * 1000);
+
+			const id = `annotation-${nextAnnotationIdRef.current++}`;
+			const zIndex = nextAnnotationZIndexRef.current++;
+			const trackIndex =
+				annotationRegions.length > 0
+					? Math.max(...annotationRegions.map((r) => r.trackIndex ?? 0)) + 1
+					: 0;
+
+			const newRegion: AnnotationRegion = {
+				id,
+				type: "image",
+				content: dataUrl,
+				imageContent: dataUrl,
+				imageFilePath: filePath,
+				startMs: currentMs,
+				endMs: Math.min(currentMs + 5000, durationMs),
+				position: { ...DEFAULT_ANNOTATION_POSITION },
+				size: { ...DEFAULT_ANNOTATION_SIZE, width: 20, height: 20 },
+				style: {
+					...DEFAULT_ANNOTATION_STYLE,
+					backgroundColor: "transparent",
+					opacity: 1,
+					dropShadow: false,
+				},
+				zIndex,
+				trackIndex,
+			};
+			setAnnotationRegions((prev) => [...prev, newRegion]);
+			setSelectedAnnotationId(id);
+			setSelectedZoomId(null);
+		},
+		[annotationRegions.length, currentTime, duration],
+	);
+
+	const handleImportMediaToSlide = useCallback(
+		async (targetSubfolder?: string) => {
+			const activeId = selectedClipId ?? clips[0]?.id;
+			if (!activeId) return;
+
+			const result = await window.electronAPI.showOpenDialog({
+				title: "Import Media to Slide",
+				filters: [
+					{
+						name: "All Media Files",
+						extensions: [
+							"mp4",
+							"webm",
+							"mov",
+							"mkv",
+							"mp3",
+							"wav",
+							"aac",
+							"m4a",
+							"ogg",
+							"flac",
+							"png",
+							"jpg",
+							"jpeg",
+							"webp",
+							"svg",
+							"gif",
+						],
+					},
+					{ name: "Videos", extensions: ["mp4", "webm", "mov", "mkv"] },
+					{ name: "Audio", extensions: ["mp3", "wav", "aac", "m4a", "ogg", "flac"] },
+					{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "svg", "gif"] },
+				],
+				properties: ["openFile", "multiSelections"],
 			});
-		} catch {
-			// ignore, fallback duration used
-		}
 
-		const currentMs = Math.round(
-			(videoPlaybackRef.current?.video?.currentTime ?? currentTime) * 1000,
-		);
-		const startMs = currentMs;
-		const endMs = startMs + audioDurationMs;
+			if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+				return;
+			}
 
-		handleAudioAdded({ start: startMs, end: endMs }, filePath);
-		toast.success("Audio track added");
-	}, [currentTime, handleAudioAdded]);
+			const videoExts = ["mp4", "webm", "mov", "mkv"];
+			const audioExts = ["mp3", "wav", "aac", "m4a", "ogg", "flac"];
 
-	const handleAddStickerAnnotation = useCallback(async () => {
-		const result = await window.electronAPI.showOpenDialog({
-			filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "svg"] }],
-			properties: ["openFile"],
-		});
-		if (!result || result.canceled || result.filePaths.length === 0) return;
-		const filePath = result.filePaths[0];
+			const newAssets: SlideAssetFile[] = result.filePaths.map((filePath) => {
+				const ext = (filePath.split(".").pop() || "").toLowerCase();
+				const isVideo = videoExts.includes(ext);
+				const isAudio = audioExts.includes(ext);
+				const type: "video" | "audio" | "image" = isVideo
+					? "video"
+					: isAudio
+						? "audio"
+						: "image";
 
-		const dataUrl = await window.electronAPI.readFileAsDataUrl(filePath);
-		if (!dataUrl) return;
+				let subfolder = targetSubfolder;
+				if (!subfolder || subfolder === "Imported Media") {
+					subfolder = isVideo
+						? "Video Layers"
+						: isAudio
+							? "Audio & Voiceovers"
+							: "Graphics & Overlays";
+				}
 
-		const currentMs = Math.round(currentTime * 1000);
-		const durationMs = Math.round(duration * 1000);
+				return {
+					id: `asset-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+					name: filePath.split(/[/\\]/).pop() || "Asset",
+					path: filePath,
+					size: 0,
+					mtimeMs: Date.now(),
+					type,
+					subfolder,
+					category: "imported",
+				};
+			});
 
-		const id = `annotation-${nextAnnotationIdRef.current++}`;
-		const zIndex = nextAnnotationZIndexRef.current++;
-		const trackIndex =
-			annotationRegions.length > 0
-				? Math.max(...annotationRegions.map((r) => r.trackIndex ?? 0)) + 1
-				: 0;
+			setClips((prevClips) =>
+				prevClips.map((clip) => {
+					if (clip.id !== activeId) return clip;
+					const existing = clip.assetFiles ?? [];
+					return {
+						...clip,
+						assetFiles: [...existing, ...newAssets],
+					};
+				}),
+			);
+			toast.success(`Imported ${newAssets.length} asset(s) to this slide`);
+		},
+		[selectedClipId, clips],
+	);
 
-		const newRegion: AnnotationRegion = {
-			id,
-			type: "image",
-			content: dataUrl,
-			imageContent: dataUrl,
-			imageFilePath: filePath,
-			startMs: currentMs,
-			endMs: Math.min(currentMs + 5000, durationMs),
-			position: { ...DEFAULT_ANNOTATION_POSITION },
-			size: { ...DEFAULT_ANNOTATION_SIZE, width: 20, height: 20 },
-			style: {
-				...DEFAULT_ANNOTATION_STYLE,
-				backgroundColor: "transparent",
-				opacity: 1,
-				dropShadow: false,
-			},
-			zIndex,
-			trackIndex,
-		};
-		setAnnotationRegions((prev) => [...prev, newRegion]);
-		setSelectedAnnotationId(id);
-		setSelectedZoomId(null);
-	}, [annotationRegions.length, currentTime, duration]);
+	const handleRemoveAssetFromSlide = useCallback(
+		(assetId: string) => {
+			const activeId = selectedClipId ?? clips[0]?.id;
+			if (!activeId) return;
+
+			setClips((prevClips) =>
+				prevClips.map((clip) => {
+					if (clip.id !== activeId) return clip;
+					return {
+						...clip,
+						assetFiles: (clip.assetFiles ?? []).filter((a) => a.id !== assetId),
+					};
+				}),
+			);
+			toast.success("Asset removed from slide");
+		},
+		[selectedClipId, clips],
+	);
+
+	const handleUseAssetInSlide = useCallback(
+		(
+			asset: SlideAssetFile,
+			action: "set-main" | "add-video-layer" | "add-audio" | "add-overlay",
+		) => {
+			if (action === "add-video-layer") {
+				void handleAddVideoLayer(asset.path);
+			} else if (action === "add-audio") {
+				void handleAddAudioTrack(asset.path);
+			} else if (action === "add-overlay") {
+				void handleAddStickerAnnotation(asset.path);
+			} else if (action === "set-main") {
+				const activeId = selectedClipId ?? clips[0]?.id;
+				if (!activeId) return;
+				setClips((prevClips) =>
+					prevClips.map((clip) =>
+						clip.id === activeId ? { ...clip, videoPath: asset.path } : clip,
+					),
+				);
+				setVideoSourcePath(asset.path);
+				resolveVideoUrl(asset.path).then((url) => setVideoPath(url));
+				toast.success("Main video updated");
+			}
+		},
+		[
+			selectedClipId,
+			clips,
+			handleAddVideoLayer,
+			handleAddAudioTrack,
+			handleAddStickerAnnotation,
+			resolveVideoUrl,
+		],
+	);
 
 	const handleAnnotationSpanChange = useCallback(
 		(id: string, span: Span, trackIndex?: number) => {
@@ -7655,7 +7823,15 @@ export default function VideoEditor() {
 								onAddAsSlide={(filePath, label) => {
 									void handleImportVideoClip(filePath, label);
 								}}
-								onImportMedia={() => void handleImportVideoClip()}
+								onImportMedia={(subfolder) => {
+									if (activeSlideMode === "video") {
+										void handleImportMediaToSlide(subfolder);
+									} else {
+										void handleImportVideoClip();
+									}
+								}}
+								onUseAsset={handleUseAssetInSlide}
+								onRemoveAsset={handleRemoveAssetFromSlide}
 								onAudioAdded={handleAudioAdded}
 								currentTime={currentTime}
 								selected={wallpaper}

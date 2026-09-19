@@ -25,6 +25,7 @@ describe("project media references", () => {
 							{ sourcePath: "broll.mp4" },
 							{ sourcePath: "data:image/png;base64,test" },
 						],
+						assetFiles: [{ path: "exclusive-slide.mp4" }],
 					},
 				],
 			}),
@@ -39,6 +40,7 @@ describe("project media references", () => {
 			"system.wav",
 			"cursor.json",
 			"broll.mp4",
+			"exclusive-slide.mp4",
 		]);
 	});
 	it("resolves a scene-only project and tolerates malformed optional collections", () => {

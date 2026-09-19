@@ -259,7 +259,27 @@ export interface ClipTransition {
 	durationMs: number;
 }
 
-export type SceneVisualSettings = Pick<import("./projectPersistence").ProjectEditorState, "padding" | "borderRadius" | "shadowIntensity" | "backgroundBlur" | "colorGrading" | "frame" | "audioDuckingSettings">;
+export type SceneVisualSettings = Pick<
+	import("./projectPersistence").ProjectEditorState,
+	| "padding"
+	| "borderRadius"
+	| "shadowIntensity"
+	| "backgroundBlur"
+	| "colorGrading"
+	| "frame"
+	| "audioDuckingSettings"
+>;
+
+export interface SlideAssetFile {
+	id: string;
+	name: string;
+	path: string;
+	size: number;
+	mtimeMs: number;
+	type: "video" | "audio" | "image";
+	subfolder?: string;
+	category?: "main" | "layer" | "audio" | "graphic" | "imported";
+}
 
 export interface ClipEntry {
 	sceneSettings?: SceneVisualSettings;
@@ -295,6 +315,8 @@ export interface ClipEntry {
 	/** Legacy read-only format; new edits use annotationRegions. */
 	mediaTrackLayers?: MediaTrackLayer[];
 	keyframes?: PropertyKeyframe[];
+	/** Exclusive per-slide asset library for video and multimedia slides */
+	assetFiles?: SlideAssetFile[];
 }
 
 export function getClipSourceEndMs(clip: ClipRegion): number {

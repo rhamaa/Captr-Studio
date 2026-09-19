@@ -436,6 +436,40 @@ export function normalizeClipEntries(candidateClips: unknown): ClipEntry[] {
 					: undefined,
 				keyframes: normalizePropertyKeyframes(raw.keyframes),
 				transitionIn: normalizeClipTransition(raw.transitionIn ?? raw.transitionToNext),
+				assetFiles: Array.isArray(raw.assetFiles)
+					? (raw.assetFiles
+							.filter((f): f is Record<string, unknown> =>
+								Boolean(
+									f &&
+										typeof f === "object" &&
+										typeof (f as Record<string, unknown>).path === "string",
+								),
+							)
+							.map((f, fIdx) => ({
+								id:
+									typeof f.id === "string" && f.id
+										? f.id
+										: `asset-${index + 1}-${fIdx + 1}`,
+								name: typeof f.name === "string" && f.name ? f.name : "Asset",
+								path: String(f.path),
+								size: isFiniteNumber(f.size)
+									? Math.max(0, Math.round(Number(f.size)))
+									: 0,
+								mtimeMs: isFiniteNumber(f.mtimeMs) ? Number(f.mtimeMs) : Date.now(),
+								type:
+									f.type === "video" || f.type === "audio" || f.type === "image"
+										? (f.type as "video" | "audio" | "image")
+										: "video",
+								subfolder:
+									typeof f.subfolder === "string" && f.subfolder
+										? f.subfolder
+										: "Imported",
+								category:
+									typeof f.category === "string"
+										? (f.category as import("./types").SlideAssetFile["category"])
+										: "imported",
+							})) as import("./types").SlideAssetFile[])
+					: undefined,
 			};
 		});
 }

@@ -180,4 +180,53 @@ describe("separate scene editors", () => {
 		expect(normalized[0].zoomRegions).toHaveLength(1);
 		expect(normalized[0].showCursor).toBe(true);
 	});
+
+	it("preserves and normalizes assetFiles exclusively per slide without cross-slide leakage", () => {
+		const clip1: ClipEntry = {
+			...video,
+			id: "vid-1",
+			assetFiles: [
+				{
+					id: "asset-1",
+					name: "b-roll.mp4",
+					path: "C:/media/b-roll.mp4",
+					size: 1024,
+					mtimeMs: 123456789,
+					type: "video",
+					subfolder: "Video Layers",
+				},
+			],
+		};
+
+		const clip2: ClipEntry = {
+			...video,
+			id: "vid-2",
+			assetFiles: [
+				{
+					id: "asset-2",
+					name: "voiceover.mp3",
+					path: "C:/media/voiceover.mp3",
+					size: 2048,
+					mtimeMs: 987654321,
+					type: "audio",
+					subfolder: "Audio & Voiceovers",
+				},
+			],
+		};
+
+		const normalized = normalizeClipEntries([clip1, clip2]);
+
+		// Clip 1 should only contain asset-1
+		expect(normalized[0].assetFiles).toHaveLength(1);
+		expect(normalized[0].assetFiles?.[0].id).toBe("asset-1");
+		expect(normalized[0].assetFiles?.[0].subfolder).toBe("Video Layers");
+
+		// Clip 2 should only contain asset-2
+		expect(normalized[1].assetFiles).toHaveLength(1);
+		expect(normalized[1].assetFiles?.[0].id).toBe("asset-2");
+		expect(normalized[1].assetFiles?.[0].subfolder).toBe("Audio & Voiceovers");
+
+		// No shared references or leakage
+		expect(normalized[0].assetFiles).not.toBe(normalized[1].assetFiles);
+	});
 });
