@@ -865,6 +865,7 @@ export function SettingsPanel({
 				return (
 					<AudioRecordSection
 						currentTime={currentTime}
+						activeSlideId={selectedClipId}
 						onAudioAdded={onAudioAdded}
 						selectedAudioId={selectedAudioId}
 						selectedAudioVolume={selectedAudioVolume}

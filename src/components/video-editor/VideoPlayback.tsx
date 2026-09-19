@@ -754,6 +754,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						screenContainer.style.opacity = "";
 						screenContainer.style.borderRadius = "";
 						screenContainer.style.overflow = "";
+						screenContainer.style.clipPath = "";
 					}
 					return;
 				}
@@ -773,13 +774,48 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 				if (layoutScene && screenContainer) {
 					const screen = layoutScene.screen;
-					const scaleX = screen.width / Math.max(1, overlay.clientWidth);
-					const scaleY = screen.height / Math.max(1, overlay.clientHeight);
-					screenContainer.style.transformOrigin = "top left";
-					screenContainer.style.transform = `translate(${screen.x}px, ${screen.y}px) scale(${scaleX}, ${scaleY})`;
-					screenContainer.style.opacity = `${screen.opacity}`;
-					screenContainer.style.borderRadius = `${screen.borderRadius}px`;
-					screenContainer.style.overflow = screen.borderRadius > 0 ? "hidden" : "";
+					const stageW = Math.max(1, overlay.clientWidth);
+					const stageH = Math.max(1, overlay.clientHeight);
+					const scaleX = screen.width / stageW;
+					const scaleY = screen.height / stageH;
+					const isNonUniform = Math.abs(scaleX - scaleY) > 0.05;
+
+					if (isNonUniform) {
+						// Cover mode (like webcam): uniform scale without squishing text/content
+						const uniformScale = Math.max(scaleX, scaleY);
+						const scaledW = stageW * uniformScale;
+						const scaledH = stageH * uniformScale;
+						const screenOffsetX = (screen.width - scaledW) / 2;
+						const screenOffsetY = (screen.height - scaledH) / 2;
+
+						screenContainer.style.transformOrigin = "top left";
+						screenContainer.style.transform = `translate(${screen.x + screenOffsetX}px, ${screen.y + screenOffsetY}px) scale(${uniformScale})`;
+						screenContainer.style.opacity = `${screen.opacity}`;
+
+						const clipLeft = Math.max(0, -screenOffsetX / uniformScale);
+						const clipRight = Math.max(
+							0,
+							stageW - (clipLeft + screen.width / uniformScale),
+						);
+						const clipTop = Math.max(0, -screenOffsetY / uniformScale);
+						const clipBottom = Math.max(
+							0,
+							stageH - (clipTop + screen.height / uniformScale),
+						);
+						const radius = Math.max(0, (screen.borderRadius ?? 20) / uniformScale);
+
+						screenContainer.style.clipPath = `inset(${clipTop}px ${clipRight}px ${clipBottom}px ${clipLeft}px round ${radius}px)`;
+						screenContainer.style.borderRadius = "0px";
+						screenContainer.style.overflow = "hidden";
+					} else {
+						screenContainer.style.clipPath = "";
+						screenContainer.style.transformOrigin = "top left";
+						screenContainer.style.transform = `translate(${screen.x}px, ${screen.y}px) scale(${scaleX}, ${scaleY})`;
+						screenContainer.style.opacity = `${screen.opacity}`;
+						screenContainer.style.borderRadius = `${screen.borderRadius}px`;
+						screenContainer.style.overflow = screen.borderRadius > 0 ? "hidden" : "";
+					}
+
 					screenContainer.style.filter =
 						showShadow && shadowIntensity > 0
 							? `drop-shadow(0 ${shadowIntensity * 12}px ${shadowIntensity * 48}px rgba(0,0,0,${shadowIntensity * 0.7})) drop-shadow(0 ${shadowIntensity * 4}px ${shadowIntensity * 16}px rgba(0,0,0,${shadowIntensity * 0.5})) drop-shadow(0 ${shadowIntensity * 2}px ${shadowIntensity * 8}px rgba(0,0,0,${shadowIntensity * 0.3}))`
@@ -787,6 +823,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								? `drop-shadow(0 ${Math.round(screen.height * 0.04)}px ${Math.round(screen.height * 0.14)}px rgba(0,0,0,${screen.shadow}))`
 								: "none";
 				} else if (screenContainer) {
+					screenContainer.style.clipPath = "";
 					screenContainer.style.transform = "";
 					screenContainer.style.opacity = "";
 					screenContainer.style.borderRadius = "";
@@ -2909,7 +2946,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			>
 				{/* Background layer */}
 				{resolvedWallpaperKind === "video" && resolvedWallpaper ? (
-					<video crossOrigin="anonymous"
+					<video
+						crossOrigin="anonymous"
 						key={resolvedWallpaper}
 						ref={bgVideoRef}
 						className="absolute inset-0 h-full w-full object-cover"
@@ -2998,7 +3036,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 											className="pointer-events-none absolute"
 											style={webcamCropPreviewContentStyle}
 										>
-											<video crossOrigin="anonymous"
+											<video
+												crossOrigin="anonymous"
 												ref={webcamVideoRef}
 												src={webcamVideoPath}
 												className="pointer-events-none absolute inset-0 block h-full w-full object-cover"
@@ -3072,7 +3111,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				)}
 				{/* Keep the source video off-screen instead of display:none so the
 					browser continues producing presented frames for Pixi and preview sync. */}
-				<video crossOrigin="anonymous"
+				<video
+					crossOrigin="anonymous"
 					ref={videoRef}
 					src={videoPath}
 					className={fallbackVideoClassName}

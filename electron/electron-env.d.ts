@@ -796,6 +796,15 @@ interface Window {
 			size?: number;
 			error?: string;
 		}>;
+		saveRecordedAudio?: (payload: {
+			audioBuffer: ArrayBuffer | Uint8Array | number[];
+			slideId?: string | null;
+			extension?: string;
+		}) => Promise<{
+			success: boolean;
+			filePath?: string;
+			error?: string;
+		}>;
 		installDownloadedUpdate: () => Promise<{ success: boolean }>;
 		downloadAvailableUpdate: (
 			installAfterDownload?: boolean,

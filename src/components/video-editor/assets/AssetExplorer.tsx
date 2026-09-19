@@ -1,5 +1,4 @@
 import {
-	ArrowsClockwise,
 	CaretDown,
 	CaretRight,
 	CheckCircle,
@@ -50,7 +49,7 @@ const DEFAULT_SUBFOLDERS = [
 export function AssetExplorer({
 	className,
 	activeClip,
-	onAddAsSlide,
+	onAddAsSlide: _onAddAsSlide,
 	onImportMedia,
 	onUseAsset,
 	onRemoveAsset,

@@ -777,6 +777,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
 			subfolder,
 		);
 	},
+	saveRecordedAudio: (payload: {
+		audioBuffer: ArrayBuffer | Uint8Array | number[];
+		slideId?: string | null;
+		extension?: string;
+	}) => {
+		return ipcRenderer.invoke("save-recorded-audio", payload);
+	},
 	installDownloadedUpdate: () => {
 		return ipcRenderer.invoke("install-downloaded-update");
 	},

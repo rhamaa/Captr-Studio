@@ -2034,6 +2034,16 @@ export default function VideoEditor() {
 		setColorGrading(state.sceneSettings.colorGrading);
 		setFrame(state.sceneSettings.frame);
 		setAudioDuckingSettings(state.sceneSettings.audioDuckingSettings);
+		if (clip.audioRegions) {
+			setAudioRegions(cloneStructured(clip.audioRegions));
+		} else {
+			setAudioRegions([]);
+		}
+		if (clip.annotationRegions) {
+			setAnnotationRegions(cloneStructured(clip.annotationRegions));
+		} else {
+			setAnnotationRegions([]);
+		}
 	}, []);
 
 	const buildHistorySnapshot = useCallback((): EditorHistorySnapshot => {
@@ -2188,7 +2198,7 @@ export default function VideoEditor() {
 
 			const project = candidate;
 			const sourcePath = fromFileUrl(
-				normalizeClipEntries(project.clips)[0]?.videoPath || project.videoPath,
+				normalizeClipEntries(project.clips)[0]?.videoPath || project.videoPath || "",
 			);
 			const normalizedEditor = normalizeProjectEditor(
 				stripPersistedDevMotionBlurSettings(project.editor ?? {}),
@@ -2204,8 +2214,8 @@ export default function VideoEditor() {
 			setDuration(0);
 
 			setError(null);
-			setVideoSourcePath(sourcePath);
-			setVideoPath(await resolveVideoUrl(sourcePath));
+			setVideoSourcePath(sourcePath || null);
+			setVideoPath(sourcePath ? await resolveVideoUrl(sourcePath) : null);
 			setCurrentProjectPath(path ?? null);
 			pendingFreshRecordingAutoZoomPathRef.current = null;
 			if (normalizedEditor.webcam.sourcePath) {
@@ -2221,10 +2231,13 @@ export default function VideoEditor() {
 				);
 				const sessionResult = await window.electronAPI.getCurrentRecordingSession?.();
 				applySessionPresentation(sessionResult?.success ? sessionResult.session : null);
-			} else {
+			} else if (sourcePath) {
 				await window.electronAPI.setCurrentVideoPath(sourcePath, {
 					preserveProjectPath: Boolean(path),
 				});
+				applySessionPresentation(null);
+			} else {
+				await window.electronAPI.clearCurrentVideoPath?.();
 				applySessionPresentation(null);
 			}
 
@@ -2385,8 +2398,9 @@ export default function VideoEditor() {
 			setSelectedAnnotationId(null);
 			setSelectedAudioId(null);
 			const initialClip =
-				normalizedEditor.clips.find((c) => c.id === initialSelectedClipId) ??
-				normalizedEditor.clips[0];
+				(project.clips ? normalizeClipEntries(project.clips) : []).find(
+					(c) => c.id === initialSelectedClipId,
+				) ?? (project.clips ? normalizeClipEntries(project.clips)[0] : undefined);
 			if (initialClip) {
 				restoreSceneEditing(initialClip);
 			}
@@ -3102,10 +3116,27 @@ export default function VideoEditor() {
 				setSelectedAnnotationId(null);
 				setSelectedAudioId(null);
 				if (clip) {
+					if (activeSceneId && activeSceneId !== clip.id) {
+						setClips((prevClips) =>
+							prevClips.map((c) =>
+								c.id === activeSceneId
+									? {
+											...c,
+											audioRegions,
+											annotationRegions,
+										}
+									: c,
+							),
+						);
+					}
 					setActiveSceneId(clip.id);
 					if (clip.id !== activeSceneId) {
-						setAnnotationRegions(clip.annotationRegions ?? []);
-						setAudioRegions(clip.audioRegions ?? []);
+						setAnnotationRegions(
+							clip.annotationRegions ? cloneStructured(clip.annotationRegions) : [],
+						);
+						setAudioRegions(
+							clip.audioRegions ? cloneStructured(clip.audioRegions) : [],
+						);
 					}
 					if (clip.id !== activeSceneId) restoreSceneEditing(clip);
 
@@ -3282,18 +3313,15 @@ export default function VideoEditor() {
 		[deriveUniqueClipId, videoPath, handleSelectClip, buildHistorySnapshot, syncHistoryButtons],
 	);
 
-	const handleVideoPlaybackError = useCallback(
-		(errorMessage: string) => {
-			console.error("[VideoEditor] Playback error:", errorMessage);
-			toast.error(errorMessage, {
-				description: "Format video tidak didukung atau file tidak dapat dimuat di player.",
-			});
-			if (!clipsRef.current.length && !videoSourcePathRef.current) {
-				setError(errorMessage);
-			}
-		},
-		[],
-	);
+	const handleVideoPlaybackError = useCallback((errorMessage: string) => {
+		console.error("[VideoEditor] Playback error:", errorMessage);
+		toast.error(errorMessage, {
+			description: "Format video tidak didukung atau file tidak dapat dimuat di player.",
+		});
+		if (!clipsRef.current.length && !videoSourcePathRef.current) {
+			setError(errorMessage);
+		}
+	}, []);
 
 	const handleDuplicateSlide = useCallback(
 		(slideId: string) => {
@@ -5064,45 +5092,69 @@ export default function VideoEditor() {
 		}
 	}, []);
 
-	const handleAudioAdded = useCallback((span: Span, audioPath: string, trackIndex?: number) => {
-		const id = `audio-${nextAudioIdRef.current++}`;
-		const newRegion: AudioRegion = {
-			id,
-			startMs: Math.round(span.start),
-			endMs: Math.round(span.end),
-			audioPath,
-			volume: 1,
-			normalize: false,
-			trackIndex,
-		};
-		setAudioRegions((prev) => [...prev, newRegion]);
-		setSelectedAudioId(id);
-		setSelectedZoomId(null);
-		setSelectedAnnotationId(null);
-		setActiveEffectSection("audio");
-	}, []);
+	const handleAudioAdded = useCallback(
+		(span: Span, audioPath: string, trackIndex?: number) => {
+			const id = `audio-${nextAudioIdRef.current++}`;
+			const newRegion: AudioRegion = {
+				id,
+				startMs: Math.round(span.start),
+				endMs: Math.round(span.end),
+				audioPath,
+				volume: 1,
+				normalize: false,
+				trackIndex,
+			};
+			setAudioRegions((prev) => {
+				const next = [...prev, newRegion];
+				if (activeSceneId) {
+					setClips((prevClips) =>
+						prevClips.map((clip) =>
+							clip.id === activeSceneId ? { ...clip, audioRegions: next } : clip,
+						),
+					);
+				}
+				return next;
+			});
+			setSelectedAudioId(id);
+			setSelectedZoomId(null);
+			setSelectedAnnotationId(null);
+			setActiveEffectSection("audio");
+		},
+		[activeSceneId],
+	);
 
-	const handleAudioSpanChange = useCallback((id: string, span: Span, trackIndex?: number) => {
-		const normalizedTrackIndex =
-			typeof trackIndex === "number" && Number.isFinite(trackIndex)
-				? Math.max(0, Math.floor(trackIndex))
-				: undefined;
+	const handleAudioSpanChange = useCallback(
+		(id: string, span: Span, trackIndex?: number) => {
+			const normalizedTrackIndex =
+				typeof trackIndex === "number" && Number.isFinite(trackIndex)
+					? Math.max(0, Math.floor(trackIndex))
+					: undefined;
 
-		setAudioRegions((prev) =>
-			prev.map((region) =>
-				region.id === id
-					? {
-							...region,
-							startMs: Math.round(span.start),
-							endMs: Math.round(span.end),
-							...(normalizedTrackIndex === undefined
-								? {}
-								: { trackIndex: normalizedTrackIndex }),
-						}
-					: region,
-			),
-		);
-	}, []);
+			setAudioRegions((prev) => {
+				const next = prev.map((region) =>
+					region.id === id
+						? {
+								...region,
+								startMs: Math.round(span.start),
+								endMs: Math.round(span.end),
+								...(normalizedTrackIndex === undefined
+									? {}
+									: { trackIndex: normalizedTrackIndex }),
+							}
+						: region,
+				);
+				if (activeSceneId) {
+					setClips((prevClips) =>
+						prevClips.map((clip) =>
+							clip.id === activeSceneId ? { ...clip, audioRegions: next } : clip,
+						),
+					);
+				}
+				return next;
+			});
+		},
+		[activeSceneId],
+	);
 
 	const handleAudioVolumeChange = useCallback(
 		(volume: number) => {
@@ -5115,23 +5167,41 @@ export default function VideoEditor() {
 			}
 
 			const nextVolume = Math.max(0, Math.min(1, volume));
-			setAudioRegions((prev) =>
-				prev.map((region) =>
+			setAudioRegions((prev) => {
+				const next = prev.map((region) =>
 					region.id === selectedAudioId ? { ...region, volume: nextVolume } : region,
-				),
-			);
+				);
+				if (activeSceneId) {
+					setClips((prevClips) =>
+						prevClips.map((clip) =>
+							clip.id === activeSceneId ? { ...clip, audioRegions: next } : clip,
+						),
+					);
+				}
+				return next;
+			});
 		},
-		[selectedAudioId],
+		[activeSceneId, selectedAudioId],
 	);
 
 	const handleAudioDelete = useCallback(
 		(id: string) => {
-			setAudioRegions((prev) => prev.filter((region) => region.id !== id));
+			setAudioRegions((prev) => {
+				const next = prev.filter((region) => region.id !== id);
+				if (activeSceneId) {
+					setClips((prevClips) =>
+						prevClips.map((clip) =>
+							clip.id === activeSceneId ? { ...clip, audioRegions: next } : clip,
+						),
+					);
+				}
+				return next;
+			});
 			if (selectedAudioId === id) {
 				setSelectedAudioId(null);
 			}
 		},
-		[selectedAudioId],
+		[activeSceneId, selectedAudioId],
 	);
 
 	const handleAudioNormalizeChange = useCallback(
@@ -8492,7 +8562,7 @@ export default function VideoEditor() {
 										>
 											{t("timeline.annotation.label")}
 										</DropdownMenuItem>
-										<DropdownMenuItem onClick={handleAddVideoLayer}>
+										<DropdownMenuItem onClick={() => void handleAddVideoLayer()}>
 											Add Video Layer
 										</DropdownMenuItem>
 										<DropdownMenuItem
@@ -8502,13 +8572,13 @@ export default function VideoEditor() {
 											Add GIF
 										</DropdownMenuItem>
 										<DropdownMenuItem
-											onClick={handleAddStickerAnnotation}
+											onClick={() => void handleAddStickerAnnotation()}
 											className="text-muted-foreground hover:text-foreground hover:bg-foreground/10 cursor-pointer"
 										>
 											Add Sticker
 										</DropdownMenuItem>
 										<DropdownMenuItem
-											onClick={handleAddAudioTrack}
+											onClick={() => void handleAddAudioTrack()}
 											className="text-muted-foreground hover:text-foreground hover:bg-foreground/10 cursor-pointer"
 										>
 											{t("timeline.audio.label")}

@@ -1,4 +1,13 @@
-import { Application, BlurFilter, ColorMatrixFilter, Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
+import {
+	Application,
+	BlurFilter,
+	ColorMatrixFilter,
+	Container,
+	Graphics,
+	Rectangle,
+	Sprite,
+	Texture,
+} from "pixi.js";
 import { MotionBlurFilter } from "pixi-filters/motion-blur";
 import { ZoomBlurFilter } from "pixi-filters/zoom-blur";
 import { resolveLayoutSceneAtTime } from "@/components/video-editor/layoutScenes";
@@ -33,10 +42,7 @@ import {
 	resetPerspectiveTiltState,
 	type PerspectiveTiltState,
 } from "@/components/video-editor/videoPlayback/perspectiveTilt";
-import {
-	DEFAULT_WEBCAM_OVERLAY,
-	ZOOM_DEPTH_SCALES,
-} from "@/components/video-editor/types";
+import { DEFAULT_WEBCAM_OVERLAY, ZOOM_DEPTH_SCALES } from "@/components/video-editor/types";
 import { DEFAULT_FOCUS } from "@/components/video-editor/videoPlayback/constants";
 import {
 	type CursorFollowCameraState,
@@ -492,6 +498,7 @@ export class FrameRenderer {
 	private lastEmittedClickTimeMs = -1;
 	private cleanupWebcamSource: (() => void) | null = null;
 	private transitionOverlayGraphics: Graphics | null = null;
+	private layoutScreenMask: Graphics | null = null;
 	private clipRegions: ClipRegion[] = [];
 	private cameraPerspectiveTilt = 0;
 	private perspectiveTiltState: PerspectiveTiltState = createPerspectiveTiltState();
@@ -614,7 +621,6 @@ export class FrameRenderer {
 		this.videoContainer.addChild(this.vignetteSprite);
 
 		this.videoContainer.mask = this.videoMaskGraphics;
-
 
 		this.webcamMaskGraphics = new Graphics();
 		this.webcamContainer.addChild(this.webcamMaskGraphics);
@@ -1472,8 +1478,12 @@ export class FrameRenderer {
 
 	private hasActiveBlurAnnotations(timeMs: number): boolean {
 		// All overlays share the dynamic compositor: keyframes, GIFs and video need per-frame sampling.
-		return (this.config.annotationRegions ?? []).some(annotation =>
-			annotation.visible !== false && timeMs >= annotation.startMs && timeMs < annotation.endMs);
+		return (this.config.annotationRegions ?? []).some(
+			(annotation) =>
+				annotation.visible !== false &&
+				timeMs >= annotation.startMs &&
+				timeMs < annotation.endMs,
+		);
 	}
 
 	private ensureExportCompositeCanvas(): ExportCompositeCanvasState | null {
@@ -1565,7 +1575,6 @@ export class FrameRenderer {
 
 		this.outputCanvasOverride = canvas;
 	}
-
 
 	private updateAnnotationLayer(currentTimeMs: number): void {
 		for (const entry of this.annotationSprites) {
@@ -2278,15 +2287,10 @@ export class FrameRenderer {
 			const usesDefaultCropRegion = isWebcamCropRegionDefault(this.config.webcam?.cropRegion);
 			const needsCacheBackedSource =
 				!usesDefaultCropRegion ||
-				(typeof HTMLVideoElement !== "undefined" &&
-					liveSource instanceof HTMLVideoElement);
+				(typeof HTMLVideoElement !== "undefined" && liveSource instanceof HTMLVideoElement);
 
 			if (needsCacheBackedSource) {
-				this.refreshWebcamFrameCache(
-					liveSource,
-					liveSourceWidth,
-					liveSourceHeight,
-				);
+				this.refreshWebcamFrameCache(liveSource, liveSourceWidth, liveSourceHeight);
 				const cachedSource = this.getCachedWebcamRenderSource();
 				if (cachedSource) {
 					this.setWebcamRenderMode("live");
@@ -2334,8 +2338,14 @@ export class FrameRenderer {
 			areNearlyEqual(previousLayout.sourceWidth, nextLayout.sourceWidth) &&
 			areNearlyEqual(previousLayout.sourceHeight, nextLayout.sourceHeight) &&
 			areNearlyEqual(previousLayout.size, nextLayout.size) &&
-			areNearlyEqual(previousLayout.width ?? previousLayout.size, nextLayout.width ?? nextLayout.size) &&
-			areNearlyEqual(previousLayout.height ?? previousLayout.size, nextLayout.height ?? nextLayout.size) &&
+			areNearlyEqual(
+				previousLayout.width ?? previousLayout.size,
+				nextLayout.width ?? nextLayout.size,
+			) &&
+			areNearlyEqual(
+				previousLayout.height ?? previousLayout.size,
+				nextLayout.height ?? nextLayout.size,
+			) &&
 			areNearlyEqual(previousLayout.positionX, nextLayout.positionX) &&
 			areNearlyEqual(previousLayout.positionY, nextLayout.positionY) &&
 			areNearlyEqual(previousLayout.radius, nextLayout.radius) &&
@@ -2653,25 +2663,25 @@ export class FrameRenderer {
 		const size = layoutScene
 			? layoutScene.webcam.width
 			: getWebcamOverlaySizePx({
-			containerWidth: this.config.width,
-			containerHeight: this.config.height,
-			sizePercent: webcam.size ?? 50,
-			margin,
-			zoomScale: this.animationState.appliedScale || 1,
-			reactToZoom: webcam.reactToZoom ?? true,
-		});
+					containerWidth: this.config.width,
+					containerHeight: this.config.height,
+					sizePercent: webcam.size ?? 50,
+					margin,
+					zoomScale: this.animationState.appliedScale || 1,
+					reactToZoom: webcam.reactToZoom ?? true,
+				});
 		const position = layoutScene
 			? { x: layoutScene.webcam.x, y: layoutScene.webcam.y }
 			: getWebcamOverlayPosition({
-			containerWidth: this.config.width,
-			containerHeight: this.config.height,
-			size,
-			margin,
-			positionPreset: webcam.positionPreset ?? webcam.corner,
-			positionX: webcam.positionX ?? 1,
-			positionY: webcam.positionY ?? 1,
-			legacyCorner: webcam.corner,
-		});
+					containerWidth: this.config.width,
+					containerHeight: this.config.height,
+					size,
+					margin,
+					positionPreset: webcam.positionPreset ?? webcam.corner,
+					positionX: webcam.positionX ?? 1,
+					positionY: webcam.positionY ?? 1,
+					legacyCorner: webcam.corner,
+				});
 		const radius = Math.max(0, layoutScene?.webcam.borderRadius ?? webcam.cornerRadius ?? 18);
 		const shadowStrength = clampUnitInterval(layoutScene?.webcam.shadow ?? webcam.shadow ?? 0);
 		const height = layoutScene ? layoutScene.webcam.height : size;
@@ -2705,6 +2715,10 @@ export class FrameRenderer {
 		const layoutRegions = this.config.layoutRegions ?? [];
 		if (layoutRegions.length === 0) {
 			this.cameraContainer.alpha = 1;
+			if (this.layoutScreenMask) {
+				this.cameraContainer.mask = null;
+				this.layoutScreenMask.clear();
+			}
 			return;
 		}
 
@@ -2721,19 +2735,70 @@ export class FrameRenderer {
 
 		if (!layoutScene) {
 			this.cameraContainer.alpha = 1;
+			if (this.layoutScreenMask) {
+				this.cameraContainer.mask = null;
+				this.layoutScreenMask.clear();
+			}
 			return;
 		}
 
-		const scaleX = layoutScene.screen.width / Math.max(1, layoutCache.stageSize.width);
-		const scaleY = layoutScene.screen.height / Math.max(1, layoutCache.stageSize.height);
-		this.cameraContainer.position.set(
-			layoutScene.screen.x + this.cameraContainer.position.x * scaleX,
-			layoutScene.screen.y + this.cameraContainer.position.y * scaleY,
-		);
-		this.cameraContainer.scale.set(
-			this.cameraContainer.scale.x * scaleX,
-			this.cameraContainer.scale.y * scaleY,
-		);
+		const stageW = Math.max(1, layoutCache.stageSize.width);
+		const stageH = Math.max(1, layoutCache.stageSize.height);
+		const scaleX = layoutScene.screen.width / stageW;
+		const scaleY = layoutScene.screen.height / stageH;
+		const isNonUniform = Math.abs(scaleX - scaleY) > 0.05;
+
+		if (isNonUniform) {
+			// Cover mode (like webcam): uniform scale without horizontal squishing
+			const uniformScale = Math.max(scaleX, scaleY);
+			const screenOffsetX = (layoutScene.screen.width - stageW * uniformScale) / 2;
+			const screenOffsetY = (layoutScene.screen.height - stageH * uniformScale) / 2;
+
+			this.cameraContainer.position.set(
+				layoutScene.screen.x +
+					screenOffsetX +
+					this.cameraContainer.position.x * uniformScale,
+				layoutScene.screen.y +
+					screenOffsetY +
+					this.cameraContainer.position.y * uniformScale,
+			);
+			this.cameraContainer.scale.set(
+				this.cameraContainer.scale.x * uniformScale,
+				this.cameraContainer.scale.y * uniformScale,
+			);
+
+			if (!this.layoutScreenMask && this.app) {
+				this.layoutScreenMask = new Graphics();
+				this.app.stage.addChild(this.layoutScreenMask);
+			}
+			if (this.layoutScreenMask) {
+				this.layoutScreenMask.clear();
+				this.layoutScreenMask.beginFill(0xffffff);
+				this.layoutScreenMask.drawRoundedRect(
+					layoutScene.screen.x,
+					layoutScene.screen.y,
+					layoutScene.screen.width,
+					layoutScene.screen.height,
+					layoutScene.screen.borderRadius ?? 20,
+				);
+				this.layoutScreenMask.endFill();
+				this.cameraContainer.mask = this.layoutScreenMask;
+			}
+		} else {
+			if (this.layoutScreenMask) {
+				this.cameraContainer.mask = null;
+				this.layoutScreenMask.clear();
+			}
+			this.cameraContainer.position.set(
+				layoutScene.screen.x + this.cameraContainer.position.x * scaleX,
+				layoutScene.screen.y + this.cameraContainer.position.y * scaleY,
+			);
+			this.cameraContainer.scale.set(
+				this.cameraContainer.scale.x * scaleX,
+				this.cameraContainer.scale.y * scaleY,
+			);
+		}
+
 		this.cameraContainer.alpha = layoutScene.screen.opacity;
 	}
 
@@ -3040,10 +3105,7 @@ export class FrameRenderer {
 		});
 		this.applyLayoutSceneScreenTransform(layoutCache);
 
-		const activeClipTransition = getActiveClipTransition(
-			this.clipRegions,
-			timeMs,
-		);
+		const activeClipTransition = getActiveClipTransition(this.clipRegions, timeMs);
 		applyClipTransition({
 			transitionState: activeClipTransition,
 			videoContainer: this.videoContainer,
@@ -3058,10 +3120,7 @@ export class FrameRenderer {
 					? frameDurationUs / 1000
 					: 16.67;
 			const tilt = computePerspectiveTilt(this.perspectiveTiltState, {
-				cursor:
-					cursorSnapshot
-						? { cx: cursorSnapshot.cx, cy: cursorSnapshot.cy }
-						: null,
+				cursor: cursorSnapshot ? { cx: cursorSnapshot.cx, cy: cursorSnapshot.cy } : null,
 				intensity: this.cameraPerspectiveTilt,
 				deltaMs: Math.min(80, Math.max(1, frameDeltaMs)),
 				stageSize: layoutCache.stageSize,
@@ -3393,7 +3452,6 @@ export class FrameRenderer {
 			this.vignetteSprite.width = layout.croppedDisplayWidth;
 			this.vignetteSprite.height = layout.croppedDisplayHeight;
 		}
-
 
 		this.updateFrameLayout();
 	}
@@ -3744,7 +3802,6 @@ export class FrameRenderer {
 		this.colorMatrixFilter?.destroy();
 		this.colorMatrixFilter = null;
 		this.vignetteSprite = null;
-
 
 		this.app?.destroy(true, {
 			children: true,

@@ -206,7 +206,7 @@ export async function replaceApprovedSessionLocalReadPaths(
 export async function resolveProjectMediaSources(
 	project: unknown,
 ): Promise<
-	| { success: true; videoPath: string; webcamPath: string | null }
+	| { success: true; videoPath: string | null; webcamPath: string | null }
 	| { success: false; message: string }
 > {
 	if (!project || typeof project !== "object") {
@@ -214,21 +214,23 @@ export async function resolveProjectMediaSources(
 	}
 
 	const { videoPath: rawVideoPath, webcamPath: rawWebcamPath } = getProjectPrimaryMedia(project);
-	if (typeof rawVideoPath !== "string") {
-		return { success: false, message: "Project file is missing a video path" };
+	if (typeof rawVideoPath !== "string" || !rawVideoPath.trim()) {
+		return { success: true, videoPath: null, webcamPath: null };
 	}
 
 	const normalizedVideoPath = normalizeVideoSourcePath(rawVideoPath);
 	if (!normalizedVideoPath) {
-		return { success: false, message: "Project file is missing a valid video path" };
+		return { success: true, videoPath: null, webcamPath: null };
 	}
 
 	try {
 		await fs.access(normalizedVideoPath, fsConstants.F_OK);
 	} catch {
+		// Video file might not exist yet or was removed; allow opening project without blocking
 		return {
-			success: false,
-			message: `Project video file not found: ${normalizedVideoPath}`,
+			success: true,
+			videoPath: null,
+			webcamPath: null,
 		};
 	}
 
@@ -482,12 +484,17 @@ export async function loadProjectFromPath(projectPath: string) {
 	await rememberRecentProject(normalizedPath);
 
 	setCurrentProjectPath(normalizedPath);
-	setCurrentVideoPath(mediaSources.videoPath);
-	setCurrentRecordingSession({
-		videoPath: mediaSources.videoPath,
-		webcamPath: mediaSources.webcamPath,
-		timeOffsetMs: 0,
-	} as RecordingSessionData);
+	if (mediaSources.videoPath) {
+		setCurrentVideoPath(mediaSources.videoPath);
+		setCurrentRecordingSession({
+			videoPath: mediaSources.videoPath,
+			webcamPath: mediaSources.webcamPath,
+			timeOffsetMs: 0,
+		} as RecordingSessionData);
+	} else {
+		setCurrentVideoPath(null);
+		setCurrentRecordingSession(null);
+	}
 
 	return {
 		success: true,

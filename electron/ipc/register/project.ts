@@ -43,6 +43,7 @@ import {
 	getRecordingsDir,
 	getTelemetryPathForVideo,
 	isAutoRecordingPath,
+	normalizePath,
 	normalizeVideoSourcePath,
 	parseJsonWithByteOrderMark,
 } from "../utils";
@@ -127,19 +128,26 @@ function withProjectId(projectData: unknown, projectId: string) {
 	};
 }
 
-function ensureProjectDataHasProjectId(projectData: unknown) {
-	const existingProjectId = getProjectId(projectData);
+function ensureProjectDataHasProjectId(projectData: unknown): {
+	projectId: string;
+	projectData: Record<string, unknown>;
+} {
+	const safeData =
+		projectData && typeof projectData === "object" && !Array.isArray(projectData)
+			? (projectData as Record<string, unknown>)
+			: {};
+	const existingProjectId = getProjectId(safeData);
 	if (existingProjectId) {
 		return {
 			projectId: existingProjectId,
-			projectData,
+			projectData: safeData,
 		};
 	}
 
 	const projectId = randomUUID();
 	return {
 		projectId,
-		projectData: withProjectId(projectData, projectId),
+		projectData: withProjectId(safeData, projectId) as Record<string, unknown>,
 	};
 }
 
@@ -413,6 +421,30 @@ export function registerProjectHandlers() {
 									asset.subfolder,
 								);
 								asset.path = res.absolutePath;
+							} catch {
+								// keep original
+							}
+						}
+					}
+				}
+				if (Array.isArray(clip.audioRegions)) {
+					for (const audio of clip.audioRegions) {
+						if (
+							audio.audioPath &&
+							!audio.audioPath
+								.replace(/\\/g, "/")
+								.toLowerCase()
+								.startsWith(normWorkspace)
+						) {
+							try {
+								await fs.access(audio.audioPath);
+								const res = await copyAssetToSlideWorkspace(
+									workspaceDir,
+									slideId,
+									audio.audioPath,
+									"audio",
+								);
+								audio.audioPath = res.absolutePath;
 							} catch {
 								// keep original
 							}
@@ -986,4 +1018,53 @@ export function registerProjectHandlers() {
 		}
 		return { success: false };
 	});
+
+	ipcMain.handle(
+		"save-recorded-audio",
+		async (
+			_,
+			payload: {
+				audioBuffer: ArrayBuffer | Uint8Array | number[];
+				slideId?: string | null;
+				extension?: string;
+			},
+		) => {
+			try {
+				if (!payload || !payload.audioBuffer) {
+					return { success: false, error: "No audio buffer provided" };
+				}
+
+				const ext = payload.extension ? payload.extension.replace(/^\./, "") : "webm";
+				const fileName = `voiceover-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
+
+				let targetDir: string;
+				if (currentProjectPath) {
+					const workspaceDir = await ensureProjectWorkspace(currentProjectPath);
+					if (payload.slideId) {
+						targetDir = path.join(workspaceDir, "slides", payload.slideId, "audio");
+					} else {
+						targetDir = path.join(workspaceDir, "audio");
+					}
+				} else {
+					const recordingsDir = await getRecordingsDir();
+					targetDir = path.join(recordingsDir, "voiceovers");
+				}
+
+				await fs.mkdir(targetDir, { recursive: true });
+				const filePath = path.join(targetDir, fileName);
+
+				const buffer = Buffer.isBuffer(payload.audioBuffer)
+					? payload.audioBuffer
+					: Buffer.from(payload.audioBuffer as ArrayBuffer);
+
+				await fs.writeFile(filePath, buffer);
+				await rememberApprovedLocalReadPath(filePath);
+
+				return { success: true, filePath: normalizePath(filePath) };
+			} catch (error) {
+				console.error("Failed to save recorded audio:", error);
+				return { success: false, error: String(error) };
+			}
+		},
+	);
 }

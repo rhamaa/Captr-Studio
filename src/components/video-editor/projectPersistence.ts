@@ -482,8 +482,8 @@ export function validateProjectData(candidate: unknown): candidate is EditorProj
 	const project = candidate as Partial<EditorProjectData>;
 	if (typeof project.version !== "number") return false;
 	if (project.projectId !== undefined && typeof project.projectId !== "string") return false;
-	const hasValidVideoPath = typeof project.videoPath === "string" && project.videoPath;
-	const hasValidClips = Array.isArray(project.clips) && project.clips.length > 0;
+	const hasValidVideoPath = typeof project.videoPath === "string";
+	const hasValidClips = Array.isArray(project.clips);
 	if (!hasValidVideoPath && !hasValidClips) return false;
 	if (!project.editor || typeof project.editor !== "object") return false;
 	return true;

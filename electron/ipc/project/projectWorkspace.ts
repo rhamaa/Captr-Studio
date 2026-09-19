@@ -191,9 +191,17 @@ export function convertProjectToBundleRelative(
 
 			if (Array.isArray(clip.audioRegions)) {
 				for (const audio of clip.audioRegions) {
+					if (audio.audioPath) audio.audioPath = toRelative(audio.audioPath);
 					if (audio.sourcePath) audio.sourcePath = toRelative(audio.sourcePath);
 				}
 			}
+		}
+	}
+
+	if (cloned.editor && Array.isArray(cloned.editor.audioRegions)) {
+		for (const audio of cloned.editor.audioRegions) {
+			if (audio.audioPath) audio.audioPath = toRelative(audio.audioPath);
+			if (audio.sourcePath) audio.sourcePath = toRelative(audio.sourcePath);
 		}
 	}
 
@@ -251,9 +259,17 @@ export function convertProjectToWorkspaceAbsolute(
 
 			if (Array.isArray(clip.audioRegions)) {
 				for (const audio of clip.audioRegions) {
+					if (audio.audioPath) audio.audioPath = toAbsolute(audio.audioPath);
 					if (audio.sourcePath) audio.sourcePath = toAbsolute(audio.sourcePath);
 				}
 			}
+		}
+	}
+
+	if (cloned.editor && Array.isArray(cloned.editor.audioRegions)) {
+		for (const audio of cloned.editor.audioRegions) {
+			if (audio.audioPath) audio.audioPath = toAbsolute(audio.audioPath);
+			if (audio.sourcePath) audio.sourcePath = toAbsolute(audio.sourcePath);
 		}
 	}
 
