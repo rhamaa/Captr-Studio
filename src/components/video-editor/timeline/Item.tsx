@@ -29,6 +29,8 @@ export interface ItemProps {
 	muted?: boolean;
 	transitionIn?: import("../types").ClipTransitionType;
 	media4in1?: SlideMedia4in1;
+	keyframes?: import("../types").PropertyKeyframe[];
+	locked?: boolean;
 	variant?: "zoom" | "trim" | "clip" | "annotation" | "speed" | "audio" | "layout";
 	isLoading?: boolean;
 	loadingLabel?: string;
@@ -52,6 +54,8 @@ export default function Item({
 	muted = false,
 	transitionIn,
 	media4in1,
+	keyframes,
+	locked,
 	variant = "zoom",
 	isLoading = false,
 	loadingLabel,
@@ -177,6 +181,8 @@ export default function Item({
 							speedValue={speedValue}
 							timeLabel={timeLabel}
 							isSelected={isSelected}
+							keyframes={keyframes}
+							locked={locked}
 						>
 							{children}
 						</StandardTimelineItem>

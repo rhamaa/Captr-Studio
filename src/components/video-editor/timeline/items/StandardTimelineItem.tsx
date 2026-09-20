@@ -31,8 +31,17 @@ export interface StandardTimelineItemProps {
 	speedValue?: number;
 	timeLabel: string;
 	isSelected?: boolean;
+	keyframes?: import("../../types").PropertyKeyframe[];
+	locked?: boolean;
 	children?: React.ReactNode;
 }
+
+const KEYFRAME_COLORS: Record<string, string> = {
+	position: "#06b6d4", // Cyan
+	scale: "#eab308",    // Yellow
+	rotation: "#a855f7", // Purple
+	opacity: "#10b981",  // Emerald
+};
 
 export function StandardTimelineItem({
 	variant = "zoom",
@@ -47,6 +56,8 @@ export function StandardTimelineItem({
 	speedValue,
 	timeLabel,
 	isSelected = false,
+	keyframes = [],
+	locked = false,
 	children,
 }: StandardTimelineItemProps) {
 	const isZoom = variant === "zoom";
@@ -54,6 +65,7 @@ export function StandardTimelineItem({
 	const isLayout = variant === "layout";
 	const isSpeed = variant === "speed";
 	const isAudio = variant === "audio";
+	const isAnnotation = variant === "annotation";
 	const showAudioWaveform = isAudio && Boolean(waveformPeaks);
 
 	return (
@@ -160,6 +172,31 @@ export function StandardTimelineItem({
 					</span>
 				)}
 			</div>
+
+			{/* In-block Keyframe Dots for Annotations */}
+			{isAnnotation && keyframes.length > 0 && (
+				<div className="absolute bottom-1 left-0 right-0 h-1.5 pointer-events-none z-20">
+					{keyframes.map((kf) => {
+						const spanDuration = Math.max(1, span.end - span.start);
+						const percent = Math.max(0, Math.min(100, (kf.timeMs / spanDuration) * 100));
+						const dotColor = KEYFRAME_COLORS[kf.property] || "#06b6d4";
+						return (
+							<div
+								key={kf.id}
+								className="absolute -translate-x-1/2 rounded-[1px] shadow-xs"
+								style={{
+									left: `${percent}%`,
+									width: "5px",
+									height: "5px",
+									backgroundColor: dotColor,
+									transform: "translateX(-50%) rotate(45deg)",
+								}}
+								title={`Keyframe: ${kf.property} @ ${(kf.timeMs / 1000).toFixed(2)}s`}
+							/>
+						);
+					})}
+				</div>
+			)}
 		</>
 	);
 }

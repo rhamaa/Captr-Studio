@@ -91,6 +91,8 @@ export function buildTimelineItems(params: {
 		rowId: getAnnotationTrackRowId(region.trackIndex ?? 0),
 		span: { start: region.startMs, end: region.endMs },
 		label: getAnnotationLabel(region),
+		keyframes: region.keyframes,
+		locked: region.locked,
 		variant: "annotation",
 	}));
 

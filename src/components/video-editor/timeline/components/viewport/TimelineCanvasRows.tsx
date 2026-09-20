@@ -319,6 +319,8 @@ export const TimelineCanvasRows = memo(function TimelineCanvasRows({
 				<Row
 					key={rowId}
 					id={rowId}
+					label={index === 0 ? "Overlays" : `Overlay ${index + 1}`}
+					labelColor="#F59E0B"
 					isEmpty={rowItems.length === 0}
 					hint={index === 0 ? HINT_ANNOTATION : undefined}
 				>
@@ -332,6 +334,8 @@ export const TimelineCanvasRows = memo(function TimelineCanvasRows({
 								selectAllBlocksActive || item.id === selectedAnnotationId
 							}
 							onSelectId={onSelectAnnotation}
+							keyframes={item.keyframes}
+							locked={item.locked}
 							variant="annotation"
 						>
 							{item.label}

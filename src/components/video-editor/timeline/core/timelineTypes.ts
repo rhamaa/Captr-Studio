@@ -54,6 +54,8 @@ export interface TimelineRenderItem {
 	muted?: boolean;
 	transitionIn?: import("../../types").ClipTransitionType;
 	media4in1?: SlideMedia4in1;
+	keyframes?: import("../../types").PropertyKeyframe[];
+	locked?: boolean;
 	variant: "zoom" | "trim" | "clip" | "annotation" | "speed" | "audio" | "layout";
 }
 
