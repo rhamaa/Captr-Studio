@@ -219,6 +219,88 @@ export async function stageCompanionAudioForRecording(
 }
 
 /**
+ * Maps every path-like media field inside a project entry (root project,
+ * editor state, or clip) using the supplied mapper. Covers the fields shared
+ * with `collectProjectMediaRefs` so serialization stays in sync with loading
+ * and validation. Non-path values (data URLs, blob and http(s) URLs) are left
+ * untouched.
+ */
+const PATH_LIKE_ENTRY_FIELDS = [
+	"videoPath",
+	"webcamPath",
+	"microphoneAudioPath",
+	"systemAudioPath",
+	"cursorTelemetryPath",
+] as const;
+
+const PATH_LIKE_ITEM_FIELDS = [
+	"sourcePath",
+	"audioPath",
+	"imageFilePath",
+	"videoFilePath",
+	"gifPath",
+	"path",
+	"customImagePath",
+] as const;
+
+const PATH_LIKE_COLLECTION_FIELDS = [
+	"mediaTrackLayers",
+	"audioTracks",
+	"audioRegions",
+	"annotationRegions",
+	"assetFiles",
+] as const;
+
+function isNonFilePathValue(value: string): boolean {
+	return /^(data|blob|https?):/i.test(value);
+}
+
+function mapEntryMediaPaths(
+	entry: unknown,
+	mapPath: (value: string) => string,
+): void {
+	if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+		return;
+	}
+	const record = entry as Record<string, unknown>;
+
+	for (const field of PATH_LIKE_ENTRY_FIELDS) {
+		const value = record[field];
+		if (typeof value === "string" && value && !isNonFilePathValue(value)) {
+			record[field] = mapPath(value);
+		}
+	}
+
+	const webcam = record.webcam;
+	if (webcam && typeof webcam === "object" && !Array.isArray(webcam)) {
+		const webcamRecord = webcam as Record<string, unknown>;
+		const sourcePath = webcamRecord.sourcePath;
+		if (typeof sourcePath === "string" && sourcePath && !isNonFilePathValue(sourcePath)) {
+			webcamRecord.sourcePath = mapPath(sourcePath);
+		}
+	}
+
+	for (const collectionField of PATH_LIKE_COLLECTION_FIELDS) {
+		const items = record[collectionField];
+		if (!Array.isArray(items)) {
+			continue;
+		}
+		for (const item of items) {
+			if (!item || typeof item !== "object" || Array.isArray(item)) {
+				continue;
+			}
+			const itemRecord = item as Record<string, unknown>;
+			for (const field of PATH_LIKE_ITEM_FIELDS) {
+				const value = itemRecord[field];
+				if (typeof value === "string" && value && !isNonFilePathValue(value)) {
+					itemRecord[field] = mapPath(value);
+				}
+			}
+		}
+	}
+}
+
+/**
  * Converts all absolute paths inside a project data object into bundle-relative paths for serialization.
  */
 export function convertProjectToBundleRelative(
@@ -232,59 +314,21 @@ export function convertProjectToBundleRelative(
 	const cloned = JSON.parse(JSON.stringify(projectData));
 	const normWorkspace = normalizePath(workspaceDir).toLowerCase();
 
-	const toRelative = (val: unknown): string | unknown => {
-		if (typeof val !== "string" || !val) return val;
-		const normVal = normalizePath(val);
+	const toRelative = (value: string): string => {
+		const normVal = normalizePath(value);
 		if (normVal.toLowerCase().startsWith(normWorkspace)) {
 			let rel = normVal.slice(normWorkspace.length);
 			rel = rel.replace(/^[/\\]+/, "").replace(/\\/g, "/");
 			return rel;
 		}
-		return val;
+		return value;
 	};
 
-	if (cloned.videoPath) {
-		cloned.videoPath = toRelative(cloned.videoPath);
-	}
-
+	mapEntryMediaPaths(cloned, toRelative);
+	mapEntryMediaPaths(cloned.editor, toRelative);
 	if (Array.isArray(cloned.clips)) {
 		for (const clip of cloned.clips) {
-			if (clip.videoPath) clip.videoPath = toRelative(clip.videoPath);
-			if (clip.webcamPath) clip.webcamPath = toRelative(clip.webcamPath);
-			if (clip.cursorTelemetryPath)
-				clip.cursorTelemetryPath = toRelative(clip.cursorTelemetryPath);
-			if (clip.microphoneAudioPath)
-				clip.microphoneAudioPath = toRelative(clip.microphoneAudioPath);
-			if (clip.systemAudioPath) clip.systemAudioPath = toRelative(clip.systemAudioPath);
-
-			if (Array.isArray(clip.assetFiles)) {
-				for (const asset of clip.assetFiles) {
-					if (asset.path) asset.path = toRelative(asset.path);
-				}
-			}
-
-			if (Array.isArray(clip.annotationRegions)) {
-				for (const annotation of clip.annotationRegions) {
-					if (annotation.sourcePath)
-						annotation.sourcePath = toRelative(annotation.sourcePath);
-					if (annotation.customImagePath)
-						annotation.customImagePath = toRelative(annotation.customImagePath);
-				}
-			}
-
-			if (Array.isArray(clip.audioRegions)) {
-				for (const audio of clip.audioRegions) {
-					if (audio.audioPath) audio.audioPath = toRelative(audio.audioPath);
-					if (audio.sourcePath) audio.sourcePath = toRelative(audio.sourcePath);
-				}
-			}
-		}
-	}
-
-	if (cloned.editor && Array.isArray(cloned.editor.audioRegions)) {
-		for (const audio of cloned.editor.audioRegions) {
-			if (audio.audioPath) audio.audioPath = toRelative(audio.audioPath);
-			if (audio.sourcePath) audio.sourcePath = toRelative(audio.sourcePath);
+			mapEntryMediaPaths(clip, toRelative);
 		}
 	}
 
@@ -304,57 +348,20 @@ export function convertProjectToWorkspaceAbsolute(
 
 	const cloned = JSON.parse(JSON.stringify(projectData));
 
-	const toAbsolute = (val: unknown): string | unknown => {
-		if (typeof val !== "string" || !val) return val;
+	const toAbsolute = (value: string): string => {
 		// If it's already an absolute path (legacy project or external file), leave it
-		if (path.isAbsolute(val) || /^[a-zA-Z]:[/\\]/.test(val)) {
-			return normalizePath(val);
+		if (path.isAbsolute(value) || /^[a-zA-Z]:[/\\]/.test(value)) {
+			return normalizePath(value);
 		}
 		// Otherwise resolve relative to workspaceDir
-		return normalizePath(path.resolve(workspaceDir, val));
+		return normalizePath(path.resolve(workspaceDir, value));
 	};
 
-	if (cloned.videoPath) {
-		cloned.videoPath = toAbsolute(cloned.videoPath);
-	}
-
+	mapEntryMediaPaths(cloned, toAbsolute);
+	mapEntryMediaPaths(cloned.editor, toAbsolute);
 	if (Array.isArray(cloned.clips)) {
 		for (const clip of cloned.clips) {
-			if (clip.videoPath) clip.videoPath = toAbsolute(clip.videoPath);
-			if (clip.webcamPath) clip.webcamPath = toAbsolute(clip.webcamPath);
-			if (clip.cursorTelemetryPath)
-				clip.cursorTelemetryPath = toAbsolute(clip.cursorTelemetryPath);
-			if (clip.microphoneAudioPath) clip.microphoneAudioPath = toAbsolute(clip.microphoneAudioPath);
-			if (clip.systemAudioPath) clip.systemAudioPath = toAbsolute(clip.systemAudioPath);
-
-			if (Array.isArray(clip.assetFiles)) {
-				for (const asset of clip.assetFiles) {
-					if (asset.path) asset.path = toAbsolute(asset.path);
-				}
-			}
-
-			if (Array.isArray(clip.annotationRegions)) {
-				for (const annotation of clip.annotationRegions) {
-					if (annotation.sourcePath)
-						annotation.sourcePath = toAbsolute(annotation.sourcePath);
-					if (annotation.customImagePath)
-						annotation.customImagePath = toAbsolute(annotation.customImagePath);
-				}
-			}
-
-			if (Array.isArray(clip.audioRegions)) {
-				for (const audio of clip.audioRegions) {
-					if (audio.audioPath) audio.audioPath = toAbsolute(audio.audioPath);
-					if (audio.sourcePath) audio.sourcePath = toAbsolute(audio.sourcePath);
-				}
-			}
-		}
-	}
-
-	if (cloned.editor && Array.isArray(cloned.editor.audioRegions)) {
-		for (const audio of cloned.editor.audioRegions) {
-			if (audio.audioPath) audio.audioPath = toAbsolute(audio.audioPath);
-			if (audio.sourcePath) audio.sourcePath = toAbsolute(audio.sourcePath);
+			mapEntryMediaPaths(clip, toAbsolute);
 		}
 	}
 

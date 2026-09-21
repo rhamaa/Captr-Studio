@@ -30,7 +30,12 @@ import {
 	normalizeVideoSourcePath,
 	parseJsonWithByteOrderMark,
 } from "../utils";
-import { collectProjectMediaPaths, getProjectPrimaryMedia } from "./mediaReferences";
+import {
+	assertProjectMediaInsideBundle,
+	collectProjectMediaPaths,
+	getProjectPrimaryMedia,
+	ProjectBundleValidationError,
+} from "./mediaReferences";
 import { getUsableCompanionAudioCandidates } from "../recording/diagnostics";
 import { isProjectBundle, readBundleThumbnailDataUrl, unpackProjectBundle } from "./projectBundle";
 import { convertProjectToWorkspaceAbsolute, ensureProjectWorkspace } from "./projectWorkspace";
@@ -440,6 +445,7 @@ export async function loadProjectFromPath(projectPath: string) {
 	let project: unknown;
 
 	if (await isProjectBundle(normalizedPath)) {
+		let finalWorkspace: string;
 		try {
 			const tempExtractDir = path.join(app.getPath("temp"), `captr-extract-${Date.now()}`);
 			await unpackProjectBundle(normalizedPath, tempExtractDir);
@@ -452,7 +458,7 @@ export async function loadProjectFromPath(projectPath: string) {
 					? rawProject.projectId
 					: randomUUID();
 
-			const finalWorkspace = await ensureProjectWorkspace(projectId);
+			finalWorkspace = await ensureProjectWorkspace(projectId);
 			await fs.cp(tempExtractDir, finalWorkspace, { recursive: true });
 			await fs.rm(tempExtractDir, { recursive: true, force: true }).catch(() => undefined);
 
@@ -463,6 +469,22 @@ export async function loadProjectFromPath(projectPath: string) {
 				canceled: false,
 				message: `Failed to unpack project bundle: ${error instanceof Error ? error.message : String(error)}`,
 			};
+		}
+
+		// Guarantee the bundle is self-contained: every referenced media file must
+		// live inside the extracted workspace so a single .captr file can be moved
+		// to another device and reopened without issues.
+		try {
+			await assertProjectMediaInsideBundle(project, finalWorkspace);
+		} catch (error) {
+			if (error instanceof ProjectBundleValidationError) {
+				return {
+					success: false,
+					canceled: false,
+					message: error.message,
+				};
+			}
+			throw error;
 		}
 	} else {
 		// Legacy .captr files (plain JSON, no embedded media) are no longer supported.

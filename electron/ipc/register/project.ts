@@ -356,6 +356,31 @@ export function registerProjectHandlers() {
 				// located even after the video is staged into the workspace.
 				const originalVideoPath =
 					typeof clip.videoPath === "string" ? clip.videoPath : null;
+				// Stages an external file reference into the slide workspace so the
+				// .captr bundle stays self-contained (portable across devices).
+				const stageExternalFile = async (
+					value: unknown,
+					subfolder: string,
+				): Promise<string | null> => {
+					if (typeof value !== "string" || !value) {
+						return null;
+					}
+					if (value.replace(/\\/g, "/").toLowerCase().startsWith(normWorkspace)) {
+						return value;
+					}
+					try {
+						await fs.access(value);
+						const res = await copyAssetToSlideWorkspace(
+							workspaceDir,
+							slideId,
+							value,
+							subfolder,
+						);
+						return res.absolutePath;
+					} catch {
+						return value; // keep original when the source is inaccessible
+					}
+				};
 				if (
 					clip.videoPath &&
 					!clip.videoPath.replace(/\\/g, "/").toLowerCase().startsWith(normWorkspace)
@@ -428,6 +453,33 @@ export function registerProjectHandlers() {
 							} catch {
 								// keep original
 							}
+						}
+					}
+				}
+				// Custom webcam replacement footage (clip-level and editor-level)
+				if (clip.webcam && typeof clip.webcam === "object" && !Array.isArray(clip.webcam)) {
+					const stagedWebcamSource = await stageExternalFile(clip.webcam.sourcePath, "webcam");
+					if (stagedWebcamSource !== null) {
+						clip.webcam.sourcePath = stagedWebcamSource;
+					}
+				}
+				// Legacy media track layers (per-clip overlay media)
+				if (Array.isArray(clip.mediaTrackLayers)) {
+					for (const layer of clip.mediaTrackLayers) {
+						if (!layer) continue;
+						const stagedLayerSource = await stageExternalFile(layer.sourcePath, "layers");
+						if (stagedLayerSource !== null) {
+							layer.sourcePath = stagedLayerSource;
+						}
+					}
+				}
+				// Legacy audio tracks
+				if (Array.isArray(clip.audioTracks)) {
+					for (const track of clip.audioTracks) {
+						if (!track) continue;
+						const stagedTrackSource = await stageExternalFile(track.sourcePath, "audio");
+						if (stagedTrackSource !== null) {
+							track.sourcePath = stagedTrackSource;
 						}
 					}
 				}
@@ -519,6 +571,40 @@ export function registerProjectHandlers() {
 					} catch {
 						// Missing sidecar audio must not break saving.
 					}
+				}
+			}
+		}
+
+		// Editor-level custom webcam replacement footage
+		const editorState = stagedProjectData.editor;
+		if (
+			editorState &&
+			typeof editorState === "object" &&
+			editorState.webcam &&
+			typeof editorState.webcam === "object" &&
+			!Array.isArray(editorState.webcam)
+		) {
+			const editorWebcam = editorState.webcam as { sourcePath?: unknown };
+			const sourcePath = editorWebcam.sourcePath;
+			if (
+				typeof sourcePath === "string" &&
+				sourcePath &&
+				!sourcePath.replace(/\\/g, "/").toLowerCase().startsWith(normWorkspace)
+			) {
+				try {
+					await fs.access(sourcePath);
+					const slideDir = Array.isArray(stagedProjectData.clips)
+						? (stagedProjectData.clips[0] as { id?: string } | undefined)?.id || "slide-1"
+						: "slide-1";
+					const res = await copyAssetToSlideWorkspace(
+						workspaceDir,
+						slideDir,
+						sourcePath,
+						"webcam",
+					);
+					editorWebcam.sourcePath = res.absolutePath;
+				} catch {
+					// keep original when the source is inaccessible
 				}
 			}
 		}
