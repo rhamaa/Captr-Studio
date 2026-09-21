@@ -28,6 +28,7 @@ import {
 	convertProjectToBundleRelative,
 	copyAssetToSlideWorkspace,
 	ensureProjectWorkspace,
+	stageCompanionAudioForRecording,
 } from "../project/projectWorkspace";
 import { persistRecordingSessionManifest, resolveRecordingSession } from "../project/session";
 import {
@@ -352,6 +353,10 @@ export function registerProjectHandlers() {
 		if (Array.isArray(stagedProjectData.clips)) {
 			for (const clip of stagedProjectData.clips) {
 				const slideId = clip.id || "slide-1";
+				// Keep the original source path so companion sidecar audio can be
+				// located even after the video is staged into the workspace.
+				const originalVideoPath =
+					typeof clip.videoPath === "string" ? clip.videoPath : null;
 				if (
 					clip.videoPath &&
 					!clip.videoPath.replace(/\\/g, "/").toLowerCase().startsWith(normWorkspace)
@@ -489,6 +494,31 @@ export function registerProjectHandlers() {
 						clip.systemAudioPath = res.absolutePath;
 					} catch {
 						// keep original
+					}
+				}
+				// Stage companion sidecar audio (mic/system) recorded alongside the
+				// clip's video. Fresh recordings keep these files next to the source
+				// video and the editor discovers them by deriving sidecar names from
+				// videoPath — without copying them into the workspace they would be
+				// missing from the .captr bundle and audio would be lost on reload.
+				if (
+					(!clip.microphoneAudioPath || !clip.systemAudioPath) &&
+					typeof clip.videoPath === "string" &&
+					clip.videoPath.replace(/\\/g, "/").toLowerCase().startsWith(normWorkspace)
+				) {
+					try {
+						const stagedAudio = await stageCompanionAudioForRecording(
+							originalVideoPath ?? clip.videoPath,
+							clip.videoPath,
+						);
+						if (!clip.microphoneAudioPath && stagedAudio.microphoneAudioPath) {
+							clip.microphoneAudioPath = stagedAudio.microphoneAudioPath;
+						}
+						if (!clip.systemAudioPath && stagedAudio.systemAudioPath) {
+							clip.systemAudioPath = stagedAudio.systemAudioPath;
+						}
+					} catch {
+						// Missing sidecar audio must not break saving.
 					}
 				}
 			}

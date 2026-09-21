@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { USER_DATA_PATH } from "../../appPaths";
+import { COMPANION_AUDIO_LAYOUTS } from "../constants";
 import { normalizePath } from "../utils";
 
 export const WORKSPACES_DIR_NAME = "workspaces";
@@ -136,6 +137,85 @@ export async function assignRecordingToSlide(
 		absolutePath: normalizePath(targetPath),
 		bundleRelativePath,
 	};
+}
+
+/**
+ * Stages companion sidecar audio (microphone / system) for a recording into the
+ * project workspace so it is included when the workspace is packed into a
+ * .captr bundle.
+ *
+ * Fresh recordings keep sidecar audio next to the source video inside the
+ * recordings directory (e.g. `recording-1.mic.wav` next to `recording-1.mp4`)
+ * and the editor discovers them by deriving sidecar names from the video path.
+ * When the video is staged into the workspace as `slides/<id>/main.mp4`, the
+ * sidecars must be copied next to it (`slides/<id>/main.mic.wav`, etc.) —
+ * otherwise they are silently dropped from the bundle and audio is lost when
+ * the project is reopened.
+ *
+ * Also copies the optional timing metadata file (`<sidecar>.json`) used for
+ * companion audio start-delay alignment.
+ *
+ * Returns the workspace-absolute paths of the staged sidecars (null when the
+ * recording has no usable sidecar of that kind).
+ */
+export async function stageCompanionAudioForRecording(
+	sourceVideoPath: string,
+	stagedVideoPath: string,
+): Promise<{ microphoneAudioPath: string | null; systemAudioPath: string | null }> {
+	const stripExtension = (filePath: string) => filePath.replace(/\.[^.]+$/u, "");
+	const sourceBase = stripExtension(sourceVideoPath);
+	const stagedBase = stripExtension(stagedVideoPath);
+
+	const stageOne = async (suffix: string): Promise<string | null> => {
+		const targetPath = `${stagedBase}${suffix}`;
+
+		// Sidecar already staged next to the workspace video — reuse it.
+		try {
+			const stat = await fs.stat(targetPath);
+			if (stat.size > 0) {
+				return normalizePath(targetPath);
+			}
+		} catch {
+			// Not staged yet; fall through to copy from the source recording.
+		}
+
+		const sourceCandidate = `${sourceBase}${suffix}`;
+		try {
+			const stat = await fs.stat(sourceCandidate);
+			if (stat.size <= 0) {
+				return null;
+			}
+			await fs.mkdir(path.dirname(targetPath), { recursive: true });
+			await fs.copyFile(sourceCandidate, targetPath);
+		} catch {
+			// Recording has no usable sidecar of this kind.
+			return null;
+		}
+
+		// Companion timing metadata is optional but required for accurate
+		// start-delay alignment when present (e.g. `recording-1.mic.wav.json`).
+		try {
+			await fs.copyFile(`${sourceCandidate}.json`, `${targetPath}.json`);
+		} catch {
+			// Metadata is optional.
+		}
+
+		return normalizePath(targetPath);
+	};
+
+	let microphoneAudioPath: string | null = null;
+	let systemAudioPath: string | null = null;
+
+	for (const layout of COMPANION_AUDIO_LAYOUTS) {
+		if (!systemAudioPath) {
+			systemAudioPath = await stageOne(layout.systemSuffix);
+		}
+		if (!microphoneAudioPath) {
+			microphoneAudioPath = await stageOne(layout.micSuffix);
+		}
+	}
+
+	return { microphoneAudioPath, systemAudioPath };
 }
 
 /**
