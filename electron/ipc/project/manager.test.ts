@@ -304,4 +304,33 @@ describe("local media path policy", () => {
 		expect(result.success).toBe(true);
 		await expect(resolveApprovedLocalMediaPath(audioPath)).resolves.toBe(resolvedAudioPath);
 	});
+
+	it("library entries expose the bundle-embedded thumbnail as a data URL", async () => {
+		const projectPath = path.join(tempPath, "thumb.captr");
+		const pngBytes = Buffer.from("fake-png-thumbnail");
+
+		const wsDir = path.join(tempPath, "thumb-workspace");
+		await fs.mkdir(wsDir, { recursive: true });
+		await fs.writeFile(
+			path.join(wsDir, "project.json"),
+			JSON.stringify({ version: 1 }),
+			"utf-8",
+		);
+		await fs.writeFile(path.join(wsDir, "thumbnail.png"), pngBytes);
+		await packProjectWorkspace(wsDir, projectPath);
+		await fs.rm(wsDir, { recursive: true, force: true });
+
+		const { buildProjectLibraryEntry } = await import("./manager");
+		const entry = await buildProjectLibraryEntry(
+			projectPath,
+			path.join(tempPath, "Projects"),
+		);
+
+		expect(entry).not.toBeNull();
+		expect(entry?.thumbnailDataUrl).toBe(
+			`data:image/png;base64,${pngBytes.toString("base64")}`,
+		);
+		// No loose sidecar exists — the preview comes from inside the bundle.
+		expect(entry?.thumbnailPath).toBeNull();
+	});
 });

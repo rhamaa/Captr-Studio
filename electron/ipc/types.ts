@@ -67,6 +67,7 @@ export type ProjectLibraryEntry = {
 	name: string;
 	updatedAt: number;
 	thumbnailPath: string | null;
+	thumbnailDataUrl: string | null;
 	isCurrent: boolean;
 	isInProjectsDirectory: boolean;
 };

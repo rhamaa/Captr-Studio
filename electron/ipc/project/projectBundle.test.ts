@@ -16,6 +16,7 @@ import {
 	inspectProjectBundle,
 	isProjectBundle,
 	packProjectWorkspace,
+	readBundleThumbnailDataUrl,
 	unpackProjectBundle,
 } from "./projectBundle";
 import {
@@ -247,5 +248,41 @@ describe("Project Bundle (ZIP) & Per-Slide Isolation", () => {
 		expect(inspection.success).toBe(false);
 		expect(inspection.isBundle).toBe(false);
 		expect(inspection.error).toContain("old .captr format");
+	});
+
+	it("reads the embedded thumbnail as a data URL without a loose sidecar file", async () => {
+		const workspace = path.join(tempRoot, "thumb-workspace");
+		await fs.mkdir(workspace, { recursive: true });
+		await fs.writeFile(
+			path.join(workspace, "project.json"),
+			JSON.stringify({ version: 1 }),
+			"utf-8",
+		);
+		const pngBytes = Buffer.from("fake-png-thumbnail");
+		await fs.writeFile(path.join(workspace, "thumbnail.png"), pngBytes);
+
+		const captrFile = path.join(tempRoot, "with-thumb.captr");
+		await packProjectWorkspace(workspace, captrFile);
+
+		const dataUrl = await readBundleThumbnailDataUrl(captrFile);
+		expect(dataUrl).toBe(`data:image/png;base64,${pngBytes.toString("base64")}`);
+
+		// No loose .preview.png sidecar is involved or required.
+		await expect(fs.access(`${captrFile}.preview.png`)).rejects.toThrow();
+	});
+
+	it("returns null when the bundle has no embedded thumbnail", async () => {
+		const workspace = path.join(tempRoot, "no-thumb-workspace");
+		await fs.mkdir(workspace, { recursive: true });
+		await fs.writeFile(
+			path.join(workspace, "project.json"),
+			JSON.stringify({ version: 1 }),
+			"utf-8",
+		);
+
+		const captrFile = path.join(tempRoot, "no-thumb.captr");
+		await packProjectWorkspace(workspace, captrFile);
+
+		await expect(readBundleThumbnailDataUrl(captrFile)).resolves.toBeNull();
 	});
 });

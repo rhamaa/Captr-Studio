@@ -7,6 +7,7 @@ export type ProjectLibraryEntry = {
 	name: string;
 	updatedAt: number;
 	thumbnailPath: string | null;
+	thumbnailDataUrl: string | null;
 	isCurrent: boolean;
 	isInProjectsDirectory: boolean;
 };
@@ -182,9 +183,11 @@ export default function ProjectBrowserDialog({
 					{visibleEntries.length > 0 ? (
 						<div className="grid grid-cols-2 gap-2">
 							{visibleEntries.map((entry) => {
-								const thumbnailSrc = entry.thumbnailPath
-									? toFileUrl(entry.thumbnailPath)
-									: null;
+								// Prefer the preview embedded inside the .captr bundle
+								// (data URL); fall back to the legacy loose sidecar file.
+								const thumbnailSrc =
+									entry.thumbnailDataUrl ??
+									(entry.thumbnailPath ? toFileUrl(entry.thumbnailPath) : null);
 								return (
 									<button
 										key={entry.path}
@@ -253,9 +256,11 @@ export default function ProjectBrowserDialog({
 					{visibleEntries.length > 0 ? (
 						<div className="grid grid-cols-2 gap-2">
 							{visibleEntries.map((entry) => {
-								const thumbnailSrc = entry.thumbnailPath
-									? toFileUrl(entry.thumbnailPath)
-									: null;
+								// Prefer the preview embedded inside the .captr bundle
+								// (data URL); fall back to the legacy loose sidecar file.
+								const thumbnailSrc =
+									entry.thumbnailDataUrl ??
+									(entry.thumbnailPath ? toFileUrl(entry.thumbnailPath) : null);
 								return (
 									<button
 										key={entry.path}

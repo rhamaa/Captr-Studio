@@ -32,7 +32,7 @@ import {
 } from "../utils";
 import { collectProjectMediaPaths, getProjectPrimaryMedia } from "./mediaReferences";
 import { getUsableCompanionAudioCandidates } from "../recording/diagnostics";
-import { isProjectBundle, unpackProjectBundle } from "./projectBundle";
+import { isProjectBundle, readBundleThumbnailDataUrl, unpackProjectBundle } from "./projectBundle";
 import { convertProjectToWorkspaceAbsolute, ensureProjectWorkspace } from "./projectWorkspace";
 
 export { normalizePath, normalizeVideoSourcePath };
@@ -363,6 +363,14 @@ export async function buildProjectLibraryEntry(
 			.then(() => true)
 			.catch(() => false);
 
+		// Bundle projects embed their preview as `thumbnail.png` inside the
+		// archive — read it from there instead of relying on a loose
+		// `.preview.png` sidecar next to the project file. The legacy sidecar
+		// path is kept as a fallback for projects saved by older versions.
+		const thumbnailDataUrl = (await isProjectBundle(normalizedPath))
+			? await readBundleThumbnailDataUrl(normalizedPath).catch(() => null)
+			: null;
+
 		return {
 			path: normalizedPath,
 			name: path
@@ -376,6 +384,7 @@ export async function buildProjectLibraryEntry(
 				),
 			updatedAt: stats.mtimeMs,
 			thumbnailPath: thumbnailExists ? thumbnailPath : null,
+			thumbnailDataUrl,
 			isCurrent: Boolean(
 				currentProjectPath && normalizePath(currentProjectPath) === normalizedPath,
 			),

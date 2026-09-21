@@ -51,7 +51,12 @@ export function ProjectCard({
 	viewMode = "grid",
 }: ProjectCardProps) {
 	const [imageError, setImageError] = useState(false);
-	const imageUrl = entry.thumbnailPath && !imageError ? toFileUrl(entry.thumbnailPath) : null;
+	// Prefer the preview embedded inside the .captr bundle (data URL, immune to
+	// file:// blocking for projects outside app-managed directories); fall back
+	// to the legacy loose ".preview.png" sidecar.
+	const imageUrl = !imageError
+		? (entry.thumbnailDataUrl ?? (entry.thumbnailPath ? toFileUrl(entry.thumbnailPath) : null))
+		: null;
 
 	if (viewMode === "list") {
 		return (

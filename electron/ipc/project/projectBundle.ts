@@ -213,6 +213,68 @@ function readEntryToBuffer(zipfile: yauzl.ZipFile, entry: yauzl.Entry): Promise<
 }
 
 /**
+ * Reads only the embedded thumbnail (`thumbnail.png`) from a .captr bundle and
+ * returns it as a PNG data URL. Returns null when the bundle has no thumbnail
+ * or cannot be read.
+ *
+ * The thumbnail is stored inside the bundle so project previews work without a
+ * loose `.preview.png` sidecar next to the project file — which also keeps
+ * previews working for files outside app-managed directories (e.g. Downloads),
+ * where the media server refuses to serve loose files.
+ */
+export async function readBundleThumbnailDataUrl(captrPath: string): Promise<string | null> {
+	return new Promise<string | null>((resolve) => {
+		yauzl.open(captrPath, { lazyEntries: true }, (openErr, zipfile) => {
+			if (openErr || !zipfile) {
+				return resolve(null);
+			}
+
+			let settled = false;
+			const finish = (value: string | null) => {
+				if (settled) {
+					return;
+				}
+				settled = true;
+				try {
+					zipfile.close();
+				} catch {
+					// Already closed.
+				}
+				resolve(value);
+			};
+
+			zipfile.on("error", () => finish(null));
+			zipfile.on("end", () => finish(null));
+			zipfile.readEntry();
+
+			zipfile.on("entry", async (entry: yauzl.Entry) => {
+				if (settled) {
+					return;
+				}
+
+				const rawName = entry.fileName.replace(/\\/g, "/");
+				const isThumbnail =
+					!rawName.endsWith("/") &&
+					(rawName === "thumbnail.png" || rawName.endsWith(".thumb.png"));
+
+				if (!isThumbnail) {
+					zipfile.readEntry();
+					return;
+				}
+
+				try {
+					const buf = await readEntryToBuffer(zipfile, entry);
+					finish(`data:image/png;base64,${buf.toString("base64")}`);
+				} catch {
+					finish(null);
+				}
+			});
+		});
+	});
+}
+
+
+/**
  * Inspects a .captr project file (ZIP bundle or legacy JSON) without extracting
  * large media assets onto disk. Returns metadata, file entry breakdown, and project configuration.
  */

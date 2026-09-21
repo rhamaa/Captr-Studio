@@ -19,7 +19,6 @@ import {
 	rememberRecentProject,
 	replaceApprovedSessionLocalReadPaths,
 	resolveApprovedLocalMediaPath,
-	saveProjectThumbnail,
 	saveRecentProjectPaths,
 } from "../project/manager";
 import { inspectProjectBundle, packProjectWorkspace } from "../project/projectBundle";
@@ -535,6 +534,11 @@ export function registerProjectHandlers() {
 					)
 					.catch(() => undefined);
 			}
+		} else if (thumbnailDataUrl === null) {
+			// Explicit clear — drop any previously embedded thumbnail.
+			await fs
+				.rm(path.join(workspaceDir, "thumbnail.png"), { force: true })
+				.catch(() => undefined);
 		}
 
 		// Write project.json with bundle-relative paths for serialization
@@ -549,7 +553,9 @@ export function registerProjectHandlers() {
 		await packProjectWorkspace(workspaceDir, targetPath);
 
 		setCurrentProjectPath(targetPath);
-		await saveProjectThumbnail(targetPath, thumbnailDataUrl);
+		// The preview thumbnail is embedded in the bundle as thumbnail.png.
+		// Remove any loose legacy ".preview.png" sidecar left by older saves.
+		await fs.rm(getProjectThumbnailPath(targetPath), { force: true }).catch(() => undefined);
 		await rememberRecentProject(targetPath);
 
 		return stagedProjectData;
