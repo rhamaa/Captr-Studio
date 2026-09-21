@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { collectProjectMediaPaths } from "../project/mediaReferences";
+import { isProjectBundle } from "../project/projectBundle";
 import {
 	AUTO_RECORDING_MAX_AGE_MS,
 	AUTO_RECORDING_RETENTION_COUNT,
@@ -73,15 +74,20 @@ async function loadSavedProjectMediaPaths() {
 			})
 			.map(async (entry) => {
 				const projectPath = path.join(projectsDir, entry.name);
+
+				// ZIP-format .captr bundles cannot be read as plain JSON.
+				// Their media is embedded inside the ZIP archive, so there are no loose
+				// files to protect from pruning — skip them gracefully.
+				if (await isProjectBundle(projectPath)) {
+					return;
+				}
+
 				let rawProject: unknown;
 				try {
 					rawProject = parseJsonWithByteOrderMark(await fs.readFile(projectPath, "utf-8"));
-				} catch (error) {
-					console.warn("[prune] Aborting recording prune because a saved project is unreadable", {
-						projectPath,
-						error,
-					});
-					throw error;
+				} catch {
+					// Legacy JSON .captr or corrupt file — no media paths to protect; skip gracefully.
+					return;
 				}
 				const candidatePaths = collectProjectMediaPaths(rawProject);
 

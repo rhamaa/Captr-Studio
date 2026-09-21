@@ -234,7 +234,7 @@ describe("Project Bundle (ZIP) & Per-Slide Isolation", () => {
 		expect(configEntry?.path).toBe("project.json");
 	});
 
-	it("inspects legacy plain JSON project file", async () => {
+	it("rejects legacy plain JSON project file with a clear error", async () => {
 		const jsonFile = path.join(tempRoot, "legacy-proj.captr");
 		const legacyProject = {
 			projectName: "Legacy Project",
@@ -244,9 +244,8 @@ describe("Project Bundle (ZIP) & Per-Slide Isolation", () => {
 		await fs.writeFile(jsonFile, JSON.stringify(legacyProject), "utf-8");
 
 		const inspection = await inspectProjectBundle(jsonFile);
-		expect(inspection.success).toBe(true);
+		expect(inspection.success).toBe(false);
 		expect(inspection.isBundle).toBe(false);
-		expect(inspection.projectData).toEqual(legacyProject);
-		expect(inspection.entries.length).toBeGreaterThanOrEqual(1);
+		expect(inspection.error).toContain("old .captr format");
 	});
 });

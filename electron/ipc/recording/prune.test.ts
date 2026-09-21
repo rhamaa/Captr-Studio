@@ -69,31 +69,17 @@ describe("pruneAutoRecordings", () => {
 		const protectedWebcamRecordingPath = recordingPaths.at(-2);
 		const prunableRecordingPath = recordingPaths.at(-1);
 
+		// prune.ts reads plain JSON project files to collect media paths for protection.
+		// (Separate from the loadProjectFromPath restriction — prune and load are independent.)
 		await fs.writeFile(
 			path.join(projectsDir, `saved-project-video.${PROJECT_FILE_EXTENSION}`),
-			JSON.stringify(
-				{
-					videoPath: protectedVideoRecordingPath,
-				},
-				null,
-				2,
-			),
+			JSON.stringify({ videoPath: protectedVideoRecordingPath }, null, 2),
 			"utf-8",
 		);
 
 		await fs.writeFile(
 			path.join(projectsDir, `saved-project-webcam.${PROJECT_FILE_EXTENSION}`),
-			JSON.stringify(
-				{
-					editor: {
-						webcam: {
-							sourcePath: protectedWebcamRecordingPath,
-						},
-					},
-				},
-				null,
-				2,
-			),
+			JSON.stringify({ editor: { webcam: { sourcePath: protectedWebcamRecordingPath } } }, null, 2),
 			"utf-8",
 		);
 
@@ -117,15 +103,19 @@ describe("pruneAutoRecordings", () => {
 			const old = new Date(Date.now() - AUTO_RECORDING_MAX_AGE_MS - 60000);
 			await fs.utimes(file, old, old);
 		}
-		await fs.writeFile(path.join(projectsDir, "story.captr"), JSON.stringify({ videoPath: files[0], clips: [{ videoPath: files[1], mediaTrackLayers: [{ sourcePath: files[2] }] }] }));
+		// plain JSON project — prune reads these to protect referenced recordings
+		await fs.writeFile(
+			path.join(projectsDir, "story.captr"),
+			JSON.stringify({ videoPath: files[0], clips: [{ videoPath: files[1], mediaTrackLayers: [{ sourcePath: files[2] }] }] }),
+		);
 		await pruneAutoRecordings();
 		for (const file of files.slice(0, 3)) await expect(fs.access(file)).resolves.toBeUndefined();
 		await expect(fs.access(files[3])).rejects.toThrow();
 	});
 
-	it("aborts pruning when a saved project cannot be parsed", async () => {
+	it("skips unreadable/corrupt project files gracefully without aborting the prune", async () => {
 		const { getRecordingsDir } = await import("../utils");
-		const { PROJECTS_DIRECTORY_NAME, PROJECT_FILE_EXTENSION } = await import("../constants");
+		const { PROJECTS_DIRECTORY_NAME, PROJECT_FILE_EXTENSION, AUTO_RECORDING_MAX_AGE_MS } = await import("../constants");
 		const { pruneAutoRecordings } = await import("./prune");
 
 		const recordingsDir = await getRecordingsDir();
@@ -134,16 +124,19 @@ describe("pruneAutoRecordings", () => {
 
 		const recordingPath = path.join(recordingsDir, "recording-stale.mp4");
 		await fs.writeFile(recordingPath, "video");
-		const staleTimestamp = new Date(Date.now() - 48 * 60 * 60 * 1_000);
+		const staleTimestamp = new Date(Date.now() - AUTO_RECORDING_MAX_AGE_MS - 60000);
 		await fs.utimes(recordingPath, staleTimestamp, staleTimestamp);
 
+		// Write a corrupt (invalid JSON, non-ZIP) project file — should be skipped gracefully
 		await fs.writeFile(
 			path.join(projectsDir, `broken-project.${PROJECT_FILE_EXTENSION}`),
 			"{ invalid json",
 			"utf-8",
 		);
 
-		await expect(pruneAutoRecordings()).rejects.toThrow();
-		await expect(fs.access(recordingPath)).resolves.toBeUndefined();
+		// Should NOT throw — corrupt files are skipped gracefully
+		await expect(pruneAutoRecordings()).resolves.toBeUndefined();
+		// The stale recording is not protected by any project, so it should be pruned
+		await expect(fs.access(recordingPath)).rejects.toThrow();
 	});
 });

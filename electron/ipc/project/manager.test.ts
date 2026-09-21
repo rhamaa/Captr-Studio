@@ -2,6 +2,24 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { packProjectWorkspace } from "./projectBundle";
+
+/**
+ * Helper: write project.json into a temp workspace dir and pack it as a .captr ZIP bundle.
+ * Returns the path to the .captr file.
+ */
+async function makeBundle(
+	tmpDir: string,
+	captrPath: string,
+	projectData: Record<string, unknown>,
+): Promise<string> {
+	const workspaceDir = path.join(tmpDir, `ws-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+	await fs.mkdir(workspaceDir, { recursive: true });
+	await fs.writeFile(path.join(workspaceDir, "project.json"), JSON.stringify(projectData), "utf-8");
+	await packProjectWorkspace(workspaceDir, captrPath);
+	await fs.rm(workspaceDir, { recursive: true, force: true });
+	return captrPath;
+}
 
 describe("local media path policy", () => {
 	let tempRoot: string;
@@ -61,7 +79,7 @@ describe("local media path policy", () => {
 		expect(await isAllowedLocalMediaPath(second)).toBe(false);
 	});
 
-	it("opens scene-only projects and approves media from every scene without approving unrelated files", async () => {
+	it("opens scene-only projects (bundle) and approves media from every scene without approving unrelated files", async () => {
 		const external = path.join(tempRoot, "External");
 		await fs.mkdir(external, { recursive: true });
 		const sources = ["intro.mp4", "demo.mp4", "cam.mp4", "broll.mp4", "mic.wav"].map((name) => path.join(external, name));
@@ -69,16 +87,27 @@ describe("local media path policy", () => {
 		const unrelated = path.join(external, "unrelated.mp4");
 		await fs.writeFile(unrelated, "unrelated");
 		const projectPath = path.join(tempRoot, "story.captr");
-		await fs.writeFile(projectPath, JSON.stringify({ videoPath: "", unrelated,
-			clips: [{ videoPath: sources[0] }, { videoPath: sources[1], webcamPath: sources[2], microphoneAudioPath: sources[4], mediaTrackLayers: [{ sourcePath: sources[3] }] }], editor: {},
-		}));
+		await makeBundle(tempPath, projectPath, {
+			videoPath: "",
+			unrelated,
+			clips: [
+				{ videoPath: sources[0] },
+				{
+					videoPath: sources[1],
+					webcamPath: sources[2],
+					microphoneAudioPath: sources[4],
+					mediaTrackLayers: [{ sourcePath: sources[3] }],
+				},
+			],
+			editor: {},
+		});
 		const { loadProjectFromPath, resolveApprovedLocalMediaPath } = await import("./manager");
 		expect((await loadProjectFromPath(projectPath)).success).toBe(true);
 		for (const source of sources) await expect(resolveApprovedLocalMediaPath(source)).resolves.toBe(await fs.realpath(source));
 		await expect(resolveApprovedLocalMediaPath(unrelated)).resolves.toBeNull();
 	});
 
-	it("automatically approves companion audio candidate files when loading legacy projects", async () => {
+	it("automatically approves companion audio candidate files when loading bundle projects", async () => {
 		const external = path.join(tempRoot, "ExternalCompanion");
 		await fs.mkdir(external, { recursive: true });
 		const videoFile = path.join(external, "recording.mp4");
@@ -88,16 +117,13 @@ describe("local media path policy", () => {
 		await fs.writeFile(systemAudio, "system-audio-content");
 		await fs.writeFile(micAudio, "mic-audio-content");
 
-		// Legacy project only references videoPath, not companion audio files
-		const projectPath = path.join(tempRoot, "legacy-project.captr");
-		await fs.writeFile(
-			projectPath,
-			JSON.stringify({
-				videoPath: videoFile,
-				clips: [{ videoPath: videoFile }],
-				editor: {},
-			}),
-		);
+		// Bundle only references videoPath; companion audio auto-detected on disk
+		const projectPath = path.join(tempRoot, "bundle-companion.captr");
+		await makeBundle(tempPath, projectPath, {
+			videoPath: videoFile,
+			clips: [{ videoPath: videoFile }],
+			editor: {},
+		});
 
 		const { loadProjectFromPath, resolveApprovedLocalMediaPath } = await import("./manager");
 		const result = await loadProjectFromPath(projectPath);
@@ -213,49 +239,63 @@ describe("local media path policy", () => {
 		await expect(fs.readFile(thumbnailPath, "utf8")).resolves.toBe("png-thumbnail");
 	});
 
-	it("loads project files that start with a UTF-8 byte order mark", async () => {
+	it("rejects legacy plain JSON .captr files with a clear error message", async () => {
 		const videoPath = path.join(tempPath, "recording.mp4");
-		const projectPath = path.join(tempPath, "recording.recordly");
+		const projectPath = path.join(tempPath, "recording.captr");
 		await fs.writeFile(videoPath, "test-video");
 		await fs.writeFile(
 			projectPath,
-			`\uFEFF${JSON.stringify({
-				version: 1,
-				videoPath,
-				editor: {},
-			})}`,
+			JSON.stringify({ version: 1, videoPath, editor: {} }),
 			"utf-8",
 		);
 
 		const { loadProjectFromPath } = await import("./manager");
+		const result = await loadProjectFromPath(projectPath);
+		expect(result.success).toBe(false);
+		expect(result.message).toContain("old .captr format");
+	});
 
+	it("loads bundle project files that start with a UTF-8 byte order mark in project.json", async () => {
+		const videoPath = path.join(tempPath, "recording.mp4");
+		const projectPath = path.join(tempPath, "recording.captr");
+		await fs.writeFile(videoPath, "test-video");
+
+		// Create a workspace with a BOM-prefixed project.json, then bundle it
+		const wsDir = path.join(tempPath, "bom-workspace");
+		await fs.mkdir(wsDir, { recursive: true });
+		await fs.writeFile(
+			path.join(wsDir, "project.json"),
+			`\uFEFF${JSON.stringify({ version: 1, videoPath, editor: {} })}`,
+			"utf-8",
+		);
+		await packProjectWorkspace(wsDir, projectPath);
+		await fs.rm(wsDir, { recursive: true, force: true });
+
+		const { loadProjectFromPath } = await import("./manager");
 		const result = await loadProjectFromPath(projectPath);
 		expect(result.success).toBe(true);
 		expect(result.path).toBe(projectPath);
 		expect(result.project).toMatchObject({ videoPath });
 	});
 
-	it("approves editor audioRegions audioPath entries when loading a project", async () => {
+	it("approves editor audioRegions audioPath entries when loading a bundle project", async () => {
 		const downloadsPath = path.join(tempRoot, "Downloads");
 		const videoPath = path.join(tempPath, "recording.mp4");
 		const audioPath = path.join(downloadsPath, "music.ogg");
-		const projectPath = path.join(tempPath, "recording.recordly");
+		const projectPath = path.join(tempPath, "recording.captr");
 		await fs.mkdir(downloadsPath, { recursive: true });
 		await fs.writeFile(videoPath, "test-video");
 		await fs.writeFile(audioPath, "test-audio");
-		await fs.writeFile(
-			projectPath,
-			JSON.stringify({
-				version: 1,
-				videoPath,
-				editor: {
-					audioRegions: [
-						{ id: "a1", startMs: 0, endMs: 1000, audioPath, volume: 1 },
-					],
-				},
-			}),
-			"utf-8",
-		);
+
+		await makeBundle(tempPath, projectPath, {
+			version: 1,
+			videoPath,
+			editor: {
+				audioRegions: [
+					{ id: "a1", startMs: 0, endMs: 1000, audioPath, volume: 1 },
+				],
+			},
+		});
 
 		const { loadProjectFromPath, resolveApprovedLocalMediaPath } = await import("./manager");
 		const resolvedAudioPath = await fs.realpath(audioPath);

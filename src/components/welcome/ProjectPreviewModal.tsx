@@ -215,9 +215,9 @@ export function ProjectPreviewModal({
 										ZIP BUNDLE
 									</span>
 								) : (
-									<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-400 text-[10px] font-semibold tracking-wide">
+									<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-500/15 text-red-400 text-[10px] font-semibold tracking-wide">
 										<FileTextIcon className="w-3 h-3" />
-										LEGACY JSON
+										NOT SUPPORTED
 									</span>
 								)}
 							</div>
@@ -745,15 +745,22 @@ export function ProjectPreviewModal({
 						>
 							Close
 						</Button>
-						<Button
-							type="button"
-							size="sm"
-							onClick={handleOpen}
-							className="rounded-lg text-xs bg-primary text-white font-semibold gap-1.5 hover:bg-primary/90"
-						>
-							<PlayIcon className="w-3.5 h-3.5 fill-current" />
-							<span>Open in Editor</span>
-						</Button>
+						{isBundle ? (
+							<Button
+								type="button"
+								size="sm"
+								onClick={handleOpen}
+								className="rounded-lg text-xs bg-primary text-white font-semibold gap-1.5 hover:bg-primary/90"
+							>
+								<PlayIcon className="w-3.5 h-3.5 fill-current" />
+								<span>Open in Editor</span>
+							</Button>
+						) : (
+							<div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[11px]">
+								<FileTextIcon className="w-3.5 h-3.5 flex-shrink-0" />
+								<span>Legacy format — cannot be opened</span>
+							</div>
+						)}
 					</div>
 				</div>
 			</div>

@@ -309,61 +309,18 @@ export async function inspectProjectBundle(captrPath: string): Promise<ProjectIn
 			});
 		}
 
-		// Fallback for Legacy JSON .captr
-		const rawContent = await fs.readFile(captrPath, "utf-8");
-		let legacyData: any = null;
-		try {
-			legacyData = JSON.parse(rawContent);
-		} catch (parseErr) {
-			return {
-				success: false,
-				filePath: captrPath,
-				fileName,
-				fileSize: stat.size,
-				lastModified: stat.mtimeMs,
-				isBundle: false,
-				entries: [],
-				error: `Invalid JSON format: ${String(parseErr)}`,
-			};
-		}
-
-		const entries: ProjectInspectionEntry[] = [
-			{
-				path: "project.json",
-				size: stat.size,
-				compressedSize: stat.size,
-				isDirectory: false,
-				category: "config",
-			},
-		];
-
-		// Check for legacy thumbnail sidecar
-		let thumbnailDataUrl: string | null = null;
-		const sidecarThumb = path.join(path.dirname(captrPath), `.${fileName}.thumb.png`);
-		try {
-			const thumbBuf = await fs.readFile(sidecarThumb);
-			thumbnailDataUrl = `data:image/png;base64,${thumbBuf.toString("base64")}`;
-			entries.push({
-				path: `.${fileName}.thumb.png`,
-				size: thumbBuf.length,
-				compressedSize: thumbBuf.length,
-				isDirectory: false,
-				category: "thumbnail",
-			});
-		} catch {
-			// No sidecar thumbnail
-		}
-
+		// Legacy JSON .captr — no longer supported.
 		return {
-			success: true,
+			success: false,
 			filePath: captrPath,
 			fileName,
 			fileSize: stat.size,
 			lastModified: stat.mtimeMs,
 			isBundle: false,
-			thumbnailDataUrl,
-			projectData: legacyData,
-			entries,
+			entries: [],
+			error:
+				"This project file uses the old .captr format (JSON-only) which is no longer supported. " +
+				"Only .captr bundle files (created by the current version of Captr Studio) can be opened.",
 		};
 	} catch (err) {
 		return {

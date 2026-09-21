@@ -456,16 +456,15 @@ export async function loadProjectFromPath(projectPath: string) {
 			};
 		}
 	} else {
-		try {
-			const content = await fs.readFile(normalizedPath, "utf-8");
-			project = parseJsonWithByteOrderMark(content);
-		} catch (error) {
-			return {
-				success: false,
-				canceled: false,
-				message: `Failed to read project file: ${error instanceof Error ? error.message : String(error)}`,
-			};
-		}
+		// Legacy .captr files (plain JSON, no embedded media) are no longer supported.
+		// Only ZIP bundle format is accepted.
+		return {
+			success: false,
+			canceled: false,
+			message:
+				"This project file uses the old .captr format (JSON-only) which is no longer supported. " +
+				"Only .captr bundle files (created by the current version of Captr Studio) can be opened.",
+		};
 	}
 	const mediaSources = await resolveProjectMediaSources(project);
 
