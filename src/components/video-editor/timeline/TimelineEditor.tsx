@@ -9,7 +9,6 @@ import {
 } from "react";
 import { useScopedT } from "@/contexts/I18nContext";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
-import { fromFileUrl } from "../projectPersistence";
 import type {
 	SourceAudioTrackMeta,
 	SourceAudioTrackSettings,
@@ -97,30 +96,7 @@ export interface TimelineEditorProps {
 	onDropMediaAsset?: (asset: SlideAssetFile, dropMs: number) => void;
 }
 
-function extractLocalPathFromMediaServerUrl(input: string | null | undefined): string | null {
-	if (!input) return null;
-	try {
-		const url = new URL(input);
-		const isLocalMediaServer =
-			(url.protocol === "http:" || url.protocol === "https:") &&
-			(url.hostname === "127.0.0.1" || url.hostname === "localhost") &&
-			url.pathname === "/video";
-		if (!isLocalMediaServer) return null;
-		return url.searchParams.get("path");
-	} catch {
-		return null;
-	}
-}
 
-function buildSourceSidecarPath(source: string, suffix: "mic" | "system"): string {
-	const normalized = source.replace(/\\/g, "/");
-	const lastSlash = normalized.lastIndexOf("/");
-	const dir = lastSlash >= 0 ? normalized.slice(0, lastSlash + 1) : "";
-	const fileName = lastSlash >= 0 ? normalized.slice(lastSlash + 1) : normalized;
-	const dotIndex = fileName.lastIndexOf(".");
-	const baseName = dotIndex > 0 ? fileName.slice(0, dotIndex) : fileName;
-	return `${dir}${baseName}.${suffix}.wav`;
-}
 
 export interface TimelineEditorHandle {
 	addZoom: () => void;
@@ -279,40 +255,7 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 		const { peaks: sourceAudioPeaks, loading: sourceAudioLoading } = useTimelineAudioPeaks(videoPath, {
 			enableSourceSidecarFallback: true,
 		});
-		const localSourcePath = useMemo(() => {
-			if (!videoPath) return null;
-			return (
-				extractLocalPathFromMediaServerUrl(videoPath) ||
-				(/^file:\/\//i.test(videoPath) ? fromFileUrl(videoPath) : videoPath)
-			);
-		}, [videoPath]);
-		const micSidecarPath = useMemo(
-			() => (localSourcePath ? buildSourceSidecarPath(localSourcePath, "mic") : null),
-			[localSourcePath],
-		);
-		const systemSidecarPath = useMemo(
-			() => (localSourcePath ? buildSourceSidecarPath(localSourcePath, "system") : null),
-			[localSourcePath],
-		);
-		const { peaks: micSidecarPeaks, loading: micSidecarLoading } = useTimelineAudioPeaks(micSidecarPath);
-		const { peaks: systemSidecarPeaks, loading: systemSidecarLoading } = useTimelineAudioPeaks(systemSidecarPath);
 		const sourceAudioTracks = useMemo<SourceAudioTrackWithPeaks[]>(() => {
-			if (systemSidecarPeaks || micSidecarPeaks) {
-				const tracks: SourceAudioTrackWithPeaks[] = [];
-				if (systemSidecarPeaks)
-					tracks.push({
-						id: "system",
-						label: t("audio.systemLabel", "Source System"),
-						peaks: systemSidecarPeaks,
-					});
-				if (micSidecarPeaks)
-					tracks.push({
-						id: "mic",
-						label: t("audio.micLabel", "Source Mic"),
-						peaks: micSidecarPeaks,
-					});
-				return tracks;
-			}
 			return sourceAudioPeaks
 				? [
 						{
@@ -322,37 +265,33 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 						},
 					]
 				: [];
-		}, [micSidecarPeaks, sourceAudioPeaks, systemSidecarPeaks, t]);
+		}, [sourceAudioPeaks, t]);
 
 		const media4in1 = useMemo<SlideMedia4in1>(
 			() => {
-				const micTrack = sourceAudioTracks.find((t) => t.id === "mic");
-				const systemTrack = sourceAudioTracks.find((t) => t.id === "system");
-				const micPeaksData = micSidecarPeaks ?? micTrack?.peaks ?? (!systemSidecarPeaks ? sourceAudioPeaks : null);
-				const systemPeaksData = systemSidecarPeaks ?? systemTrack?.peaks ?? null;
 				return {
 					videoPath: videoPath ?? null,
 					webcamPath: webcamPath ?? null,
 					webcamEnabled: webcamEnabled ?? Boolean(webcamPath),
-					micPeaks: micPeaksData,
-					systemPeaks: systemPeaksData,
+					micPeaks: sourceAudioPeaks ?? null,
+					systemPeaks: null,
 					micMuted: false,
 					systemMuted: false,
 				};
 			},
-			[videoPath, webcamPath, webcamEnabled, micSidecarPeaks, sourceAudioTracks, systemSidecarPeaks, sourceAudioPeaks],
+			[videoPath, webcamPath, webcamEnabled, sourceAudioPeaks],
 		);
 
 		const isLoading = useMemo(() => {
-			// If we are still actively trying to load audio peaks (main or sidecars)
-			if (videoPath && (sourceAudioLoading || micSidecarLoading || systemSidecarLoading)) return true;
+			// If we are still actively trying to load audio peaks
+			if (videoPath && sourceAudioLoading) return true;
 
 			// Robust telemetry loading detection:
 			// If a source path is set but telemetry hasn't arrived (or failed/retried) for it yet.
 			if (videoSourcePath && cursorTelemetrySourcePath !== videoSourcePath) return true;
 
 			return false;
-		}, [videoPath, videoSourcePath, cursorTelemetrySourcePath, sourceAudioLoading, micSidecarLoading, systemSidecarLoading]);
+		}, [videoPath, videoSourcePath, cursorTelemetrySourcePath, sourceAudioLoading]);
 		useEffect(() => {
 			onSourceAudioTracksMetaChange?.(sourceAudioTracks.map((t) => ({ id: t.id, label: t.label })));
 		}, [onSourceAudioTracksMetaChange, sourceAudioTracks]);

@@ -10,6 +10,7 @@ import type {
 	LayoutRegion,
 	ZoomRegion,
 } from "../types";
+import { AudioProcessor } from "@/lib/exporter/audioEncoder";
 
 export interface SilenceRegion {
 	id: string;
@@ -149,6 +150,13 @@ export function detectSilenceFromChannel(
 	};
 }
 
+export class NoAudioTrackError extends Error {
+	constructor(message = "No audio track found in media resource") {
+		super(message);
+		this.name = "NoAudioTrackError";
+	}
+}
+
 /**
  * Fetches and decodes an audio file at url, then detects silent intervals across all channels.
  */
@@ -156,6 +164,34 @@ export async function detectSilenceFromAudioUrl(
 	url: string,
 	options: SilenceDetectionOptions = {},
 ): Promise<SilenceDetectionResult> {
+	// First attempt to decode using AudioProcessor (streaming WebDemuxer + WebCodecs)
+	// which is proven in Captr Studio for MP4/M4A/WAV containers without needing full-file fetch.
+	let demuxAttempted = false;
+	try {
+		const processor = new AudioProcessor();
+		const audioBuffer = await processor.decodeAudioFromUrl(url);
+		demuxAttempted = true;
+		if (audioBuffer && audioBuffer.length > 0) {
+			const channel = audioBuffer.getChannelData(0);
+			return detectSilenceFromChannel(channel, audioBuffer.sampleRate, options);
+		}
+		if (audioBuffer === null) {
+			// Container was parsed by demuxer and has no audio track or empty stream
+			throw new NoAudioTrackError();
+		}
+	} catch (error) {
+		if (error instanceof NoAudioTrackError) {
+			throw error;
+		}
+		if (!demuxAttempted) {
+			console.warn(
+				"[SilenceDetector] AudioProcessor demux decode failed, falling back to fetch/decodeAudioData:",
+				error,
+			);
+		}
+	}
+
+	// Fallback to direct fetch + AudioContext decodeAudioData for raw audio files or unsupported containers
 	const response = await fetch(url);
 	if (!response.ok) {
 		throw new Error(`Failed to load audio for silence detection: ${response.status}`);
@@ -170,6 +206,11 @@ export async function detectSilenceFromAudioUrl(
 		const decoded = await audioCtx.decodeAudioData(arrayBuffer);
 		const channel = decoded.getChannelData(0);
 		return detectSilenceFromChannel(channel, decoded.sampleRate, options);
+	} catch (decodeErr) {
+		if (decodeErr instanceof DOMException) {
+			throw new NoAudioTrackError("Unable to decode audio track from media");
+		}
+		throw decodeErr;
 	} finally {
 		await audioCtx.close().catch(() => undefined);
 	}

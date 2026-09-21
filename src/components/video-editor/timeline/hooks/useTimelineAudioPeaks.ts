@@ -101,7 +101,22 @@ export function useTimelineAudioPeaks(
 				return;
 			}
 
-			const candidates = buildSidecarAudioCandidates(localSourcePath);
+			let candidates: string[] = [];
+			if (typeof window !== "undefined" && window.electronAPI?.getVideoAudioFallbackPaths) {
+				try {
+					const fallbackRes = await window.electronAPI.getVideoAudioFallbackPaths(localSourcePath);
+					if (fallbackRes?.success && Array.isArray(fallbackRes.paths) && fallbackRes.paths.length > 0) {
+						candidates = fallbackRes.paths;
+					}
+				} catch {
+					// fall back to default candidate list
+				}
+			}
+
+			if (candidates.length === 0) {
+				candidates = buildSidecarAudioCandidates(localSourcePath);
+			}
+
 			for (const candidate of candidates) {
 				try {
 					const result = await tryGenerate(candidate);

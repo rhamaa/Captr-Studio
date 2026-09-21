@@ -234,6 +234,19 @@ export function useAudioPreviewSync({
         })();
       }
 
+      audio.onerror = () => {
+        if (cancelled) return;
+        sourceAudioElementRevokersRef.current.get(audioPath)?.();
+        sourceAudioElementRevokersRef.current.delete(audioPath);
+        sourceAudioElementResourcesRef.current.delete(audioPath);
+        const latestAudio = existing.get(audioPath);
+        if (latestAudio === audio) {
+          latestAudio.pause();
+          latestAudio.src = "";
+        }
+        onSourceFallbackLoadError(new Error(`Failed to play companion audio: ${audioPath}`));
+      };
+
       audio.volume = Math.max(0, Math.min(1, getSourceTrackPreviewGain(audioPath) * (isCurrentClipMuted ? 0 : previewVolume)));
     }
 

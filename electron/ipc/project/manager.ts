@@ -31,6 +31,7 @@ import {
 	parseJsonWithByteOrderMark,
 } from "../utils";
 import { collectProjectMediaPaths, getProjectPrimaryMedia } from "./mediaReferences";
+import { getUsableCompanionAudioCandidates } from "../recording/diagnostics";
 import { isProjectBundle, unpackProjectBundle } from "./projectBundle";
 import { convertProjectToWorkspaceAbsolute, ensureProjectWorkspace } from "./projectWorkspace";
 
@@ -475,10 +476,35 @@ export async function loadProjectFromPath(projectPath: string) {
 			message: mediaSources.message,
 		};
 	}
+	const projectMediaPaths = collectProjectMediaPaths(project);
+	const videoPathCandidates = new Set<string>();
+	for (const candidate of [mediaSources.videoPath, ...projectMediaPaths]) {
+		if (
+			typeof candidate === "string" &&
+			candidate.trim() &&
+			/\.(mp4|mov|webm|mkv)$/i.test(candidate)
+		) {
+			videoPathCandidates.add(candidate);
+		}
+	}
+
+	const companionAudioPaths: string[] = [];
+	for (const vPath of videoPathCandidates) {
+		try {
+			const candidates = await getUsableCompanionAudioCandidates(vPath);
+			for (const c of candidates) {
+				companionAudioPaths.push(...c.usablePaths);
+			}
+		} catch {
+			// Missing companion candidates or inaccessible path should not break loading
+		}
+	}
+
 	const approvedProjectPaths: Array<string | null | undefined> = [
 		mediaSources.videoPath,
 		mediaSources.webcamPath,
-		...collectProjectMediaPaths(project),
+		...projectMediaPaths,
+		...companionAudioPaths,
 	];
 	await replaceApprovedSessionLocalReadPaths(approvedProjectPaths);
 	await rememberRecentProject(normalizedPath);

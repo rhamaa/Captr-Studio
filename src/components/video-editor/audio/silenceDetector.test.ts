@@ -76,4 +76,34 @@ describe("silenceDetector", () => {
 		expect(result.silences.length).toBeGreaterThanOrEqual(1);
 		expect(result.totalSavedMs).toBeGreaterThan(0);
 	});
+
+	it("detects silence from AudioBuffer decoded via AudioProcessor", async () => {
+		const { detectSilenceFromAudioUrl } = await import("./silenceDetector");
+		const { AudioProcessor } = await import("@/lib/exporter/audioEncoder");
+
+		const sampleRate = 1000;
+		const channel = new Float32Array(3000);
+		// speech from 0 to 500, dead air from 500 to 2500, speech 2500 to 3000
+		for (let i = 0; i < 500; i++) channel[i] = 0.5;
+		for (let i = 2500; i < 3000; i++) channel[i] = 0.5;
+
+		const mockAudioBuffer = {
+			sampleRate,
+			length: 3000,
+			numberOfChannels: 1,
+			getChannelData: () => channel,
+		} as unknown as AudioBuffer;
+
+		vi.spyOn(AudioProcessor.prototype, "decodeAudioFromUrl").mockResolvedValue(mockAudioBuffer);
+
+		const result = await detectSilenceFromAudioUrl("http://127.0.0.1:1234/video?path=test.mp4", {
+			minDurationMs: 1000,
+			speechPaddingMs: 100,
+		});
+
+		expect(result.silences).toHaveLength(1);
+		expect(result.silences[0].startMs).toBe(600);
+		expect(result.silences[0].endMs).toBe(2400);
+		expect(result.totalSavedMs).toBe(1800);
+	});
 });

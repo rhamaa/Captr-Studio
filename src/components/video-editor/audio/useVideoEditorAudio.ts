@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { resolveSourceTrackRoutingPolicy } from "@/lib/exporter/sourceTrackRoutingPolicy";
 import type {
 	AudioRegion,
@@ -81,12 +81,30 @@ export function useVideoEditorAudio({
 			reloadTrigger: audioReloadTrigger,
 		});
 
+	const [fallbackPlaybackFailed, setFallbackPlaybackFailed] = useState(false);
+
+	useEffect(() => {
+		setFallbackPlaybackFailed(false);
+	}, [currentSourcePath, audioReloadTrigger]);
+
+	const handleSourceFallbackLoadError = useCallback(
+		(error: unknown) => {
+			setFallbackPlaybackFailed(true);
+			onSourceFallbackLoadError(error);
+		},
+		[onSourceFallbackLoadError],
+	);
+
 	const sourceTrackRoutingPolicy = useMemo(
 		() => resolveSourceTrackRoutingPolicy(currentSourcePath, sourceAudioFallbackPaths),
 		[currentSourcePath, sourceAudioFallbackPaths],
 	);
-	const previewSourceAudioFallbackPaths = sourceTrackRoutingPolicy.playbackPaths;
-	const shouldMutePreviewVideo = sourceTrackRoutingPolicy.muteEmbeddedPreview;
+	const previewSourceAudioFallbackPaths = fallbackPlaybackFailed
+		? []
+		: sourceTrackRoutingPolicy.playbackPaths;
+	const shouldMutePreviewVideo = fallbackPlaybackFailed
+		? false
+		: sourceTrackRoutingPolicy.muteEmbeddedPreview;
 
 	const activeClipIdAtCurrentTime = useMemo(
 		() => getActiveClipIdAtSourceTime(currentTime, clipRegions),
@@ -128,7 +146,7 @@ export function useVideoEditorAudio({
 		sourceAudioFallbackStartDelayMsByPath,
 		isCurrentClipMuted,
 		getSourceTrackPreviewGain,
-		onSourceFallbackLoadError,
+		onSourceFallbackLoadError: handleSourceFallbackLoadError,
 	});
 
 	return {

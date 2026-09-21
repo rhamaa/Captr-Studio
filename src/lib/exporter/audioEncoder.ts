@@ -1083,10 +1083,13 @@ export class AudioProcessor {
 	// Decode audio from a URL using streaming WebCodecs decode with bulk fallback.
 	// Streaming decode avoids holding the full compressed file in memory alongside
 	// the decoded AudioBuffer, reducing peak memory for large recordings.
-	private async decodeAudioFromUrl(url: string): Promise<AudioBuffer | null> {
+	public async decodeAudioFromUrl(url: string): Promise<AudioBuffer | null> {
 		try {
-			const buffer = await this.streamDecodeFromUrl(url);
-			if (buffer) return buffer;
+			const result = await this.streamDecodeFromUrl(url);
+			if (result.hasAudioTrack === false) {
+				return null;
+			}
+			if (result.buffer) return result.buffer;
 		} catch (error) {
 			console.warn(
 				"[AudioProcessor] Streaming decode failed, falling back to bulk decode:",
@@ -1099,7 +1102,9 @@ export class AudioProcessor {
 
 	// Streaming decode via WebDemuxer + AudioDecoder. Decodes audio chunk-by-chunk
 	// without loading the entire compressed file into a contiguous ArrayBuffer.
-	private async streamDecodeFromUrl(url: string): Promise<AudioBuffer | null> {
+	private async streamDecodeFromUrl(
+		url: string,
+	): Promise<{ buffer: AudioBuffer | null; hasAudioTrack: boolean }> {
 		const source = await resolveMediaElementSource(url);
 		let demuxer: WebDemuxer | null = null;
 
@@ -1112,7 +1117,7 @@ export class AudioProcessor {
 			try {
 				audioConfig = (await demuxer.getDecoderConfig("audio")) as AudioDecoderConfig;
 			} catch {
-				return null; // No audio track
+				return { buffer: null, hasAudioTrack: false }; // Container has no audio track
 			}
 
 			const sampleRate = audioConfig.sampleRate || 48_000;
@@ -1231,7 +1236,7 @@ export class AudioProcessor {
 				}
 			}
 
-			if (totalFrames === 0) return null;
+			if (totalFrames === 0) return { buffer: null, hasAudioTrack: true };
 
 			// Build AudioBuffer from accumulated chunks
 			const audioBuffer = new AudioBuffer({
@@ -1248,7 +1253,7 @@ export class AudioProcessor {
 				}
 			}
 
-			return audioBuffer;
+			return { buffer: audioBuffer, hasAudioTrack: true };
 		} finally {
 			source.revoke();
 			try {

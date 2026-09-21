@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { constants as fsConstants } from "node:fs";
+import { constants as fsConstants, existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { BrowserWindow, dialog, ipcMain, shell } from "electron";
@@ -977,7 +977,9 @@ export function registerProjectHandlers() {
 		const resolved = await resolveApprovedLocalMediaPath(filePath);
 		if (!resolved) {
 			const normalized = path.resolve(filePath);
-			console.warn(`[get-local-media-url] Blocked disallowed path: ${normalized}`);
+			if (existsSync(normalized)) {
+				console.warn(`[get-local-media-url] Blocked disallowed path: ${normalized}`);
+			}
 			return { success: false as const };
 		}
 		return { success: true as const, url: buildMediaUrl(baseUrl, resolved) };

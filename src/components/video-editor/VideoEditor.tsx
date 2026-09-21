@@ -143,6 +143,7 @@ import { extensionHost } from "@/lib/extensions";
 import {
 	applySilenceRemovalToTimeline,
 	detectSilenceFromAudioUrl,
+	NoAudioTrackError,
 	type SilenceRegion,
 } from "./audio/silenceDetector";
 import { useVideoEditorAudio } from "./audio/useVideoEditorAudio";
@@ -4261,7 +4262,18 @@ export default function VideoEditor() {
 
 	const handleAnalyzeSilence = useCallback(
 		async (minDuration = silenceMinDurationMs, threshold = silenceThresholdDb) => {
-			const targetSourcePath = videoSourcePath || videoPath;
+			// Check if companion audio files (mic, system, etc.) exist first
+			const fallbackAudioPath =
+				audio.sourceAudioFallbackPaths.find(
+					(p) =>
+						typeof p === "string" &&
+						p.trim().length > 0 &&
+						!/\.(mp4|mov|webm|mkv)$/i.test(p),
+				) ||
+				audio.sourceAudioFallbackPaths[0] ||
+				null;
+
+			const targetSourcePath = fallbackAudioPath || videoSourcePath || videoPath;
 			if (!targetSourcePath) {
 				toast.error(t("editor.silence.noVideo", "No video loaded to analyze silence"));
 				return;
@@ -4269,12 +4281,23 @@ export default function VideoEditor() {
 
 			setIsAnalyzingSilence(true);
 			try {
-				const mediaUrl =
-					videoPath?.startsWith("http") ||
-					videoPath?.startsWith("blob:") ||
-					videoPath?.startsWith("file:")
-						? videoPath
-						: await resolveVideoUrl(targetSourcePath);
+				let mediaUrl: string;
+				if (
+					targetSourcePath.startsWith("http") ||
+					targetSourcePath.startsWith("blob:") ||
+					targetSourcePath.startsWith("file:")
+				) {
+					mediaUrl = targetSourcePath;
+				} else if (
+					!fallbackAudioPath &&
+					(videoPath?.startsWith("http") ||
+						videoPath?.startsWith("blob:") ||
+						videoPath?.startsWith("file:"))
+				) {
+					mediaUrl = videoPath;
+				} else {
+					mediaUrl = await resolveVideoUrl(targetSourcePath);
+				}
 
 				const result = await detectSilenceFromAudioUrl(mediaUrl, {
 					minDurationMs: minDuration,
@@ -4296,13 +4319,32 @@ export default function VideoEditor() {
 					);
 				}
 			} catch (err) {
-				console.error("[SilenceDetector] Failed to analyze audio:", err);
-				toast.error(t("editor.silence.error", "Failed to analyze audio for silences"));
+				if (
+					err instanceof NoAudioTrackError ||
+					(err instanceof Error && err.name === "NoAudioTrackError")
+				) {
+					toast.error(
+						t(
+							"editor.silence.noAudioTrack",
+							"This video does not contain an audio track to analyze for silences.",
+						),
+					);
+				} else {
+					console.error("[SilenceDetector] Failed to analyze audio:", err);
+					toast.error(t("editor.silence.error", "Failed to analyze audio for silences"));
+				}
 			} finally {
 				setIsAnalyzingSilence(false);
 			}
 		},
-		[videoPath, videoSourcePath, silenceMinDurationMs, silenceThresholdDb, t],
+		[
+			audio.sourceAudioFallbackPaths,
+			videoPath,
+			videoSourcePath,
+			silenceMinDurationMs,
+			silenceThresholdDb,
+			t,
+		],
 	);
 
 	const handleApplySilenceRemoval = useCallback(() => {

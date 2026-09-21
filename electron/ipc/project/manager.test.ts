@@ -78,6 +78,37 @@ describe("local media path policy", () => {
 		await expect(resolveApprovedLocalMediaPath(unrelated)).resolves.toBeNull();
 	});
 
+	it("automatically approves companion audio candidate files when loading legacy projects", async () => {
+		const external = path.join(tempRoot, "ExternalCompanion");
+		await fs.mkdir(external, { recursive: true });
+		const videoFile = path.join(external, "recording.mp4");
+		const systemAudio = path.join(external, "recording.system.wav");
+		const micAudio = path.join(external, "recording.mic.wav");
+		await fs.writeFile(videoFile, "video-content");
+		await fs.writeFile(systemAudio, "system-audio-content");
+		await fs.writeFile(micAudio, "mic-audio-content");
+
+		// Legacy project only references videoPath, not companion audio files
+		const projectPath = path.join(tempRoot, "legacy-project.captr");
+		await fs.writeFile(
+			projectPath,
+			JSON.stringify({
+				videoPath: videoFile,
+				clips: [{ videoPath: videoFile }],
+				editor: {},
+			}),
+		);
+
+		const { loadProjectFromPath, resolveApprovedLocalMediaPath } = await import("./manager");
+		const result = await loadProjectFromPath(projectPath);
+		expect(result.success).toBe(true);
+
+		// Video and both companion audio files should now be approved
+		await expect(resolveApprovedLocalMediaPath(videoFile)).resolves.toBe(await fs.realpath(videoFile));
+		await expect(resolveApprovedLocalMediaPath(systemAudio)).resolves.toBe(await fs.realpath(systemAudio));
+		await expect(resolveApprovedLocalMediaPath(micAudio)).resolves.toBe(await fs.realpath(micAudio));
+	});
+
 	it("rejects existing media files outside allowed directories until they are approved", async () => {
 		const downloadsPath = path.join(tempRoot, "Downloads");
 		const exportPath = path.join(downloadsPath, "export-test.mp4");
