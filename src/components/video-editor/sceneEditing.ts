@@ -19,7 +19,6 @@ export const VALID_RECORD_SECTIONS = [
 
 export const VALID_VIDEO_SECTIONS = [
 	"media",
-	"video-adjust",
 	"audio-record",
 	"transitions",
 	"color-grading",

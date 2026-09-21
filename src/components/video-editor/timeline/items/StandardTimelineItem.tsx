@@ -57,7 +57,7 @@ export function StandardTimelineItem({
 	timeLabel,
 	isSelected = false,
 	keyframes = [],
-	locked = false,
+	locked: _locked = false,
 	children,
 }: StandardTimelineItemProps) {
 	const isZoom = variant === "zoom";

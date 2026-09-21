@@ -93,7 +93,7 @@ describe("separate scene editors", () => {
 		expect(sanitizeSectionForSlideMode("video", "cursor")).toBe("media");
 		expect(sanitizeSectionForSlideMode("video", "webcam")).toBe("media");
 		expect(sanitizeSectionForSlideMode("video", "media")).toBe("media");
-		expect(sanitizeSectionForSlideMode("video", "video-adjust")).toBe("video-adjust");
+		expect(sanitizeSectionForSlideMode("video", "video-adjust")).toBe("media");
 		expect(sanitizeSectionForSlideMode("video", "transitions")).toBe("transitions");
 		expect(sanitizeSectionForSlideMode("video", "color-grading")).toBe("color-grading");
 

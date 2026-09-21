@@ -22,7 +22,6 @@ import {
 	Scissors,
 	SkipBack,
 	SkipForward,
-	Sliders,
 	Sparkle,
 	ArrowCounterClockwise as Undo2,
 	UploadSimple,
@@ -128,9 +127,6 @@ const PhLayout = (props: { className?: string; weight?: "fill" | "regular" }) =>
 );
 const PhFolder = (props: { className?: string; weight?: "fill" | "regular" }) => (
 	<FolderSimple weight={props.weight ?? "regular"} className={props.className} />
-);
-const PhSliders = (props: { className?: string; weight?: "fill" | "regular" }) => (
-	<Sliders weight={props.weight ?? "regular"} className={props.className} />
 );
 const PhMicrophone = (props: { className?: string; weight?: "fill" | "regular" }) => (
 	<Microphone weight={props.weight ?? "regular"} className={props.className} />
@@ -1695,11 +1691,6 @@ export default function VideoEditor() {
 					id: "media" as const,
 					label: t("settings.sections.media", "Media"),
 					icon: PhFolder,
-				},
-				{
-					id: "video-adjust" as const,
-					label: t("settings.sections.videoAdjust", "Transform"),
-					icon: PhSliders,
 				},
 				{
 					id: "audio-record" as const,
@@ -5263,7 +5254,7 @@ export default function VideoEditor() {
 	}, []);
 
 	const handleAddVideoLayer = useCallback(
-		async (filePathInput?: string) => {
+		async (filePathInput?: string, customStartMs?: number) => {
 			let path = filePathInput;
 			if (!path) {
 				const result = await window.electronAPI.showOpenDialog({
@@ -5277,7 +5268,10 @@ export default function VideoEditor() {
 			const decoder = new LayerVideoSource();
 			try {
 				await decoder.load(path);
-				const startMs = Math.round(currentTime * 1000);
+				const startMs =
+					typeof customStartMs === "number"
+						? Math.round(customStartMs)
+						: Math.round(currentTime * 1000);
 				const endMs = Math.min(
 					Math.round(duration * 1000),
 					startMs + Math.round(decoder.video.duration * 1000),
@@ -5358,7 +5352,7 @@ export default function VideoEditor() {
 	}, [annotationRegions, duration, currentTime]);
 
 	const handleAddAudioTrack = useCallback(
-		async (filePathInput?: string) => {
+		async (filePathInput?: string, customStartMs?: number) => {
 			let filePath = filePathInput;
 			if (!filePath) {
 				const result = await window.electronAPI.showOpenDialog({
@@ -5394,9 +5388,12 @@ export default function VideoEditor() {
 				// ignore, fallback duration used
 			}
 
-			const currentMs = Math.round(
-				(videoPlaybackRef.current?.video?.currentTime ?? currentTime) * 1000,
-			);
+			const currentMs =
+				typeof customStartMs === "number"
+					? Math.round(customStartMs)
+					: Math.round(
+							(videoPlaybackRef.current?.video?.currentTime ?? currentTime) * 1000,
+						);
 			const startMs = currentMs;
 			const endMs = startMs + audioDurationMs;
 
@@ -5407,7 +5404,7 @@ export default function VideoEditor() {
 	);
 
 	const handleAddStickerAnnotation = useCallback(
-		async (filePathInput?: string) => {
+		async (filePathInput?: string, customStartMs?: number) => {
 			let filePath = filePathInput;
 			if (!filePath) {
 				const result = await window.electronAPI.showOpenDialog({
@@ -5423,7 +5420,10 @@ export default function VideoEditor() {
 			const dataUrl = await window.electronAPI.readFileAsDataUrl(filePath);
 			if (!dataUrl) return;
 
-			const currentMs = Math.round(currentTime * 1000);
+			const currentMs =
+				typeof customStartMs === "number"
+					? Math.round(customStartMs)
+					: Math.round(currentTime * 1000);
 			const durationMs = Math.round(duration * 1000);
 
 			const id = `annotation-${nextAnnotationIdRef.current++}`;
@@ -5624,6 +5624,24 @@ export default function VideoEditor() {
 			handleAddStickerAnnotation,
 			resolveVideoUrl,
 		],
+	);
+
+	const handleDropMediaAssetOnTimeline = useCallback(
+		(asset: SlideAssetFile, dropMs: number) => {
+			if (!asset || !asset.path) return;
+
+			if (asset.type === "video") {
+				void handleAddVideoLayer(asset.path, dropMs);
+				toast.success(`Dropped video layer at ${(dropMs / 1000).toFixed(2)}s`);
+			} else if (asset.type === "audio") {
+				void handleAddAudioTrack(asset.path, dropMs);
+				toast.success(`Dropped audio track at ${(dropMs / 1000).toFixed(2)}s`);
+			} else {
+				void handleAddStickerAnnotation(asset.path, dropMs);
+				toast.success(`Dropped overlay at ${(dropMs / 1000).toFixed(2)}s`);
+			}
+		},
+		[handleAddVideoLayer, handleAddAudioTrack, handleAddStickerAnnotation],
 	);
 
 	const handleAnnotationSpanChange = useCallback(
@@ -7935,6 +7953,7 @@ export default function VideoEditor() {
 										"webcam",
 										"frame",
 										"crop",
+										"video-adjust",
 									].includes(activeEffectSection)
 										? "media"
 										: activeEffectSection
@@ -8963,6 +8982,7 @@ export default function VideoEditor() {
 							onSourceAudioTracksMetaChange={(tracks) => {
 								audio.onSourceAudioTracksMetaChange(tracks);
 							}}
+							onDropMediaAsset={handleDropMediaAssetOnTimeline}
 						/>
 					)}
 				</div>

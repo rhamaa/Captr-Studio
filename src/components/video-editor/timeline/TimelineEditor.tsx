@@ -21,6 +21,7 @@ import type {
 	ClipRegion,
 	CursorTelemetryPoint,
 	LayoutRegion,
+	SlideAssetFile,
 	SpeedRegion,
 	TrimRegion,
 	ZoomFocus,
@@ -93,6 +94,7 @@ export interface TimelineEditorProps {
 		clipId: string | null,
 	) => SourceAudioTrackSettings;
 	onSourceAudioTracksMetaChange?: (tracks: SourceAudioTrackMeta) => void;
+	onDropMediaAsset?: (asset: SlideAssetFile, dropMs: number) => void;
 }
 
 function extractLocalPathFromMediaServerUrl(input: string | null | undefined): string | null {
@@ -194,6 +196,7 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 			sourceAudioTrackSettings = {},
 			getSourceAudioTrackSettingsForClip,
 			onSourceAudioTracksMetaChange,
+			onDropMediaAsset,
 		},
 		ref,
 	) {
@@ -536,6 +539,7 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 							media4in1={media4in1}
 							liveSpanPreviewById={liveZoomPreview.previewSpans}
 							liveHiddenItemIds={Array.from(liveZoomPreview.hiddenZoomIds)}
+							onDropMediaAsset={onDropMediaAsset}
 							isLoading={isLoading}
 						/>
 					</TimelineWrapper>

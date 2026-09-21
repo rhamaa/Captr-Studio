@@ -4,6 +4,7 @@ import type {
 	SourceAudioTrackSettings,
 	SourceAudioTrackWithPeaks,
 } from "@/components/video-editor/audio/audioTypes";
+import type { SlideAssetFile } from "@/components/video-editor/types";
 import { isAnnotationTrackRowId, isAudioTrackRowId } from "../../core/rows";
 import type { SlideMedia4in1, TimelineRenderItem } from "../../core/timelineTypes";
 import { getTimelineRowsMinHeightPx } from "../../timelineLayout";
@@ -34,6 +35,7 @@ export interface TimelineCanvasProps {
 	selectedAudioId?: string | null;
 	selectAllBlocksActive?: boolean;
 	onClearBlockSelection?: () => void;
+	onDropMediaAsset?: (asset: SlideAssetFile, dropMs: number) => void;
 	keyframes?: {
 		id: string;
 		time: number;
@@ -71,6 +73,7 @@ export default function TimelineCanvas({
 	selectedAudioId,
 	selectAllBlocksActive = false,
 	onClearBlockSelection,
+	onDropMediaAsset,
 	keyframes = [],
 	sourceAudioTracks: _sourceAudioTracks = [],
 	getSourceAudioTrackSettingsForClip: _getSourceAudioTrackSettingsForClip,
@@ -86,6 +89,9 @@ export default function TimelineCanvas({
 	const [isSeeking, setIsSeeking] = useState(false);
 	const seekRafRef = useRef<number | null>(null);
 	const pendingSeekClientXRef = useRef<number | null>(null);
+
+	// Drag & Drop State for Media Assets from Explorer
+	const [dragOverTimeMs, setDragOverTimeMs] = useState<number | null>(null);
 
 	const setRefs = useCallback(
 		(node: HTMLDivElement | null) => {
@@ -277,6 +283,64 @@ export default function TimelineCanvas({
 		valueToPixels,
 	});
 
+	// Native HTML5 Drag and Drop Handlers for Media Assets from Explorer
+	const handleMediaDragOver = useCallback(
+		(e: React.DragEvent<HTMLDivElement>) => {
+			// Check if media asset is being dragged
+			const hasMediaAsset =
+				e.dataTransfer.types.includes("application/x-captr-asset") ||
+				e.dataTransfer.types.includes("application/json") ||
+				e.dataTransfer.types.includes("Files");
+
+			if (!hasMediaAsset) return;
+
+			e.preventDefault();
+			e.dataTransfer.dropEffect = "copy";
+
+			if (localTimelineRef.current && videoDurationMs > 0) {
+				const rect = localTimelineRef.current.getBoundingClientRect();
+				const targetMs = getAbsoluteMsFromClientX(e.clientX, rect);
+				setDragOverTimeMs(targetMs);
+			}
+		},
+		[getAbsoluteMsFromClientX, videoDurationMs],
+	);
+
+	const handleMediaDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+		// Only clear if actually leaving the timeline container
+		if (!localTimelineRef.current?.contains(e.relatedTarget as Node)) {
+			setDragOverTimeMs(null);
+		}
+	}, []);
+
+	const handleMediaDrop = useCallback(
+		(e: React.DragEvent<HTMLDivElement>) => {
+			e.preventDefault();
+			setDragOverTimeMs(null);
+
+			let asset: SlideAssetFile | null = null;
+			const customData = e.dataTransfer.getData("application/x-captr-asset");
+			const jsonData = e.dataTransfer.getData("application/json");
+
+			try {
+				if (customData) {
+					asset = JSON.parse(customData);
+				} else if (jsonData) {
+					asset = JSON.parse(jsonData);
+				}
+			} catch {
+				asset = null;
+			}
+
+			if (asset && onDropMediaAsset && localTimelineRef.current) {
+				const rect = localTimelineRef.current.getBoundingClientRect();
+				const dropMs = getAbsoluteMsFromClientX(e.clientX, rect);
+				onDropMediaAsset(asset, dropMs);
+			}
+		},
+		[getAbsoluteMsFromClientX, onDropMediaAsset],
+	);
+
 	return (
 		<div
 			ref={setRefs}
@@ -290,6 +354,9 @@ export default function TimelineCanvas({
 			onMouseEnter={handleTimelineMouseEnter}
 			onMouseMove={handleTimelineMouseMove}
 			onMouseLeave={handleTimelineMouseLeave}
+			onDragOver={handleMediaDragOver}
+			onDragLeave={handleMediaDragLeave}
+			onDrop={handleMediaDrop}
 		>
 			<TimelineAxis videoDurationMs={videoDurationMs} currentTimeMs={currentTimeMs} />
 			<PlaybackCursor
@@ -300,6 +367,22 @@ export default function TimelineCanvas({
 				keyframes={keyframes}
 				isLoading={isLoading}
 			/>
+			{/* Media Asset Drag & Drop Target Indicator */}
+			{dragOverTimeMs !== null && (
+				<div
+					className="absolute top-0 bottom-0 z-[50] pointer-events-none flex flex-col items-center"
+					style={{
+						[sideProperty === "right" ? "marginRight" : "marginLeft"]:
+							`${sidebarWidth - 1}px`,
+						[sideProperty]: `${valueToPixels(dragOverTimeMs - range.start)}px`,
+					}}
+				>
+					<div className="bg-primary text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-md whitespace-nowrap mt-1 border border-white/20">
+						+ Insert at {(dragOverTimeMs / 1000).toFixed(2)}s
+					</div>
+					<div className="w-0.5 flex-1 bg-primary shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
+				</div>
+			)}
 			{canShowGhostPlayhead && (
 				<div
 					className="absolute top-0 bottom-0 z-[45] pointer-events-none"
