@@ -173,6 +173,9 @@ export function convertProjectToBundleRelative(
 			if (clip.webcamPath) clip.webcamPath = toRelative(clip.webcamPath);
 			if (clip.cursorTelemetryPath)
 				clip.cursorTelemetryPath = toRelative(clip.cursorTelemetryPath);
+			if (clip.microphoneAudioPath)
+				clip.microphoneAudioPath = toRelative(clip.microphoneAudioPath);
+			if (clip.systemAudioPath) clip.systemAudioPath = toRelative(clip.systemAudioPath);
 
 			if (Array.isArray(clip.assetFiles)) {
 				for (const asset of clip.assetFiles) {
@@ -241,6 +244,8 @@ export function convertProjectToWorkspaceAbsolute(
 			if (clip.webcamPath) clip.webcamPath = toAbsolute(clip.webcamPath);
 			if (clip.cursorTelemetryPath)
 				clip.cursorTelemetryPath = toAbsolute(clip.cursorTelemetryPath);
+			if (clip.microphoneAudioPath) clip.microphoneAudioPath = toAbsolute(clip.microphoneAudioPath);
+			if (clip.systemAudioPath) clip.systemAudioPath = toAbsolute(clip.systemAudioPath);
 
 			if (Array.isArray(clip.assetFiles)) {
 				for (const asset of clip.assetFiles) {

@@ -451,6 +451,46 @@ export function registerProjectHandlers() {
 						}
 					}
 				}
+				if (
+					clip.microphoneAudioPath &&
+					!clip.microphoneAudioPath
+						.replace(/\\/g, "/")
+						.toLowerCase()
+						.startsWith(normWorkspace)
+				) {
+					try {
+						await fs.access(clip.microphoneAudioPath);
+						const res = await copyAssetToSlideWorkspace(
+							workspaceDir,
+							slideId,
+							clip.microphoneAudioPath,
+							"audio",
+						);
+						clip.microphoneAudioPath = res.absolutePath;
+					} catch {
+						// keep original
+					}
+				}
+				if (
+					clip.systemAudioPath &&
+					!clip.systemAudioPath
+						.replace(/\\/g, "/")
+						.toLowerCase()
+						.startsWith(normWorkspace)
+				) {
+					try {
+						await fs.access(clip.systemAudioPath);
+						const res = await copyAssetToSlideWorkspace(
+							workspaceDir,
+							slideId,
+							clip.systemAudioPath,
+							"audio",
+						);
+						clip.systemAudioPath = res.absolutePath;
+					} catch {
+						// keep original
+					}
+				}
 			}
 		}
 
