@@ -255,10 +255,7 @@ function isNonFilePathValue(value: string): boolean {
 	return /^(data|blob|https?):/i.test(value);
 }
 
-function mapEntryMediaPaths(
-	entry: unknown,
-	mapPath: (value: string) => string,
-): void {
+function mapEntryMediaPaths(entry: unknown, mapPath: (value: string) => string): void {
 	if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
 		return;
 	}

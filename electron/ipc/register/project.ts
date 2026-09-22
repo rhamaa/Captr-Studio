@@ -348,6 +348,9 @@ export function registerProjectHandlers() {
 		// Ensure any external files in clips are copied into their respective slide folders
 		const stagedProjectData = JSON.parse(JSON.stringify(preparedProject.projectData));
 		const normWorkspace = workspaceDir.replace(/\\/g, "/").toLowerCase();
+		// Tracks each clip's media paths BEFORE staging so root-level legacy fields
+		// (which duplicate the first clip's paths) can be mirrored afterwards.
+		const originalMediaPathsByClip = new Map<object, Record<string, string | null>>();
 
 		if (Array.isArray(stagedProjectData.clips)) {
 			for (const clip of stagedProjectData.clips) {
@@ -356,6 +359,21 @@ export function registerProjectHandlers() {
 				// located even after the video is staged into the workspace.
 				const originalVideoPath =
 					typeof clip.videoPath === "string" ? clip.videoPath : null;
+				originalMediaPathsByClip.set(clip, {
+					videoPath: originalVideoPath,
+					webcamPath: typeof clip.webcamPath === "string" ? clip.webcamPath : null,
+					cursorTelemetryPath:
+						typeof clip.cursorTelemetryPath === "string"
+							? clip.cursorTelemetryPath
+							: null,
+					microphoneAudioPath:
+						typeof clip.microphoneAudioPath === "string"
+							? clip.microphoneAudioPath
+							: null,
+					systemAudioPath:
+						typeof clip.systemAudioPath === "string" ? clip.systemAudioPath : null,
+				});
+
 				// Stages an external file reference into the slide workspace so the
 				// .captr bundle stays self-contained (portable across devices).
 				const stageExternalFile = async (
@@ -458,7 +476,10 @@ export function registerProjectHandlers() {
 				}
 				// Custom webcam replacement footage (clip-level and editor-level)
 				if (clip.webcam && typeof clip.webcam === "object" && !Array.isArray(clip.webcam)) {
-					const stagedWebcamSource = await stageExternalFile(clip.webcam.sourcePath, "webcam");
+					const stagedWebcamSource = await stageExternalFile(
+						clip.webcam.sourcePath,
+						"webcam",
+					);
 					if (stagedWebcamSource !== null) {
 						clip.webcam.sourcePath = stagedWebcamSource;
 					}
@@ -467,7 +488,10 @@ export function registerProjectHandlers() {
 				if (Array.isArray(clip.mediaTrackLayers)) {
 					for (const layer of clip.mediaTrackLayers) {
 						if (!layer) continue;
-						const stagedLayerSource = await stageExternalFile(layer.sourcePath, "layers");
+						const stagedLayerSource = await stageExternalFile(
+							layer.sourcePath,
+							"layers",
+						);
 						if (stagedLayerSource !== null) {
 							layer.sourcePath = stagedLayerSource;
 						}
@@ -477,7 +501,10 @@ export function registerProjectHandlers() {
 				if (Array.isArray(clip.audioTracks)) {
 					for (const track of clip.audioTracks) {
 						if (!track) continue;
-						const stagedTrackSource = await stageExternalFile(track.sourcePath, "audio");
+						const stagedTrackSource = await stageExternalFile(
+							track.sourcePath,
+							"audio",
+						);
 						if (stagedTrackSource !== null) {
 							track.sourcePath = stagedTrackSource;
 						}
@@ -575,6 +602,58 @@ export function registerProjectHandlers() {
 			}
 		}
 
+		// Root-level legacy media fields duplicate the first clip's paths. Mirror
+		// each one to the staged workspace copy of whichever clip originally
+		// referenced the same file, so the serialized project never points outside
+		// the bundle. When no clip references the file, stage it directly.
+		const ROOT_MEDIA_FIELDS = [
+			"videoPath",
+			"webcamPath",
+			"cursorTelemetryPath",
+			"microphoneAudioPath",
+			"systemAudioPath",
+		] as const;
+		for (const field of ROOT_MEDIA_FIELDS) {
+			const rootValue = stagedProjectData[field];
+			if (typeof rootValue !== "string" || !rootValue) {
+				continue;
+			}
+			if (rootValue.replace(/\\/g, "/").toLowerCase().startsWith(normWorkspace)) {
+				continue;
+			}
+
+			let mirrored = false;
+			if (Array.isArray(stagedProjectData.clips)) {
+				for (const clip of stagedProjectData.clips) {
+					const originals = originalMediaPathsByClip.get(clip);
+					if (originals?.[field] === rootValue && typeof clip[field] === "string") {
+						stagedProjectData[field] = clip[field];
+						mirrored = true;
+						break;
+					}
+				}
+			}
+
+			if (!mirrored && (field === "videoPath" || field === "webcamPath")) {
+				try {
+					await fs.access(rootValue);
+					const firstSlideId =
+						Array.isArray(stagedProjectData.clips) && stagedProjectData.clips.length > 0
+							? ((stagedProjectData.clips[0] as { id?: string }).id ?? "slide-1")
+							: "slide-1";
+					const res = await assignRecordingToSlide(
+						workspaceDir,
+						firstSlideId,
+						rootValue,
+						field === "videoPath" ? "main" : "webcam",
+					);
+					stagedProjectData[field] = res.absolutePath;
+				} catch {
+					// keep original — load-time bundle validation surfaces a clear error
+				}
+			}
+		}
+
 		// Editor-level custom webcam replacement footage
 		const editorState = stagedProjectData.editor;
 		if (
@@ -594,7 +673,8 @@ export function registerProjectHandlers() {
 				try {
 					await fs.access(sourcePath);
 					const slideDir = Array.isArray(stagedProjectData.clips)
-						? (stagedProjectData.clips[0] as { id?: string } | undefined)?.id || "slide-1"
+						? (stagedProjectData.clips[0] as { id?: string } | undefined)?.id ||
+							"slide-1"
 						: "slide-1";
 					const res = await copyAssetToSlideWorkspace(
 						workspaceDir,

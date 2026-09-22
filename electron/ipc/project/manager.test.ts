@@ -13,9 +13,16 @@ async function makeBundle(
 	captrPath: string,
 	projectData: Record<string, unknown>,
 ): Promise<string> {
-	const workspaceDir = path.join(tmpDir, `ws-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+	const workspaceDir = path.join(
+		tmpDir,
+		`ws-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+	);
 	await fs.mkdir(workspaceDir, { recursive: true });
-	await fs.writeFile(path.join(workspaceDir, "project.json"), JSON.stringify(projectData), "utf-8");
+	await fs.writeFile(
+		path.join(workspaceDir, "project.json"),
+		JSON.stringify(projectData),
+		"utf-8",
+	);
 	await packProjectWorkspace(workspaceDir, captrPath);
 	await fs.rm(workspaceDir, { recursive: true, force: true });
 	return captrPath;
@@ -70,8 +77,10 @@ describe("local media path policy", () => {
 		await fs.mkdir(external);
 		const first = path.join(external, "first.mp4");
 		const second = path.join(external, "second.mp4");
-		await Promise.all([first, second].map(file => fs.writeFile(file, "media")));
-		const { replaceApprovedSessionLocalReadPaths, isAllowedLocalMediaPath } = await import("./manager");
+		await Promise.all([first, second].map((file) => fs.writeFile(file, "media")));
+		const { replaceApprovedSessionLocalReadPaths, isAllowedLocalMediaPath } = await import(
+			"./manager"
+		);
 		await replaceApprovedSessionLocalReadPaths([first, second]);
 		await replaceApprovedSessionLocalReadPaths([first], true);
 		expect(await isAllowedLocalMediaPath(second)).toBe(true);
@@ -187,7 +196,9 @@ describe("local media path policy", () => {
 		await fs.mkdir(downloadsPath, { recursive: true });
 		await fs.writeFile(exportPath, "test-video");
 
-		const { isAllowedLocalMediaPath, rememberApprovedLocalReadPath } = await import("./manager");
+		const { isAllowedLocalMediaPath, rememberApprovedLocalReadPath } = await import(
+			"./manager"
+		);
 
 		await expect(isAllowedLocalMediaPath(exportPath)).resolves.toBe(false);
 
@@ -205,7 +216,9 @@ describe("local media path policy", () => {
 
 	it("allows approved media paths before the file exists", async () => {
 		const pendingExportPath = path.join(tempRoot, "Downloads", "pending-export.mp4");
-		const { isAllowedLocalMediaPath, rememberApprovedLocalReadPath } = await import("./manager");
+		const { isAllowedLocalMediaPath, rememberApprovedLocalReadPath } = await import(
+			"./manager"
+		);
 
 		await rememberApprovedLocalReadPath(pendingExportPath);
 
@@ -265,7 +278,9 @@ describe("local media path policy", () => {
 			throw error;
 		}
 
-		const { isAllowedLocalMediaPath, resolveApprovedLocalMediaPath } = await import("./manager");
+		const { isAllowedLocalMediaPath, resolveApprovedLocalMediaPath } = await import(
+			"./manager"
+		);
 
 		await expect(isAllowedLocalMediaPath(symlinkInsideUserData)).resolves.toBe(false);
 		await expect(resolveApprovedLocalMediaPath(symlinkInsideUserData)).resolves.toBeNull();
@@ -354,7 +369,9 @@ describe("local media path policy", () => {
 		const result = await loadProjectFromPath(projectPath);
 		expect(result.success).toBe(true);
 
-		const loadedEditor = (result.project as { editor?: { audioRegions?: Array<{ audioPath: string }> } }).editor;
+		const loadedEditor = (
+			result.project as { editor?: { audioRegions?: Array<{ audioPath: string }> } }
+		).editor;
 		const loadedAudioPath = loadedEditor?.audioRegions?.[0]?.audioPath as string;
 		await expect(resolveApprovedLocalMediaPath(loadedAudioPath)).resolves.toBe(
 			await fs.realpath(loadedAudioPath),
@@ -377,10 +394,7 @@ describe("local media path policy", () => {
 		await fs.rm(wsDir, { recursive: true, force: true });
 
 		const { buildProjectLibraryEntry } = await import("./manager");
-		const entry = await buildProjectLibraryEntry(
-			projectPath,
-			path.join(tempPath, "Projects"),
-		);
+		const entry = await buildProjectLibraryEntry(projectPath, path.join(tempPath, "Projects"));
 
 		expect(entry).not.toBeNull();
 		expect(entry?.thumbnailDataUrl).toBe(

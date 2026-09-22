@@ -100,12 +100,8 @@ function isPathInsideWorkspace(candidatePath: string, workspaceDir: string): boo
 	const normalizedCandidate = path.resolve(candidatePath);
 	const normalizedWorkspace = path.resolve(workspaceDir);
 	const relative = path.relative(
-		process.platform === "win32"
-			? normalizedWorkspace.toLowerCase()
-			: normalizedWorkspace,
-		process.platform === "win32"
-			? normalizedCandidate.toLowerCase()
-			: normalizedCandidate,
+		process.platform === "win32" ? normalizedWorkspace.toLowerCase() : normalizedWorkspace,
+		process.platform === "win32" ? normalizedCandidate.toLowerCase() : normalizedCandidate,
 	);
 	return !relative.startsWith("..") && !path.isAbsolute(relative);
 }
@@ -166,7 +162,8 @@ export async function assertProjectMediaInsideBundle(
 					issue.reason === "missing" ? "missing from bundle" : "stored outside the bundle"
 				})`,
 		);
-	const omitted = issues.length > lines.length ? `\n- ...and ${issues.length - lines.length} more` : "";
+	const omitted =
+		issues.length > lines.length ? `\n- ...and ${issues.length - lines.length} more` : "";
 
 	throw new ProjectBundleValidationError(
 		`Project bundle is not self-contained: ${issues.length} referenced media file(s) ` +
@@ -175,7 +172,6 @@ export async function assertProjectMediaInsideBundle(
 		issues,
 	);
 }
-
 
 export function getProjectPrimaryMedia(project: unknown) {
 	const root = object(project);

@@ -236,14 +236,18 @@ export function useAudioPreviewSync({
 
       audio.onerror = () => {
         if (cancelled) return;
+        const latestAudio = existing.get(audioPath);
+        if (latestAudio !== audio) {
+          // Element was intentionally cleared/replaced (e.g. saving the project
+          // remounts the preview with workspace-relative sources) — an empty
+          // src fires onerror asynchronously, so this is not a real failure.
+          return;
+        }
         sourceAudioElementRevokersRef.current.get(audioPath)?.();
         sourceAudioElementRevokersRef.current.delete(audioPath);
         sourceAudioElementResourcesRef.current.delete(audioPath);
-        const latestAudio = existing.get(audioPath);
-        if (latestAudio === audio) {
-          latestAudio.pause();
-          latestAudio.src = "";
-        }
+        latestAudio.pause();
+        latestAudio.src = "";
         onSourceFallbackLoadError(new Error(`Failed to play companion audio: ${audioPath}`));
       };
 

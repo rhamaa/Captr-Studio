@@ -50,9 +50,9 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-	await fs.rm(path.dirname(workspaceDir), { recursive: true, force: true }).catch(
-		() => undefined,
-	);
+	await fs
+		.rm(path.dirname(workspaceDir), { recursive: true, force: true })
+		.catch(() => undefined);
 });
 
 describe("findProjectMediaIssues / assertProjectMediaInsideBundle", () => {
@@ -74,7 +74,9 @@ describe("findProjectMediaIssues / assertProjectMediaInsideBundle", () => {
 		};
 
 		await expect(findProjectMediaIssues(project, workspaceDir)).resolves.toEqual([]);
-		await expect(assertProjectMediaInsideBundle(project, workspaceDir)).resolves.toBeUndefined();
+		await expect(
+			assertProjectMediaInsideBundle(project, workspaceDir),
+		).resolves.toBeUndefined();
 	});
 
 	it("reports a missing bundle file with its exact location", async () => {
@@ -127,9 +129,9 @@ describe("findProjectMediaIssues / assertProjectMediaInsideBundle", () => {
 			},
 		]);
 
-		await fs.rm(path.dirname(externalVideo), { recursive: true, force: true }).catch(
-			() => undefined,
-		);
+		await fs
+			.rm(path.dirname(externalVideo), { recursive: true, force: true })
+			.catch(() => undefined);
 	});
 
 	it("ignores data and http URLs (not filesystem media)", async () => {
@@ -147,7 +149,6 @@ describe("findProjectMediaIssues / assertProjectMediaInsideBundle", () => {
 	});
 });
 
-
 describe("extended media field coverage", () => {
 	it("validates webcam.sourcePath, mediaTrackLayers, audioTracks and annotation media", async () => {
 		await writeWorkspaceFile("slides/clip-1/webcam/custom.mp4");
@@ -163,7 +164,9 @@ describe("extended media field coverage", () => {
 				{
 					id: "clip-1",
 					webcam: { sourcePath: "slides/clip-1/webcam/custom.mp4" },
-					mediaTrackLayers: [{ id: "l1", sourcePath: "slides/clip-1/layers/overlay.png" }],
+					mediaTrackLayers: [
+						{ id: "l1", sourcePath: "slides/clip-1/layers/overlay.png" },
+					],
 					audioTracks: [{ id: "t1", sourcePath: "slides/clip-1/audio/track.wav" }],
 					annotationRegions: [
 						{
