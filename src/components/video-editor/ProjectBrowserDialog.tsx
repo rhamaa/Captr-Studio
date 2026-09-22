@@ -1,8 +1,8 @@
 // Single source of truth for IPC data shapes lives in `electron/ipc/types.ts`.
 // Re-exported here so renderer consumers keep a stable import path.
-import type { ProjectLibraryEntry } from "../../../../electron/ipc/types";
+import type { ProjectLibraryEntry } from "../../../electron/ipc/types";
 
-export type { ProjectLibraryEntry } from "../../../../electron/ipc/types";
+export type { ProjectLibraryEntry } from "../../../electron/ipc/types";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LocalMediaImage } from "@/components/LocalMediaImage";
