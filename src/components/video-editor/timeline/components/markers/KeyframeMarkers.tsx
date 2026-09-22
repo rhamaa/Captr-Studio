@@ -19,9 +19,9 @@ interface KeyframeMarkersProps {
 
 const PROPERTY_COLORS: Record<string, string> = {
 	position: "#06b6d4", // Cyan
-	scale: "#eab308",    // Yellow
+	scale: "#eab308", // Yellow
 	rotation: "#a855f7", // Purple
-	opacity: "#10b981",  // Emerald
+	opacity: "#10b981", // Emerald
 };
 
 const KeyframeMarkers: React.FC<KeyframeMarkersProps> = ({
@@ -80,7 +80,9 @@ const KeyframeMarkers: React.FC<KeyframeMarkersProps> = ({
 				const offset = valueToPixels(kf.time - range.start);
 				const isSelected = kf.id === selectedKeyframeId;
 				const isDragging = kf.id === draggingKeyframeId;
-				const diamondColor = kf.property ? (PROPERTY_COLORS[kf.property] || "#ffe100") : "#ffe100";
+				const diamondColor = kf.property
+					? PROPERTY_COLORS[kf.property] || "#ffe100"
+					: "#ffe100";
 
 				return (
 					<div

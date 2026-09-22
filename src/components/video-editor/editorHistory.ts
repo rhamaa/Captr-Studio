@@ -1,12 +1,12 @@
 import type {
 	AnnotationRegion,
 	AudioRegion,
-	ClipRegion,
 	ClipEntry,
-	WebcamOverlaySettings,
+	ClipRegion,
 	CropRegion,
 	LayoutRegion,
 	SpeedRegion,
+	WebcamOverlaySettings,
 	ZoomRegion,
 } from "./types";
 
@@ -54,9 +54,7 @@ export function resetEditorHistoryStack(stack: EditorHistoryStack): void {
 	stack.future = [];
 }
 
-export function cloneEditorHistorySnapshot(
-	snapshot: EditorHistorySnapshot,
-): EditorHistorySnapshot {
+export function cloneEditorHistorySnapshot(snapshot: EditorHistorySnapshot): EditorHistorySnapshot {
 	return globalThis.structuredClone(snapshot);
 }
 

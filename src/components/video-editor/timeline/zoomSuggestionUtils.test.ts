@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
+import type { CursorTelemetryPoint } from "../types";
 import {
+	buildInteractionZoomSuggestions,
 	CLICK_CLUSTER_MERGE_GAP_MS,
 	CLICK_CLUSTER_PAD_MS,
-	buildInteractionZoomSuggestions,
 } from "./zoomSuggestionUtils";
-import type { CursorTelemetryPoint } from "../types";
 
 function makeClick(
 	timeMs: number,
@@ -20,15 +20,8 @@ function makeMove(timeMs: number, cx = 0.5, cy = 0.5): CursorTelemetryPoint {
 }
 
 /** Wraps click samples with surrounding move events to mimic real mixed telemetry. */
-function withMoves(
-	clicks: CursorTelemetryPoint[],
-	totalMs: number,
-): CursorTelemetryPoint[] {
-	return [
-		makeMove(0),
-		...clicks,
-		makeMove(totalMs),
-	];
+function withMoves(clicks: CursorTelemetryPoint[], totalMs: number): CursorTelemetryPoint[] {
+	return [makeMove(0), ...clicks, makeMove(totalMs)];
 }
 
 const TOTAL_MS = 30_000;
@@ -62,23 +55,23 @@ describe("buildInteractionZoomSuggestions (click-cluster logic)", () => {
 		expect(result.suggestions).toHaveLength(1);
 	});
 
-	it.each(["right-click", "middle-click"] as const)(
-		"accepts %s telemetry like a standard click",
-		(interactionType) => {
-			const result = buildInteractionZoomSuggestions({
-				cursorTelemetry: withMoves([makeClick(5_000, 0.5, 0.5, interactionType)], TOTAL_MS),
-				totalMs: TOTAL_MS,
-				defaultDurationMs: 3_000,
-			});
+	it.each([
+		"right-click",
+		"middle-click",
+	] as const)("accepts %s telemetry like a standard click", (interactionType) => {
+		const result = buildInteractionZoomSuggestions({
+			cursorTelemetry: withMoves([makeClick(5_000, 0.5, 0.5, interactionType)], TOTAL_MS),
+			totalMs: TOTAL_MS,
+			defaultDurationMs: 3_000,
+		});
 
-			expect(result.status).toBe("ok");
-			expect(result.suggestions).toHaveLength(1);
+		expect(result.status).toBe("ok");
+		expect(result.suggestions).toHaveLength(1);
 
-			const [suggestion] = result.suggestions;
-			expect(suggestion.start).toBe(5_000 - CLICK_CLUSTER_PAD_MS);
-			expect(suggestion.end).toBe(5_000 + CLICK_CLUSTER_PAD_MS);
-		},
-	);
+		const [suggestion] = result.suggestions;
+		expect(suggestion.start).toBe(5_000 - CLICK_CLUSTER_PAD_MS);
+		expect(suggestion.end).toBe(5_000 + CLICK_CLUSTER_PAD_MS);
+	});
 
 	it("merges two clicks within 2500ms into one zoom track", () => {
 		const telemetry = withMoves(
@@ -207,10 +200,7 @@ describe("buildInteractionZoomSuggestions (click-cluster logic)", () => {
 
 	it("adapts zoom depth based on cluster bounding box span", () => {
 		// Wide span > 0.35 -> depth 1
-		const wideClicks = [
-			makeClick(1_000, 0.1, 0.5),
-			makeClick(2_000, 0.6, 0.5),
-		];
+		const wideClicks = [makeClick(1_000, 0.1, 0.5), makeClick(2_000, 0.6, 0.5)];
 		const wideResult = buildInteractionZoomSuggestions({
 			cursorTelemetry: withMoves(wideClicks, TOTAL_MS),
 			totalMs: TOTAL_MS,
@@ -220,10 +210,7 @@ describe("buildInteractionZoomSuggestions (click-cluster logic)", () => {
 		expect(wideResult.suggestions[0].depth).toBe(1);
 
 		// Moderate span > 0.22 -> depth 2
-		const moderateClicks = [
-			makeClick(1_000, 0.3, 0.5),
-			makeClick(2_000, 0.55, 0.5),
-		];
+		const moderateClicks = [makeClick(1_000, 0.3, 0.5), makeClick(2_000, 0.55, 0.5)];
 		const modResult = buildInteractionZoomSuggestions({
 			cursorTelemetry: withMoves(moderateClicks, TOTAL_MS),
 			totalMs: TOTAL_MS,
@@ -261,4 +248,3 @@ describe("buildInteractionZoomSuggestions (click-cluster logic)", () => {
 		expect(result.suggestions[0].focus.cy).toBeGreaterThan(0.2);
 	});
 });
-

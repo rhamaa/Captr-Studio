@@ -23,3 +23,11 @@
 *.woff binary
 *.woff2 binary
 *.zip binary
+*.captr binary
+*.dylib binary
+*.m4a binary
+*.mkv binary
+*.ogg binary
+*.otf binary
+*.so binary
+*.webp binary

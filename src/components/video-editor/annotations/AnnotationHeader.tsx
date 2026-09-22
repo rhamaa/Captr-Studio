@@ -15,16 +15,10 @@ export interface AnnotationHeaderProps {
 	t: (key: string, defaultVal?: string, params?: Record<string, string | number>) => string;
 }
 
-export function AnnotationHeader({
-	annotation,
-	onLayerChange,
-	t,
-}: AnnotationHeaderProps) {
+export function AnnotationHeader({ annotation, onLayerChange, t }: AnnotationHeaderProps) {
 	return (
 		<div className="flex items-center justify-between mb-4">
-			<span className="text-sm font-medium text-foreground">
-				{t("annotations.settings")}
-			</span>
+			<span className="text-sm font-medium text-foreground">{t("annotations.settings")}</span>
 			<div className="flex items-center gap-1.5">
 				<button
 					type="button"
@@ -58,7 +52,9 @@ export function AnnotationHeader({
 							? "bg-amber-500/10 border-amber-500/30 text-amber-400"
 							: "bg-foreground/5 border-foreground/10 text-muted-foreground hover:text-foreground",
 					)}
-					title={annotation.locked ? "Locked (Click to unlock)" : "Unlocked (Click to lock)"}
+					title={
+						annotation.locked ? "Locked (Click to unlock)" : "Unlocked (Click to lock)"
+					}
 				>
 					{annotation.locked ? (
 						<Lock className="w-3.5 h-3.5" />

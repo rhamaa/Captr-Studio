@@ -74,7 +74,12 @@ import {
 	getEffectiveVideoStreamDurationSeconds,
 } from "@/lib/mediaTiming";
 import { isVideoWallpaperSource } from "@/lib/wallpapers";
-import { renderAnnotations, preloadAnnotationAssets, destroyAnnotationAssets, type AnnotationRenderAssets } from "./annotationRenderer";
+import {
+	type AnnotationRenderAssets,
+	destroyAnnotationAssets,
+	preloadAnnotationAssets,
+	renderAnnotations,
+} from "./annotationRenderer";
 import { ForwardFrameSource } from "./forwardFrameSource";
 import { resolveMediaElementSource } from "./localMediaSource";
 import { buildTemporalSamplePlanUs, getTemporalMotionBlurConfig } from "./temporalMotionBlur";
@@ -2225,7 +2230,9 @@ export class FrameRenderer {
 						stageHeight: h,
 						webcam: this.config.webcam ?? DEFAULT_WEBCAM_OVERLAY,
 						zoomScale: this.animationState.appliedScale || 1,
-						hasWebcam: Boolean(this.config.webcam?.enabled && this.config.webcam?.sourcePath),
+						hasWebcam: Boolean(
+							this.config.webcam?.enabled && this.config.webcam?.sourcePath,
+						),
 					})
 				: null;
 		const screen = layoutScene?.screen ?? {

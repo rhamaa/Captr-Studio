@@ -3,14 +3,8 @@
  * Detects silent intervals in audio recordings so users can cut out dead air in 1 click.
  */
 
-import type {
-	AnnotationRegion,
-	AudioRegion,
-	ClipRegion,
-	LayoutRegion,
-	ZoomRegion,
-} from "../types";
 import { AudioProcessor } from "@/lib/exporter/audioEncoder";
+import type { AnnotationRegion, AudioRegion, ClipRegion, LayoutRegion, ZoomRegion } from "../types";
 
 export interface SilenceRegion {
 	id: string;
@@ -127,9 +121,11 @@ export function detectSilenceFromChannel(
 	for (let i = 0; i < rawSilences.length; i++) {
 		const raw = rawSilences[i];
 		// If it's not the very beginning of the audio, add padding to start
-		const paddedStart = raw.startMs > speechPaddingMs ? raw.startMs + speechPaddingMs : raw.startMs;
+		const paddedStart =
+			raw.startMs > speechPaddingMs ? raw.startMs + speechPaddingMs : raw.startMs;
 		// If it's not the very end of the audio, subtract padding from end
-		const paddedEnd = raw.endMs < totalDurationMs - speechPaddingMs ? raw.endMs - speechPaddingMs : raw.endMs;
+		const paddedEnd =
+			raw.endMs < totalDurationMs - speechPaddingMs ? raw.endMs - speechPaddingMs : raw.endMs;
 
 		const durationMs = Math.round(paddedEnd - paddedStart);
 		// Ensure it still meets minimum threshold after padding
@@ -228,7 +224,7 @@ export function mapTimeThroughSilences(timeMs: number, silences: SilenceRegion[]
 		if (timeMs < s.endMs) {
 			return Math.max(0, s.startMs - shift);
 		}
-		shift += (s.endMs - s.startMs);
+		shift += s.endMs - s.startMs;
 	}
 	return Math.max(0, timeMs - shift);
 }

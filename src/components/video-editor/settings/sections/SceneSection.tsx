@@ -1,26 +1,18 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
-import { LayoutGroup, AnimatePresence, motion } from "motion/react";
 import { UploadSimple as Upload, X } from "@phosphor-icons/react";
+import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-import { SliderControl } from "../../SliderControl";
 import { Switch } from "@/components/ui/switch";
-import { isVideoWallpaperSource, BUILT_IN_WALLPAPERS } from "@/lib/wallpapers";
-import { saveEditorPreferences, type EditorPreferences } from "../../editorPreferences";
+import type { FrameInstance } from "@/lib/extensions";
+import { cn } from "@/lib/utils";
+import { BUILT_IN_WALLPAPERS, isVideoWallpaperSource } from "@/lib/wallpapers";
+import type { AspectRatio } from "@/utils/aspectRatioUtils";
+import { type EditorPreferences, saveEditorPreferences } from "../../editorPreferences";
+import { SliderControl } from "../../SliderControl";
+import type { CropRegion, Padding } from "../../types";
 import { SectionLabel } from "../components/SettingsSectionLabel";
 import { WallpaperVideoPreview } from "../components/WallpaperVideoPreview";
-import {
-	BackgroundTab,
-	WallpaperTile,
-	GRADIENTS,
-	isHexWallpaper,
-} from "../utils/wallpaperUtils";
-import type { FrameInstance } from "@/lib/extensions";
-import type { AspectRatio } from "@/utils/aspectRatioUtils";
-import type {
-	Padding,
-	CropRegion,
-} from "../../types";
+import { BackgroundTab, GRADIENTS, isHexWallpaper, WallpaperTile } from "../utils/wallpaperUtils";
 
 const DEFAULT_PADDING: Padding = {
 	top: 50,
@@ -393,7 +385,10 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 		const electronPath = (file as unknown as { path?: string }).path;
 		if (electronPath && typeof electronPath === "string") {
 			const localUrl = `file://${electronPath.replace(/\\/g, "/")}`;
-			setCustomImages((prev) => [localUrl, ...prev.filter((item: string) => item !== localUrl)]);
+			setCustomImages((prev) => [
+				localUrl,
+				...prev.filter((item: string) => item !== localUrl),
+			]);
 			onWallpaperChange?.(localUrl);
 			event.target.value = "";
 			return;
@@ -403,7 +398,10 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 		reader.onload = () => {
 			const result = reader.result;
 			if (typeof result === "string") {
-				setCustomImages((prev) => [result, ...prev.filter((item: string) => item !== result)]);
+				setCustomImages((prev) => [
+					result,
+					...prev.filter((item: string) => item !== result),
+				]);
 				onWallpaperChange?.(result);
 			}
 		};
@@ -482,7 +480,10 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 								{ value: "image", label: tSettings("background.image", "Image") },
 								{ value: "video", label: tSettings("background.video", "Video") },
 								{ value: "color", label: tSettings("background.color", "Color") },
-								{ value: "gradient", label: tSettings("background.gradient", "Gradient") },
+								{
+									value: "gradient",
+									label: tSettings("background.gradient", "Gradient"),
+								},
 							] as const
 						).map((option) => {
 							const isActive = backgroundTab === option.value;
@@ -552,26 +553,22 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 
 										{customImages.map((customImg, idx) => {
 											const isSelected = getWallpaperTileState(customImg);
-											return renderWallpaperImageTile(
-												customImg,
-												isSelected,
-												{
-													key: `custom-${idx}`,
-													title: "Custom Wallpaper",
-													onClick: () => onWallpaperChange?.(customImg),
-													children: (
-														<button
-															type="button"
-															onClick={(e) =>
-																handleRemoveCustomImage(customImg, e)
-															}
-															className="absolute right-1 top-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white/80 opacity-0 transition-opacity hover:bg-black hover:text-white group-hover:opacity-100"
-														>
-															<X className="h-2.5 w-2.5" />
-														</button>
-													),
-												},
-											);
+											return renderWallpaperImageTile(customImg, isSelected, {
+												key: `custom-${idx}`,
+												title: "Custom Wallpaper",
+												onClick: () => onWallpaperChange?.(customImg),
+												children: (
+													<button
+														type="button"
+														onClick={(e) =>
+															handleRemoveCustomImage(customImg, e)
+														}
+														className="absolute right-1 top-1 z-20 flex h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white/80 opacity-0 transition-opacity hover:bg-black hover:text-white group-hover:opacity-100"
+													>
+														<X className="h-2.5 w-2.5" />
+													</button>
+												),
+											});
 										})}
 
 										{imageWallpaperTiles.map((tile) => {
@@ -612,15 +609,11 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 
 										{customVideoWallpapers.map((customVid, idx) => {
 											const isSelected = getWallpaperTileState(customVid);
-											return renderWallpaperImageTile(
-												customVid,
-												isSelected,
-												{
-													key: `custom-vid-${idx}`,
-													title: "Custom Video",
-													onClick: () => onWallpaperChange?.(customVid),
-												},
-											);
+											return renderWallpaperImageTile(customVid, isSelected, {
+												key: `custom-vid-${idx}`,
+												title: "Custom Video",
+												onClick: () => onWallpaperChange?.(customVid),
+											});
 										})}
 
 										{videoWallpaperTiles.map((tile) => {
@@ -647,11 +640,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 									<div className="flex items-center gap-2">
 										<input
 											type="color"
-											value={
-												selected.startsWith("#")
-													? selected
-													: "#000000"
-											}
+											value={selected.startsWith("#") ? selected : "#000000"}
 											onChange={(e) => onWallpaperChange?.(e.target.value)}
 											className="h-7 w-10 cursor-pointer rounded-lg border border-foreground/10 bg-transparent p-0.5"
 										/>
@@ -724,7 +713,9 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 				{availableFrames.length > 0 && (
 					<div className="flex flex-col gap-1.5 mt-2">
 						<div className="flex items-center justify-between">
-							<span className="text-[10px] text-muted-foreground font-medium">Frame</span>
+							<span className="text-[10px] text-muted-foreground font-medium">
+								Frame
+							</span>
 							{frame && (
 								<button
 									type="button"
@@ -831,7 +822,9 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 								step={1}
 								onChange={(v: number) => handlePaddingSideChange("top", v)}
 								formatValue={(v: number) => `${v}%`}
-								parseInput={(text: string) => parseFloat(text.replace(/%$/, "")) || 0}
+								parseInput={(text: string) =>
+									parseFloat(text.replace(/%$/, "")) || 0
+								}
 							/>
 						) : (
 							<div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
@@ -844,7 +837,9 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 									step={1}
 									onChange={(v: number) => handlePaddingSideChange("top", v)}
 									formatValue={(v: number) => `${v}%`}
-									parseInput={(text: string) => parseFloat(text.replace(/%$/, "")) || 0}
+									parseInput={(text: string) =>
+										parseFloat(text.replace(/%$/, "")) || 0
+									}
 								/>
 								<SliderControl
 									label={tSettings("effects.paddingBottom", "Bottom")}
@@ -855,7 +850,9 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 									step={1}
 									onChange={(v: number) => handlePaddingSideChange("bottom", v)}
 									formatValue={(v: number) => `${v}%`}
-									parseInput={(text: string) => parseFloat(text.replace(/%$/, "")) || 0}
+									parseInput={(text: string) =>
+										parseFloat(text.replace(/%$/, "")) || 0
+									}
 								/>
 								<SliderControl
 									label={tSettings("effects.paddingLeft", "Left")}
@@ -866,7 +863,9 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 									step={1}
 									onChange={(v: number) => handlePaddingSideChange("left", v)}
 									formatValue={(v: number) => `${v}%`}
-									parseInput={(text: string) => parseFloat(text.replace(/%$/, "")) || 0}
+									parseInput={(text: string) =>
+										parseFloat(text.replace(/%$/, "")) || 0
+									}
 								/>
 								<SliderControl
 									label={tSettings("effects.paddingRight", "Right")}
@@ -877,7 +876,9 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 									step={1}
 									onChange={(v: number) => handlePaddingSideChange("right", v)}
 									formatValue={(v: number) => `${v}%`}
-									parseInput={(text: string) => parseFloat(text.replace(/%$/, "")) || 0}
+									parseInput={(text: string) =>
+										parseFloat(text.replace(/%$/, "")) || 0
+									}
 								/>
 							</div>
 						)}

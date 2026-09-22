@@ -1,4 +1,4 @@
-import { useCallback, useState, type MouseEvent } from "react";
+import { type MouseEvent, useCallback, useState } from "react";
 
 export interface TimelineHoverParams {
 	direction: string;
@@ -52,10 +52,7 @@ export function useTimelineHover({
 	const handleTimelineMouseEnter = useCallback(
 		(event: MouseEvent<HTMLDivElement>) => {
 			setIsTimelineHovered(true);
-			updateTimelineHoverTime(
-				event.clientX,
-				event.currentTarget.getBoundingClientRect(),
-			);
+			updateTimelineHoverTime(event.clientX, event.currentTarget.getBoundingClientRect());
 		},
 		[updateTimelineHoverTime],
 	);
@@ -63,10 +60,7 @@ export function useTimelineHover({
 	const handleTimelineMouseMove = useCallback(
 		(event: MouseEvent<HTMLDivElement>) => {
 			if (!isTimelineHovered) setIsTimelineHovered(true);
-			updateTimelineHoverTime(
-				event.clientX,
-				event.currentTarget.getBoundingClientRect(),
-			);
+			updateTimelineHoverTime(event.clientX, event.currentTarget.getBoundingClientRect());
 		},
 		[isTimelineHovered, updateTimelineHoverTime],
 	);
@@ -95,10 +89,7 @@ export function useTimelineHover({
 	const handleZoomRowMouseEnter = useCallback(
 		(event: MouseEvent<HTMLDivElement>) => {
 			setIsZoomRowHovered(true);
-			updateZoomRowHoverTime(
-				event.clientX,
-				event.currentTarget.getBoundingClientRect(),
-			);
+			updateZoomRowHoverTime(event.clientX, event.currentTarget.getBoundingClientRect());
 		},
 		[updateZoomRowHoverTime],
 	);
@@ -106,10 +97,7 @@ export function useTimelineHover({
 	const handleZoomRowMouseMove = useCallback(
 		(event: MouseEvent<HTMLDivElement>) => {
 			if (!isZoomRowHovered) setIsZoomRowHovered(true);
-			updateZoomRowHoverTime(
-				event.clientX,
-				event.currentTarget.getBoundingClientRect(),
-			);
+			updateZoomRowHoverTime(event.clientX, event.currentTarget.getBoundingClientRect());
 		},
 		[isZoomRowHovered, updateZoomRowHoverTime],
 	);
@@ -151,10 +139,7 @@ export function useTimelineHover({
 	const handleLayoutRowMouseEnter = useCallback(
 		(event: MouseEvent<HTMLDivElement>) => {
 			setIsLayoutRowHovered(true);
-			updateLayoutRowHoverTime(
-				event.clientX,
-				event.currentTarget.getBoundingClientRect(),
-			);
+			updateLayoutRowHoverTime(event.clientX, event.currentTarget.getBoundingClientRect());
 		},
 		[updateLayoutRowHoverTime],
 	);
@@ -162,10 +147,7 @@ export function useTimelineHover({
 	const handleLayoutRowMouseMove = useCallback(
 		(event: MouseEvent<HTMLDivElement>) => {
 			if (!isLayoutRowHovered) setIsLayoutRowHovered(true);
-			updateLayoutRowHoverTime(
-				event.clientX,
-				event.currentTarget.getBoundingClientRect(),
-			);
+			updateLayoutRowHoverTime(event.clientX, event.currentTarget.getBoundingClientRect());
 		},
 		[isLayoutRowHovered, updateLayoutRowHoverTime],
 	);
@@ -175,12 +157,9 @@ export function useTimelineHover({
 		setLayoutRowHoverMs(null);
 	}, []);
 
-	const handleLayoutRowMouseDown = useCallback(
-		(event: MouseEvent<HTMLDivElement>) => {
-			event.stopPropagation();
-		},
-		[],
-	);
+	const handleLayoutRowMouseDown = useCallback((event: MouseEvent<HTMLDivElement>) => {
+		event.stopPropagation();
+	}, []);
 
 	const handleLayoutRowClick = useCallback(
 		(event: MouseEvent<HTMLDivElement>) => {
@@ -194,28 +173,19 @@ export function useTimelineHover({
 	);
 
 	const ghostStartMs =
-		zoomRowHoverMs === null
-			? null
-			: Math.max(0, Math.min(zoomRowHoverMs, videoDurationMs));
+		zoomRowHoverMs === null ? null : Math.max(0, Math.min(zoomRowHoverMs, videoDurationMs));
 	const ghostDurationMs = Math.min(1000, videoDurationMs);
 	const ghostEndMs =
 		ghostStartMs === null
 			? null
-			: Math.max(
-					ghostStartMs,
-					Math.min(videoDurationMs, ghostStartMs + ghostDurationMs),
-				);
+			: Math.max(ghostStartMs, Math.min(videoDurationMs, ghostStartMs + ghostDurationMs));
 	const ghostStartOffsetPx =
-		ghostStartMs === null
-			? 0
-			: valueToPixels(Math.max(0, ghostStartMs - rangeStart));
+		ghostStartMs === null ? 0 : valueToPixels(Math.max(0, ghostStartMs - rangeStart));
 	const ghostEndOffsetPx =
 		ghostEndMs === null ? 0 : valueToPixels(Math.max(0, ghostEndMs - rangeStart));
 	const ghostWidthPx = Math.max(18, ghostEndOffsetPx - ghostStartOffsetPx);
 	const layoutGhostStartMs =
-		layoutRowHoverMs === null
-			? null
-			: Math.max(0, Math.min(layoutRowHoverMs, videoDurationMs));
+		layoutRowHoverMs === null ? null : Math.max(0, Math.min(layoutRowHoverMs, videoDurationMs));
 	const layoutGhostDurationMs = Math.min(4000, videoDurationMs);
 	const layoutGhostEndMs =
 		layoutGhostStartMs === null
@@ -229,17 +199,10 @@ export function useTimelineHover({
 			? 0
 			: valueToPixels(Math.max(0, layoutGhostStartMs - rangeStart));
 	const layoutGhostEndOffsetPx =
-		layoutGhostEndMs === null
-			? 0
-			: valueToPixels(Math.max(0, layoutGhostEndMs - rangeStart));
-	const layoutGhostWidthPx = Math.max(
-		18,
-		layoutGhostEndOffsetPx - layoutGhostStartOffsetPx,
-	);
+		layoutGhostEndMs === null ? 0 : valueToPixels(Math.max(0, layoutGhostEndMs - rangeStart));
+	const layoutGhostWidthPx = Math.max(18, layoutGhostEndOffsetPx - layoutGhostStartOffsetPx);
 	const timelineGhostOffsetPx =
-		timelineHoverMs === null
-			? 0
-			: valueToPixels(Math.max(0, timelineHoverMs - rangeStart));
+		timelineHoverMs === null ? 0 : valueToPixels(Math.max(0, timelineHoverMs - rangeStart));
 	const canShowGhostPlayhead = isTimelineHovered && timelineHoverMs !== null;
 	const canShowGhostZoom =
 		isZoomRowHovered &&

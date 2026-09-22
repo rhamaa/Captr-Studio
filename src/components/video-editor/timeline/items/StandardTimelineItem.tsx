@@ -1,4 +1,3 @@
-import React from "react";
 import {
 	Gauge,
 	SquaresFour as LayoutIcon,
@@ -6,12 +5,13 @@ import {
 	MusicNotes as Music,
 	MouseLeftClickIcon as PhMouseLeftClick,
 	Scissors,
-	SpeakerX,
 	Sparkle,
+	SpeakerX,
 	VideoCamera as VideoCameraIcon,
 	MagnifyingGlassPlus as ZoomIn,
 } from "@phosphor-icons/react";
 import type { Span } from "dnd-timeline";
+import React from "react";
 import { cn } from "@/lib/utils";
 import AudioWaveform from "../components/waveform/AudioWaveform";
 import type { AudioPeaksData } from "../core/timelineTypes";
@@ -38,9 +38,9 @@ export interface StandardTimelineItemProps {
 
 const KEYFRAME_COLORS: Record<string, string> = {
 	position: "#06b6d4", // Cyan
-	scale: "#eab308",    // Yellow
+	scale: "#eab308", // Yellow
 	rotation: "#a855f7", // Purple
-	opacity: "#10b981",  // Emerald
+	opacity: "#10b981", // Emerald
 };
 
 export function StandardTimelineItem({
@@ -178,7 +178,10 @@ export function StandardTimelineItem({
 				<div className="absolute bottom-1 left-0 right-0 h-1.5 pointer-events-none z-20">
 					{keyframes.map((kf) => {
 						const spanDuration = Math.max(1, span.end - span.start);
-						const percent = Math.max(0, Math.min(100, (kf.timeMs / spanDuration) * 100));
+						const percent = Math.max(
+							0,
+							Math.min(100, (kf.timeMs / spanDuration) * 100),
+						);
 						const dotColor = KEYFRAME_COLORS[kf.property] || "#06b6d4";
 						return (
 							<div

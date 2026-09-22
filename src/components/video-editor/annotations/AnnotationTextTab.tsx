@@ -1,4 +1,3 @@
-import React from "react";
 import {
 	AlignCenterHorizontal as AlignCenter,
 	AlignLeft,
@@ -9,6 +8,7 @@ import {
 	TextUnderline as Underline,
 } from "@phosphor-icons/react";
 import Block from "@uiw/react-color-block";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {

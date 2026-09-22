@@ -4,20 +4,19 @@ import path from "node:path";
 const npmExecPath = process.env.npm_execpath;
 const hasNpmExecPath = typeof npmExecPath === "string" && npmExecPath.length > 0;
 const npmExecExtension = hasNpmExecPath ? path.extname(npmExecPath).toLowerCase() : "";
-const npmExecIsNodeScript =
-	hasNpmExecPath && [".js", ".cjs", ".mjs"].includes(npmExecExtension);
+const npmExecIsNodeScript = hasNpmExecPath && [".js", ".cjs", ".mjs"].includes(npmExecExtension);
 const npmInvoker = hasNpmExecPath
 	? npmExecIsNodeScript
 		? {
-			command: process.execPath,
-			argsPrefix: [npmExecPath],
-			shell: false,
-		}
+				command: process.execPath,
+				argsPrefix: [npmExecPath],
+				shell: false,
+			}
 		: {
-			command: npmExecPath,
-			argsPrefix: [],
-			shell: process.platform === "win32",
-		}
+				command: npmExecPath,
+				argsPrefix: [],
+				shell: process.platform === "win32",
+			}
 	: {
 			command: process.platform === "win32" ? "npm.cmd" : "npm",
 			argsPrefix: [],

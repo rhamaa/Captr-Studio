@@ -1,4 +1,4 @@
-import { DEFAULT_ANNOTATION_STYLE, type AnnotationRegion, type MediaTrackLayer } from "./types";
+import { type AnnotationRegion, DEFAULT_ANNOTATION_STYLE, type MediaTrackLayer } from "./types";
 
 /** Read the early Phase 7 layer format into the editor's canonical editable layers. */
 export function migrateMediaTrackLayers(layers: MediaTrackLayer[] = []): AnnotationRegion[] {

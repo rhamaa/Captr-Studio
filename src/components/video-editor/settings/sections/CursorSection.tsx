@@ -3,8 +3,6 @@ import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 import { SliderControl } from "../../SliderControl";
-import { SectionLabel } from "../components/SettingsSectionLabel";
-import { CursorStylePreview } from "../components/CursorStylePreview";
 import type { CursorStyle } from "../../types";
 import {
 	DEFAULT_CAMERA_PERSPECTIVE_TILT,
@@ -15,6 +13,8 @@ import {
 	DEFAULT_CURSOR_SWAY,
 } from "../../types";
 import { fromCursorSwaySliderValue, toCursorSwaySliderValue } from "../../videoPlayback/cursorSway";
+import { CursorStylePreview } from "../components/CursorStylePreview";
+import { SectionLabel } from "../components/SettingsSectionLabel";
 
 export interface CursorStyleOption {
 	value: CursorStyle;
@@ -198,10 +198,7 @@ export function CursorSection({
 					parseInput={(text: string) => parseFloat(text.replace(/×$/, ""))}
 				/>
 				<SliderControl
-					label={tSettings(
-						"effects.cursorClickBounceDuration",
-						"Bounce Speed",
-					)}
+					label={tSettings("effects.cursorClickBounceDuration", "Bounce Speed")}
 					value={cursorClickBounceDuration}
 					defaultValue={DEFAULT_CURSOR_CLICK_BOUNCE_DURATION}
 					min={60}
@@ -256,7 +253,9 @@ export function CursorSection({
 					</div>
 				) : null}
 			</div>
-			{renderExtensionPanelsForSections ? renderExtensionPanelsForSections("cursor") : renderExtensionPanels?.("cursor")}
+			{renderExtensionPanelsForSections
+				? renderExtensionPanelsForSections("cursor")
+				: renderExtensionPanels?.("cursor")}
 		</section>
 	);
 }

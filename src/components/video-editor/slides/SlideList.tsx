@@ -14,9 +14,9 @@ import {
 	X,
 } from "@phosphor-icons/react";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import type { ClipEntry, ClipRegion, ClipTransitionType, SlideMode } from "../types";
 
 export interface SlideListProps {
@@ -47,10 +47,30 @@ const TRANSITION_OPTIONS: Array<{
 }> = [
 	{ id: "none", label: "Cut (None)", description: "Instant cut between slides", icon: FilmStrip },
 	{ id: "fade-black", label: "Fade Black", description: "Cinematic dip to black", icon: Sparkle },
-	{ id: "fade-white", label: "Fade White", description: "Luminous flash transition", icon: Sparkle },
-	{ id: "slide-left", label: "Slide Left", description: "Smooth horizontal push left", icon: ArrowsLeftRight },
-	{ id: "slide-right", label: "Slide Right", description: "Smooth horizontal push right", icon: ArrowsLeftRight },
-	{ id: "zoom-push", label: "Zoom Push", description: "Dynamic perspective zoom in", icon: MagnifyingGlassPlus },
+	{
+		id: "fade-white",
+		label: "Fade White",
+		description: "Luminous flash transition",
+		icon: Sparkle,
+	},
+	{
+		id: "slide-left",
+		label: "Slide Left",
+		description: "Smooth horizontal push left",
+		icon: ArrowsLeftRight,
+	},
+	{
+		id: "slide-right",
+		label: "Slide Right",
+		description: "Smooth horizontal push right",
+		icon: ArrowsLeftRight,
+	},
+	{
+		id: "zoom-push",
+		label: "Zoom Push",
+		description: "Dynamic perspective zoom in",
+		icon: MagnifyingGlassPlus,
+	},
 ];
 
 const DURATION_PRESETS = [200, 400, 600, 800, 1000];
@@ -105,9 +125,7 @@ export function SlideList({
 			<div className="flex items-center justify-between mb-1.5">
 				<div className="flex items-center gap-2">
 					<FilmStrip className="w-3.5 h-3.5 text-primary" weight="bold" />
-					<span className="text-xs font-bold tracking-tight text-foreground">
-						Slides
-					</span>
+					<span className="text-xs font-bold tracking-tight text-foreground">Slides</span>
 					<span className="text-[10px] px-1.5 py-0.2 rounded-full bg-primary/10 text-primary font-semibold font-mono">
 						{slides.length}
 					</span>
@@ -136,8 +154,12 @@ export function SlideList({
 					>
 						<div className="space-y-1">
 							<div className="px-2 py-1 border-b border-foreground/10 mb-1">
-								<h4 className="text-[11px] font-bold text-foreground">Add New Slide</h4>
-								<p className="text-[10px] text-muted-foreground">Select slide editing mode</p>
+								<h4 className="text-[11px] font-bold text-foreground">
+									Add New Slide
+								</h4>
+								<p className="text-[10px] text-muted-foreground">
+									Select slide editing mode
+								</p>
 							</div>
 
 							{/* Option 1: Record Slide */}
@@ -151,7 +173,9 @@ export function SlideList({
 								</div>
 								<div className="min-w-0 flex-1">
 									<div className="flex items-center gap-1.5">
-										<span className="text-xs font-semibold text-foreground">Record Slide</span>
+										<span className="text-xs font-semibold text-foreground">
+											Record Slide
+										</span>
 										<span className="text-[9px] px-1 py-0.2 rounded bg-rose-500/15 text-rose-400 font-bold font-mono">
 											REC
 										</span>
@@ -173,7 +197,9 @@ export function SlideList({
 								</div>
 								<div className="min-w-0 flex-1">
 									<div className="flex items-center gap-1.5">
-										<span className="text-xs font-semibold text-foreground">Video Slide</span>
+										<span className="text-xs font-semibold text-foreground">
+											Video Slide
+										</span>
 										<span className="text-[9px] px-1 py-0.2 rounded bg-cyan-500/15 text-cyan-400 font-bold font-mono">
 											VID
 										</span>
@@ -202,12 +228,17 @@ export function SlideList({
 					const isVideoMode = slideMode === "video";
 
 					return (
-						<div key={`${slide.id}-${index}`} className="flex items-center gap-1.5 flex-shrink-0">
+						<div
+							key={`${slide.id}-${index}`}
+							className="flex items-center gap-1.5 flex-shrink-0"
+						>
 							{/* Inter-Slide Transition Node between slide[index-1] and slide[index] */}
 							{hasTransitionBefore && (
 								<Popover
 									open={activeTransitionSlideId === slide.id}
-									onOpenChange={(open) => setActiveTransitionSlideId(open ? slide.id : null)}
+									onOpenChange={(open) =>
+										setActiveTransitionSlideId(open ? slide.id : null)
+									}
 								>
 									<PopoverTrigger asChild>
 										<button
@@ -297,7 +328,9 @@ export function SlideList({
 											{transitionIn !== "none" && (
 												<div className="space-y-1.5 pt-1 border-t border-foreground/10">
 													<div className="flex items-center justify-between text-[11px]">
-														<span className="text-muted-foreground font-medium">Duration</span>
+														<span className="text-muted-foreground font-medium">
+															Duration
+														</span>
 														<span className="font-mono text-primary font-bold">
 															{transitionInDurationMs / 1000}s
 														</span>
@@ -308,7 +341,11 @@ export function SlideList({
 																key={dur}
 																type="button"
 																onClick={() => {
-																	onTransitionChange?.(slide.id, transitionIn, dur);
+																	onTransitionChange?.(
+																		slide.id,
+																		transitionIn,
+																		dur,
+																	);
 																}}
 																className={cn(
 																	"flex-1 py-1 rounded-md text-[10px] font-semibold transition-all cursor-pointer",
@@ -330,7 +367,11 @@ export function SlideList({
 													<button
 														type="button"
 														onClick={() => {
-															onTransitionChange?.(slide.id, "none", 400);
+															onTransitionChange?.(
+																slide.id,
+																"none",
+																400,
+															);
 															setActiveTransitionSlideId(null);
 														}}
 														className="text-[10px] text-red-400 hover:text-red-300 font-medium cursor-pointer"
@@ -369,7 +410,12 @@ export function SlideList({
 										</span>
 
 										{/* Slide kind is fixed; editing one kind never reconfigures another. */}
-										<span title={isVideoMode ? "Video Editor Mode" : "Record Mode"} className="text-[9px] font-bold px-1 text-muted-foreground">
+										<span
+											title={
+												isVideoMode ? "Video Editor Mode" : "Record Mode"
+											}
+											className="text-[9px] font-bold px-1 text-muted-foreground"
+										>
 											{isVideoMode ? "VID" : "REC"}
 										</span>
 									</div>
@@ -421,7 +467,10 @@ export function SlideList({
 								{/* Bottom info of Slide Card */}
 								<div className="flex items-end justify-between z-10 mt-auto">
 									<p className="text-[10px] font-medium text-foreground truncate max-w-[65px]">
-										{slide.label || (isVideoMode ? `Video ${index + 1}` : `Take ${index + 1}`)}
+										{slide.label ||
+											(isVideoMode
+												? `Video ${index + 1}`
+												: `Take ${index + 1}`)}
 									</p>
 									<span className="text-[9px] font-mono text-muted-foreground font-semibold flex-shrink-0">
 										{formatSlideDuration(slide.durationMs)}

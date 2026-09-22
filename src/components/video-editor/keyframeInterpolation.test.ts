@@ -39,8 +39,20 @@ describe("keyframeInterpolation", () => {
 
 	it("interpolates 2D position keyframes accurately", () => {
 		const keyframes: PropertyKeyframe[] = [
-			{ id: "kf-1", timeMs: 0, property: "position", value: { x: 10, y: 20 }, easing: "linear" },
-			{ id: "kf-2", timeMs: 2000, property: "position", value: { x: 50, y: 100 }, easing: "linear" },
+			{
+				id: "kf-1",
+				timeMs: 0,
+				property: "position",
+				value: { x: 10, y: 20 },
+				easing: "linear",
+			},
+			{
+				id: "kf-2",
+				timeMs: 2000,
+				property: "position",
+				value: { x: 50, y: 100 },
+				easing: "linear",
+			},
 		];
 
 		const mid = interpolatePositionKeyframe(keyframes, 1000, { x: 0, y: 0 });

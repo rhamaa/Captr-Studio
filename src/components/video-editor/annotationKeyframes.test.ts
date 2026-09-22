@@ -5,7 +5,7 @@ import {
 	normalizePropertyKeyframes,
 	sampleAnnotationTransform,
 } from "./annotationKeyframes";
-import { DEFAULT_ANNOTATION_STYLE, type AnnotationRegion } from "./types";
+import { type AnnotationRegion, DEFAULT_ANNOTATION_STYLE } from "./types";
 
 const annotation: AnnotationRegion = {
 	id: "title",

@@ -13,11 +13,9 @@ import {
 	windowsCaptureTargetPath,
 	windowsNativeCaptureActive,
 } from "../state";
-import {
-	AudioSyncAdjustment,
-} from "../types";
-import { emitRecordingInterrupted } from "./events";
+import { AudioSyncAdjustment } from "../types";
 import { moveFileWithOverwrite } from "../utils";
+import { emitRecordingInterrupted } from "./events";
 
 export type NativeWindowsVideoPaddingResult = {
 	padded: boolean;
@@ -240,9 +238,7 @@ export async function muxNativeWindowsVideoWithAudio(
 		}
 	}
 
-	console.log(
-		`[PERF:MAIN] muxNativeWindowsVideoWithAudio: COMPLETED in ${Date.now() - start}ms`,
-	);
+	console.log(`[PERF:MAIN] muxNativeWindowsVideoWithAudio: COMPLETED in ${Date.now() - start}ms`);
 
 	return {
 		muxed: false,

@@ -1,14 +1,6 @@
 import type { Span } from "dnd-timeline";
-import { useCallback, useImperativeHandle } from "react";
 import type { ForwardedRef, RefObject } from "react";
-import type { TimelineShortcutBindings } from "../core/timelineTypes";
-import { useTimelineDndBindings } from "./useTimelineDndBindings";
-import { useTimelineAudioActions } from "./actions/useTimelineAudioActions";
-import { useTimelineKeyboardShortcuts } from "./useTimelineKeyboardShortcuts";
-import { useTimelineNormalization } from "./useTimelineNormalization";
-import { useTimelineSelection } from "./useTimelineSelection";
-import { useTimelineZoomActions } from "./actions/useTimelineZoomActions";
-import { DEFAULT_LAYOUT_SCENE_DURATION_MS } from "../../types";
+import { useCallback, useImperativeHandle } from "react";
 import type {
 	AnnotationRegion,
 	AudioRegion,
@@ -20,7 +12,15 @@ import type {
 	ZoomFocus,
 	ZoomRegion,
 } from "../../types";
+import { DEFAULT_LAYOUT_SCENE_DURATION_MS } from "../../types";
+import type { TimelineShortcutBindings } from "../core/timelineTypes";
 import type { TimelineEditorHandle } from "../TimelineEditor";
+import { useTimelineAudioActions } from "./actions/useTimelineAudioActions";
+import { useTimelineZoomActions } from "./actions/useTimelineZoomActions";
+import { useTimelineDndBindings } from "./useTimelineDndBindings";
+import { useTimelineKeyboardShortcuts } from "./useTimelineKeyboardShortcuts";
+import { useTimelineNormalization } from "./useTimelineNormalization";
+import { useTimelineSelection } from "./useTimelineSelection";
 
 interface UseTimelineEditorRuntimeParams {
 	ref: ForwardedRef<TimelineEditorHandle>;
@@ -57,7 +57,10 @@ interface UseTimelineEditorRuntimeParams {
 	onAnnotationAdded?: (span: Span, trackIndex?: number) => void;
 	onAnnotationSpanChange?: (id: string, span: Span, trackIndex?: number) => void;
 	onAnnotationDelete?: (id: string) => void;
-	onAnnotationKeyframesChange?: (id: string, keyframes: import("../../types").PropertyKeyframe[]) => void;
+	onAnnotationKeyframesChange?: (
+		id: string,
+		keyframes: import("../../types").PropertyKeyframe[],
+	) => void;
 	selectedAnnotationId?: string | null;
 	onSelectAnnotation?: (id: string | null) => void;
 	speedRegions: SpeedRegion[];
@@ -108,7 +111,7 @@ export function useTimelineEditorRuntime({
 	onAnnotationAdded,
 	onAnnotationSpanChange,
 	onAnnotationDelete,
-		onAnnotationKeyframesChange,
+	onAnnotationKeyframesChange,
 	selectedAnnotationId,
 	onSelectAnnotation,
 	speedRegions,
@@ -185,35 +188,45 @@ export function useTimelineEditorRuntime({
 		onAudioSpanChange,
 	});
 
-	const { hasOverlap, timelineItems, allRegionSpans, getResolvedDropRowId, handleItemSpanChange } =
-		useTimelineDndBindings({
-			zoomRegions,
-			trimRegions,
-			clipRegions,
-			layoutRegions,
-			annotationRegions,
-			speedRegions,
-			audioRegions,
-			onZoomSpanChange,
-			onTrimSpanChange,
-			onClipSpanChange,
-			onLayoutSpanChange,
-			onAnnotationSpanChange,
-			onSpeedSpanChange,
-			onAudioSpanChange,
-		});
+	const {
+		hasOverlap,
+		timelineItems,
+		allRegionSpans,
+		getResolvedDropRowId,
+		handleItemSpanChange,
+	} = useTimelineDndBindings({
+		zoomRegions,
+		trimRegions,
+		clipRegions,
+		layoutRegions,
+		annotationRegions,
+		speedRegions,
+		audioRegions,
+		onZoomSpanChange,
+		onTrimSpanChange,
+		onClipSpanChange,
+		onLayoutSpanChange,
+		onAnnotationSpanChange,
+		onSpeedSpanChange,
+		onAudioSpanChange,
+	});
 
-	const { defaultRegionDurationMs, canPlaceZoomAtMs, addZoomAtMs, handleAddZoom, handleSuggestZooms } =
-		useTimelineZoomActions({
-			timeline: { videoDuration, totalMs, currentTimeMs },
-			regions: { zoom: zoomRegions, clip: clipRegions },
-			cursorTelemetry,
-			options: { disableSuggestedZooms },
-			autoSuggestZoomsTrigger,
-			onAutoSuggestZoomsConsumed,
-			onZoomAdded,
-			onZoomSuggested,
-		});
+	const {
+		defaultRegionDurationMs,
+		canPlaceZoomAtMs,
+		addZoomAtMs,
+		handleAddZoom,
+		handleSuggestZooms,
+	} = useTimelineZoomActions({
+		timeline: { videoDuration, totalMs, currentTimeMs },
+		regions: { zoom: zoomRegions, clip: clipRegions },
+		cursorTelemetry,
+		options: { disableSuggestedZooms },
+		autoSuggestZoomsTrigger,
+		onAutoSuggestZoomsConsumed,
+		onZoomAdded,
+		onZoomSuggested,
+	});
 
 	const handleSplitClip = useCallback(() => {
 		if (!videoDuration || videoDuration === 0 || totalMs === 0 || !onClipSplit) {
@@ -225,7 +238,12 @@ export function useTimelineEditorRuntime({
 	const defaultLayoutDurationMs = Math.min(DEFAULT_LAYOUT_SCENE_DURATION_MS, totalMs);
 	const canPlaceLayoutAtMs = useCallback(
 		(startMs: number) => {
-			if (!videoDuration || videoDuration === 0 || totalMs === 0 || defaultLayoutDurationMs <= 0) {
+			if (
+				!videoDuration ||
+				videoDuration === 0 ||
+				totalMs === 0 ||
+				defaultLayoutDurationMs <= 0
+			) {
 				return false;
 			}
 

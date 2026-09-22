@@ -14,6 +14,7 @@ import {
 	RECENT_PROJECTS_FILE,
 	RECORDINGS_SETTINGS_FILE,
 } from "../constants";
+import { getUsableCompanionAudioCandidates } from "../recording/diagnostics";
 import {
 	approvedLocalReadPaths,
 	currentProjectPath,
@@ -36,7 +37,6 @@ import {
 	getProjectPrimaryMedia,
 	ProjectBundleValidationError,
 } from "./mediaReferences";
-import { getUsableCompanionAudioCandidates } from "../recording/diagnostics";
 import { isProjectBundle, readBundleThumbnailDataUrl, unpackProjectBundle } from "./projectBundle";
 import { convertProjectToWorkspaceAbsolute, ensureProjectWorkspace } from "./projectWorkspace";
 

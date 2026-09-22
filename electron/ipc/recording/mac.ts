@@ -32,7 +32,6 @@ import {
 import { emitRecordingInterrupted } from "./events";
 import { pruneAutoRecordings } from "./prune";
 
-
 export function waitForNativeCaptureStart(process: ChildProcessWithoutNullStreams) {
 	return new Promise<void>((resolve, reject) => {
 		const timer = setTimeout(() => {
@@ -119,7 +118,7 @@ export async function muxNativeMacRecordingWithAudio(
 	microphonePath?: string | null,
 ) {
 	console.log("[mac-mux] Optimization active: keeping tracks separate.");
-	
+
 	const videoPathWithoutExt = videoPath.replace(/\.[^.]+$/u, "");
 
 	// Optimization: instead of heavy FFmpeg muxing, we ensure audio sidecars

@@ -170,7 +170,10 @@ describe("convertProjectToWorkspaceAbsolute — audio sidecar paths (bug conditi
 		expect(resultPath).toBeDefined();
 		// Must be an absolute path starting with the workspace dir (compare lower-case, sep-normalized)
 		expect(
-			resultPath.replace(/\\/g, "/").toLowerCase().startsWith(WORKSPACE_DIR.replace(/\\/g, "/").toLowerCase()),
+			resultPath
+				.replace(/\\/g, "/")
+				.toLowerCase()
+				.startsWith(WORKSPACE_DIR.replace(/\\/g, "/").toLowerCase()),
 		).toBe(true);
 		expect(resultPath).toBe(normSep(`${WORKSPACE_DIR}/slides/s1/assets/audio/mic.wav`));
 	});
@@ -193,7 +196,10 @@ describe("convertProjectToWorkspaceAbsolute — audio sidecar paths (bug conditi
 		const resultPath = clip.systemAudioPath as string;
 		expect(resultPath).toBeDefined();
 		expect(
-			resultPath.replace(/\\/g, "/").toLowerCase().startsWith(WORKSPACE_DIR.replace(/\\/g, "/").toLowerCase()),
+			resultPath
+				.replace(/\\/g, "/")
+				.toLowerCase()
+				.startsWith(WORKSPACE_DIR.replace(/\\/g, "/").toLowerCase()),
 		).toBe(true);
 		expect(resultPath).toBe(normSep(`${WORKSPACE_DIR}/slides/s1/assets/audio/system.wav`));
 	});
@@ -214,10 +220,21 @@ describe("convertProjectToWorkspaceAbsolute — audio sidecar paths (bug conditi
 		const clip = (result.clips as Array<Record<string, unknown>>)[0];
 
 		const normWs = WORKSPACE_DIR.replace(/\\/g, "/").toLowerCase();
-		expect((clip.microphoneAudioPath as string).replace(/\\/g, "/").toLowerCase().startsWith(normWs)).toBe(true);
-		expect((clip.systemAudioPath as string).replace(/\\/g, "/").toLowerCase().startsWith(normWs)).toBe(true);
-		expect(clip.microphoneAudioPath).toBe(normSep(`${WORKSPACE_DIR}/slides/s1/assets/audio/mic.wav`));
-		expect(clip.systemAudioPath).toBe(normSep(`${WORKSPACE_DIR}/slides/s1/assets/audio/system.wav`));
+		expect(
+			(clip.microphoneAudioPath as string)
+				.replace(/\\/g, "/")
+				.toLowerCase()
+				.startsWith(normWs),
+		).toBe(true);
+		expect(
+			(clip.systemAudioPath as string).replace(/\\/g, "/").toLowerCase().startsWith(normWs),
+		).toBe(true);
+		expect(clip.microphoneAudioPath).toBe(
+			normSep(`${WORKSPACE_DIR}/slides/s1/assets/audio/mic.wav`),
+		);
+		expect(clip.systemAudioPath).toBe(
+			normSep(`${WORKSPACE_DIR}/slides/s1/assets/audio/system.wav`),
+		);
 	});
 });
 
@@ -296,11 +313,13 @@ function normSep(p: string): string {
 
 /** Generates a workspace-internal path: WORKSPACE_DIR/<segments...>/<file>.<ext> */
 function workspacePathArb(ext: string): fc.Arbitrary<string> {
-	return fc.tuple(
-		fc.stringMatching(/^[a-z0-9]{1,8}$/),
-		fc.stringMatching(/^[a-z0-9]{1,8}$/),
-		fc.stringMatching(/^[a-z0-9]{1,16}$/),
-	).map(([dir1, dir2, fname]) => `${WORKSPACE_DIR}/${dir1}/${dir2}/${fname}.${ext}`);
+	return fc
+		.tuple(
+			fc.stringMatching(/^[a-z0-9]{1,8}$/),
+			fc.stringMatching(/^[a-z0-9]{1,8}$/),
+			fc.stringMatching(/^[a-z0-9]{1,16}$/),
+		)
+		.map(([dir1, dir2, fname]) => `${WORKSPACE_DIR}/${dir1}/${dir2}/${fname}.${ext}`);
 }
 
 /** Generates a clip object where isBugCondition is always false (no external sidecars). */
@@ -517,7 +536,9 @@ describe("Preservation — unit tests — baseline behavior on unfixed code", ()
 			};
 			const result = convertProjectToWorkspaceAbsolute(projectData, WORKSPACE_DIR);
 			const clip = (result.clips as Array<Record<string, unknown>>)[0];
-			expect(clip.cursorTelemetryPath).toBe(normSep(`${WORKSPACE_DIR}/slides/s1/cursor.json`));
+			expect(clip.cursorTelemetryPath).toBe(
+				normSep(`${WORKSPACE_DIR}/slides/s1/cursor.json`),
+			);
 		});
 
 		it("resolves relative audioRegions[].audioPath to workspace-absolute path", () => {
@@ -533,7 +554,9 @@ describe("Preservation — unit tests — baseline behavior on unfixed code", ()
 			const result = convertProjectToWorkspaceAbsolute(projectData, WORKSPACE_DIR);
 			const clip = (result.clips as Array<Record<string, unknown>>)[0];
 			const region = (clip.audioRegions as Array<Record<string, unknown>>)[0];
-			expect(region.audioPath).toBe(normSep(`${WORKSPACE_DIR}/slides/s1/assets/audio/bg.wav`));
+			expect(region.audioPath).toBe(
+				normSep(`${WORKSPACE_DIR}/slides/s1/assets/audio/bg.wav`),
+			);
 		});
 
 		it("leaves already-absolute legacy sidecar paths as-is (backward compat)", () => {
@@ -675,7 +698,9 @@ describe("Preservation — property-based tests (fast-check)", () => {
 
 				// cursorTelemetryPath if present
 				if (clip.cursorTelemetryPath != null) {
-					expect(out.cursorTelemetryPath).toBe(normSep(clip.cursorTelemetryPath as string));
+					expect(out.cursorTelemetryPath).toBe(
+						normSep(clip.cursorTelemetryPath as string),
+					);
 				}
 
 				// audioRegions
@@ -707,7 +732,12 @@ describe("Preservation — property-based tests (fast-check)", () => {
 		fc.assert(
 			fc.property(inWorkspaceSidecarClipArb(), (clip) => {
 				// Confirm the bug condition does NOT apply to these clips
-				expect(isBugCondition(clip as { microphoneAudioPath?: string; systemAudioPath?: string }, WORKSPACE_DIR)).toBe(false);
+				expect(
+					isBugCondition(
+						clip as { microphoneAudioPath?: string; systemAudioPath?: string },
+						WORKSPACE_DIR,
+					),
+				).toBe(false);
 
 				const projectData = { clips: [clip] };
 				const normWs = WORKSPACE_DIR.replace(/\\/g, "/").toLowerCase();
@@ -740,14 +770,24 @@ describe("Preservation — property-based tests (fast-check)", () => {
 	it("isBugCondition returns false for all workspace-internal and no-sidecar clips", () => {
 		fc.assert(
 			fc.property(noSidecarClipArb(), (clip) => {
-				expect(isBugCondition(clip as { microphoneAudioPath?: string; systemAudioPath?: string }, WORKSPACE_DIR)).toBe(false);
+				expect(
+					isBugCondition(
+						clip as { microphoneAudioPath?: string; systemAudioPath?: string },
+						WORKSPACE_DIR,
+					),
+				).toBe(false);
 			}),
 			{ numRuns: 50 },
 		);
 
 		fc.assert(
 			fc.property(inWorkspaceSidecarClipArb(), (clip) => {
-				expect(isBugCondition(clip as { microphoneAudioPath?: string; systemAudioPath?: string }, WORKSPACE_DIR)).toBe(false);
+				expect(
+					isBugCondition(
+						clip as { microphoneAudioPath?: string; systemAudioPath?: string },
+						WORKSPACE_DIR,
+					),
+				).toBe(false);
 			}),
 			{ numRuns: 50 },
 		);

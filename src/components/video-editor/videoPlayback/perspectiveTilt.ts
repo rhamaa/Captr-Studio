@@ -118,10 +118,7 @@ export function computePerspectiveTilt(
 /**
  * Applies perspective tilt to a PixiJS container.
  */
-export function applyPerspectiveTilt(
-	container: Container,
-	tilt: PerspectiveTiltResult,
-): void {
+export function applyPerspectiveTilt(container: Container, tilt: PerspectiveTiltResult): void {
 	container.skew.set(tilt.skewX, tilt.skewY);
 	container.position.x += tilt.offsetX;
 	container.position.y += tilt.offsetY;

@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
-import {
-	createProjectData,
-	normalizeClipEntries,
-	validateProjectData,
-} from "./projectPersistence";
 import { hasUnsavedProjectChanges } from "./projectDirtyState";
-import type { ClipEntry } from "./types";
+import { createProjectData, normalizeClipEntries, validateProjectData } from "./projectPersistence";
 import { CLIP_TRANSITION_TYPES } from "./transitionContract";
+import type { ClipEntry } from "./types";
 
 describe("projectPersistence - Multi-Clip Persistence", () => {
-	it.each(CLIP_TRANSITION_TYPES)("round-trips the supported %s transition through project JSON", (type) => {
-		const clips = normalizeClipEntries([{ id: "scene", videoPath: "take.mp4", durationMs: 3000, transitionToNext: { type, durationMs: 650 } }]);
+	it.each(
+		CLIP_TRANSITION_TYPES,
+	)("round-trips the supported %s transition through project JSON", (type) => {
+		const clips = normalizeClipEntries([
+			{
+				id: "scene",
+				videoPath: "take.mp4",
+				durationMs: 3000,
+				transitionToNext: { type, durationMs: 650 },
+			},
+		]);
 		const project = createProjectData("take.mp4", {}, "test", clips);
 		const reopened = normalizeClipEntries(JSON.parse(JSON.stringify(project)).clips);
 		expect(reopened[0].transitionIn).toEqual({ type, durationMs: 650 });

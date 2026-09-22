@@ -28,15 +28,42 @@ class ErrorBoundary extends React.Component<
 	render() {
 		if (this.state.hasError) {
 			return (
-				<div style={{ padding: 24, color: "#f87171", background: "#0d0f17", height: "100vh", fontFamily: "monospace", overflow: "auto" }}>
-					<h2 style={{ fontSize: 18, fontWeight: "bold", marginBottom: 12 }}>⚠️ Runtime Rendering Error</h2>
-					<pre style={{ whiteSpace: "pre-wrap", color: "#fca5a5", fontSize: 13, background: "rgba(255,255,255,0.05)", padding: 12, borderRadius: 8 }}>
+				<div
+					style={{
+						padding: 24,
+						color: "#f87171",
+						background: "#0d0f17",
+						height: "100vh",
+						fontFamily: "monospace",
+						overflow: "auto",
+					}}
+				>
+					<h2 style={{ fontSize: 18, fontWeight: "bold", marginBottom: 12 }}>
+						⚠️ Runtime Rendering Error
+					</h2>
+					<pre
+						style={{
+							whiteSpace: "pre-wrap",
+							color: "#fca5a5",
+							fontSize: 13,
+							background: "rgba(255,255,255,0.05)",
+							padding: 12,
+							borderRadius: 8,
+						}}
+					>
 						{this.state.error?.message}
 						{"\n"}
 						{this.state.error?.stack}
 					</pre>
 					{this.state.errorInfo?.componentStack && (
-						<pre style={{ whiteSpace: "pre-wrap", color: "#94a3b8", fontSize: 11, marginTop: 12 }}>
+						<pre
+							style={{
+								whiteSpace: "pre-wrap",
+								color: "#94a3b8",
+								fontSize: 11,
+								marginTop: 12,
+							}}
+						>
 							{this.state.errorInfo.componentStack}
 						</pre>
 					)}

@@ -9,9 +9,14 @@ import type {
 	TrimRegion,
 	ZoomRegion,
 } from "../../types";
-import type { TimelineRenderItem } from "../core/timelineTypes";
-import { getAnnotationTrackIndex, getAudioTrackIndex, isAnnotationTrackRowId, isAudioTrackRowId } from "../core/rows";
+import {
+	getAnnotationTrackIndex,
+	getAudioTrackIndex,
+	isAnnotationTrackRowId,
+	isAudioTrackRowId,
+} from "../core/rows";
 import { spansOverlap } from "../core/spans";
+import type { TimelineRenderItem } from "../core/timelineTypes";
 import { buildAllRegionSpans, buildTimelineItems, resolveDropRowId } from "../model/timelineModel";
 
 interface UseTimelineDndBindingsParams {
@@ -31,7 +36,15 @@ interface UseTimelineDndBindingsParams {
 	onAudioSpanChange?: (id: string, span: Span, trackIndex?: number) => void;
 }
 
-type TimelineItemKind = "zoom" | "trim" | "clip" | "layout" | "annotation" | "speed" | "audio" | null;
+type TimelineItemKind =
+	| "zoom"
+	| "trim"
+	| "clip"
+	| "layout"
+	| "annotation"
+	| "speed"
+	| "audio"
+	| null;
 
 export function useTimelineDndBindings({
 	zoomRegions,
@@ -60,7 +73,15 @@ export function useTimelineDndBindings({
 			if (audioRegions.some((r) => r.id === id)) return "audio";
 			return null;
 		},
-		[zoomRegions, trimRegions, clipRegions, layoutRegions, annotationRegions, speedRegions, audioRegions],
+		[
+			zoomRegions,
+			trimRegions,
+			clipRegions,
+			layoutRegions,
+			annotationRegions,
+			speedRegions,
+			audioRegions,
+		],
 	);
 
 	const resolveTrackIndex = useCallback(

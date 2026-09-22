@@ -7,8 +7,8 @@ import {
 	VideoCamera as Video,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import type { ClipEntry } from "./types";
 import { formatClipDuration, isRecordedClip } from "./clipsUtils";
+import type { ClipEntry } from "./types";
 
 export interface ClipsTrayProps {
 	clips: ClipEntry[];
@@ -64,7 +64,10 @@ export function ClipsTray({
 							<div className="flex flex-col text-left min-w-[75px] max-w-[150px]">
 								<div className="flex items-center gap-1.5">
 									<span className="text-xs font-semibold truncate leading-tight">
-										{clip.label || (isRecorded ? `Take ${index + 1}` : `Video ${index + 1}`)}
+										{clip.label ||
+											(isRecorded
+												? `Take ${index + 1}`
+												: `Video ${index + 1}`)}
 									</span>
 									<span
 										className={`text-[8px] leading-tight px-1 py-0.5 rounded font-mono font-bold tracking-wider ${
@@ -79,12 +82,18 @@ export function ClipsTray({
 								<div className="flex items-center gap-1 text-[10px] opacity-70 font-mono">
 									<span>{formatClipDuration(clip.durationMs)}</span>
 									{clip.webcamPath ? (
-										<span className="text-[9px] text-amber-400 font-semibold" title="Companion webcam active">
+										<span
+											className="text-[9px] text-amber-400 font-semibold"
+											title="Companion webcam active"
+										>
 											• CAM
 										</span>
 									) : null}
 									{clip.microphoneAudioPath ? (
-										<span className="text-[9px] text-emerald-400 font-semibold" title="Companion mic audio">
+										<span
+											className="text-[9px] text-emerald-400 font-semibold"
+											title="Companion mic audio"
+										>
 											• MIC
 										</span>
 									) : null}

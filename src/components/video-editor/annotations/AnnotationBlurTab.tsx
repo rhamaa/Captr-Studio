@@ -84,36 +84,27 @@ export function AnnotationBlurTab({
 								className={cn(
 									"w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center overflow-hidden relative",
 									annotation.blurColor &&
-										![
-											"#000000",
-											"#FFFFFF",
-											"transparent",
-											"",
-										].includes(annotation.blurColor)
+										!["#000000", "#FFFFFF", "transparent", ""].includes(
+											annotation.blurColor,
+										)
 										? "border-[#2563EB] scale-110"
 										: "border-transparent hover:border-foreground/20",
 								)}
 								style={{
 									backgroundColor:
 										annotation.blurColor &&
-										![
-											"#000000",
-											"#FFFFFF",
-											"transparent",
-											"",
-										].includes(annotation.blurColor)
+										!["#000000", "#FFFFFF", "transparent", ""].includes(
+											annotation.blurColor,
+										)
 											? annotation.blurColor
 											: "transparent",
 								}}
 								title="Custom Color"
 							>
 								{(!annotation.blurColor ||
-									[
-										"#000000",
-										"#FFFFFF",
-										"transparent",
-										"",
-									].includes(annotation.blurColor)) && (
+									["#000000", "#FFFFFF", "transparent", ""].includes(
+										annotation.blurColor,
+									)) && (
 									<div className="w-full h-full flex items-center justify-center bg-foreground/5">
 										<div className="w-full h-full bg-gradient-to-tr from-red-500 via-green-500 to-blue-500 opacity-50" />
 									</div>

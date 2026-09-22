@@ -1,14 +1,13 @@
-import { sampleLayerAnimation } from "./layerAnimation";
-import { ImageLayerPreview } from "./ImageLayerPreview";
-import { GifLayerPreview } from "./GifLayerPreview";
-import { VideoLayerPreview } from "./VideoLayerPreview";
-import { sampleAnnotationTransform } from "./annotationKeyframes";
 import { useRef, useState } from "react";
 import { Rnd } from "react-rnd";
 import { cn } from "@/lib/utils";
 import { getArrowComponent } from "./ArrowSvgs";
+import { sampleAnnotationTransform } from "./annotationKeyframes";
+import { GifLayerPreview } from "./GifLayerPreview";
+import { ImageLayerPreview } from "./ImageLayerPreview";
+import { sampleLayerAnimation } from "./layerAnimation";
 import { type AnnotationRegion, BASE_PREVIEW_WIDTH, BLUR_ANNOTATION_STRENGTH } from "./types";
-
+import { VideoLayerPreview } from "./VideoLayerPreview";
 
 interface AnnotationOverlayProps {
 	annotation: AnnotationRegion;
@@ -49,7 +48,12 @@ export function AnnotationOverlay({
 	}
 
 	// Keyframe-interpolated position, scale, opacity, and rotation
-	const { position: interpolatedPos, scale: interpolatedScale, opacity: interpolatedOpacity, rotation: interpolatedRotation } = sampleAnnotationTransform(annotation, currentTimeMs ?? annotation.startMs);
+	const {
+		position: interpolatedPos,
+		scale: interpolatedScale,
+		opacity: interpolatedOpacity,
+		rotation: interpolatedRotation,
+	} = sampleAnnotationTransform(annotation, currentTimeMs ?? annotation.startMs);
 
 	const x = (interpolatedPos.x / 100) * containerWidth;
 	const y = (interpolatedPos.y / 100) * containerHeight;
@@ -72,7 +76,13 @@ export function AnnotationOverlay({
 	const renderContent = () => {
 		switch (annotation.type) {
 			case "video":
-				return <VideoLayerPreview layer={annotation} timeMs={currentTimeMs ?? annotation.startMs} playing={isPlaying} />;
+				return (
+					<VideoLayerPreview
+						layer={annotation}
+						timeMs={currentTimeMs ?? annotation.startMs}
+						playing={isPlaying}
+					/>
+				);
 			case "text":
 				return (
 					<div
@@ -152,7 +162,12 @@ export function AnnotationOverlay({
 			}
 
 			case "gif":
-				return <GifLayerPreview layer={annotation} timeMs={currentTimeMs ?? annotation.startMs} />;
+				return (
+					<GifLayerPreview
+						layer={annotation}
+						timeMs={currentTimeMs ?? annotation.startMs}
+					/>
+				);
 
 			default:
 				return null;
@@ -287,12 +302,13 @@ export function AnnotationOverlay({
 				style={{
 					opacity: animOpacity,
 					mixBlendMode: annotation.blendMode ?? "normal",
-					transform: [
-						animTranslateY !== 0 ? `translateY(${animTranslateY}px)` : "",
-						interpolatedRotation !== 0 ? `rotate(${interpolatedRotation}deg)` : "",
-					]
-						.filter(Boolean)
-						.join(" ") || undefined,
+					transform:
+						[
+							animTranslateY !== 0 ? `translateY(${animTranslateY}px)` : "",
+							interpolatedRotation !== 0 ? `rotate(${interpolatedRotation}deg)` : "",
+						]
+							.filter(Boolean)
+							.join(" ") || undefined,
 				}}
 			>
 				{renderContent()}

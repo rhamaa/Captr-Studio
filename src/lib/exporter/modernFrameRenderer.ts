@@ -10,6 +10,10 @@ import {
 } from "pixi.js";
 import { MotionBlurFilter } from "pixi-filters/motion-blur";
 import { ZoomBlurFilter } from "pixi-filters/zoom-blur";
+import {
+	applyColorGradingToFilter,
+	getVignetteTexture,
+} from "@/components/video-editor/colorGrading";
 import { resolveLayoutSceneAtTime } from "@/components/video-editor/layoutScenes";
 import type {
 	AnnotationRegion,
@@ -26,23 +30,11 @@ import type {
 	ZoomRegion,
 	ZoomTransitionEasing,
 } from "@/components/video-editor/types";
-import {
-	applyColorGradingToFilter,
-	getVignetteTexture,
-} from "@/components/video-editor/colorGrading";
-
+import { DEFAULT_WEBCAM_OVERLAY, ZOOM_DEPTH_SCALES } from "@/components/video-editor/types";
 import {
 	applyClipTransition,
 	getActiveClipTransition,
 } from "@/components/video-editor/videoPlayback/clipTransition";
-import {
-	applyPerspectiveTilt,
-	computePerspectiveTilt,
-	createPerspectiveTiltState,
-	resetPerspectiveTiltState,
-	type PerspectiveTiltState,
-} from "@/components/video-editor/videoPlayback/perspectiveTilt";
-import { DEFAULT_WEBCAM_OVERLAY, ZOOM_DEPTH_SCALES } from "@/components/video-editor/types";
 import { DEFAULT_FOCUS } from "@/components/video-editor/videoPlayback/constants";
 import {
 	type CursorFollowCameraState,
@@ -63,6 +55,13 @@ import {
 	type SpringState,
 	stepSpringValue,
 } from "@/components/video-editor/videoPlayback/motionSmoothing";
+import {
+	applyPerspectiveTilt,
+	computePerspectiveTilt,
+	createPerspectiveTiltState,
+	type PerspectiveTiltState,
+	resetPerspectiveTiltState,
+} from "@/components/video-editor/videoPlayback/perspectiveTilt";
 import { getWebcamMediaTargetTimeSeconds } from "@/components/video-editor/videoPlayback/webcamSync";
 import { findDominantRegion } from "@/components/video-editor/videoPlayback/zoomRegionUtils";
 import {

@@ -8,16 +8,16 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
 import type { AppLocale } from "@/i18n/config";
 import { SUPPORTED_LOCALES } from "@/i18n/config";
-import { KeyboardShortcutsDialog } from "../../TutorialHelp";
-import { SliderControl } from "../../SliderControl";
-import { SectionLabel } from "../components/SettingsSectionLabel";
-import { MotionPresetCards } from "../components/MotionPresetCards";
+import { cn } from "@/lib/utils";
 import type { CursorMotionPresetId } from "../../cursorMotionPresets";
-import type { ZoomMotionBlurTuning } from "../../types";
 import type { loadEditorPreferences } from "../../editorPreferences";
+import { SliderControl } from "../../SliderControl";
+import { KeyboardShortcutsDialog } from "../../TutorialHelp";
+import type { ZoomMotionBlurTuning } from "../../types";
+import { MotionPresetCards } from "../components/MotionPresetCards";
+import { SectionLabel } from "../components/SettingsSectionLabel";
 
 export const APP_LANGUAGE_LABELS: Record<AppLocale, string> = {
 	en: "English",
@@ -204,9 +204,7 @@ export const GeneralPreferencesSection: React.FC<GeneralPreferencesSectionProps>
 				<section className="flex flex-col gap-2 rounded-xl border border-[#2563EB]/15 bg-[#2563EB]/5 p-3">
 					<div className="flex items-center justify-between gap-3">
 						<div>
-							<SectionLabel>
-								{tSettings("effects.devSection", "Dev")}
-							</SectionLabel>
+							<SectionLabel>{tSettings("effects.devSection", "Dev")}</SectionLabel>
 							<div className="mt-0.5 text-[10px] text-muted-foreground">
 								{tSettings(
 									"effects.devSectionHint",
@@ -268,8 +266,7 @@ export const GeneralPreferencesSection: React.FC<GeneralPreferencesSectionProps>
 							label={tSettings("effects.motionBlurPanThreshold", "Pan threshold")}
 							value={zoomMotionBlurTuning.panVelocityThreshold}
 							defaultValue={
-								initialEditorPreferences.zoomMotionBlurTuning
-									.panVelocityThreshold
+								initialEditorPreferences.zoomMotionBlurTuning.panVelocityThreshold
 							}
 							min={0}
 							max={240}
@@ -289,8 +286,7 @@ export const GeneralPreferencesSection: React.FC<GeneralPreferencesSectionProps>
 							label={tSettings("effects.motionBlurPanStrength", "Pan max blur")}
 							value={zoomMotionBlurTuning.maxDirectionalBlurPx}
 							defaultValue={
-								initialEditorPreferences.zoomMotionBlurTuning
-									.maxDirectionalBlurPx
+								initialEditorPreferences.zoomMotionBlurTuning.maxDirectionalBlurPx
 							}
 							min={0}
 							max={96}
@@ -302,17 +298,15 @@ export const GeneralPreferencesSection: React.FC<GeneralPreferencesSectionProps>
 								})
 							}
 							formatValue={(value: number) => `${value.toFixed(1)} px`}
-							parseInput={(text: string) => parseFloat(text.replace(/px$/i, "").trim())}
+							parseInput={(text: string) =>
+								parseFloat(text.replace(/px$/i, "").trim())
+							}
 						/>
 						<SliderControl
-							label={tSettings(
-								"effects.motionBlurZoomThreshold",
-								"Zoom threshold",
-							)}
+							label={tSettings("effects.motionBlurZoomThreshold", "Zoom threshold")}
 							value={zoomMotionBlurTuning.zoomVelocityThreshold}
 							defaultValue={
-								initialEditorPreferences.zoomMotionBlurTuning
-									.zoomVelocityThreshold
+								initialEditorPreferences.zoomMotionBlurTuning.zoomVelocityThreshold
 							}
 							min={0}
 							max={0.4}
@@ -333,8 +327,7 @@ export const GeneralPreferencesSection: React.FC<GeneralPreferencesSectionProps>
 							)}
 							value={zoomMotionBlurTuning.maxRadialBlurStrength}
 							defaultValue={
-								initialEditorPreferences.zoomMotionBlurTuning
-									.maxRadialBlurStrength
+								initialEditorPreferences.zoomMotionBlurTuning.maxRadialBlurStrength
 							}
 							min={0}
 							max={1.5}
@@ -368,9 +361,7 @@ export const GeneralPreferencesSection: React.FC<GeneralPreferencesSectionProps>
 								"Camera stiffness",
 							)}
 							value={cameraSpringStiffnessMultiplier}
-							defaultValue={
-								initialEditorPreferences.cameraSpringStiffnessMultiplier
-							}
+							defaultValue={initialEditorPreferences.cameraSpringStiffnessMultiplier}
 							min={0.25}
 							max={3}
 							step={0.01}
@@ -386,27 +377,26 @@ export const GeneralPreferencesSection: React.FC<GeneralPreferencesSectionProps>
 								"Camera damping",
 							)}
 							value={cameraSpringDampingMultiplier}
-							defaultValue={
-								initialEditorPreferences.cameraSpringDampingMultiplier
-							}
+							defaultValue={initialEditorPreferences.cameraSpringDampingMultiplier}
 							min={0.25}
 							max={3}
 							step={0.01}
-							onChange={(value: number) => onCameraSpringDampingMultiplierChange?.(value)}
+							onChange={(value: number) =>
+								onCameraSpringDampingMultiplierChange?.(value)
+							}
 							formatValue={(value: number) => `${value.toFixed(2)}×`}
 							parseInput={(text: string) => parseFloat(text.replace(/×$/, ""))}
 						/>
 						<SliderControl
-							label={tSettings(
-								"effects.cameraSpringMassMultiplier",
-								"Camera mass",
-							)}
+							label={tSettings("effects.cameraSpringMassMultiplier", "Camera mass")}
 							value={cameraSpringMassMultiplier}
 							defaultValue={initialEditorPreferences.cameraSpringMassMultiplier}
 							min={0.25}
 							max={3}
 							step={0.01}
-							onChange={(value: number) => onCameraSpringMassMultiplierChange?.(value)}
+							onChange={(value: number) =>
+								onCameraSpringMassMultiplierChange?.(value)
+							}
 							formatValue={(value: number) => `${value.toFixed(2)}×`}
 							parseInput={(text: string) => parseFloat(text.replace(/×$/, ""))}
 						/>
@@ -430,9 +420,7 @@ export const GeneralPreferencesSection: React.FC<GeneralPreferencesSectionProps>
 								"Spring stiffness",
 							)}
 							value={cursorSpringStiffnessMultiplier}
-							defaultValue={
-								initialEditorPreferences.cursorSpringStiffnessMultiplier
-							}
+							defaultValue={initialEditorPreferences.cursorSpringStiffnessMultiplier}
 							min={0.25}
 							max={3}
 							step={0.01}
@@ -448,27 +436,26 @@ export const GeneralPreferencesSection: React.FC<GeneralPreferencesSectionProps>
 								"Spring damping",
 							)}
 							value={cursorSpringDampingMultiplier}
-							defaultValue={
-								initialEditorPreferences.cursorSpringDampingMultiplier
-							}
+							defaultValue={initialEditorPreferences.cursorSpringDampingMultiplier}
 							min={0.25}
 							max={3}
 							step={0.01}
-							onChange={(value: number) => onCursorSpringDampingMultiplierChange?.(value)}
+							onChange={(value: number) =>
+								onCursorSpringDampingMultiplierChange?.(value)
+							}
 							formatValue={(value: number) => `${value.toFixed(2)}×`}
 							parseInput={(text: string) => parseFloat(text.replace(/×$/, ""))}
 						/>
 						<SliderControl
-							label={tSettings(
-								"effects.cursorSpringMassMultiplier",
-								"Spring mass",
-							)}
+							label={tSettings("effects.cursorSpringMassMultiplier", "Spring mass")}
 							value={cursorSpringMassMultiplier}
 							defaultValue={initialEditorPreferences.cursorSpringMassMultiplier}
 							min={0.25}
 							max={3}
 							step={0.01}
-							onChange={(value: number) => onCursorSpringMassMultiplierChange?.(value)}
+							onChange={(value: number) =>
+								onCursorSpringMassMultiplierChange?.(value)
+							}
 							formatValue={(value: number) => `${value.toFixed(2)}×`}
 							parseInput={(text: string) => parseFloat(text.replace(/×$/, ""))}
 						/>

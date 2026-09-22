@@ -1,4 +1,3 @@
-import React from "react";
 import {
 	Desktop as DesktopIcon,
 	Microphone as MicrophoneIcon,
@@ -9,10 +8,11 @@ import {
 	VideoCameraSlash as VideoCameraSlashIcon,
 } from "@phosphor-icons/react";
 import type { Span } from "dnd-timeline";
+import React from "react";
 import { cn } from "@/lib/utils";
+import type { ClipTransitionType } from "../../types";
 import AudioWaveform from "../components/waveform/AudioWaveform";
 import type { SlideMedia4in1 } from "../core/timelineTypes";
-import type { ClipTransitionType } from "../../types";
 import glassStyles from "../ItemGlass.module.css";
 
 export interface ClipTimelineItemProps {
@@ -80,7 +80,11 @@ export function ClipTimelineItem({
 								className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-950/70 border border-sky-400/30 text-sky-300 text-[9px] font-medium shrink-0"
 								title="Screen Recording Video Track"
 							>
-								<DesktopIcon size={11} weight="fill" className="text-sky-400 shrink-0" />
+								<DesktopIcon
+									size={11}
+									weight="fill"
+									className="text-sky-400 shrink-0"
+								/>
 								<span className="truncate max-w-[70px]">Screen</span>
 							</div>
 						) : (
@@ -124,7 +128,10 @@ export function ClipTimelineItem({
 									className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-500/40 text-amber-300 text-[9px] font-medium shrink-0"
 									title="Webcam Video Present (Overlay Muted/Disabled in Settings)"
 								>
-									<VideoCameraSlashIcon size={11} className="text-amber-400 shrink-0" />
+									<VideoCameraSlashIcon
+										size={11}
+										className="text-amber-400 shrink-0"
+									/>
 									<span className="hidden sm:inline">Cam Off</span>
 								</div>
 							)
@@ -162,7 +169,9 @@ export function ClipTimelineItem({
 					<div className="relative w-full h-[20px] rounded-md bg-sky-950/60 border border-sky-400/30 overflow-hidden flex items-center px-1.5">
 						<div className="flex items-center gap-1 text-sky-300 z-10 shrink-0 mr-1.5 pointer-events-none select-none">
 							<SpeakerHighIcon size={11} weight="fill" />
-							<span className="text-[8px] font-bold font-mono tracking-wider">SYS</span>
+							<span className="text-[8px] font-bold font-mono tracking-wider">
+								SYS
+							</span>
 						</div>
 						{media4in1?.systemPeaks ? (
 							<AudioWaveform
@@ -184,7 +193,9 @@ export function ClipTimelineItem({
 					<div className="relative w-full h-[20px] rounded-md bg-emerald-950/60 border border-emerald-400/30 overflow-hidden flex items-center px-1.5">
 						<div className="flex items-center gap-1 text-emerald-300 z-10 shrink-0 mr-1.5 pointer-events-none select-none">
 							<MicrophoneIcon size={11} weight="fill" />
-							<span className="text-[8px] font-bold font-mono tracking-wider">MIC</span>
+							<span className="text-[8px] font-bold font-mono tracking-wider">
+								MIC
+							</span>
 						</div>
 						{media4in1?.micPeaks ? (
 							<AudioWaveform

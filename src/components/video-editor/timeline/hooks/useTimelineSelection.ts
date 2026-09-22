@@ -1,7 +1,7 @@
-import { addAnnotationKeyframe, moveAnnotationKeyframe } from "../../annotationKeyframes";
-import type { AnnotationRegion, KeyframeProperty } from "../../types";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
+import { addAnnotationKeyframe, moveAnnotationKeyframe } from "../../annotationKeyframes";
+import type { AnnotationRegion, KeyframeProperty } from "../../types";
 import type { TimelineRegion } from "../core/timelineTypes";
 
 interface UseTimelineSelectionParams {
@@ -21,7 +21,10 @@ interface UseTimelineSelectionParams {
 	onClipDelete?: (id: string, ripple?: boolean) => void;
 	onLayoutDelete?: (id: string) => void;
 	onAnnotationDelete?: (id: string) => void;
-	onAnnotationKeyframesChange?: (id: string, keyframes: import("../../types").PropertyKeyframe[]) => void;
+	onAnnotationKeyframesChange?: (
+		id: string,
+		keyframes: import("../../types").PropertyKeyframe[],
+	) => void;
 	onAudioDelete?: (id: string) => void;
 	onSelectZoom: (id: string | null) => void;
 	onSelectClip?: (id: string | null) => void;
@@ -47,7 +50,7 @@ export function useTimelineSelection({
 	onClipDelete,
 	onLayoutDelete,
 	onAnnotationDelete,
-		onAnnotationKeyframesChange,
+	onAnnotationKeyframesChange,
 	onAudioDelete,
 	onSelectZoom,
 	onSelectClip,
@@ -55,31 +58,71 @@ export function useTimelineSelection({
 	onSelectAnnotation,
 	onSelectAudio,
 }: UseTimelineSelectionParams) {
-	const selectedAnnotation = annotationRegions.find((region) => region.id === selectedAnnotationId);
-	const keyframes = useMemo(() => (selectedAnnotation?.keyframes ?? []).map((frame) => ({
-		id: frame.id, time: selectedAnnotation!.startMs + frame.timeMs - (selectedAnnotation!.keyframeTimeOffsetMs ?? 0), property: frame.property, easing: frame.easing,
-	})).filter(frame => frame.time >= selectedAnnotation!.startMs && frame.time <= selectedAnnotation!.endMs).sort((a, b) => a.time - b.time), [selectedAnnotation]);
+	const selectedAnnotation = annotationRegions.find(
+		(region) => region.id === selectedAnnotationId,
+	);
+	const keyframes = useMemo(
+		() =>
+			(selectedAnnotation?.keyframes ?? [])
+				.map((frame) => ({
+					id: frame.id,
+					time:
+						selectedAnnotation!.startMs +
+						frame.timeMs -
+						(selectedAnnotation!.keyframeTimeOffsetMs ?? 0),
+					property: frame.property,
+					easing: frame.easing,
+				}))
+				.filter(
+					(frame) =>
+						frame.time >= selectedAnnotation!.startMs &&
+						frame.time <= selectedAnnotation!.endMs,
+				)
+				.sort((a, b) => a.time - b.time),
+		[selectedAnnotation],
+	);
 	const [selectedKeyframeId, setSelectedKeyframeId] = useState<string | null>(null);
 	useEffect(() => {
 		setSelectedKeyframeId(null);
 	}, [selectedAnnotationId]);
 	const [selectAllBlocksActive, setSelectAllBlocksActive] = useState(false);
 
-	const addKeyframe = useCallback((property: KeyframeProperty = "position") => {
-		if (!selectedAnnotation || selectedAnnotation.locked || !onAnnotationKeyframesChange || totalMs === 0) return;
-		onAnnotationKeyframesChange(selectedAnnotation.id, addAnnotationKeyframe(selectedAnnotation, property, currentTimeMs, uuidv4()));
-	}, [selectedAnnotation, currentTimeMs, totalMs, onAnnotationKeyframesChange]);
+	const addKeyframe = useCallback(
+		(property: KeyframeProperty = "position") => {
+			if (
+				!selectedAnnotation ||
+				selectedAnnotation.locked ||
+				!onAnnotationKeyframesChange ||
+				totalMs === 0
+			)
+				return;
+			onAnnotationKeyframesChange(
+				selectedAnnotation.id,
+				addAnnotationKeyframe(selectedAnnotation, property, currentTimeMs, uuidv4()),
+			);
+		},
+		[selectedAnnotation, currentTimeMs, totalMs, onAnnotationKeyframesChange],
+	);
 
 	const deleteSelectedKeyframe = useCallback(() => {
 		if (!selectedAnnotation || selectedAnnotation.locked || !selectedKeyframeId) return;
-		onAnnotationKeyframesChange?.(selectedAnnotation.id, (selectedAnnotation.keyframes ?? []).filter((frame) => frame.id !== selectedKeyframeId));
+		onAnnotationKeyframesChange?.(
+			selectedAnnotation.id,
+			(selectedAnnotation.keyframes ?? []).filter((frame) => frame.id !== selectedKeyframeId),
+		);
 		setSelectedKeyframeId(null);
 	}, [selectedAnnotation, selectedKeyframeId, onAnnotationKeyframesChange]);
 
-	const handleKeyframeMove = useCallback((id: string, newTime: number) => {
-		if (!selectedAnnotation || selectedAnnotation.locked) return;
-		onAnnotationKeyframesChange?.(selectedAnnotation.id, moveAnnotationKeyframe(selectedAnnotation, id, newTime));
-	}, [selectedAnnotation, onAnnotationKeyframesChange]);
+	const handleKeyframeMove = useCallback(
+		(id: string, newTime: number) => {
+			if (!selectedAnnotation || selectedAnnotation.locked) return;
+			onAnnotationKeyframesChange?.(
+				selectedAnnotation.id,
+				moveAnnotationKeyframe(selectedAnnotation, id, newTime),
+			);
+		},
+		[selectedAnnotation, onAnnotationKeyframesChange],
+	);
 
 	const deleteSelectedZoom = useCallback(() => {
 		if (!selectedZoomId) return;

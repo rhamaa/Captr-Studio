@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { resolveMediaResourceUrl } from "@/lib/exporter/localMediaSource";
-import { fromFileUrl } from "../../projectPersistence";
 import { waveformGenerator } from "../../audio/waveform/WaveformGenerator";
+import { fromFileUrl } from "../../projectPersistence";
 import { WAVEFORM_DEFAULT_PEAK_COUNT } from "../core/constants";
 import type { AudioPeaksData } from "../core/timelineTypes";
 
@@ -105,7 +105,8 @@ export function useTimelineAudioPeaks(
 			let ipcSucceeded = false;
 			if (typeof window !== "undefined" && window.electronAPI?.getVideoAudioFallbackPaths) {
 				try {
-					const fallbackRes = await window.electronAPI.getVideoAudioFallbackPaths(localSourcePath);
+					const fallbackRes =
+						await window.electronAPI.getVideoAudioFallbackPaths(localSourcePath);
 					if (fallbackRes?.success) {
 						ipcSucceeded = true;
 						if (Array.isArray(fallbackRes.paths) && fallbackRes.paths.length > 0) {

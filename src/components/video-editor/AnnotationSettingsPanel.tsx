@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useState } from "react";
 import {
 	ImageSquare as ImageIcon,
 	Info,
@@ -6,27 +5,20 @@ import {
 	Trash as Trash2,
 	TextT as Type,
 } from "@phosphor-icons/react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type CustomFont, getCustomFonts } from "@/lib/customFonts";
 import { useScopedT } from "../../contexts/I18nContext";
-import type {
-	AnnotationRegion,
-	AnnotationType,
-	FigureData,
-} from "./types";
-import {
-	COLOR_PALETTE,
-	FONT_FAMILY_VALUES,
-	FONT_SIZES,
-} from "./annotations/annotationConstants";
-import { AnnotationHeader } from "./annotations/AnnotationHeader";
-import { AnnotationTextTab } from "./annotations/AnnotationTextTab";
-import { AnnotationMediaTab } from "./annotations/AnnotationMediaTab";
-import { AnnotationFigureTab } from "./annotations/AnnotationFigureTab";
 import { AnnotationBlurTab } from "./annotations/AnnotationBlurTab";
 import { AnnotationEffectsSection } from "./annotations/AnnotationEffectsSection";
+import { AnnotationFigureTab } from "./annotations/AnnotationFigureTab";
+import { AnnotationHeader } from "./annotations/AnnotationHeader";
 import { AnnotationKeyframeSection } from "./annotations/AnnotationKeyframeSection";
+import { AnnotationMediaTab } from "./annotations/AnnotationMediaTab";
+import { AnnotationTextTab } from "./annotations/AnnotationTextTab";
+import { COLOR_PALETTE, FONT_FAMILY_VALUES, FONT_SIZES } from "./annotations/annotationConstants";
+import type { AnnotationRegion, AnnotationType, FigureData } from "./types";
 
 export { FONT_FAMILY_VALUES, FONT_SIZES };
 
@@ -78,11 +70,7 @@ export function AnnotationSettingsPanel({
 		<div className="flex-[2] min-w-0 bg-editor-panel border border-foreground/10 rounded-2xl flex flex-col shadow-xl h-full overflow-hidden">
 			<div className="flex-1 min-h-0 p-4 overflow-y-auto custom-scrollbar">
 				<div className="mb-6">
-					<AnnotationHeader
-						annotation={annotation}
-						onLayerChange={onLayerChange}
-						t={t}
-					/>
+					<AnnotationHeader annotation={annotation} onLayerChange={onLayerChange} t={t} />
 
 					{/* Type Selector */}
 					<Tabs
@@ -175,10 +163,51 @@ export function AnnotationSettingsPanel({
 						</TabsContent>
 					</Tabs>
 
-					{annotation.type === "video" && <fieldset disabled={annotation.locked} className="space-y-2 py-3">
-						<label className="flex justify-between text-xs">Source offset (seconds)<input aria-label="Video source offset" type="number" min="0" step="0.1" value={(annotation.sourceOffsetMs ?? 0) / 1000} onChange={event => { if (Number.isFinite(event.target.valueAsNumber)) onLayerChange?.({ sourceOffsetMs: Math.max(0, event.target.valueAsNumber * 1000) }); }} className="w-20 bg-foreground/5" /></label>
-						<label className="flex justify-between text-xs">Playback speed<input aria-label="Video layer speed" type="number" min="0.25" max="4" step="0.25" value={annotation.playbackRate ?? 1} onChange={event => { if (Number.isFinite(event.target.valueAsNumber)) onLayerChange?.({ playbackRate: Math.max(0.25, Math.min(4, event.target.valueAsNumber)) }); }} className="w-20 bg-foreground/5" /></label>
-					</fieldset>}
+					{annotation.type === "video" && (
+						<fieldset disabled={annotation.locked} className="space-y-2 py-3">
+							<label className="flex justify-between text-xs">
+								Source offset (seconds)
+								<input
+									aria-label="Video source offset"
+									type="number"
+									min="0"
+									step="0.1"
+									value={(annotation.sourceOffsetMs ?? 0) / 1000}
+									onChange={(event) => {
+										if (Number.isFinite(event.target.valueAsNumber))
+											onLayerChange?.({
+												sourceOffsetMs: Math.max(
+													0,
+													event.target.valueAsNumber * 1000,
+												),
+											});
+									}}
+									className="w-20 bg-foreground/5"
+								/>
+							</label>
+							<label className="flex justify-between text-xs">
+								Playback speed
+								<input
+									aria-label="Video layer speed"
+									type="number"
+									min="0.25"
+									max="4"
+									step="0.25"
+									value={annotation.playbackRate ?? 1}
+									onChange={(event) => {
+										if (Number.isFinite(event.target.valueAsNumber))
+											onLayerChange?.({
+												playbackRate: Math.max(
+													0.25,
+													Math.min(4, event.target.valueAsNumber),
+												),
+											});
+									}}
+									className="w-20 bg-foreground/5"
+								/>
+							</label>
+						</fieldset>
+					)}
 					<AnnotationEffectsSection
 						annotation={annotation}
 						onStyleChange={onStyleChange}

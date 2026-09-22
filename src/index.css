@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@400;700&family=Oswald:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Roboto:ital,wght@0,400;0,700;1,400&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@400;700&family=Oswald:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Roboto:ital,wght@0,400;0,700;1,400&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -31,10 +31,10 @@
 
 	:root {
 		--app-font-sans: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
-		--brand-accent: #6366F1;
+		--brand-accent: #6366f1;
 		--brand-accent-rgb: 99, 102, 241;
-		--brand-cyan: #06B6D4;
-		--brand-crimson: #FF3358;
+		--brand-cyan: #06b6d4;
+		--brand-crimson: #ff3358;
 		--background: 220 33% 98%;
 		--foreground: 222 47% 11%;
 		--card: 0 0% 100%;

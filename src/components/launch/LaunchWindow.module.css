@@ -17,8 +17,10 @@
 	border-radius: 20px;
 	padding: 11px 20px 11px 18px;
 	box-shadow: var(--launch-bar-shadow);
-	backdrop-filter: blur(var(--launch-popover-blur, 36px)) saturate(var(--launch-popover-saturate, 190%));
-	-webkit-backdrop-filter: blur(var(--launch-popover-blur, 36px)) saturate(var(--launch-popover-saturate, 190%));
+	backdrop-filter: blur(var(--launch-popover-blur, 36px))
+		saturate(var(--launch-popover-saturate, 190%));
+	-webkit-backdrop-filter: blur(var(--launch-popover-blur, 36px))
+		saturate(var(--launch-popover-saturate, 190%));
 	overflow: visible;
 	position: relative;
 	transform-origin: center bottom;
@@ -96,8 +98,6 @@
 .ibGreen:hover {
 	color: #4eeeb0;
 }
-
-
 
 .menuCard {
 	width: 300px;

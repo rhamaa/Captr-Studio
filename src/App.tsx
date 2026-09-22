@@ -11,7 +11,9 @@ import { ShortcutsProvider } from "./contexts/ShortcutsContext";
 import { loadAllCustomFonts } from "./lib/customFonts";
 
 export default function App() {
-	const [windowType] = useState(() => new URLSearchParams(window.location.search).get("windowType") || "");
+	const [windowType] = useState(
+		() => new URLSearchParams(window.location.search).get("windowType") || "",
+	);
 	const { t } = useI18n();
 	const isMacOS = /mac/i.test(navigator.platform);
 

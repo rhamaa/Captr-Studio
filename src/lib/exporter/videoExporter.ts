@@ -3,18 +3,18 @@ import type {
 	AudioDuckingSettings,
 	AudioRegion,
 	ClipRegion,
+	ColorGradingSettings,
 	CropRegion,
 	CursorStyle,
 	CursorTelemetryPoint,
 	Padding,
-	SpeedRegion,
 	SourceAudioTrackSettings,
+	SpeedRegion,
 	TrimRegion,
 	WebcamOverlaySettings,
 	ZoomMotionBlurTuning,
 	ZoomRegion,
 	ZoomTransitionEasing,
-	ColorGradingSettings,
 } from "@/components/video-editor/types";
 import { getEffectiveVideoStreamDurationSeconds } from "@/lib/mediaTiming";
 import { AudioProcessor, isAacAudioEncodingSupported } from "./audioEncoder";

@@ -3,68 +3,69 @@ import { toast } from "sonner";
 import { SOURCE_AUDIO_FALLBACK_TOAST_ID } from "@/components/video-editor/audio/audioTypes";
 
 interface UseSourceAudioFallbackParams {
-  currentSourcePath: string | null;
-  summarizeErrorMessage: (message: string) => string;
-  reloadTrigger?: number;
+	currentSourcePath: string | null;
+	summarizeErrorMessage: (message: string) => string;
+	reloadTrigger?: number;
 }
 
 export function useSourceAudioFallback({
-  currentSourcePath,
-  summarizeErrorMessage,
-  reloadTrigger,
+	currentSourcePath,
+	summarizeErrorMessage,
+	reloadTrigger,
 }: UseSourceAudioFallbackParams) {
-  const [sourceAudioFallbackPaths, setSourceAudioFallbackPaths] = useState<string[]>([]);
-  const [sourceAudioFallbackStartDelayMsByPath, setSourceAudioFallbackStartDelayMsByPath] =
-    useState<Record<string, number>>({});
+	const [sourceAudioFallbackPaths, setSourceAudioFallbackPaths] = useState<string[]>([]);
+	const [sourceAudioFallbackStartDelayMsByPath, setSourceAudioFallbackStartDelayMsByPath] =
+		useState<Record<string, number>>({});
 
-  useEffect(() => {
-    let cancelled = false;
-    setSourceAudioFallbackPaths([]);
-    setSourceAudioFallbackStartDelayMsByPath({});
+	useEffect(() => {
+		let cancelled = false;
+		setSourceAudioFallbackPaths([]);
+		setSourceAudioFallbackStartDelayMsByPath({});
 
-    if (!currentSourcePath) {
-      return () => {
-        cancelled = true;
-      };
-    }
+		if (!currentSourcePath) {
+			return () => {
+				cancelled = true;
+			};
+		}
 
-    void (async () => {
-      try {
-        const result = await window.electronAPI.getVideoAudioFallbackPaths(currentSourcePath);
-        if (cancelled) {
-          return;
-        }
-        if (!result.success) {
-          setSourceAudioFallbackPaths([]);
-          setSourceAudioFallbackStartDelayMsByPath({});
-          toast.warning(
-            result.error
-              ? `Could not load companion audio sources: ${summarizeErrorMessage(result.error)}`
-              : "Could not load companion audio sources. Playback and export may miss microphone audio.",
-            { id: SOURCE_AUDIO_FALLBACK_TOAST_ID, duration: 10000 },
-          );
-          return;
-        }
+		void (async () => {
+			try {
+				const result =
+					await window.electronAPI.getVideoAudioFallbackPaths(currentSourcePath);
+				if (cancelled) {
+					return;
+				}
+				if (!result.success) {
+					setSourceAudioFallbackPaths([]);
+					setSourceAudioFallbackStartDelayMsByPath({});
+					toast.warning(
+						result.error
+							? `Could not load companion audio sources: ${summarizeErrorMessage(result.error)}`
+							: "Could not load companion audio sources. Playback and export may miss microphone audio.",
+						{ id: SOURCE_AUDIO_FALLBACK_TOAST_ID, duration: 10000 },
+					);
+					return;
+				}
 
-        toast.dismiss(SOURCE_AUDIO_FALLBACK_TOAST_ID);
-        setSourceAudioFallbackPaths(result.paths ?? []);
-        setSourceAudioFallbackStartDelayMsByPath(result.startDelayMsByPath ?? {});
-      } catch (error) {
-        if (!cancelled) {
-          setSourceAudioFallbackPaths([]);
-          setSourceAudioFallbackStartDelayMsByPath({});
-          toast.warning(
-            `Could not load companion audio sources: ${summarizeErrorMessage(String(error))}`,
-            { id: SOURCE_AUDIO_FALLBACK_TOAST_ID, duration: 10000 },
-          );
-        }
-      }
-    })();
+				toast.dismiss(SOURCE_AUDIO_FALLBACK_TOAST_ID);
+				setSourceAudioFallbackPaths(result.paths ?? []);
+				setSourceAudioFallbackStartDelayMsByPath(result.startDelayMsByPath ?? {});
+			} catch (error) {
+				if (!cancelled) {
+					setSourceAudioFallbackPaths([]);
+					setSourceAudioFallbackStartDelayMsByPath({});
+					toast.warning(
+						`Could not load companion audio sources: ${summarizeErrorMessage(String(error))}`,
+						{ id: SOURCE_AUDIO_FALLBACK_TOAST_ID, duration: 10000 },
+					);
+				}
+			}
+		})();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [currentSourcePath, summarizeErrorMessage, reloadTrigger]);
+		return () => {
+			cancelled = true;
+		};
+	}, [currentSourcePath, summarizeErrorMessage, reloadTrigger]);
 
-  return { sourceAudioFallbackPaths, sourceAudioFallbackStartDelayMsByPath };
+	return { sourceAudioFallbackPaths, sourceAudioFallbackStartDelayMsByPath };
 }

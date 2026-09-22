@@ -406,7 +406,9 @@ describe("getNativeExportCapabilities", () => {
 
 		expect(capabilities.nvidiaCuda.available).toBe(process.platform === "win32");
 		expect(capabilities.nvidiaCuda.hasWrapper).toBe(process.platform === "win32");
-		expect(capabilities.nvidiaCuda.hasNvidiaGpu).toBe(process.platform === "win32" ? true : null);
+		expect(capabilities.nvidiaCuda.hasNvidiaGpu).toBe(
+			process.platform === "win32" ? true : null,
+		);
 	});
 });
 

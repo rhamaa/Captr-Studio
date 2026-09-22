@@ -1,5 +1,5 @@
-import { ModernVideoExporter } from "./modernVideoExporter";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ModernVideoExporter } from "./modernVideoExporter";
 
 const mocks = vi.hoisted(() => {
 	const videoInfo = {

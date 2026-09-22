@@ -666,7 +666,7 @@ export function interpolateCursorPosition(
 	const p3 = hi < samples.length - 1 ? samples[hi + 1] : b;
 
 	// Fallback to linear if adjacent samples have large time gaps (idle pauses or jump cuts > 180ms)
-	const hasLargeGap = (p1.timeMs - p0.timeMs > 180) || (p3.timeMs - p2.timeMs > 180);
+	const hasLargeGap = p1.timeMs - p0.timeMs > 180 || p3.timeMs - p2.timeMs > 180;
 	if (hasLargeGap) {
 		return {
 			cx: Math.max(0, Math.min(1, a.cx + (b.cx - a.cx) * t)),
@@ -678,12 +678,12 @@ export function interpolateCursorPosition(
 	const t3 = t2 * t;
 
 	const catmullRom = (v0: number, v1: number, v2: number, v3: number) => {
-		const val = 0.5 * (
-			2 * v1 +
-			(-v0 + v2) * t +
-			(2 * v0 - 5 * v1 + 4 * v2 - v3) * t2 +
-			(-v0 + 3 * v1 - 3 * v2 + v3) * t3
-		);
+		const val =
+			0.5 *
+			(2 * v1 +
+				(-v0 + v2) * t +
+				(2 * v0 - 5 * v1 + 4 * v2 - v3) * t2 +
+				(-v0 + 3 * v1 - 3 * v2 + v3) * t3);
 		return Math.max(0, Math.min(1, val));
 	};
 
@@ -774,10 +774,7 @@ function getCursorViewportScale(viewport: CursorViewportRect) {
 	return Math.max(MIN_CURSOR_VIEWPORT_SCALE, viewport.width / REFERENCE_WIDTH);
 }
 
-function getCursorSwaySpringConfig(
-	smoothingFactor: number,
-	springTuning: CursorSpringTuning,
-) {
+function getCursorSwaySpringConfig(smoothingFactor: number, springTuning: CursorSpringTuning) {
 	const baseConfig = getCursorSpringConfig(
 		Math.min(
 			2,
@@ -841,7 +838,9 @@ export class SmoothedCursorState {
 	private xSpring = createSpringState(0.5);
 	private ySpring = createSpringState(0.5);
 
-	constructor(config: Pick<CursorRenderConfig, "smoothingFactor" | "trailLength" | "springTuning">) {
+	constructor(
+		config: Pick<CursorRenderConfig, "smoothingFactor" | "trailLength" | "springTuning">,
+	) {
 		this.smoothingFactor = config.smoothingFactor;
 		this.springTuning = config.springTuning;
 		this.trailLength = config.trailLength;
@@ -1164,7 +1163,11 @@ export class PixiCursorOverlay {
 			this.clickRingGraphics.fill({ color: 0x3b82f6, alpha: ringAlpha * 0.22 });
 
 			this.clickRingGraphics.circle(px, py, radius);
-			this.clickRingGraphics.stroke({ width: strokeWidth, color: 0x60a5fa, alpha: ringAlpha });
+			this.clickRingGraphics.stroke({
+				width: strokeWidth,
+				color: 0x60a5fa,
+				alpha: ringAlpha,
+			});
 		}
 
 		const spriteKey = (

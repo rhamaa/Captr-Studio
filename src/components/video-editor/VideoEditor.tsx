@@ -435,7 +435,7 @@ export default function VideoEditor() {
 			.then((maximized) => {
 				setIsEditorMaximized(Boolean(maximized));
 			})
-			.catch(() => {});
+			.catch(() => undefined);
 
 		const unsubscribe = window.electronAPI?.onWindowMaximizedChange?.((maximized) => {
 			setIsEditorMaximized(maximized);
@@ -780,7 +780,9 @@ export default function VideoEditor() {
 				setSidebarWidth(nextWidth);
 				try {
 					localStorage.setItem("captr.workspace.sidebarWidth", String(nextWidth));
-				} catch {}
+				} catch {
+					// localStorage persistence is best-effort (quota/private mode).
+				}
 				setIsDraggingSidebar(false);
 				document.body.style.cursor = "";
 				document.body.style.userSelect = "";
@@ -798,7 +800,9 @@ export default function VideoEditor() {
 		setSidebarWidth(332);
 		try {
 			localStorage.setItem("captr.workspace.sidebarWidth", "332");
-		} catch {}
+		} catch {
+			// localStorage persistence is best-effort (quota/private mode).
+		}
 	}, []);
 
 	const handleTimelineResizeStart = useCallback(
@@ -827,7 +831,9 @@ export default function VideoEditor() {
 				setTimelineHeight(nextHeight);
 				try {
 					localStorage.setItem("captr.workspace.timelineHeight", String(nextHeight));
-				} catch {}
+				} catch {
+					// localStorage persistence is best-effort (quota/private mode).
+				}
 				setIsDraggingTimeline(false);
 				document.body.style.cursor = "";
 				document.body.style.userSelect = "";
@@ -846,7 +852,9 @@ export default function VideoEditor() {
 		setTimelineCollapsed(false);
 		try {
 			localStorage.setItem("captr.workspace.timelineHeight", "220");
-		} catch {}
+		} catch {
+			// localStorage persistence is best-effort (quota/private mode).
+		}
 	}, []);
 
 	useEffect(() => {

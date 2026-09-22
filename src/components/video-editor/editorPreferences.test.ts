@@ -125,7 +125,9 @@ describe("editorPreferences", () => {
 
 		const loaded = loadEditorPreferences();
 
-		expect(loaded.zoomMotionBlurTuning).toEqual(DEFAULT_EDITOR_PREFERENCES.zoomMotionBlurTuning);
+		expect(loaded.zoomMotionBlurTuning).toEqual(
+			DEFAULT_EDITOR_PREFERENCES.zoomMotionBlurTuning,
+		);
 	});
 
 	it("does not save dev-only split blur tuning overrides to editor preferences", () => {

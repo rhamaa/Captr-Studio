@@ -1,14 +1,14 @@
-import React from "react";
 import { Trash as Trash2 } from "@phosphor-icons/react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
 import {
 	TEMPORAL_MOTION_BLUR_DEFAULT_SAMPLE_COUNT,
 	TEMPORAL_MOTION_BLUR_DEFAULT_SHUTTER_FRACTION,
 } from "@/lib/exporter/temporalMotionBlur";
-import { SectionLabel } from "../components/SettingsSectionLabel";
+import { cn } from "@/lib/utils";
 import type { ZoomDepth, ZoomMode } from "../../types";
+import { SectionLabel } from "../components/SettingsSectionLabel";
 
 export const ZOOM_DEPTH_OPTIONS: Array<{ depth: ZoomDepth; label: string }> = [
 	{ depth: 1, label: "1.25×" },
@@ -59,9 +59,8 @@ export const ZoomItemSection: React.FC<ZoomItemSectionProps> = ({
 						{selectedZoomDepth && (
 							<span className="rounded-full bg-[#2563EB]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[#2563EB]">
 								{
-									ZOOM_DEPTH_OPTIONS.find(
-										(o) => o.depth === selectedZoomDepth,
-									)?.label
+									ZOOM_DEPTH_OPTIONS.find((o) => o.depth === selectedZoomDepth)
+										?.label
 								}
 							</span>
 						)}
@@ -120,9 +119,7 @@ export const ZoomItemSection: React.FC<ZoomItemSectionProps> = ({
 											: "border-foreground/5 bg-foreground/5 text-muted-foreground hover:bg-foreground/10 hover:border-foreground/10 hover:text-foreground",
 									)}
 								>
-									<span className="text-xs font-semibold">
-										{option.label}
-									</span>
+									<span className="text-xs font-semibold">{option.label}</span>
 								</Button>
 							);
 						})}

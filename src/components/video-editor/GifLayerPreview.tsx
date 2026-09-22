@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { decodeGif, getGifFrameAtTime, type DecodedGif } from "@/lib/gifDecoder";
 import { resolveMediaElementSource } from "@/lib/exporter/localMediaSource";
+import { type DecodedGif, decodeGif, getGifFrameAtTime } from "@/lib/gifDecoder";
 import type { AnnotationRegion } from "./types";
 
 export function GifLayerPreview({ layer, timeMs }: { layer: AnnotationRegion; timeMs: number }) {
@@ -8,7 +8,7 @@ export function GifLayerPreview({ layer, timeMs }: { layer: AnnotationRegion; ti
 	const [gif, setGif] = useState<DecodedGif | null>(null);
 	useEffect(() => {
 		let disposed = false;
-		let revoke = () => {};
+		let revoke: () => void = () => undefined;
 		setGif(null);
 		void (async () => {
 			const source = await resolveMediaElementSource(layer.gifDataUrl || layer.gifPath || "");
@@ -19,7 +19,7 @@ export function GifLayerPreview({ layer, timeMs }: { layer: AnnotationRegion; ti
 			revoke = source.revoke;
 			const decoded = await decodeGif(source.src);
 			if (!disposed) setGif(decoded);
-		})().catch(() => {});
+		})().catch(() => undefined);
 		return () => {
 			disposed = true;
 			revoke();

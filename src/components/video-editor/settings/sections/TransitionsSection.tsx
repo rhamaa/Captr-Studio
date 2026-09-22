@@ -1,14 +1,9 @@
+import { ArrowsLeftRight, Check, Sparkle, X } from "@phosphor-icons/react";
 import React from "react";
-import {
-	ArrowsLeftRight,
-	Check,
-	Sparkle,
-	X,
-} from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { SliderControl } from "../../SliderControl";
-import { SectionLabel } from "../components/SettingsSectionLabel";
 import type { ClipTransitionType } from "../../types";
+import { SectionLabel } from "../components/SettingsSectionLabel";
 
 export interface TransitionsSectionProps {
 	selectedClipTransitionIn?: ClipTransitionType | null;
@@ -40,12 +35,42 @@ export const TransitionsSection: React.FC<TransitionsSectionProps> = ({
 			{/* Transition Effect Choices */}
 			<div className="grid grid-cols-2 gap-2">
 				{[
-					{ id: "none" as const, label: "Cut (None)", desc: "Instant transition", icon: X },
-					{ id: "fade-black" as const, label: "Fade Black", desc: "Cinematic black dip", icon: Sparkle },
-					{ id: "fade-white" as const, label: "Fade White", desc: "Luminous flash", icon: Sparkle },
-					{ id: "slide-left" as const, label: "Slide Left", desc: "Push left transition", icon: ArrowsLeftRight },
-					{ id: "slide-right" as const, label: "Slide Right", desc: "Push right transition", icon: ArrowsLeftRight },
-					{ id: "zoom-push" as const, label: "Zoom Push", desc: "Dynamic zoom perspective", icon: Sparkle },
+					{
+						id: "none" as const,
+						label: "Cut (None)",
+						desc: "Instant transition",
+						icon: X,
+					},
+					{
+						id: "fade-black" as const,
+						label: "Fade Black",
+						desc: "Cinematic black dip",
+						icon: Sparkle,
+					},
+					{
+						id: "fade-white" as const,
+						label: "Fade White",
+						desc: "Luminous flash",
+						icon: Sparkle,
+					},
+					{
+						id: "slide-left" as const,
+						label: "Slide Left",
+						desc: "Push left transition",
+						icon: ArrowsLeftRight,
+					},
+					{
+						id: "slide-right" as const,
+						label: "Slide Right",
+						desc: "Push right transition",
+						icon: ArrowsLeftRight,
+					},
+					{
+						id: "zoom-push" as const,
+						label: "Zoom Push",
+						desc: "Dynamic zoom perspective",
+						icon: Sparkle,
+					},
 				].map((opt) => {
 					const isCurrent = (selectedClipTransitionIn ?? "none") === opt.id;
 					const IconComp = opt.icon;
@@ -88,7 +113,9 @@ export const TransitionsSection: React.FC<TransitionsSectionProps> = ({
 						step={50}
 						onChange={(v: number) => onClipTransitionInDurationChange?.(v)}
 						formatValue={(v: number) => `${(v / 1000).toFixed(2)}s`}
-						parseInput={(t: string) => Math.round(parseFloat(t.replace(/s$/, "")) * 1000) || 400}
+						parseInput={(t: string) =>
+							Math.round(parseFloat(t.replace(/s$/, "")) * 1000) || 400
+						}
 					/>
 					<div className="flex items-center gap-1">
 						{[200, 400, 600, 800, 1000].map((dur) => (

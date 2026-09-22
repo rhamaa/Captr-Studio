@@ -1,8 +1,8 @@
-import { Microphone, Stop, SlidersHorizontal } from "@phosphor-icons/react";
+import { Microphone, SlidersHorizontal, Stop } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export interface VoiceoverStudioProps {
 	onAudioRecorded?: (span: { start: number; end: number }, audioPath: string) => void;
@@ -57,7 +57,7 @@ export function VoiceoverStudio({
 			if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
 			if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
 			if (audioContextRef.current) {
-				audioContextRef.current.close().catch(() => {});
+				audioContextRef.current.close().catch(() => undefined);
 			}
 		};
 	}, []);
@@ -121,7 +121,7 @@ export function VoiceoverStudio({
 			recorder.onstop = async () => {
 				stream.getTracks().forEach((track) => track.stop());
 				if (audioContextRef.current) {
-					audioContextRef.current.close().catch(() => {});
+					audioContextRef.current.close().catch(() => undefined);
 					audioContextRef.current = null;
 				}
 				if (animationFrameRef.current) {

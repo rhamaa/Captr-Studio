@@ -5,7 +5,6 @@ import type {
 	LayoutRegion,
 	ZoomRegion,
 } from "../../types";
-import type { TimelineRegionSpan, TimelineRenderItem } from "../core/timelineTypes";
 import { CLIP_ROW_ID, LAYOUT_ROW_ID, ZOOM_ROW_ID } from "../core/constants";
 import {
 	getAnnotationTrackIndex,
@@ -15,13 +14,17 @@ import {
 	isAnnotationTrackRowId,
 	isAudioTrackRowId,
 } from "../core/rows";
+import type { TimelineRegionSpan, TimelineRenderItem } from "../core/timelineTypes";
 
 export function getAnnotationLabel(region: AnnotationRegion): string {
 	if (region.name && region.name.trim()) {
 		return region.name.trim();
 	}
 	if (region.videoFilePath) {
-		const fileName = region.videoFilePath.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, "");
+		const fileName = region.videoFilePath
+			.split(/[\\/]/)
+			.pop()
+			?.replace(/\.[^.]+$/, "");
 		return fileName ? `Video: ${fileName}` : "Video B-Roll";
 	}
 	if (region.type === "text") {
@@ -35,7 +38,12 @@ export function getAnnotationLabel(region: AnnotationRegion): string {
 }
 
 export function getAudioLabel(region: AudioRegion): string {
-	return region.audioPath.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, "") || "Audio";
+	return (
+		region.audioPath
+			.split(/[\\/]/)
+			.pop()
+			?.replace(/\.[^.]+$/, "") || "Audio"
+	);
 }
 
 export function buildTimelineItems(params: {
@@ -45,7 +53,13 @@ export function buildTimelineItems(params: {
 	annotationRegions: AnnotationRegion[];
 	audioRegions: AudioRegion[];
 }): TimelineRenderItem[] {
-	const { zoomRegions, clipRegions, layoutRegions = [], annotationRegions, audioRegions } = params;
+	const {
+		zoomRegions,
+		clipRegions,
+		layoutRegions = [],
+		annotationRegions,
+		audioRegions,
+	} = params;
 	const zooms: TimelineRenderItem[] = zoomRegions.map((region, index) => ({
 		id: region.id,
 		rowId: ZOOM_ROW_ID,

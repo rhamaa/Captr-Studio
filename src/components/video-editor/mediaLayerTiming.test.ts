@@ -1,10 +1,10 @@
-import { splitMediaLayer } from "./splitMediaLayer";
-import { sampleAnnotationTransform } from "./annotationKeyframes";
 import { describe, expect, it } from "vitest";
-import { mediaLayerSourceTime, isMediaLayerActive } from "./mediaLayerTiming";
-import { buildVideoLayerAudioRegions } from "./videoLayerAudio";
-import { normalizeClipEntries, normalizeProjectEditor } from "./projectPersistence";
+import { sampleAnnotationTransform } from "./annotationKeyframes";
 import { calculateEasingProgress } from "./keyframeInterpolation";
+import { isMediaLayerActive, mediaLayerSourceTime } from "./mediaLayerTiming";
+import { normalizeClipEntries, normalizeProjectEditor } from "./projectPersistence";
+import { splitMediaLayer } from "./splitMediaLayer";
+import { buildVideoLayerAudioRegions } from "./videoLayerAudio";
 
 describe("multi-layer media contract", () => {
 	it("seeks relative to placement, source trim and layer speed", () => {

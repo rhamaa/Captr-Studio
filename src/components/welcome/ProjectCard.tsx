@@ -99,19 +99,31 @@ export function ProjectCard({
 						>
 							<DotsThreeVerticalIcon className="w-4 h-4" weight="bold" />
 						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end" className="w-44 bg-editor-dialog border border-foreground/10 text-xs shadow-xl p-1 rounded-xl">
-							<DropdownMenuItem onClick={() => onOpen(entry.path)} className="gap-2 cursor-pointer">
+						<DropdownMenuContent
+							align="end"
+							className="w-44 bg-editor-dialog border border-foreground/10 text-xs shadow-xl p-1 rounded-xl"
+						>
+							<DropdownMenuItem
+								onClick={() => onOpen(entry.path)}
+								className="gap-2 cursor-pointer"
+							>
 								<PlayIcon className="w-3.5 h-3.5 text-primary" />
 								<span>Open Project</span>
 							</DropdownMenuItem>
 							{onReveal && (
-								<DropdownMenuItem onClick={() => onReveal(entry.path)} className="gap-2 cursor-pointer">
+								<DropdownMenuItem
+									onClick={() => onReveal(entry.path)}
+									className="gap-2 cursor-pointer"
+								>
 									<FolderOpenIcon className="w-3.5 h-3.5 text-muted-foreground" />
 									<span>Reveal in Explorer</span>
 								</DropdownMenuItem>
 							)}
 							{onDelete && (
-								<DropdownMenuItem onClick={() => onDelete(entry.path)} className="gap-2 text-destructive cursor-pointer">
+								<DropdownMenuItem
+									onClick={() => onDelete(entry.path)}
+									className="gap-2 text-destructive cursor-pointer"
+								>
 									<TrashIcon className="w-3.5 h-3.5" />
 									<span>Delete Project</span>
 								</DropdownMenuItem>
@@ -162,19 +174,31 @@ export function ProjectCard({
 						<DropdownMenuTrigger className="w-7 h-7 rounded-lg bg-black/60 hover:bg-black/80 backdrop-blur-md text-white flex items-center justify-center border border-white/10 shadow-sm transition-colors">
 							<DotsThreeVerticalIcon className="w-4 h-4" weight="bold" />
 						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end" className="w-44 bg-editor-dialog border border-foreground/10 text-xs shadow-xl p-1 rounded-xl">
-							<DropdownMenuItem onClick={() => onOpen(entry.path)} className="gap-2 cursor-pointer">
+						<DropdownMenuContent
+							align="end"
+							className="w-44 bg-editor-dialog border border-foreground/10 text-xs shadow-xl p-1 rounded-xl"
+						>
+							<DropdownMenuItem
+								onClick={() => onOpen(entry.path)}
+								className="gap-2 cursor-pointer"
+							>
 								<PlayIcon className="w-3.5 h-3.5 text-primary" />
 								<span>Open Project</span>
 							</DropdownMenuItem>
 							{onReveal && (
-								<DropdownMenuItem onClick={() => onReveal(entry.path)} className="gap-2 cursor-pointer">
+								<DropdownMenuItem
+									onClick={() => onReveal(entry.path)}
+									className="gap-2 cursor-pointer"
+								>
 									<FolderOpenIcon className="w-3.5 h-3.5 text-muted-foreground" />
 									<span>Reveal in Explorer</span>
 								</DropdownMenuItem>
 							)}
 							{onDelete && (
-								<DropdownMenuItem onClick={() => onDelete(entry.path)} className="gap-2 text-destructive cursor-pointer">
+								<DropdownMenuItem
+									onClick={() => onDelete(entry.path)}
+									className="gap-2 text-destructive cursor-pointer"
+								>
 									<TrashIcon className="w-3.5 h-3.5" />
 									<span>Delete Project</span>
 								</DropdownMenuItem>
@@ -187,10 +211,16 @@ export function ProjectCard({
 			{/* Project Info */}
 			<div className="p-3.5 flex flex-col justify-between flex-1">
 				<div>
-					<h4 className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors" title={entry.name}>
+					<h4
+						className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors"
+						title={entry.name}
+					>
 						{entry.name}
 					</h4>
-					<p className="text-[11px] text-muted-foreground truncate mt-0.5 font-mono" title={entry.path}>
+					<p
+						className="text-[11px] text-muted-foreground truncate mt-0.5 font-mono"
+						title={entry.path}
+					>
 						{entry.path}
 					</p>
 				</div>

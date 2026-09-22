@@ -1,5 +1,5 @@
-import { cursorSetAssets } from "../../videoPlayback/uploadedCursorAssets";
 import type { CursorStyle } from "../../types";
+import { cursorSetAssets } from "../../videoPlayback/uploadedCursorAssets";
 
 export const tahoeCursorUrl = cursorSetAssets.tahoe.arrow.url;
 

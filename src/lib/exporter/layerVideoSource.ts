@@ -3,7 +3,7 @@ import { resolveMediaElementSource } from "./localMediaSource";
 /** One paused decoder per layer. Export waits for each exact seek before drawing. */
 export class LayerVideoSource {
 	readonly video = document.createElement("video");
-	private revoke: () => void = () => {};
+	private revoke: () => void = () => undefined;
 	private disposed = false;
 
 	async load(path: string): Promise<void> {

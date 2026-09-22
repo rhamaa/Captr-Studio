@@ -1,9 +1,9 @@
 import { MicrophoneSlashIcon, SpeakerHighIcon, SpeakerXIcon } from "@phosphor-icons/react";
+import type { ReactElement } from "react";
 import { useScopedT } from "@/contexts/I18nContext";
-import { DropdownItem, HudPopover, MicDeviceRow } from "./PopoverScaffold";
 import { useLaunchPopoverCoordinator } from "./LaunchPopoverCoordinator";
 import type { DeviceOption } from "./launchPopoverTypes";
-import type { ReactElement } from "react";
+import { DropdownItem, HudPopover, MicDeviceRow } from "./PopoverScaffold";
 
 const POPOVER_ID = "mic";
 
@@ -58,7 +58,9 @@ export function MicPopover({
 				</span>
 			</div>
 			<DropdownItem
-				icon={systemAudioEnabled ? <SpeakerHighIcon size={16} /> : <SpeakerXIcon size={16} />}
+				icon={
+					systemAudioEnabled ? <SpeakerHighIcon size={16} /> : <SpeakerXIcon size={16} />
+				}
 				selected={systemAudioEnabled}
 				onClick={onToggleSystemAudio}
 			>
@@ -89,7 +91,9 @@ export function MicPopover({
 				</DropdownItem>
 			)}
 			{!microphoneEnabled && (
-				<div className="px-3 py-1.5 text-xs text-[var(--launch-text-muted)]">{t("recording.selectMicToEnable")}</div>
+				<div className="px-3 py-1.5 text-xs text-[var(--launch-text-muted)]">
+					{t("recording.selectMicToEnable")}
+				</div>
 			)}
 			{devices.map((device) => (
 				<MicDeviceRow
@@ -97,13 +101,16 @@ export function MicPopover({
 					device={device}
 					selected={
 						microphoneEnabled &&
-						(microphoneDeviceId === device.deviceId || selectedDeviceId === device.deviceId)
+						(microphoneDeviceId === device.deviceId ||
+							selectedDeviceId === device.deviceId)
 					}
 					onSelect={() => onSelectDevice(device.deviceId)}
 				/>
 			))}
 			{devices.length === 0 && (
-				<div className="text-center text-xs text-[var(--launch-text-muted)] py-3">{t("recording.noMicrophonesFound")}</div>
+				<div className="text-center text-xs text-[var(--launch-text-muted)] py-3">
+					{t("recording.noMicrophonesFound")}
+				</div>
 			)}
 		</HudPopover>
 	);

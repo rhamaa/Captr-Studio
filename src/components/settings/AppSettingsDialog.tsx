@@ -121,7 +121,10 @@ export function AppSettingsDialog({
 								{t("settings.title", "Captr Studio Preferences")}
 							</DialogTitle>
 							<DialogDescription className="text-xs text-muted-foreground">
-								{t("settings.description", "Manage your workspace appearance, directories, and defaults.")}
+								{t(
+									"settings.description",
+									"Manage your workspace appearance, directories, and defaults.",
+								)}
 							</DialogDescription>
 						</div>
 					</div>
@@ -169,7 +172,10 @@ export function AppSettingsDialog({
 									{t("settings.appearance", "Appearance & Theme")}
 								</h3>
 								<p className="text-xs text-muted-foreground mb-3">
-									{t("settings.appearanceDescription", "Select your preferred application color theme.")}
+									{t(
+										"settings.appearanceDescription",
+										"Select your preferred application color theme.",
+									)}
 								</p>
 								<div className="grid grid-cols-3 gap-3 max-w-md">
 									<button
@@ -181,7 +187,10 @@ export function AppSettingsDialog({
 												: "border-foreground/10 bg-foreground/[0.02] hover:bg-foreground/[0.05] text-muted-foreground"
 										}`}
 									>
-										<MoonIcon className="w-5 h-5" weight={preference === "dark" ? "fill" : "regular"} />
+										<MoonIcon
+											className="w-5 h-5"
+											weight={preference === "dark" ? "fill" : "regular"}
+										/>
 										<span>{t("settings.darkTheme", "Dark (Obsidian)")}</span>
 									</button>
 									<button
@@ -193,7 +202,10 @@ export function AppSettingsDialog({
 												: "border-foreground/10 bg-foreground/[0.02] hover:bg-foreground/[0.05] text-muted-foreground"
 										}`}
 									>
-										<SunIcon className="w-5 h-5" weight={preference === "light" ? "fill" : "regular"} />
+										<SunIcon
+											className="w-5 h-5"
+											weight={preference === "light" ? "fill" : "regular"}
+										/>
 										<span>{t("settings.lightTheme", "Light")}</span>
 									</button>
 									<button
@@ -205,7 +217,10 @@ export function AppSettingsDialog({
 												: "border-foreground/10 bg-foreground/[0.02] hover:bg-foreground/[0.05] text-muted-foreground"
 										}`}
 									>
-										<DesktopIcon className="w-5 h-5" weight={preference === "system" ? "fill" : "regular"} />
+										<DesktopIcon
+											className="w-5 h-5"
+											weight={preference === "system" ? "fill" : "regular"}
+										/>
 										<span>{t("settings.systemTheme", "System")}</span>
 									</button>
 								</div>
@@ -216,7 +231,10 @@ export function AppSettingsDialog({
 									{t("settings.language", "Language / Locale")}
 								</h3>
 								<p className="text-xs text-muted-foreground mb-3">
-									{t("settings.languageDescription", "Choose your interface language.")}
+									{t(
+										"settings.languageDescription",
+										"Choose your interface language.",
+									)}
 								</p>
 								<div className="flex items-center gap-3">
 									<GlobeIcon className="w-4 h-4 text-muted-foreground" />
@@ -226,7 +244,11 @@ export function AppSettingsDialog({
 										className="h-9 px-3 rounded-lg border border-foreground/15 bg-background text-foreground text-xs font-medium outline-none focus:border-primary transition-colors cursor-pointer"
 									>
 										{SUPPORTED_LOCALES.map((loc) => (
-											<option key={loc} value={loc} className="bg-editor-dialog text-foreground">
+											<option
+												key={loc}
+												value={loc}
+												className="bg-editor-dialog text-foreground"
+											>
 												{LOCALE_LABELS[loc] || loc}
 											</option>
 										))}
@@ -242,7 +264,10 @@ export function AppSettingsDialog({
 									{t("settings.projectsDirectory", "Projects Directory")}
 								</h3>
 								<p className="text-xs text-muted-foreground mb-2">
-									{t("settings.projectsDirectoryDesc", "Location where your Captr Studio project files (.captr) are saved.")}
+									{t(
+										"settings.projectsDirectoryDesc",
+										"Location where your Captr Studio project files (.captr) are saved.",
+									)}
 								</p>
 								<div className="flex items-center gap-2">
 									<input
@@ -269,7 +294,10 @@ export function AppSettingsDialog({
 									{t("settings.recordingsDirectory", "Recordings Directory")}
 								</h3>
 								<p className="text-xs text-muted-foreground mb-2">
-									{t("settings.recordingsDirectoryDesc", "Location where screen capture takes and audio recordings are stored.")}
+									{t(
+										"settings.recordingsDirectoryDesc",
+										"Location where screen capture takes and audio recordings are stored.",
+									)}
 								</p>
 								<div className="flex items-center gap-2">
 									<input
@@ -309,7 +337,10 @@ export function AppSettingsDialog({
 										{t("settings.keyboardShortcuts", "Keyboard Shortcuts")}
 									</h3>
 									<p className="text-xs text-muted-foreground">
-										{t("settings.shortcutsDesc", "Quick actions to speed up your editing workflow.")}
+										{t(
+											"settings.shortcutsDesc",
+											"Quick actions to speed up your editing workflow.",
+										)}
 									</p>
 								</div>
 								{onOpenShortcuts && (
@@ -330,36 +361,68 @@ export function AppSettingsDialog({
 
 							<div className="rounded-xl border border-foreground/10 bg-foreground/[0.02] divide-y divide-foreground/5 text-xs">
 								<div className="flex items-center justify-between px-3.5 py-2.5">
-									<span className="text-foreground/90 font-medium">New Project</span>
-									<kbd className="px-2 py-0.5 rounded bg-foreground/10 text-[11px] font-mono font-semibold">Ctrl + N</kbd>
+									<span className="text-foreground/90 font-medium">
+										New Project
+									</span>
+									<kbd className="px-2 py-0.5 rounded bg-foreground/10 text-[11px] font-mono font-semibold">
+										Ctrl + N
+									</kbd>
 								</div>
 								<div className="flex items-center justify-between px-3.5 py-2.5">
-									<span className="text-foreground/90 font-medium">Open Project</span>
-									<kbd className="px-2 py-0.5 rounded bg-foreground/10 text-[11px] font-mono font-semibold">Ctrl + O</kbd>
+									<span className="text-foreground/90 font-medium">
+										Open Project
+									</span>
+									<kbd className="px-2 py-0.5 rounded bg-foreground/10 text-[11px] font-mono font-semibold">
+										Ctrl + O
+									</kbd>
 								</div>
 								<div className="flex items-center justify-between px-3.5 py-2.5">
-									<span className="text-foreground/90 font-medium">Save Project</span>
-									<kbd className="px-2 py-0.5 rounded bg-foreground/10 text-[11px] font-mono font-semibold">Ctrl + S</kbd>
+									<span className="text-foreground/90 font-medium">
+										Save Project
+									</span>
+									<kbd className="px-2 py-0.5 rounded bg-foreground/10 text-[11px] font-mono font-semibold">
+										Ctrl + S
+									</kbd>
 								</div>
 								<div className="flex items-center justify-between px-3.5 py-2.5">
-									<span className="text-foreground/90 font-medium">Save As Project</span>
-									<kbd className="px-2 py-0.5 rounded bg-foreground/10 text-[11px] font-mono font-semibold">Ctrl + Shift + S</kbd>
+									<span className="text-foreground/90 font-medium">
+										Save As Project
+									</span>
+									<kbd className="px-2 py-0.5 rounded bg-foreground/10 text-[11px] font-mono font-semibold">
+										Ctrl + Shift + S
+									</kbd>
 								</div>
 								<div className="flex items-center justify-between px-3.5 py-2.5">
-									<span className="text-foreground/90 font-medium">Play / Pause Timeline</span>
-									<kbd className="px-2 py-0.5 rounded bg-foreground/10 text-[11px] font-mono font-semibold">Space</kbd>
+									<span className="text-foreground/90 font-medium">
+										Play / Pause Timeline
+									</span>
+									<kbd className="px-2 py-0.5 rounded bg-foreground/10 text-[11px] font-mono font-semibold">
+										Space
+									</kbd>
 								</div>
 								<div className="flex items-center justify-between px-3.5 py-2.5">
-									<span className="text-foreground/90 font-medium">Split Clip at Playhead</span>
-									<kbd className="px-2 py-0.5 rounded bg-foreground/10 text-[11px] font-mono font-semibold">S</kbd>
+									<span className="text-foreground/90 font-medium">
+										Split Clip at Playhead
+									</span>
+									<kbd className="px-2 py-0.5 rounded bg-foreground/10 text-[11px] font-mono font-semibold">
+										S
+									</kbd>
 								</div>
 								<div className="flex items-center justify-between px-3.5 py-2.5">
-									<span className="text-foreground/90 font-medium">Delete Selected Clip</span>
-									<kbd className="px-2 py-0.5 rounded bg-foreground/10 text-[11px] font-mono font-semibold">Delete / Backspace</kbd>
+									<span className="text-foreground/90 font-medium">
+										Delete Selected Clip
+									</span>
+									<kbd className="px-2 py-0.5 rounded bg-foreground/10 text-[11px] font-mono font-semibold">
+										Delete / Backspace
+									</kbd>
 								</div>
 								<div className="flex items-center justify-between px-3.5 py-2.5">
-									<span className="text-foreground/90 font-medium">Export Video</span>
-									<kbd className="px-2 py-0.5 rounded bg-foreground/10 text-[11px] font-mono font-semibold">Ctrl + E</kbd>
+									<span className="text-foreground/90 font-medium">
+										Export Video
+									</span>
+									<kbd className="px-2 py-0.5 rounded bg-foreground/10 text-[11px] font-mono font-semibold">
+										Ctrl + E
+									</kbd>
 								</div>
 							</div>
 						</TabsContent>
@@ -378,18 +441,27 @@ export function AppSettingsDialog({
 									Version 2.4.0 (Obsidian Edition)
 								</div>
 								<p className="text-xs text-muted-foreground mt-3 max-w-sm leading-relaxed">
-									Professional screen recording, aperture camera framing, and precision video studio designed for macOS and Windows.
+									Professional screen recording, aperture camera framing, and
+									precision video studio designed for macOS and Windows.
 								</p>
 							</div>
 
 							<div className="grid grid-cols-2 gap-3 text-xs">
 								<div className="p-3 rounded-xl border border-foreground/10 bg-foreground/[0.02]">
-									<span className="text-muted-foreground block text-[11px]">Core Engine</span>
-									<span className="font-semibold text-foreground">Electron + React + WebGPU</span>
+									<span className="text-muted-foreground block text-[11px]">
+										Core Engine
+									</span>
+									<span className="font-semibold text-foreground">
+										Electron + React + WebGPU
+									</span>
 								</div>
 								<div className="p-3 rounded-xl border border-foreground/10 bg-foreground/[0.02]">
-									<span className="text-muted-foreground block text-[11px]">Video Pipeline</span>
-									<span className="font-semibold text-foreground">FFmpeg Hardware Accelerated</span>
+									<span className="text-muted-foreground block text-[11px]">
+										Video Pipeline
+									</span>
+									<span className="font-semibold text-foreground">
+										FFmpeg Hardware Accelerated
+									</span>
 								</div>
 							</div>
 						</TabsContent>

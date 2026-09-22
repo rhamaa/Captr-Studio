@@ -2,8 +2,8 @@ import type { CursorTelemetryPoint, ZoomFocus } from "../types";
 import { interpolateCursorPosition } from "./cursorRenderer";
 import { clampFocusToScale } from "./focusUtils";
 import {
-	createSpringState,
 	type CursorSpringTuning,
+	createSpringState,
 	getZoomSpringConfig,
 	resetSpringState,
 	type SpringState,
@@ -168,9 +168,7 @@ export function computeCursorFollowFocus(
 
 	const cursorPos = interpolateCursorPosition(cursorSamples, timeMs);
 	if (!cursorPos) {
-		return state.initialized
-			? { cx: state.focusX, cy: state.focusY }
-			: clampedRegionFocus;
+		return state.initialized ? { cx: state.focusX, cy: state.focusY } : clampedRegionFocus;
 	}
 
 	// Track when zoom reaches full strength
@@ -216,8 +214,18 @@ export function computeCursorFollowFocus(
 
 	if (config.springDamping && state.focusXSpring && state.focusYSpring) {
 		const springConfig = getZoomSpringConfig(0.5, config.springTuning);
-		const smoothedX = stepSpringValue(state.focusXSpring, targetFocus.cx, deltaMs, springConfig);
-		const smoothedY = stepSpringValue(state.focusYSpring, targetFocus.cy, deltaMs, springConfig);
+		const smoothedX = stepSpringValue(
+			state.focusXSpring,
+			targetFocus.cx,
+			deltaMs,
+			springConfig,
+		);
+		const smoothedY = stepSpringValue(
+			state.focusYSpring,
+			targetFocus.cy,
+			deltaMs,
+			springConfig,
+		);
 		state.focusX = smoothedX;
 		state.focusY = smoothedY;
 		state.frozenFocusX = smoothedX;

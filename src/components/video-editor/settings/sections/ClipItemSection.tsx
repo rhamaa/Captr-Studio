@@ -10,8 +10,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { SliderControl } from "../../SliderControl";
-import { SectionLabel } from "../components/SettingsSectionLabel";
 import type { ClipTransitionType } from "../../types";
+import { SectionLabel } from "../components/SettingsSectionLabel";
 
 export interface ClipItemSectionProps {
 	selectedClipSpeed?: number | null;
@@ -153,10 +153,7 @@ export const ClipItemSection: React.FC<ClipItemSectionProps> = ({
 				{hasClipSourceAudio && (
 					<div className="flex items-center justify-between rounded-lg bg-foreground/[0.03] px-2.5 py-1.5">
 						<span className="text-[10px] text-muted-foreground">
-							{tSettings(
-								"clip.separateClipFromAudio",
-								"Separate clip from audio",
-							)}
+							{tSettings("clip.separateClipFromAudio", "Separate clip from audio")}
 						</span>
 						<Switch
 							checked={selectedClipShowSourceAudio ?? false}
@@ -187,10 +184,7 @@ export const ClipItemSection: React.FC<ClipItemSectionProps> = ({
 										type="button"
 										onClick={() => {
 											onSourceAudioTrackVolumeChange?.(track.id, 1);
-											onSourceAudioTrackNormalizeChange?.(
-												track.id,
-												false,
-											);
+											onSourceAudioTrackNormalizeChange?.(track.id, false);
 										}}
 										className="text-[10px] text-[#2563EB] transition-opacity hover:opacity-80"
 									>

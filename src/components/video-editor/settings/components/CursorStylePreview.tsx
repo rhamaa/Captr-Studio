@@ -14,10 +14,7 @@ export interface CursorStylePreviewProps {
 	previewUrls: Partial<Record<string, string>>;
 }
 
-export function CursorStylePreview({
-	style,
-	previewUrls,
-}: CursorStylePreviewProps) {
+export function CursorStylePreview({ style, previewUrls }: CursorStylePreviewProps) {
 	const previewSrc =
 		style === "macos"
 			? (previewUrls.macos ?? tahoeCursorUrl)

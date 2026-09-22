@@ -20,7 +20,10 @@ app.whenReady().then(async () => {
 		const svgPath = path.resolve("public/favicon.svg");
 		const svgContent = fs.readFileSync(svgPath, "utf8");
 		// Ensure width="1024" height="1024"
-		const scaledSvg = svgContent.replace(/width="64"\s+height="64"/, 'width="1024" height="1024"');
+		const scaledSvg = svgContent.replace(
+			/width="64"\s+height="64"/,
+			'width="1024" height="1024"',
+		);
 
 		const html = `<!DOCTYPE html>
 <html>
@@ -48,7 +51,9 @@ app.whenReady().then(async () => {
 		console.log(`Generated 1024x1024 icon at: ${outPath}`);
 		try {
 			fs.unlinkSync(tmpHtml);
-		} catch {}
+		} catch {
+			// Best-effort temp cleanup; the generated icon already exists.
+		}
 	} catch (err) {
 		console.error("Error generating icon:", err);
 	} finally {

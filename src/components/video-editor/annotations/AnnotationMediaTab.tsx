@@ -1,5 +1,5 @@
-import { useRef } from "react";
 import { UploadSimple as Upload } from "@phosphor-icons/react";
+import { useRef } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { AnnotationRegion } from "../types";
@@ -11,11 +11,7 @@ export interface AnnotationMediaTabProps {
 	t: (key: string, defaultVal?: string, params?: Record<string, string | number>) => string;
 }
 
-export function AnnotationMediaTab({
-	annotation,
-	onContentChange,
-	t,
-}: AnnotationMediaTabProps) {
+export function AnnotationMediaTab({ annotation, onContentChange, t }: AnnotationMediaTabProps) {
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {

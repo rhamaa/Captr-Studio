@@ -1,16 +1,10 @@
-import React from "react";
 import { Trash as Trash2, UploadSimple as Upload } from "@phosphor-icons/react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { SliderControl } from "../../SliderControl";
-import { SectionLabel } from "../components/SettingsSectionLabel";
-import { WebcamCropControl } from "../../WebcamCropControl";
-import type {
-	CropRegion,
-	WebcamOverlaySettings,
-	WebcamPositionPreset,
-} from "../../types";
+import type { CropRegion, WebcamOverlaySettings, WebcamPositionPreset } from "../../types";
 import {
 	DEFAULT_CROP_REGION,
 	DEFAULT_WEBCAM_CORNER_RADIUS,
@@ -22,6 +16,8 @@ import {
 	DEFAULT_WEBCAM_SHADOW,
 	DEFAULT_WEBCAM_SIZE,
 } from "../../types";
+import { WebcamCropControl } from "../../WebcamCropControl";
+import { SectionLabel } from "../components/SettingsSectionLabel";
 
 export const WEBCAM_POSITION_PRESETS: Array<{
 	preset: Exclude<WebcamPositionPreset, "custom">;
@@ -138,9 +134,7 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 						</div>
 						<button
 							type="button"
-							onClick={() =>
-								updateWebcam({ cropRegion: DEFAULT_CROP_REGION })
-							}
+							onClick={() => updateWebcam({ cropRegion: DEFAULT_CROP_REGION })}
 							className="text-[10px] text-[#2563EB] transition-opacity hover:opacity-80"
 						>
 							{t("common.actions.reset", "Reset")}
@@ -167,9 +161,7 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 								<Button
 									key={option.preset}
 									type="button"
-									onClick={() =>
-										applyWebcamPositionPreset(option.preset)
-									}
+									onClick={() => applyWebcamPositionPreset(option.preset)}
 									className={cn(
 										"h-8 rounded-lg border px-0 text-sm font-semibold transition-all",
 										isActive
@@ -184,10 +176,7 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 					</div>
 					<div className="mt-2 flex items-center justify-between rounded-lg bg-black/10 px-2.5 py-1.5">
 						<span className="text-[10px] text-muted-foreground">
-							{tSettings(
-								"effects.webcamCustomPosition",
-								"Custom position",
-							)}
+							{tSettings("effects.webcamCustomPosition", "Custom position")}
 						</span>
 						<Switch
 							checked={webcamPositionPreset === "custom"}
@@ -276,8 +265,7 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 								{tSettings("effects.webcamFootage")}
 							</div>
 							<div className="mt-0.5 break-all text-[10px] leading-4 text-muted-foreground/70">
-								{webcamFileName ??
-									tSettings("effects.webcamFootageDescription")}
+								{webcamFileName ?? tSettings("effects.webcamFootageDescription")}
 							</div>
 						</div>
 						<div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">

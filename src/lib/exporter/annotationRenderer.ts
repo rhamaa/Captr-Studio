@@ -1,19 +1,19 @@
-import { sampleLayerAnimation } from "@/components/video-editor/layerAnimation";
-import { resolveMediaElementSource } from "./localMediaSource";
-import { LayerVideoSource } from "./layerVideoSource";
-import { mediaLayerSourceTime } from "@/components/video-editor/mediaLayerTiming";
 import { sampleAnnotationTransform } from "@/components/video-editor/annotationKeyframes";
+import { sampleLayerAnimation } from "@/components/video-editor/layerAnimation";
+import { mediaLayerSourceTime } from "@/components/video-editor/mediaLayerTiming";
 import {
 	type AnnotationRegion,
 	type ArrowDirection,
 	BLUR_ANNOTATION_STRENGTH,
 } from "@/components/video-editor/types";
-import { decodeGif, getGifFrameAtTime } from '@/lib/gifDecoder';
+import { decodeGif, getGifFrameAtTime } from "@/lib/gifDecoder";
+import { LayerVideoSource } from "./layerVideoSource";
+import { resolveMediaElementSource } from "./localMediaSource";
 
 export interface AnnotationRenderAssets {
 	videoCache?: Map<string, LayerVideoSource>;
 	imageCache: Map<string, HTMLImageElement>;
-	gifCache: Map<string, import('@/lib/gifDecoder').DecodedGif>;
+	gifCache: Map<string, import("@/lib/gifDecoder").DecodedGif>;
 	fileImageCache: Map<string, HTMLImageElement>;
 }
 
@@ -67,7 +67,9 @@ export async function preloadAnnotationAssets(
 	if (typeof document !== "undefined" && document.fonts) {
 		try {
 			await document.fonts.ready;
-		} catch {}
+		} catch {
+			// Font loading is best-effort; rendering proceeds with fallback fonts.
+		}
 	}
 	const uniqueSources = [
 		...new Set(
@@ -84,14 +86,22 @@ export async function preloadAnnotationAssets(
 	if (uniqueSources.length > 0) {
 		await Promise.all(
 			uniqueSources.map(async (source) => {
-				if (source.startsWith('file:')) {
+				if (source.startsWith("file:")) {
 					const filePath = source.slice(5);
 					try {
 						const resolved = await resolveMediaElementSource(filePath);
-						try { const image = await loadAnnotationImage(resolved.src); if (image) fileImageCache.set(filePath, image); }
-						finally { resolved.revoke(); }
+						try {
+							const image = await loadAnnotationImage(resolved.src);
+							if (image) fileImageCache.set(filePath, image);
+						} finally {
+							resolved.revoke();
+						}
 					} catch (e) {
-						console.error("[AnnotationRenderer] Failed to load file image", filePath, e);
+						console.error(
+							"[AnnotationRenderer] Failed to load file image",
+							filePath,
+							e,
+						);
 					}
 				} else {
 					const image = await loadAnnotationImage(source);
@@ -101,20 +111,31 @@ export async function preloadAnnotationAssets(
 		);
 	}
 
-	const gifAnnotations = annotations.filter((a) => a.type === "gif" && (a.gifDataUrl || a.gifPath));
-	const gifCacheMap = new Map<string, import('@/lib/gifDecoder').DecodedGif>();
+	const gifAnnotations = annotations.filter(
+		(a) => a.type === "gif" && (a.gifDataUrl || a.gifPath),
+	);
+	const gifCacheMap = new Map<string, import("@/lib/gifDecoder").DecodedGif>();
 	for (const ann of gifAnnotations) {
 		const key = ann.gifDataUrl || ann.gifPath!;
 		if (gifCacheMap.has(key)) continue;
 		const source = await resolveMediaElementSource(key);
-		try { const decoded = await decodeGif(source.src); if (decoded) gifCacheMap.set(key, decoded); }
-		finally { source.revoke(); }
+		try {
+			const decoded = await decodeGif(source.src);
+			if (decoded) gifCacheMap.set(key, decoded);
+		} finally {
+			source.revoke();
+		}
 	}
 
 	const videoCache = new Map<string, LayerVideoSource>();
 	try {
 		for (const annotation of annotations) {
-			if (annotation.type !== "video" || annotation.visible === false || !annotation.videoFilePath) continue;
+			if (
+				annotation.type !== "video" ||
+				annotation.visible === false ||
+				!annotation.videoFilePath
+			)
+				continue;
 			const decoder = new LayerVideoSource();
 			videoCache.set(annotation.id, decoder);
 			await decoder.load(annotation.videoFilePath);
@@ -235,7 +256,6 @@ function renderText(
 	const style = annotation.style;
 
 	ctx.save();
-
 
 	if (style.dropShadow) {
 		ctx.shadowColor = style.dropShadowColor || "rgba(0, 0, 0, 0.5)";
@@ -362,7 +382,7 @@ async function renderImage(
 	let img: HTMLImageElement | undefined | null = null;
 	const source = getAnnotationImageContent(annotation);
 
-	if (source?.startsWith('file:')) {
+	if (source?.startsWith("file:")) {
 		const filePath = source.slice(5);
 		img = assets?.fileImageCache.get(filePath);
 	} else if (source) {
@@ -395,7 +415,7 @@ async function renderImage(
 	ctx.save();
 
 	if (style.dropShadow) {
-		ctx.shadowColor = style.dropShadowColor || 'rgba(0,0,0,0.5)';
+		ctx.shadowColor = style.dropShadowColor || "rgba(0,0,0,0.5)";
 		ctx.shadowBlur = (style.dropShadowBlur ?? 8) * scaleFactor;
 		ctx.shadowOffsetX = (style.dropShadowOffsetX ?? 0) * scaleFactor;
 		ctx.shadowOffsetY = (style.dropShadowOffsetY ?? 4) * scaleFactor;
@@ -407,7 +427,10 @@ async function renderImage(
 async function renderGif(
 	ctx: CanvasRenderingContext2D,
 	annotation: AnnotationRegion,
-	x: number, y: number, width: number, height: number,
+	x: number,
+	y: number,
+	width: number,
+	height: number,
 	currentTimeMs: number,
 	assets?: AnnotationRenderAssets,
 ): Promise<void> {
@@ -425,15 +448,14 @@ async function renderGif(
 
 	// Draw frame to offscreen canvas then composite
 	const offscreen = new OffscreenCanvas(gif.width, gif.height);
-	const offCtx = offscreen.getContext('2d')!;
+	const offCtx = offscreen.getContext("2d")!;
 	offCtx.putImageData(frame.imageData, 0, 0);
 
 	const ratio = Math.min(width / gif.width, height / gif.height);
-	const w = gif.width * ratio, h = gif.height * ratio;
+	const w = gif.width * ratio,
+		h = gif.height * ratio;
 	ctx.drawImage(offscreen, x + (width - w) / 2, y + (height - h) / 2, w, h);
 }
-
-
 
 export async function renderAnnotations(
 	ctx: CanvasRenderingContext2D,
@@ -445,18 +467,20 @@ export async function renderAnnotations(
 	assets?: AnnotationRenderAssets,
 ): Promise<void> {
 	const activeAnnotations = annotations.filter(
-		(ann) =>
-			ann.visible !== false &&
-			currentTimeMs >= ann.startMs &&
-			currentTimeMs < ann.endMs,
+		(ann) => ann.visible !== false && currentTimeMs >= ann.startMs && currentTimeMs < ann.endMs,
 	);
 
 	const sortedAnnotations = [...activeAnnotations].sort((a, b) => a.zIndex - b.zIndex);
 
 	for (const annotation of sortedAnnotations) {
-		const { position: interpolatedPos, scale: interpolatedScale, opacity: interpolatedOpacity, rotation: interpolatedRotation } = sampleAnnotationTransform(annotation, currentTimeMs ?? annotation.startMs);
+		const {
+			position: interpolatedPos,
+			scale: interpolatedScale,
+			opacity: interpolatedOpacity,
+			rotation: interpolatedRotation,
+		} = sampleAnnotationTransform(annotation, currentTimeMs ?? annotation.startMs);
 
-	const x = (interpolatedPos.x / 100) * canvasWidth;
+		const x = (interpolatedPos.x / 100) * canvasWidth;
 		const y = (interpolatedPos.y / 100) * canvasHeight;
 		const width = (annotation.size.width / 100) * canvasWidth * interpolatedScale;
 		const height = (annotation.size.height / 100) * canvasHeight * interpolatedScale;
@@ -464,7 +488,10 @@ export async function renderAnnotations(
 		ctx.save();
 		const animation = sampleLayerAnimation(annotation, currentTimeMs);
 		if (animation.translateY) ctx.translate(0, animation.translateY * scaleFactor);
-		ctx.globalCompositeOperation = annotation.blendMode && annotation.blendMode !== "normal" ? annotation.blendMode : "source-over";
+		ctx.globalCompositeOperation =
+			annotation.blendMode && annotation.blendMode !== "normal"
+				? annotation.blendMode
+				: "source-over";
 		if (interpolatedRotation !== 0) {
 			const cx = x + width / 2;
 			const cy = y + height / 2;
@@ -482,7 +509,8 @@ export async function renderAnnotations(
 				if (!decoder) throw new Error(`Missing video layer decoder: ${annotation.id}`);
 				const video = await decoder.frame(mediaLayerSourceTime(annotation, currentTimeMs));
 				const ratio = Math.min(width / video.videoWidth, height / video.videoHeight);
-				const w = video.videoWidth * ratio, h = video.videoHeight * ratio;
+				const w = video.videoWidth * ratio,
+					h = video.videoHeight * ratio;
 				ctx.drawImage(video, x + (width - w) / 2, y + (height - h) / 2, w, h);
 				break;
 			}
@@ -588,7 +616,16 @@ export async function renderAnnotationToCanvas(
 			break;
 
 		case "image":
-			await renderImage(ctx, annotation, 0, 0, canvasWidth, canvasHeight, scaleFactor, assets);
+			await renderImage(
+				ctx,
+				annotation,
+				0,
+				0,
+				canvasWidth,
+				canvasHeight,
+				scaleFactor,
+				assets,
+			);
 			break;
 
 		case "video":
@@ -621,8 +658,6 @@ export async function renderAnnotationToCanvas(
 
 	return canvas;
 }
-
-
 
 export function destroyAnnotationAssets(assets: AnnotationRenderAssets | null): void {
 	for (const decoder of assets?.videoCache?.values() ?? []) decoder.destroy();

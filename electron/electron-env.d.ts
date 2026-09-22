@@ -757,15 +757,7 @@ interface Window {
 		listProjectFiles: () => Promise<{
 			success: boolean;
 			projectsDir?: string | null;
-			entries: Array<{
-				path: string;
-				name: string;
-				updatedAt: number;
-				thumbnailPath: string | null;
-				thumbnailDataUrl: string | null;
-				isCurrent: boolean;
-				isInProjectsDirectory: boolean;
-			}>;
+			entries: import("./ipc/types").ProjectLibraryEntry[];
 			error?: string;
 		}>;
 		openProjectFileAtPath: (filePath: string) => Promise<{

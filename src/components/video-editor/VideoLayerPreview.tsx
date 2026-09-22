@@ -18,7 +18,7 @@ export function VideoLayerPreview({
 	const [error, setError] = useState(false);
 	useEffect(() => {
 		let disposed = false;
-		let revoke = () => {};
+		let revoke: () => void = () => undefined;
 		setReady(false);
 		setError(false);
 		setSource("");
@@ -51,7 +51,7 @@ export function VideoLayerPreview({
 		video.muted = true;
 		if (Math.abs(video.currentTime - target) > (playing ? 0.08 : 0.001))
 			video.currentTime = target;
-		if (playing && isMediaLayerActive(layer, timeMs)) void video.play().catch(() => {});
+		if (playing && isMediaLayerActive(layer, timeMs)) void video.play().catch(() => undefined);
 		else video.pause();
 	}, [layer, timeMs, playing, ready]);
 	if (error) return <div role="alert">Video layer unavailable</div>;

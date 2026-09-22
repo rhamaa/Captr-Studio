@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from "react";
+import { type RefObject, useEffect } from "react";
 import { matchesShortcut } from "@/lib/shortcuts";
 import type { TimelineShortcutBindings } from "../core/timelineTypes";
 import { resolveDeleteSelectionTarget } from "./utils/timelineSelectionUtils";
@@ -90,7 +90,10 @@ export function useTimelineKeyboardShortcuts({
 			if (matchesShortcut(e, keyShortcuts.addZoom, isMac)) handleAddZoom();
 			if (
 				matchesShortcut(e, keyShortcuts.splitClip, isMac) ||
-				((isMac ? e.metaKey : e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "b")
+				((isMac ? e.metaKey : e.ctrlKey) &&
+					!e.altKey &&
+					!e.shiftKey &&
+					e.key.toLowerCase() === "b")
 			) {
 				handleSplitClip();
 			}

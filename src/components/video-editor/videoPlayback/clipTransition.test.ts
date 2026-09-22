@@ -1,7 +1,7 @@
-﻿import { describe, expect, it } from "vitest";
-import { getActiveClipTransition, applyClipTransition } from "./clipTransition";
+﻿import { Container, Graphics } from "pixi.js";
+import { describe, expect, it } from "vitest";
 import type { ClipRegion } from "../types";
-import { Container, Graphics } from "pixi.js";
+import { applyClipTransition, getActiveClipTransition } from "./clipTransition";
 
 describe("clipTransition", () => {
 	const mockClips: ClipRegion[] = [

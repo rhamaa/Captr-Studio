@@ -1,19 +1,13 @@
-import type { Span } from "dnd-timeline";
 import { Plus } from "@phosphor-icons/react";
-import {
-	forwardRef,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
-import { useScopedT } from "@/contexts/I18nContext";
-import { useShortcuts } from "@/contexts/ShortcutsContext";
+import type { Span } from "dnd-timeline";
+import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import type {
 	SourceAudioTrackMeta,
 	SourceAudioTrackSettings,
 	SourceAudioTrackWithPeaks,
 } from "@/components/video-editor/audio/audioTypes";
+import { useScopedT } from "@/contexts/I18nContext";
+import { useShortcuts } from "@/contexts/ShortcutsContext";
 import type {
 	AnnotationRegion,
 	AudioRegion,
@@ -27,13 +21,13 @@ import type {
 	ZoomRegion,
 } from "../types";
 import KeyframeMarkers from "./components/markers/KeyframeMarkers";
+import TimelineCanvas from "./components/viewport/TimelineCanvas";
 import TimelineWrapper from "./components/wrapper/TimelineWrapper";
-import { useTimelineAudioPeaks } from "./hooks/useTimelineAudioPeaks";
 import { calculateTimelineScale } from "./core/time";
+import type { SlideMedia4in1 } from "./core/timelineTypes";
+import { useTimelineAudioPeaks } from "./hooks/useTimelineAudioPeaks";
 import { useTimelineEditorRuntime } from "./hooks/useTimelineEditorRuntime";
 import { useTimelineRange } from "./hooks/useTimelineRange";
-import TimelineCanvas from "./components/viewport/TimelineCanvas";
-import type { SlideMedia4in1 } from "./core/timelineTypes";
 
 export interface TimelineEditorProps {
 	recordToolsEnabled?: boolean;
@@ -70,7 +64,10 @@ export interface TimelineEditorProps {
 	onAnnotationAdded?: (span: Span, trackIndex?: number) => void;
 	onAnnotationSpanChange?: (id: string, span: Span, trackIndex?: number) => void;
 	onAnnotationDelete?: (id: string) => void;
-	onAnnotationKeyframesChange?: (id: string, keyframes: import("../types").PropertyKeyframe[]) => void;
+	onAnnotationKeyframesChange?: (
+		id: string,
+		keyframes: import("../types").PropertyKeyframe[],
+	) => void;
 	selectedAnnotationId?: string | null;
 	onSelectAnnotation?: (id: string | null) => void;
 	speedRegions?: SpeedRegion[];
@@ -89,14 +86,10 @@ export interface TimelineEditorProps {
 	showSourceAudioTrack?: boolean;
 	onSourceAudioAvailabilityChange?: (available: boolean) => void;
 	sourceAudioTrackSettings?: SourceAudioTrackSettings;
-	getSourceAudioTrackSettingsForClip?: (
-		clipId: string | null,
-	) => SourceAudioTrackSettings;
+	getSourceAudioTrackSettingsForClip?: (clipId: string | null) => SourceAudioTrackSettings;
 	onSourceAudioTracksMetaChange?: (tracks: SourceAudioTrackMeta) => void;
 	onDropMediaAsset?: (asset: SlideAssetFile, dropMs: number) => void;
 }
-
-
 
 export interface TimelineEditorHandle {
 	addZoom: () => void;
@@ -113,11 +106,10 @@ export interface TimelineEditorHandle {
 	}[];
 }
 
-
 const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 	function TimelineEditor(
 		{
-	recordToolsEnabled = true,
+			recordToolsEnabled = true,
 			videoDuration,
 			currentTime,
 			playheadTime,
@@ -151,7 +143,7 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 			onAnnotationAdded,
 			onAnnotationSpanChange,
 			onAnnotationDelete,
-		onAnnotationKeyframesChange,
+			onAnnotationKeyframesChange,
 			selectedAnnotationId,
 			onSelectAnnotation,
 			speedRegions = [],
@@ -216,9 +208,7 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 					...(newStart > oldClip.startMs
 						? [{ startMs: oldClip.startMs, endMs: newStart }]
 						: []),
-					...(newEnd < oldClip.endMs
-						? [{ startMs: newEnd, endMs: oldClip.endMs }]
-						: []),
+					...(newEnd < oldClip.endMs ? [{ startMs: newEnd, endMs: oldClip.endMs }] : []),
 				];
 
 				const startDelta = newStart - oldClip.startMs;
@@ -252,9 +242,12 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 			return { previewSpans, hiddenZoomIds };
 		}, [clipRegions, liveSpanPreviewById, zoomRegions]);
 		const { shortcuts: keyShortcuts, isMac } = useShortcuts();
-		const { peaks: sourceAudioPeaks, loading: sourceAudioLoading } = useTimelineAudioPeaks(videoPath, {
-			enableSourceSidecarFallback: true,
-		});
+		const { peaks: sourceAudioPeaks, loading: sourceAudioLoading } = useTimelineAudioPeaks(
+			videoPath,
+			{
+				enableSourceSidecarFallback: true,
+			},
+		);
 		const sourceAudioTracks = useMemo<SourceAudioTrackWithPeaks[]>(() => {
 			return sourceAudioPeaks
 				? [
@@ -267,20 +260,17 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 				: [];
 		}, [sourceAudioPeaks, t]);
 
-		const media4in1 = useMemo<SlideMedia4in1>(
-			() => {
-				return {
-					videoPath: videoPath ?? null,
-					webcamPath: webcamPath ?? null,
-					webcamEnabled: webcamEnabled ?? Boolean(webcamPath),
-					micPeaks: sourceAudioPeaks ?? null,
-					systemPeaks: null,
-					micMuted: false,
-					systemMuted: false,
-				};
-			},
-			[videoPath, webcamPath, webcamEnabled, sourceAudioPeaks],
-		);
+		const media4in1 = useMemo<SlideMedia4in1>(() => {
+			return {
+				videoPath: videoPath ?? null,
+				webcamPath: webcamPath ?? null,
+				webcamEnabled: webcamEnabled ?? Boolean(webcamPath),
+				micPeaks: sourceAudioPeaks ?? null,
+				systemPeaks: null,
+				micMuted: false,
+				systemMuted: false,
+			};
+		}, [videoPath, webcamPath, webcamEnabled, sourceAudioPeaks]);
 
 		const isLoading = useMemo(() => {
 			// If we are still actively trying to load audio peaks
@@ -293,7 +283,9 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 			return false;
 		}, [videoPath, videoSourcePath, cursorTelemetrySourcePath, sourceAudioLoading]);
 		useEffect(() => {
-			onSourceAudioTracksMetaChange?.(sourceAudioTracks.map((t) => ({ id: t.id, label: t.label })));
+			onSourceAudioTracksMetaChange?.(
+				sourceAudioTracks.map((t) => ({ id: t.id, label: t.label })),
+			);
 		}, [onSourceAudioTracksMetaChange, sourceAudioTracks]);
 		void sourceAudioTrackSettings;
 		useEffect(() => {
@@ -357,7 +349,7 @@ const TimelineEditor = forwardRef<TimelineEditorHandle, TimelineEditorProps>(
 			onAnnotationAdded,
 			onAnnotationSpanChange,
 			onAnnotationDelete,
-		onAnnotationKeyframesChange,
+			onAnnotationKeyframesChange,
 			selectedAnnotationId,
 			onSelectAnnotation,
 			speedRegions,

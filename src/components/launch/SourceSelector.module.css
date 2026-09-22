@@ -21,7 +21,7 @@
 }
 
 .selected {
-	border: 2px solid #81A1C1;
+	border: 2px solid #81a1c1;
 	background: linear-gradient(120deg, rgba(94, 129, 172, 0.25) 0%, rgba(46, 52, 64, 0.98) 100%);
 	box-shadow: 0 0 0 2px rgba(129, 161, 193, 0.25);
 }

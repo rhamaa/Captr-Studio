@@ -70,10 +70,7 @@ describe("ThemeContext persistence", () => {
 	});
 
 	it("falls back to localStorage when Electron settings are unavailable", () => {
-		vi.stubGlobal(
-			"localStorage",
-			createStorageMock({ "captr.theme": "light" }),
-		);
+		vi.stubGlobal("localStorage", createStorageMock({ "captr.theme": "light" }));
 
 		expect(loadThemePreference()).toBe("light");
 	});

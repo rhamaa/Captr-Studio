@@ -163,7 +163,7 @@ export interface ProjectInspectionResult {
 	lastModified: number;
 	isBundle: boolean;
 	thumbnailDataUrl?: string | null;
-	projectData?: any;
+	projectData?: Record<string, unknown> | null;
 	entries: ProjectInspectionEntry[];
 	error?: string;
 }
@@ -205,7 +205,9 @@ function readEntryToBuffer(zipfile: yauzl.ZipFile, entry: yauzl.Entry): Promise<
 			if (err) return reject(err);
 			if (!stream) return reject(new Error(`Stream not available for ${entry.fileName}`));
 			const chunks: Buffer[] = [];
-			stream.on("data", (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+			stream.on("data", (chunk) =>
+				chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)),
+			);
 			stream.on("end", () => resolve(Buffer.concat(chunks)));
 			stream.on("error", reject);
 		});
@@ -273,7 +275,6 @@ export async function readBundleThumbnailDataUrl(captrPath: string): Promise<str
 	});
 }
 
-
 /**
  * Inspects a .captr project file (ZIP bundle or legacy JSON) without extracting
  * large media assets onto disk. Returns metadata, file entry breakdown, and project configuration.
@@ -301,7 +302,7 @@ export async function inspectProjectBundle(captrPath: string): Promise<ProjectIn
 					}
 
 					const entries: ProjectInspectionEntry[] = [];
-					let projectData: any = null;
+					let projectData: Record<string, unknown> | null = null;
 					let thumbnailDataUrl: string | null = null;
 
 					zipfile.on("error", (err) => {
@@ -343,7 +344,10 @@ export async function inspectProjectBundle(captrPath: string): Promise<ProjectIn
 								} catch (e) {
 									console.warn("Failed to parse project.json inside bundle:", e);
 								}
-							} else if (!isDir && (rawName === "thumbnail.png" || rawName.endsWith(".thumb.png"))) {
+							} else if (
+								!isDir &&
+								(rawName === "thumbnail.png" || rawName.endsWith(".thumb.png"))
+							) {
 								const buf = await readEntryToBuffer(zipfile, entry);
 								thumbnailDataUrl = `data:image/png;base64,${buf.toString("base64")}`;
 							}

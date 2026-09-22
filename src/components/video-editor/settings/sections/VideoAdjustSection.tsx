@@ -2,8 +2,8 @@ import React from "react";
 import { cn } from "@/lib/utils";
 import type { AspectRatio } from "@/utils/aspectRatioUtils";
 import { SliderControl } from "../../SliderControl";
-import { SectionLabel } from "../components/SettingsSectionLabel";
 import type { Padding } from "../../types";
+import { SectionLabel } from "../components/SettingsSectionLabel";
 import { ClipItemSection, type ClipItemSectionProps } from "./ClipItemSection";
 
 export interface VideoAdjustSectionProps extends ClipItemSectionProps {
@@ -33,7 +33,9 @@ export const VideoAdjustSection: React.FC<VideoAdjustSectionProps> = ({
 	return (
 		<section className="flex flex-col gap-3">
 			<div>
-				<SectionLabel>{tSettings("sections.videoAdjust", "Transform & Adjust")}</SectionLabel>
+				<SectionLabel>
+					{tSettings("sections.videoAdjust", "Transform & Adjust")}
+				</SectionLabel>
 				<p className="mt-0.5 text-[10px] text-muted-foreground">
 					{tSettings(
 						"videoAdjust.description",

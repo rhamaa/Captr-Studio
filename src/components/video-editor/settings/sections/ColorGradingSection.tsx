@@ -1,11 +1,8 @@
 import { cn } from "@/lib/utils";
-import { SliderControl } from "../../SliderControl";
-import { SectionLabel } from "../components/SettingsSectionLabel";
 import { COLOR_FILTER_PRESETS } from "../../colorGrading";
-import {
-	DEFAULT_COLOR_GRADING,
-	type ColorGradingSettings,
-} from "../../types";
+import { SliderControl } from "../../SliderControl";
+import { type ColorGradingSettings, DEFAULT_COLOR_GRADING } from "../../types";
+import { SectionLabel } from "../components/SettingsSectionLabel";
 
 export interface ColorGradingSectionProps {
 	colorGrading?: ColorGradingSettings;

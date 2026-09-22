@@ -7,7 +7,7 @@ export function ImageLayerPreview({ layer }: { layer: AnnotationRegion }) {
 	const resource = layer.imageContent || layer.content || layer.imageFilePath || "";
 	useEffect(() => {
 		let disposed = false;
-		let revoke = () => {};
+		let revoke: () => void = () => undefined;
 		setSource("");
 		resolveMediaElementSource(resource)
 			.then((result) => {
@@ -18,7 +18,7 @@ export function ImageLayerPreview({ layer }: { layer: AnnotationRegion }) {
 				revoke = result.revoke;
 				setSource(result.src);
 			})
-			.catch(() => {});
+			.catch(() => undefined);
 		return () => {
 			disposed = true;
 			revoke();

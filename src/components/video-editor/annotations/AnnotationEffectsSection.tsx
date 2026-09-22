@@ -1,7 +1,4 @@
-import {
-	ArrowsClockwise,
-	SlidersHorizontal,
-} from "@phosphor-icons/react";
+import { ArrowsClockwise, SlidersHorizontal } from "@phosphor-icons/react";
 import Block from "@uiw/react-color-block";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -36,9 +33,7 @@ export function AnnotationEffectsSection({
 	colorPalette = COLOR_PALETTE,
 }: AnnotationEffectsSectionProps) {
 	const isMediaOrText =
-		annotation.type === "image" ||
-		annotation.type === "gif" ||
-		annotation.type === "text";
+		annotation.type === "image" || annotation.type === "gif" || annotation.type === "text";
 
 	return (
 		<>
@@ -65,9 +60,7 @@ export function AnnotationEffectsSection({
 							<input
 								type="checkbox"
 								checked={annotation.style.dropShadow ?? false}
-								onChange={(e) =>
-									onStyleChange({ dropShadow: e.target.checked })
-								}
+								onChange={(e) => onStyleChange({ dropShadow: e.target.checked })}
 								className="w-4 h-4 rounded border-foreground/20 text-[#2563EB] focus:ring-[#2563EB] focus:ring-offset-editor-panel bg-foreground/5 cursor-pointer"
 							/>
 						</div>

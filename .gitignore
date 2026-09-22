@@ -48,3 +48,6 @@ gpu-export-probe.mp4
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
+
+# Local tooling worktrees (Kilo Code) — machine-local, never part of the build.
+.kilo/

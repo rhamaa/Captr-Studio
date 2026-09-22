@@ -23,7 +23,17 @@ export function normalizePropertyKeyframes(value: unknown): PropertyKeyframe[] |
 		} else if (!Number.isFinite(raw.value)) continue;
 		ids.add(raw.id);
 		frames.push({
-			bezier: Array.isArray(raw.bezier) && raw.bezier.length === 4 && raw.bezier.every(Number.isFinite) ? [Math.max(0, Math.min(1, raw.bezier[0])), raw.bezier[1], Math.max(0, Math.min(1, raw.bezier[2])), raw.bezier[3]] : undefined,
+			bezier:
+				Array.isArray(raw.bezier) &&
+				raw.bezier.length === 4 &&
+				raw.bezier.every(Number.isFinite)
+					? [
+							Math.max(0, Math.min(1, raw.bezier[0])),
+							raw.bezier[1],
+							Math.max(0, Math.min(1, raw.bezier[2])),
+							raw.bezier[3],
+						]
+					: undefined,
 			id: raw.id,
 			timeMs: raw.timeMs,
 			property: raw.property,
@@ -48,9 +58,12 @@ export function getAnnotationLocalTime(
 	annotation: AnnotationRegion,
 	timelineTimeMs: number,
 ): number {
-	return (annotation.keyframeTimeOffsetMs ?? 0) + Math.max(
-		0,
-		Math.min(annotation.endMs - annotation.startMs, timelineTimeMs - annotation.startMs),
+	return (
+		(annotation.keyframeTimeOffsetMs ?? 0) +
+		Math.max(
+			0,
+			Math.min(annotation.endMs - annotation.startMs, timelineTimeMs - annotation.startMs),
+		)
 	);
 }
 

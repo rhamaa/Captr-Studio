@@ -364,17 +364,18 @@ async function main() {
 	const targets = getTargetConfigs();
 	const cmake = findCmake();
 
-	if (!cmake) {
-		// Soft-fail only when this script runs as part of `npm install`/`npm ci`,
-		// in CI, or when the developer explicitly opted in. Direct invocations
-		// (e.g. via `npm run build`, `build:win`, `build:mac`, `build:linux`)
-		// must still fail loudly so we never ship a release build that is
-		// missing the whisper runtime and silently ships broken auto-captions.
-		const isPostinstall = process.env.npm_lifecycle_event === "postinstall";
-		const isCI = process.env.CI === "true";
-		const allowMissing = process.env.WHISPER_RUNTIME_ALLOW_MISSING !== "0";
-		const softFailAllowed = isPostinstall || isCI || allowMissing || !cmake;
+	// Soft-fail only when this script runs as part of `npm install`/`npm ci`,
+	// in CI, or when the developer explicitly opted in. Direct invocations
+	// (e.g. via `npm run build`, `build:win`, `build:mac`, `build:linux`)
+	// must still fail loudly so we never ship a release build that is
+	// missing the whisper runtime and silently ships broken auto-captions.
+	// Declared outside the `!cmake` branch — the build loop below also uses it.
+	const isPostinstall = process.env.npm_lifecycle_event === "postinstall";
+	const isCI = process.env.CI === "true";
+	const allowMissing = process.env.WHISPER_RUNTIME_ALLOW_MISSING !== "0";
+	const softFailAllowed = isPostinstall || isCI || allowMissing || !cmake;
 
+	if (!cmake) {
 		const skipChecks = await Promise.all(targets.map((target) => shouldSkipBuild(target)));
 		const allTargetsStaged = skipChecks.every(Boolean);
 
@@ -456,7 +457,9 @@ async function main() {
 					configured = true;
 					break;
 				} catch {
-					console.log(`[build-whisper-runtime] Generator "${gen}" failed, trying next...`);
+					console.log(
+						`[build-whisper-runtime] Generator "${gen}" failed, trying next...`,
+					);
 				}
 			}
 
@@ -467,7 +470,9 @@ async function main() {
 					);
 					continue;
 				}
-				throw new Error("[build-whisper-runtime] Failed to configure whisper.cpp for Windows.");
+				throw new Error(
+					"[build-whisper-runtime] Failed to configure whisper.cpp for Windows.",
+				);
 			}
 		} else {
 			try {

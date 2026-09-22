@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { dbToLinear, detectSilenceFromChannel } from "./silenceDetector";
 
 describe("silenceDetector", () => {
@@ -16,7 +16,7 @@ describe("silenceDetector", () => {
 
 		// 0s - 1s (0 - 1000 samples): Speech (amplitude 0.5)
 		for (let i = 0; i < 1000; i++) {
-			channel[i] = (i % 2 === 0 ? 0.5 : -0.5);
+			channel[i] = i % 2 === 0 ? 0.5 : -0.5;
 		}
 
 		// 1s - 3s (1000 - 3000 samples): Dead air (all zeros)
@@ -24,7 +24,7 @@ describe("silenceDetector", () => {
 
 		// 3s - 4s (3000 - 4000 samples): Speech (amplitude 0.5)
 		for (let i = 3000; i < 4000; i++) {
-			channel[i] = (i % 2 === 0 ? 0.5 : -0.5);
+			channel[i] = i % 2 === 0 ? 0.5 : -0.5;
 		}
 
 		const result = detectSilenceFromChannel(channel, sampleRate, {
@@ -96,10 +96,13 @@ describe("silenceDetector", () => {
 
 		vi.spyOn(AudioProcessor.prototype, "decodeAudioFromUrl").mockResolvedValue(mockAudioBuffer);
 
-		const result = await detectSilenceFromAudioUrl("http://127.0.0.1:1234/video?path=test.mp4", {
-			minDurationMs: 1000,
-			speechPaddingMs: 100,
-		});
+		const result = await detectSilenceFromAudioUrl(
+			"http://127.0.0.1:1234/video?path=test.mp4",
+			{
+				minDurationMs: 1000,
+				speechPaddingMs: 100,
+			},
+		);
 
 		expect(result.silences).toHaveLength(1);
 		expect(result.silences[0].startMs).toBe(600);

@@ -127,11 +127,45 @@ describe("editorHistory", () => {
 });
 
 it("restores scene order, active scene, and nested layers across undo/redo", () => {
- const stack = createEditorHistoryStack();
- const first = { ...createSnapshot("a"), activeSceneId: "a", videoSourcePath: "a.mp4", clips: [{ id: "a", videoPath: "a.mp4", durationMs: 1000, startMsOffset: 0, annotationRegions: [] }] };
- const second = { ...first, activeSceneId: "b", videoSourcePath: "b.mp4", clips: [...first.clips, { id: "b", videoPath: "b.mp4", durationMs: 2000, startMsOffset: 1000, annotationRegions: [] }] };
- recordEditorHistorySnapshot(stack, first);
- recordEditorHistorySnapshot(stack, second);
- expect(undoEditorHistoryStack(stack, second)).toMatchObject({ activeSceneId: "a", videoSourcePath: "a.mp4", clips: [{ id: "a" }] });
- expect(redoEditorHistoryStack(stack, first)).toMatchObject({ activeSceneId: "b", clips: [{ id: "a" }, { id: "b" }] });
+	const stack = createEditorHistoryStack();
+	const first = {
+		...createSnapshot("a"),
+		activeSceneId: "a",
+		videoSourcePath: "a.mp4",
+		clips: [
+			{
+				id: "a",
+				videoPath: "a.mp4",
+				durationMs: 1000,
+				startMsOffset: 0,
+				annotationRegions: [],
+			},
+		],
+	};
+	const second = {
+		...first,
+		activeSceneId: "b",
+		videoSourcePath: "b.mp4",
+		clips: [
+			...first.clips,
+			{
+				id: "b",
+				videoPath: "b.mp4",
+				durationMs: 2000,
+				startMsOffset: 1000,
+				annotationRegions: [],
+			},
+		],
+	};
+	recordEditorHistorySnapshot(stack, first);
+	recordEditorHistorySnapshot(stack, second);
+	expect(undoEditorHistoryStack(stack, second)).toMatchObject({
+		activeSceneId: "a",
+		videoSourcePath: "a.mp4",
+		clips: [{ id: "a" }],
+	});
+	expect(redoEditorHistoryStack(stack, first)).toMatchObject({
+		activeSceneId: "b",
+		clips: [{ id: "a" }, { id: "b" }],
+	});
 });

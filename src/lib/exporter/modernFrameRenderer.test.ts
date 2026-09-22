@@ -381,7 +381,17 @@ describe("ModernFrameRenderer webcam frame cache", () => {
 		const result = renderer.resolveRenderableWebcamSource(next, 1280, 720, true);
 		expect(result?.source).toBe(renderer.webcamFrameCacheCanvas);
 		expect(renderer.webcamFrameCacheCtx.drawImage).toHaveBeenCalledTimes(2);
-		expect(renderer.webcamFrameCacheCtx.drawImage).toHaveBeenLastCalledWith(next, 320, 0, 640, 720, 0, 0, 640, 720);
+		expect(renderer.webcamFrameCacheCtx.drawImage).toHaveBeenLastCalledWith(
+			next,
+			320,
+			0,
+			640,
+			720,
+			0,
+			0,
+			640,
+			720,
+		);
 	});
 });
 
@@ -713,31 +723,23 @@ describe("ModernFrameRenderer temporal webcam sync", () => {
 			zoom: { scale: 1, focusX: 0.5, focusY: 0.5, progress: 0 },
 		}));
 
-		await renderer.renderTemporalMotionBlurFrame(
-			1_000_000,
-			1_000_000,
-			1_000_000,
-			33_333,
-			{
-				stageSize: { width: 1920, height: 1080 },
-				videoSize: { width: 1920, height: 1080 },
-				baseScale: 1,
-				baseOffset: { x: 0, y: 0 },
-				maskRect: {
-					x: 0,
-					y: 0,
-					width: 1920,
-					height: 1080,
-					sourceCrop: { x: 0, y: 0, width: 1, height: 1 },
-				},
+		await renderer.renderTemporalMotionBlurFrame(1_000_000, 1_000_000, 1_000_000, 33_333, {
+			stageSize: { width: 1920, height: 1080 },
+			videoSize: { width: 1920, height: 1080 },
+			baseScale: 1,
+			baseOffset: { x: 0, y: 0 },
+			maskRect: {
+				x: 0,
+				y: 0,
+				width: 1920,
+				height: 1080,
+				sourceCrop: { x: 0, y: 0, width: 1, height: 1 },
 			},
-		);
+		});
 
 		expect(renderer.renderSceneSample).toHaveBeenCalledTimes(3);
 		expect(renderer.renderSceneSample.mock.calls.map((call: unknown[]) => call[6])).toEqual([
-			1,
-			1,
-			1,
+			1, 1, 1,
 		]);
 		expect(
 			new Set(renderer.renderSceneSample.mock.calls.map((call: unknown[]) => call[0])).size,

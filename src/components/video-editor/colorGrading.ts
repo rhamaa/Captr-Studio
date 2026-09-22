@@ -1,9 +1,5 @@
 ﻿import { type ColorMatrixFilter, Texture } from "pixi.js";
-import {
-	type ColorFilterPreset,
-	type ColorGradingSettings,
-	DEFAULT_COLOR_GRADING,
-} from "./types";
+import { type ColorFilterPreset, type ColorGradingSettings, DEFAULT_COLOR_GRADING } from "./types";
 
 export interface ColorFilterPresetOption {
 	id: ColorFilterPreset;
@@ -57,8 +53,12 @@ export function normalizeColorGrading(
 	if (!input) return { ...DEFAULT_COLOR_GRADING };
 	return {
 		preset: input.preset ?? DEFAULT_COLOR_GRADING.preset,
-		exposure: Number.isFinite(input.exposure) ? Math.max(-100, Math.min(100, input.exposure!)) : 0,
-		contrast: Number.isFinite(input.contrast) ? Math.max(-100, Math.min(100, input.contrast!)) : 0,
+		exposure: Number.isFinite(input.exposure)
+			? Math.max(-100, Math.min(100, input.exposure!))
+			: 0,
+		contrast: Number.isFinite(input.contrast)
+			? Math.max(-100, Math.min(100, input.contrast!))
+			: 0,
 		saturation: Number.isFinite(input.saturation)
 			? Math.max(-100, Math.min(100, input.saturation!))
 			: 0,
@@ -77,11 +77,7 @@ export function applyColorGradingToFilter(
 	const current = normalizeColorGrading(settings);
 	const { preset, exposure, contrast, saturation } = current;
 
-	const isDefault =
-		preset === "none" &&
-		exposure === 0 &&
-		contrast === 0 &&
-		saturation === 0;
+	const isDefault = preset === "none" && exposure === 0 && contrast === 0 && saturation === 0;
 
 	if (isDefault) {
 		filter.reset();

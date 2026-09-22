@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import Item from "../../Item";
 import type { TimelineRenderItem } from "../../core/timelineTypes";
 import { useTimelineAudioPeaks } from "../../hooks/useTimelineAudioPeaks";
+import Item from "../../Item";
 
 export interface AudioItemWithWaveformProps {
 	item: TimelineRenderItem;

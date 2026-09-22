@@ -245,7 +245,9 @@ export function AssetExplorer({
 							onClick={() => setActiveSubfolder(null)}
 							className={cn(
 								"p-1 rounded hover:bg-foreground/10 text-muted-foreground transition-colors",
-								activeSubfolder ? "text-foreground hover:text-white" : "opacity-40 cursor-default",
+								activeSubfolder
+									? "text-foreground hover:text-white"
+									: "opacity-40 cursor-default",
 							)}
 							title="Back to Root Folder"
 							disabled={!activeSubfolder}
@@ -255,7 +257,10 @@ export function AssetExplorer({
 
 						{/* Breadcrumb Path Bar */}
 						<div className="flex items-center gap-1 px-2 py-0.5 rounded bg-foreground/[0.04] border border-foreground/10 text-[10.5px] max-w-[210px] truncate">
-							<FolderSimple className="w-3 h-3 text-amber-400 shrink-0" weight="fill" />
+							<FolderSimple
+								className="w-3 h-3 text-amber-400 shrink-0"
+								weight="fill"
+							/>
 							<button
 								type="button"
 								onClick={() => setActiveSubfolder(null)}
@@ -412,7 +417,9 @@ export function AssetExplorer({
 									<Folder
 										className={cn(
 											"w-3 h-3 shrink-0",
-											count > 0 ? "text-amber-400" : "text-muted-foreground/50",
+											count > 0
+												? "text-amber-400"
+												: "text-muted-foreground/50",
 										)}
 										weight={count > 0 ? "fill" : "regular"}
 									/>
@@ -449,7 +456,9 @@ export function AssetExplorer({
 									type="button"
 									variant="outline"
 									size="sm"
-									onClick={() => onImportMedia(activeSubfolder || "Imported Media")}
+									onClick={() =>
+										onImportMedia(activeSubfolder || "Imported Media")
+									}
 									className="mt-3 h-6 px-2.5 text-[10px] border-foreground/15 hover:bg-foreground/5"
 								>
 									<UploadSimple className="w-3 h-3 mr-1" />
@@ -496,22 +505,34 @@ export function AssetExplorer({
 											)}
 										>
 											{asset.type === "video" && (
-												<FileVideo className="w-8 h-8 opacity-85" weight="duotone" />
+												<FileVideo
+													className="w-8 h-8 opacity-85"
+													weight="duotone"
+												/>
 											)}
 											{asset.type === "audio" && (
-												<FileAudio className="w-8 h-8 opacity-85" weight="duotone" />
+												<FileAudio
+													className="w-8 h-8 opacity-85"
+													weight="duotone"
+												/>
 											)}
 											{asset.type === "image" && (
-												<FileImage className="w-8 h-8 opacity-85" weight="duotone" />
+												<FileImage
+													className="w-8 h-8 opacity-85"
+													weight="duotone"
+												/>
 											)}
 
 											{/* Type Badge on Top Left */}
 											<span
 												className={cn(
 													"absolute top-1 left-1 px-1 py-0.2 rounded text-[7.5px] font-bold uppercase tracking-wider",
-													asset.type === "video" && "bg-blue-500/80 text-white",
-													asset.type === "audio" && "bg-emerald-500/80 text-white",
-													asset.type === "image" && "bg-violet-500/80 text-white",
+													asset.type === "video" &&
+														"bg-blue-500/80 text-white",
+													asset.type === "audio" &&
+														"bg-emerald-500/80 text-white",
+													asset.type === "image" &&
+														"bg-violet-500/80 text-white",
 												)}
 											>
 												{asset.type}
@@ -638,22 +659,37 @@ export function AssetExplorer({
 												<div
 													className={cn(
 														"p-1 rounded shrink-0",
-														asset.type === "video" && "bg-blue-500/20 text-blue-400",
-														asset.type === "audio" && "bg-emerald-500/20 text-emerald-400",
-														asset.type === "image" && "bg-violet-500/20 text-violet-400",
+														asset.type === "video" &&
+															"bg-blue-500/20 text-blue-400",
+														asset.type === "audio" &&
+															"bg-emerald-500/20 text-emerald-400",
+														asset.type === "image" &&
+															"bg-violet-500/20 text-violet-400",
 													)}
 												>
 													{asset.type === "video" && (
-														<VideoCamera className="w-3 h-3" weight="bold" />
+														<VideoCamera
+															className="w-3 h-3"
+															weight="bold"
+														/>
 													)}
 													{asset.type === "audio" && (
-														<SpeakerHigh className="w-3 h-3" weight="bold" />
+														<SpeakerHigh
+															className="w-3 h-3"
+															weight="bold"
+														/>
 													)}
 													{asset.type === "image" && (
-														<ImageIcon className="w-3 h-3" weight="bold" />
+														<ImageIcon
+															className="w-3 h-3"
+															weight="bold"
+														/>
 													)}
 												</div>
-												<span className="truncate font-medium text-[10.5px]" title={asset.name}>
+												<span
+													className="truncate font-medium text-[10.5px]"
+													title={asset.name}
+												>
 													{asset.name}
 												</span>
 												{asset.category === "main" && (
@@ -681,7 +717,10 @@ export function AssetExplorer({
 														onClick={(e) => {
 															e.stopPropagation();
 															if (asset.type === "video") {
-																onUseAsset(asset, "add-video-layer");
+																onUseAsset(
+																	asset,
+																	"add-video-layer",
+																);
 															} else if (asset.type === "audio") {
 																onUseAsset(asset, "add-audio");
 															} else {
@@ -735,7 +774,9 @@ export function AssetExplorer({
 					{activeSubfolder && (
 						<>
 							<span>•</span>
-							<span className="text-foreground/75 font-medium">{activeSubfolder}</span>
+							<span className="text-foreground/75 font-medium">
+								{activeSubfolder}
+							</span>
 						</>
 					)}
 				</div>

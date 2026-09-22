@@ -93,7 +93,9 @@ function fallbackToBundledHelperOrExit(reason) {
 			binaryName: "recordly-gpu-export.exe",
 		});
 		if (!verification.ok) {
-			console.warn(formatNativeHelperManifestWarning("build-windows-gpu-export", verification));
+			console.warn(
+				formatNativeHelperManifestWarning("build-windows-gpu-export", verification),
+			);
 		}
 		console.warn(`[build-windows-gpu-export] ${reason}`);
 		console.log(`[build-windows-gpu-export] Using bundled helper: ${bundledExePath}`);
@@ -119,11 +121,7 @@ function clearCmakeCache() {
 }
 
 console.log("[build-windows-gpu-export] Configuring CMake...");
-const vsGenerators = [
-	"Visual Studio 18 2026",
-	"Visual Studio 17 2022",
-	"Visual Studio 16 2019",
-];
+const vsGenerators = ["Visual Studio 18 2026", "Visual Studio 17 2022", "Visual Studio 16 2019"];
 
 let configured = false;
 for (const gen of vsGenerators) {
@@ -136,7 +134,7 @@ for (const gen of vsGenerators) {
 		});
 		configured = true;
 		break;
-	} catch (e) {
+	} catch {
 		console.log(`[build-windows-gpu-export] Generator "${gen}" failed, trying next...`);
 	}
 }

@@ -1,12 +1,12 @@
+import { loadAppSetting, saveAppSetting } from "../../lib/appSettings";
 import {
 	normalizeExportBackendPreference,
 	normalizeExportMp4FrameRate,
 	normalizeExportPipelineModel,
 	normalizeProjectEditor,
-	stripPersistedDevMotionBlurSettings,
 	type ProjectEditorState,
+	stripPersistedDevMotionBlurSettings,
 } from "./projectPersistence";
-import { loadAppSetting, saveAppSetting } from "../../lib/appSettings";
 
 type PersistedEditorControls = Pick<
 	ProjectEditorState,
@@ -168,8 +168,6 @@ function normalizeCustomWallpapers(value: unknown, fallback: string[]): string[]
 	);
 }
 
-
-
 function normalizeEditorPresetSnapshot(candidate: unknown): EditorPresetSnapshot {
 	const normalizedPreferences = normalizeEditorPreferences(candidate);
 	return {
@@ -248,14 +246,12 @@ function normalizeEditorControls(
 		zoomInDurationMs: sanitizedRaw.zoomInDurationMs ?? fallback.zoomInDurationMs,
 		zoomInOverlapMs: sanitizedRaw.zoomInOverlapMs ?? fallback.zoomInOverlapMs,
 		zoomOutDurationMs: sanitizedRaw.zoomOutDurationMs ?? fallback.zoomOutDurationMs,
-		connectedZoomGapMs:
-			sanitizedRaw.connectedZoomGapMs ?? fallback.connectedZoomGapMs,
+		connectedZoomGapMs: sanitizedRaw.connectedZoomGapMs ?? fallback.connectedZoomGapMs,
 		connectedZoomDurationMs:
 			sanitizedRaw.connectedZoomDurationMs ?? fallback.connectedZoomDurationMs,
 		zoomInEasing: sanitizedRaw.zoomInEasing ?? fallback.zoomInEasing,
 		zoomOutEasing: sanitizedRaw.zoomOutEasing ?? fallback.zoomOutEasing,
-		connectedZoomEasing:
-			sanitizedRaw.connectedZoomEasing ?? fallback.connectedZoomEasing,
+		connectedZoomEasing: sanitizedRaw.connectedZoomEasing ?? fallback.connectedZoomEasing,
 		showCursor: sanitizedRaw.showCursor ?? fallback.showCursor,
 		loopCursor: sanitizedRaw.loopCursor ?? fallback.loopCursor,
 		cursorStyle: sanitizedRaw.cursorStyle ?? fallback.cursorStyle,
@@ -265,16 +261,14 @@ function normalizeEditorControls(
 			sanitizedRaw.cursorSpringStiffnessMultiplier ??
 			fallback.cursorSpringStiffnessMultiplier,
 		cursorSpringDampingMultiplier:
-			sanitizedRaw.cursorSpringDampingMultiplier ??
-			fallback.cursorSpringDampingMultiplier,
+			sanitizedRaw.cursorSpringDampingMultiplier ?? fallback.cursorSpringDampingMultiplier,
 		cursorSpringMassMultiplier:
 			sanitizedRaw.cursorSpringMassMultiplier ?? fallback.cursorSpringMassMultiplier,
 		cameraSpringStiffnessMultiplier:
 			sanitizedRaw.cameraSpringStiffnessMultiplier ??
 			fallback.cameraSpringStiffnessMultiplier,
 		cameraSpringDampingMultiplier:
-			sanitizedRaw.cameraSpringDampingMultiplier ??
-			fallback.cameraSpringDampingMultiplier,
+			sanitizedRaw.cameraSpringDampingMultiplier ?? fallback.cameraSpringDampingMultiplier,
 		cameraSpringMassMultiplier:
 			sanitizedRaw.cameraSpringMassMultiplier ?? fallback.cameraSpringMassMultiplier,
 		cursorMotionBlur: sanitizedRaw.cursorMotionBlur ?? fallback.cursorMotionBlur,
@@ -282,16 +276,14 @@ function normalizeEditorControls(
 		cursorClickBounceDuration:
 			sanitizedRaw.cursorClickBounceDuration ?? fallback.cursorClickBounceDuration,
 		cursorSway: sanitizedRaw.cursorSway ?? fallback.cursorSway,
-		cameraPerspectiveTilt:
-			sanitizedRaw.cameraPerspectiveTilt ?? fallback.cameraPerspectiveTilt,
+		cameraPerspectiveTilt: sanitizedRaw.cameraPerspectiveTilt ?? fallback.cameraPerspectiveTilt,
 		borderRadius: sanitizedRaw.borderRadius ?? fallback.borderRadius,
 		padding: sanitizedRaw.padding ?? fallback.padding,
 		frame: sanitizedRaw.frame !== undefined ? sanitizedRaw.frame : fallback.frame,
 		webcam: sanitizedRaw.webcam ?? fallback.webcam,
 		aspectRatio: sanitizedRaw.aspectRatio ?? fallback.aspectRatio,
 		colorGrading: sanitizedRaw.colorGrading ?? fallback.colorGrading,
-		exportEncodingMode:
-			sanitizedRaw.exportEncodingMode ?? fallback.exportEncodingMode,
+		exportEncodingMode: sanitizedRaw.exportEncodingMode ?? fallback.exportEncodingMode,
 		exportBackendPreference:
 			sanitizedRaw.exportBackendPreference === undefined
 				? fallback.exportBackendPreference
@@ -417,10 +409,7 @@ export function saveEditorPreferences(preferences: Partial<EditorPreferences>): 
 		const merged = normalizeEditorPreferences({ ...current, ...preferences }, current);
 		const persisted = stripPersistedDevMotionBlurSettings(merged);
 		saveAppSetting(EDITOR_PREFERENCES_STORAGE_KEY, persisted);
-		globalThis.localStorage?.setItem(
-			EDITOR_PREFERENCES_STORAGE_KEY,
-			JSON.stringify(persisted),
-		);
+		globalThis.localStorage?.setItem(EDITOR_PREFERENCES_STORAGE_KEY, JSON.stringify(persisted));
 	} catch {
 		// Ignore storage failures so editor controls still work.
 	}

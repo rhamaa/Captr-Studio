@@ -10,19 +10,19 @@ const faviconDest = path.resolve("public/favicon.ico");
 fs.mkdirSync(destDir, { recursive: true });
 
 for (const size of sizes) {
-  const srcFile = path.join(srcDir, `${size}x${size}.png`);
-  if (fs.existsSync(srcFile)) {
-    fs.copyFileSync(srcFile, path.join(destDir, `captr-${size}.png`));
-    fs.copyFileSync(srcFile, path.join(destDir, `captrmac-${size}.png`));
-    fs.copyFileSync(srcFile, path.join(destDir, `recordly-${size}.png`));
-    fs.copyFileSync(srcFile, path.join(destDir, `recordlymac-${size}.png`));
-    console.log(`Synced size ${size}px`);
-  } else {
-    console.warn(`Missing size ${size}x${size}.png`);
-  }
+	const srcFile = path.join(srcDir, `${size}x${size}.png`);
+	if (fs.existsSync(srcFile)) {
+		fs.copyFileSync(srcFile, path.join(destDir, `captr-${size}.png`));
+		fs.copyFileSync(srcFile, path.join(destDir, `captrmac-${size}.png`));
+		fs.copyFileSync(srcFile, path.join(destDir, `recordly-${size}.png`));
+		fs.copyFileSync(srcFile, path.join(destDir, `recordlymac-${size}.png`));
+		console.log(`Synced size ${size}px`);
+	} else {
+		console.warn(`Missing size ${size}x${size}.png`);
+	}
 }
 
 if (fs.existsSync(icoSrc)) {
-  fs.copyFileSync(icoSrc, faviconDest);
-  console.log("Synced favicon.ico");
+	fs.copyFileSync(icoSrc, faviconDest);
+	console.log("Synced favicon.ico");
 }

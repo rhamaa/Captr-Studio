@@ -122,11 +122,7 @@ function clearCmakeCache() {
 }
 
 console.log("[build-cursor-monitor] Configuring CMake...");
-const vsGenerators = [
-	"Visual Studio 18 2026",
-	"Visual Studio 17 2022",
-	"Visual Studio 16 2019",
-];
+const vsGenerators = ["Visual Studio 18 2026", "Visual Studio 17 2022", "Visual Studio 16 2019"];
 
 let configured = false;
 for (const gen of vsGenerators) {
@@ -139,7 +135,7 @@ for (const gen of vsGenerators) {
 		});
 		configured = true;
 		break;
-	} catch (e) {
+	} catch {
 		console.log(`[build-cursor-monitor] Generator "${gen}" failed, trying next...`);
 	}
 }

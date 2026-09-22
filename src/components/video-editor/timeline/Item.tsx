@@ -1,13 +1,13 @@
 import type { Span } from "dnd-timeline";
 import { useItem } from "dnd-timeline";
 import { useMemo } from "react";
-import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { AudioPeaksData, SlideMedia4in1 } from "./core/timelineTypes";
 import { useLocalMediaUrl } from "@/hooks/useLocalMediaUrl";
+import { cn } from "@/lib/utils";
+import type { AudioPeaksData, SlideMedia4in1 } from "./core/timelineTypes";
 import glassStyles from "./ItemGlass.module.css";
-import { formatMs, getGlassClass } from "./items/itemUtils";
 import { ClipTimelineItem } from "./items/ClipTimelineItem";
+import { formatMs, getGlassClass } from "./items/itemUtils";
 import { StandardTimelineItem } from "./items/StandardTimelineItem";
 
 export interface ItemProps {
@@ -143,7 +143,8 @@ export default function Item({
 						glassClass,
 						"w-full overflow-hidden flex items-center justify-center gap-1.5 cursor-grab active:cursor-grabbing relative rounded-lg",
 						isSelected && glassStyles.selected,
-						isClip && "h-full min-h-[74px] bg-slate-900/90 border border-blue-500/40 shadow-sm",
+						isClip &&
+							"h-full min-h-[74px] bg-slate-900/90 border border-blue-500/40 shadow-sm",
 					)}
 					style={{
 						height: isClip ? "100%" : "85%",

@@ -876,7 +876,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			const webcamPath = await stopWebcamRecorder();
 			await storeMicrophoneSidecar(resolvedMicFallbackBlobPromise, result.path, startDelayMs);
 			await finalizeRecordingSession(result.path, webcamPath);
-			
+
 			if (typeof window.electronAPI?.hudOverlayClose === "function") {
 				window.electronAPI.hudOverlayClose();
 			}
@@ -1032,33 +1032,30 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	 * This eliminates the perceived "mic starts late" delay and makes
 	 * micFallbackStartDelayMs accurately ≈ 0 ms instead of 200-500 ms.
 	 */
-	const prepareMicFallbackStream = useCallback(
-		async (micDeviceId: string | undefined) => {
-			if (
-				preparedMicStream.current &&
-				preparedMicStream.current.active &&
-				preparedMicStream.current.getAudioTracks().some((t) => t.readyState === "live")
-			) {
-				return;
-			}
-			// Release any previously prepared stream that was not consumed.
-			if (preparedMicStream.current) {
-				preparedMicStream.current.getTracks().forEach((t) => t.stop());
-				preparedMicStream.current = null;
-			}
-			try {
-				const constraints = createProcessedMicrophoneConstraints(
-					micDeviceId,
-					browserMicrophoneProfile.current,
-				);
-				preparedMicStream.current = await navigator.mediaDevices.getUserMedia(constraints);
-			} catch (err) {
-				console.warn("[useScreenRecorder] prepareMicFallbackStream failed:", err);
-				preparedMicStream.current = null;
-			}
-		},
-		[],
-	);
+	const prepareMicFallbackStream = useCallback(async (micDeviceId: string | undefined) => {
+		if (
+			preparedMicStream.current &&
+			preparedMicStream.current.active &&
+			preparedMicStream.current.getAudioTracks().some((t) => t.readyState === "live")
+		) {
+			return;
+		}
+		// Release any previously prepared stream that was not consumed.
+		if (preparedMicStream.current) {
+			preparedMicStream.current.getTracks().forEach((t) => t.stop());
+			preparedMicStream.current = null;
+		}
+		try {
+			const constraints = createProcessedMicrophoneConstraints(
+				micDeviceId,
+				browserMicrophoneProfile.current,
+			);
+			preparedMicStream.current = await navigator.mediaDevices.getUserMedia(constraints);
+		} catch (err) {
+			console.warn("[useScreenRecorder] prepareMicFallbackStream failed:", err);
+			preparedMicStream.current = null;
+		}
+	}, []);
 
 	const stopRecording = useRef(() => {
 		setPaused(false);
@@ -1127,7 +1124,10 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					// 1. Await background finalization (webcam, muxing, sidecars)
 					// so that audio and video are 100% complete and muxed before notifying the editor!
 					const webcamPath = await webcamPathPromise;
-					console.log("[useScreenRecorder] Background native processing: webcamPath is", webcamPath);
+					console.log(
+						"[useScreenRecorder] Background native processing: webcamPath is",
+						webcamPath,
+					);
 
 					// Store sidecars
 					await storeMicrophoneSidecar(
@@ -1142,7 +1142,10 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 						await window.electronAPI.muxNativeWindowsRecording(expectedDurationMs);
 					}
 
-					console.log("[useScreenRecorder] Finalizing session with complete assets:", { finalPath, webcamPath });
+					console.log("[useScreenRecorder] Finalizing session with complete assets:", {
+						finalPath,
+						webcamPath,
+					});
 
 					// 2. Finalize session and notify editor ONCE with all assets ready
 					await finalizeRecordingSession(finalPath, webcamPath);
@@ -1157,7 +1160,9 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					// After all background tasks are done (webcam, mic sidecars, muxing),
 					// safely close the HUD window to release hardware and resources.
 					if (typeof window.electronAPI?.hudOverlayClose === "function") {
-						console.log("[useScreenRecorder] All background tasks finished, closing HUD");
+						console.log(
+							"[useScreenRecorder] All background tasks finished, closing HUD",
+						);
 						window.electronAPI.hudOverlayClose();
 					}
 				}
@@ -1339,8 +1344,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		setStarting(true);
 
 		try {
-			const platform =
-				cachedPlatform.current ?? (await window.electronAPI.getPlatform());
+			const platform = cachedPlatform.current ?? (await window.electronAPI.getPlatform());
 			cachedPlatform.current = platform;
 			hideEditorOverlayCursorByDefault.current = false;
 			const existingSource = await window.electronAPI.getSelectedSource();
@@ -1390,7 +1394,10 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 							await window.electronAPI.isNativeWindowsCaptureAvailable();
 						useNativeWindowsCapture = nativeWindowsResult.available;
 						cachedNativeWindowsCaptureAvailable.current = useNativeWindowsCapture;
-						if (!useNativeWindowsCapture && !hasShownNativeWindowsFallbackToast.current) {
+						if (
+							!useNativeWindowsCapture &&
+							!hasShownNativeWindowsFallbackToast.current
+						) {
 							void logNativeCaptureDiagnostics("is-native-windows-capture-available");
 							hasShownNativeWindowsFallbackToast.current = true;
 							toast.info(
@@ -1411,14 +1418,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 			const useNativeCapture = useNativeMacScreenCapture || useNativeWindowsCapture;
 			const nativeRecordingPromise = useNativeCapture
-				? window.electronAPI.startNativeScreenRecording(
-						selectedSource,
-						{
-							capturesSystemAudio: systemAudioEnabled,
-							capturesMicrophone: microphoneEnabled,
-							microphoneDeviceId,
-						},
-				  )
+				? window.electronAPI.startNativeScreenRecording(selectedSource, {
+						capturesSystemAudio: systemAudioEnabled,
+						capturesMicrophone: microphoneEnabled,
+						microphoneDeviceId,
+					})
 				: Promise.resolve({ success: false } as {
 						success: boolean;
 						path?: string;
@@ -1426,13 +1430,15 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 						error?: string;
 						userNotified?: boolean;
 						microphoneFallbackRequired?: boolean;
-				  });
+					});
 
 			// Concurrently prepare webcam, mic stream, and spawn the native helper.
 			// This eliminates ~500ms of serialized latency off the hot recording start path.
 			const [, , nativeResult] = await Promise.all([
 				prepareWebcamRecorder(),
-				microphoneEnabled ? prepareMicFallbackStream(microphoneDeviceId) : Promise.resolve(),
+				microphoneEnabled
+					? prepareMicFallbackStream(microphoneDeviceId)
+					: Promise.resolve(),
 				nativeRecordingPromise,
 			]);
 
@@ -1494,9 +1500,14 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 							if (
 								!micStream ||
 								!micStream.active ||
-								micStream.getAudioTracks().every((track) => track.readyState !== "live")
+								micStream
+									.getAudioTracks()
+									.every((track) => track.readyState !== "live")
 							) {
-								micStream = await navigator.mediaDevices.getUserMedia(microphoneConstraints);
+								micStream =
+									await navigator.mediaDevices.getUserMedia(
+										microphoneConstraints,
+									);
 							}
 							micFallbackTrackSettings.current =
 								createMicrophoneTrackSettingsSnapshot(micStream);
@@ -1837,7 +1848,9 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 							// After all background tasks are done (webcam),
 							// we can safely close the HUD window to release hardware and resources.
 							if (typeof window.electronAPI?.hudOverlayClose === "function") {
-								console.log("[useScreenRecorder:browser] All background tasks finished, closing HUD");
+								console.log(
+									"[useScreenRecorder:browser] All background tasks finished, closing HUD",
+								);
 								window.electronAPI.hudOverlayClose();
 							}
 						}
@@ -2041,7 +2054,9 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				// Pre-warm webcam and mic during the countdown window so they are immediately hot when countdown ends
 				const prewarmPromise = Promise.all([
 					prepareWebcamRecorder(),
-					microphoneEnabled ? prepareMicFallbackStream(microphoneDeviceId) : Promise.resolve(),
+					microphoneEnabled
+						? prepareMicFallbackStream(microphoneDeviceId)
+						: Promise.resolve(),
 				]).catch((err) => {
 					console.warn("[useScreenRecorder] Prewarm during countdown failed:", err);
 				});

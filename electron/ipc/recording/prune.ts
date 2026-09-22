@@ -1,7 +1,5 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { collectProjectMediaPaths } from "../project/mediaReferences";
-import { isProjectBundle } from "../project/projectBundle";
 import {
 	AUTO_RECORDING_MAX_AGE_MS,
 	AUTO_RECORDING_RETENTION_COUNT,
@@ -10,6 +8,8 @@ import {
 	PROJECT_FILE_EXTENSION,
 	PROJECTS_DIRECTORY_NAME,
 } from "../constants";
+import { collectProjectMediaPaths } from "../project/mediaReferences";
+import { isProjectBundle } from "../project/projectBundle";
 import { currentVideoPath } from "../state";
 import {
 	getRecordingsDir,
@@ -84,7 +84,9 @@ async function loadSavedProjectMediaPaths() {
 
 				let rawProject: unknown;
 				try {
-					rawProject = parseJsonWithByteOrderMark(await fs.readFile(projectPath, "utf-8"));
+					rawProject = parseJsonWithByteOrderMark(
+						await fs.readFile(projectPath, "utf-8"),
+					);
 				} catch {
 					// Legacy JSON .captr or corrupt file — no media paths to protect; skip gracefully.
 					return;

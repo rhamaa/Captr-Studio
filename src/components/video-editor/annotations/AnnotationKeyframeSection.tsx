@@ -1,5 +1,3 @@
-import { KeyframeValueEditor } from "./KeyframeValueEditor";
-import { addAnnotationKeyframe, getAnnotationLocalTime } from "../annotationKeyframes";
 import { Diamond, Plus, Trash as Trash2 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,11 +9,9 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import type {
-	AnnotationRegion,
-	KeyframeEasing,
-	KeyframeProperty,
-} from "../types";
+import { addAnnotationKeyframe, getAnnotationLocalTime } from "../annotationKeyframes";
+import type { AnnotationRegion, KeyframeEasing, KeyframeProperty } from "../types";
+import { KeyframeValueEditor } from "./KeyframeValueEditor";
 
 export interface AnnotationKeyframeSectionProps {
 	annotation: AnnotationRegion;
@@ -31,7 +27,12 @@ export function AnnotationKeyframeSection({
 	const handleAddKeyframe = (property: KeyframeProperty) => {
 		const currentMs = currentTimeMs ?? annotation.startMs;
 		const relativeTimeMs = getAnnotationLocalTime(annotation, currentMs);
-		const nextKfs = addAnnotationKeyframe(annotation, property, currentMs, `kf_${crypto.randomUUID()}`);
+		const nextKfs = addAnnotationKeyframe(
+			annotation,
+			property,
+			currentMs,
+			`kf_${crypto.randomUUID()}`,
+		);
 		onLayerChange?.({ keyframes: nextKfs });
 		toast.success(`Keyframe ${property} added at ${(relativeTimeMs / 1000).toFixed(2)}s`);
 	};
@@ -57,10 +58,9 @@ export function AnnotationKeyframeSection({
 					Keyframe Engine
 				</span>
 				<span className="text-[10px] text-muted-foreground bg-foreground/5 px-2 py-0.5 rounded-md font-mono">
-					{(
-						((currentTimeMs ?? annotation.startMs) - annotation.startMs) /
-						1000
-					).toFixed(2)}
+					{(((currentTimeMs ?? annotation.startMs) - annotation.startMs) / 1000).toFixed(
+						2,
+					)}
 					s
 				</span>
 			</div>
@@ -134,7 +134,19 @@ export function AnnotationKeyframeSection({
 												"bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]",
 										)}
 									/>
-									<KeyframeValueEditor frame={kf} disabled={annotation.locked} onChange={changes => onLayerChange?.({ keyframes: annotation.keyframes?.map(frame => frame.id === kf.id ? { ...frame, ...changes } : frame) })} />
+									<KeyframeValueEditor
+										frame={kf}
+										disabled={annotation.locked}
+										onChange={(changes) =>
+											onLayerChange?.({
+												keyframes: annotation.keyframes?.map((frame) =>
+													frame.id === kf.id
+														? { ...frame, ...changes }
+														: frame,
+												),
+											})
+										}
+									/>
 									<span className="capitalize font-medium text-foreground text-[11px] truncate">
 										{kf.property}
 									</span>
@@ -158,7 +170,9 @@ export function AnnotationKeyframeSection({
 											<SelectItem value="ease-in">Ease In</SelectItem>
 											<SelectItem value="ease-out">Ease Out</SelectItem>
 											<SelectItem value="ease-in-out">Ease In-Out</SelectItem>
-											<SelectItem value="cubic-bezier">Custom Bezier</SelectItem>
+											<SelectItem value="cubic-bezier">
+												Custom Bezier
+											</SelectItem>
 											<SelectItem value="spring-bounce">Spring</SelectItem>
 										</SelectContent>
 									</Select>

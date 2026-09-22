@@ -2,8 +2,8 @@ import { Trash as Trash2 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { SliderControl } from "../../SliderControl";
-import { SectionLabel } from "../components/SettingsSectionLabel";
 import type { AudioDuckingSettings } from "../../types";
+import { SectionLabel } from "../components/SettingsSectionLabel";
 
 export interface AudioTrackSectionProps {
 	selectedAudioId?: string | null;

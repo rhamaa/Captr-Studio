@@ -79,7 +79,11 @@ describe("pruneAutoRecordings", () => {
 
 		await fs.writeFile(
 			path.join(projectsDir, `saved-project-webcam.${PROJECT_FILE_EXTENSION}`),
-			JSON.stringify({ editor: { webcam: { sourcePath: protectedWebcamRecordingPath } } }, null, 2),
+			JSON.stringify(
+				{ editor: { webcam: { sourcePath: protectedWebcamRecordingPath } } },
+				null,
+				2,
+			),
 			"utf-8",
 		);
 
@@ -97,7 +101,9 @@ describe("pruneAutoRecordings", () => {
 		const recordingsDir = await getRecordingsDir();
 		const projectsDir = path.join(recordingsDir, PROJECTS_DIRECTORY_NAME);
 		await fs.mkdir(projectsDir, { recursive: true });
-		const files = ["intro", "scene", "broll", "unused"].map((name) => path.join(recordingsDir, `recording-${name}.mp4`));
+		const files = ["intro", "scene", "broll", "unused"].map((name) =>
+			path.join(recordingsDir, `recording-${name}.mp4`),
+		);
 		for (const file of files) {
 			await fs.writeFile(file, "video");
 			const old = new Date(Date.now() - AUTO_RECORDING_MAX_AGE_MS - 60000);
@@ -106,16 +112,21 @@ describe("pruneAutoRecordings", () => {
 		// plain JSON project — prune reads these to protect referenced recordings
 		await fs.writeFile(
 			path.join(projectsDir, "story.captr"),
-			JSON.stringify({ videoPath: files[0], clips: [{ videoPath: files[1], mediaTrackLayers: [{ sourcePath: files[2] }] }] }),
+			JSON.stringify({
+				videoPath: files[0],
+				clips: [{ videoPath: files[1], mediaTrackLayers: [{ sourcePath: files[2] }] }],
+			}),
 		);
 		await pruneAutoRecordings();
-		for (const file of files.slice(0, 3)) await expect(fs.access(file)).resolves.toBeUndefined();
+		for (const file of files.slice(0, 3))
+			await expect(fs.access(file)).resolves.toBeUndefined();
 		await expect(fs.access(files[3])).rejects.toThrow();
 	});
 
 	it("skips unreadable/corrupt project files gracefully without aborting the prune", async () => {
 		const { getRecordingsDir } = await import("../utils");
-		const { PROJECTS_DIRECTORY_NAME, PROJECT_FILE_EXTENSION, AUTO_RECORDING_MAX_AGE_MS } = await import("../constants");
+		const { PROJECTS_DIRECTORY_NAME, PROJECT_FILE_EXTENSION, AUTO_RECORDING_MAX_AGE_MS } =
+			await import("../constants");
 		const { pruneAutoRecordings } = await import("./prune");
 
 		const recordingsDir = await getRecordingsDir();
