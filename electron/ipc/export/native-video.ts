@@ -4007,10 +4007,15 @@ export async function probeNativeVideoEncoder(
 			clearTimeout(timeout);
 			void removeTemporaryExportFile(outputPath);
 			if (code !== 0 && stderrOutput.trim().length > 0) {
-				console.warn(
-					`[native-export] Encoder probe failed for ${encoderName}:`,
-					stderrOutput.trim(),
-				);
+				const trimmed = stderrOutput.trim();
+				if (trimmed.includes("Cannot load nvcuda.dll") || trimmed.includes("CUDA_ERROR") || trimmed.includes("Driver not found")) {
+					console.log(`[native-export] ${encoderName} unavailable (NVIDIA CUDA runtime not installed; falling back).`);
+				} else {
+					console.warn(
+						`[native-export] Encoder probe failed for ${encoderName}:`,
+						trimmed,
+					);
+				}
 			}
 			resolve(code === 0);
 		});

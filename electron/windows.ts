@@ -831,8 +831,8 @@ export function createEditorWindow(): BrowserWindow {
 		console.error("[editor-window] render-process-gone", details);
 	});
 
-	win.webContents.on("console-message", (_event, level, message, line, sourceId) => {
-		console.log(`[RENDERER-CONSOLE:${level}] ${message} (${sourceId}:${line})`);
+	win.webContents.on("console-message", (event) => {
+		console.log(`[RENDERER-CONSOLE:${event.level}] ${event.message} (${event.sourceId}:${event.lineNumber})`);
 	});
 
 	win.on("show", () => {

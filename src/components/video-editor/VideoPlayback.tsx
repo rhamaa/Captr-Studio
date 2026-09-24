@@ -2017,7 +2017,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				const videoEffectsContainer = new Container();
 				videoEffectsContainerRef.current = videoEffectsContainer;
 				zoomBlurFilterRef.current = new ZoomBlurFilter({ strength: 0, maxKernelSize: 13 });
-				motionBlurFilterRef.current = new MotionBlurFilter([0, 0], 5, 0);
+				motionBlurFilterRef.current = new MotionBlurFilter({ velocity: [0, 0], kernelSize: 5, offset: 0 });
 				videoEffectsContainer.filters = [
 					motionBlurFilterRef.current,
 					zoomBlurFilterRef.current,
