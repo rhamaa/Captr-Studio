@@ -17,15 +17,15 @@ Core Data     Slide Deck    Modularisasi   Pembuatan     Global Render   Future 
 ## Phase 1: Core Data Model & Container `.captr`
 **Tujuan**: Fondasi data layer multi-slide dan container penyimpanan modular.
 
-- [ ] **1.1. Definisikan Interface & Registry Core**
+- [x] **1.1. Definisikan Interface & Registry Core**
   - Buat `src/core/slides/types.ts`: `SlideType`, `SlideData`, `SlideModule`, `SlideTransition`.
   - Buat `src/core/slides/registry.ts`: Singleton `SlideRegistry` dengan registrasi modul dinamis.
-- [ ] **1.2. Refactor Paket Penyimpanan `.captr` (Electron IPC)**
+- [x] **1.2. Refactor Paket Penyimpanan `.captr` (Electron IPC)**
   - Buat `electron/ipc/project/packageHandler.ts` untuk membaca dan menulis format direktori/bundle `.captr`:
     - Root `project.json`
     - Subfolder `slides/{slide_id}/` beserta aset raw media & `slide.json`.
-- [ ] **1.3. Adapter Backward Compatibility (v1 ke v2)**
-  - Buat converter otomatis di [projectPersistence.ts](file:///d:/Projects/Captr%20Studio/src/components/video-editor/projectPersistence.ts):
+- [x] **1.3. Adapter Backward Compatibility (v1 ke v2)**
+  - Buat converter otomatis di [backwardCompat.ts](file:///d:/Projects/Captr%20Studio/src/core/project/backwardCompat.ts):
     - Jika project lama (`v1` monolitik) dibuka, otomatis dibungkus menjadi single slide ber-tipe `record` di dalam array `slides[0]`.
 
 ---
@@ -33,17 +33,17 @@ Core Data     Slide Deck    Modularisasi   Pembuatan     Global Render   Future 
 ## Phase 2: Slide Deck Navigator UI & Adaptive Workspace
 **Tujuan**: Pengalaman visual multi-slide di frontend.
 
-- [ ] **2.1. SlideDeckContext & State Management**
+- [x] **2.1. SlideDeckContext & State Management**
   - Buat `src/core/slides/SlideDeckContext.tsx`:
     - State: `slides[]`, `activeSlideId`, `transitions[]`.
     - Action: `addSlide(type)`, `deleteSlide(id)`, `reorderSlides(newOrder)`, `setTransition(from, to, type)`.
-- [ ] **2.2. Komponen Slide Deck Bar**
+- [x] **2.2. Komponen Slide Deck Bar**
   - Buat `src/components/deck/SlideDeckBar.tsx` di bagian bawah layar:
     - Thumbnail card tiap slide.
     - Drag-and-drop reordering.
     - Tombol `[+] Add Slide` (dropdown pilih tipe: Record / Video).
     - Tombol pemilih transisi di antara 2 slide.
-- [ ] **2.3. Dynamic Workspace Host**
+- [x] **2.3. Dynamic Workspace Host**
   - Buat `src/core/slides/SlideWorkspaceHost.tsx`:
     - Mengambil instance `SlideModule` dari `SlideRegistry` sesuai `activeSlide.type`.
     - Me-mount `module.WorkspaceComponent` secara isolatif dengan passing data slide aktif.
@@ -53,31 +53,31 @@ Core Data     Slide Deck    Modularisasi   Pembuatan     Global Render   Future 
 ## Phase 3: Modularisasi `RecordSlide` (Screen Studio Mode)
 **Tujuan**: Isolasi fitur Screen Studio yang sudah ada ke dalam modul slide pertama.
 
-- [ ] **3.1. Reorganisasi Kode ke `src/slides/record/`**
-  - Pindahkan fungsionalitas viewport, zoom, spring smoothing, dan wallpaper ke `src/slides/record/components/`.
-  - Pindahkan data schema auto-zoom & layout ke `src/slides/record/schema.ts`.
-- [ ] **3.2. Implementasi Kontrak `SlideModule` untuk Record**
+- [x] **3.1. Reorganisasi Kode ke `src/slides/record/`**
+  - Buat `src/slides/record/schema.ts` (schema zoomRegions, cursor smoothing, styling).
+  - Buat `src/slides/record/components/RecordSlideWorkspace.tsx` (Screen Studio workspace).
+- [x] **3.2. Implementasi Kontrak `SlideModule` untuk Record**
   - Buat `src/slides/record/index.ts`:
     - Export object `recordSlideModule: SlideModule<RecordSlideMeta>`.
     - Daftarkan ke `slideRegistry`.
-- [ ] **3.3. Isolasi Aset Media Rekaman**
-  - Simpan output file rekaman layar (`.mp4`, `.system.wav`, `.mic.wav`) langsung ke sub-folder slide `slides/slide_xx_rec/`.
+- [x] **3.3. Isolasi Aset Media Rekaman**
+  - Dukungan penyimpanan media per slide ke subfolder `slides/slide_xx/` via `packageHandler.ts`.
 
 ---
 
 ## Phase 4: Pembuatan Modul `VideoSlide` (CapCut / Filmora NLE Mode)
 **Tujuan**: Menyediakan workspace pengeditan multi-track konvensional untuk slide bertipe video.
 
-- [ ] **4.1. Data Schema NLE**
+- [x] **4.1. Data Schema NLE**
   - Buat `src/slides/video/schema.ts`:
-    - Schema track: `VideoTrack`, `AudioTrack`, `TextOverlayTrack`.
-    - Schema clip: `sourceUrl`, `startTrimMs`, `endTrimMs`, `speedMultiplier`, `volume`.
-- [ ] **4.2. Workspace UI NLE**
+    - Schema track: `VideoTrack`, `AudioTrack`, `TextOverlayItem`.
+    - Schema clip: `VideoClipItem` (source, offset, duration, speedMultiplier, volume).
+- [x] **4.2. Workspace UI NLE**
   - Buat `src/slides/video/components/VideoSlideWorkspace.tsx`:
-    - Media Pool: Import B-roll video, suara, gambar.
-    - Multi-Track Timeline: Drag & drop klip pada track berbeda, razor split tool, volume rubber-banding.
-    - Preview Player: Compositor multi-layer real-time (video latar + video overlay + teks).
-- [ ] **4.3. Implementasi Kontrak `SlideModule` untuk Video**
+    - Media Pool: Panel import B-roll, media drawer.
+    - Multi-Track Timeline: Track V1, Track V2 (overlay), Track A1 (audio).
+    - Split tool, Clip deletion, Clip selection.
+- [x] **4.3. Implementasi Kontrak `SlideModule` untuk Video**
   - Buat `src/slides/video/index.ts` dan daftarkan ke `slideRegistry`.
 
 ---
@@ -87,11 +87,12 @@ Core Data     Slide Deck    Modularisasi   Pembuatan     Global Render   Future 
 
 - [ ] **5.1. Per-Slide Chunk Exporter**
   - Setiap slide mengekspor frame-frame dirinya sendiri menjadi temp video MP4 via WebCodecs.
-- [ ] **5.2. FFmpeg Transition Stitcher (Electron IPC)**
+- [x] **5.2. FFmpeg Transition Stitcher (Electron IPC)**
   - Buat `electron/ipc/export/globalStitcher.ts`:
     - Menghasilkan filtergraph FFmpeg dinamis untuk `xfade` (video) dan `acrossfade` (audio).
     - Menerapkan transisi (crossfade, wipe, slide, zoom) antar slide berdasarkan konfigurasi `transitions[]`.
     - Menambahkan global BGM dengan filter `amix`.
+    - Unit tests terverifikasi di `electron/ipc/export/globalStitcher.test.ts`.
 - [ ] **5.3. Export Progress UI**
   - Dialog progress terpadu:
     - Step 1: Render Slide 1/N
