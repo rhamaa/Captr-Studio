@@ -178,6 +178,8 @@ function settleNativeVideoExportPendingRequests(
 contextBridge.exposeInMainWorld("electronAPI", {
 	showOpenDialog: (options: Electron.OpenDialogOptions) =>
 		ipcRenderer.invoke("show-open-dialog", options),
+	showSaveDialog: (options: Electron.SaveDialogOptions) =>
+		ipcRenderer.invoke("show-save-dialog", options),
 	readFileAsDataUrl: (filePath: string) => ipcRenderer.invoke("read-file-as-data-url", filePath),
 	hudOverlaySetIgnoreMouse: (ignore: boolean) => {
 		ipcRenderer.send("hud-overlay-set-ignore-mouse", ignore);
@@ -473,6 +475,18 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 	discardExportedTemp: (tempPath: string) => {
 		return ipcRenderer.invoke("discard-exported-temp", tempPath);
+	},
+	stitchProjectSlides: (options: {
+		slides: Array<{ filePath: string; durationSec: number }>;
+		transitions?: Array<{ type: string; durationSec: number }>;
+		globalAudio?: { path: string; volume?: number; loop?: boolean };
+		outputPath: string;
+	}) => {
+		return ipcRenderer.invoke("stitch-project-slides", options) as Promise<{
+			success: boolean;
+			outputPath?: string;
+			error?: string;
+		}>;
 	},
 	getVideoAudioFallbackPaths: (videoPath: string) => {
 		return ipcRenderer.invoke("get-video-audio-fallback-paths", videoPath);

@@ -44,6 +44,7 @@ import {
 	type NativeVideoExportFinishOptions,
 } from "../nativeVideoExport";
 import { isAllowedLocalReadPath, resolveApprovedLocalMediaPath } from "../project/manager";
+import { stitchSlidesWithTransitions, type StitchProjectOptions } from "../export/globalStitcher";
 import { approveUserPath } from "../utils";
 
 function getPartialExportDestinationPath(destinationPath: string) {
@@ -1026,4 +1027,11 @@ export function registerExportHandlers() {
 			return { success: false, error: String(error) };
 		}
 	});
+
+	ipcMain.handle(
+		"stitch-project-slides",
+		async (_event, options: StitchProjectOptions) => {
+			return await stitchSlidesWithTransitions(options);
+		},
+	);
 }

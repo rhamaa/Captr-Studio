@@ -241,6 +241,9 @@ interface Window {
 		showOpenDialog: (
 			options: import("electron").OpenDialogOptions,
 		) => Promise<import("electron").OpenDialogReturnValue>;
+		showSaveDialog: (
+			options: import("electron").SaveDialogOptions,
+		) => Promise<import("electron").SaveDialogReturnValue>;
 		readFileAsDataUrl: (filePath: string) => Promise<string | null>;
 		hudOverlaySetIgnoreMouse: (ignore: boolean) => void;
 		hudOverlayDrag: (phase: "start" | "move" | "end", screenX: number, screenY: number) => void;
@@ -601,6 +604,16 @@ interface Window {
 			error?: string;
 		}>;
 		discardExportedTemp: (tempPath: string) => Promise<{ success: boolean; error?: string }>;
+		stitchProjectSlides: (options: {
+			slides: Array<{ filePath: string; durationSec: number }>;
+			transitions?: Array<{ type: string; durationSec: number }>;
+			globalAudio?: { path: string; volume?: number; loop?: boolean };
+			outputPath: string;
+		}) => Promise<{
+			success: boolean;
+			outputPath?: string;
+			error?: string;
+		}>;
 		getVideoAudioFallbackPaths: (videoPath: string) => Promise<{
 			success: boolean;
 			paths: string[];
@@ -946,6 +959,16 @@ interface Window {
 		setWindowMode: (mode: "welcome" | "editor") => Promise<{ success: boolean }>;
 		onWindowMaximizedChange: (callback: (isMaximized: boolean) => void) => () => void;
 		approveLocalMediaPath?: (filePath: string) => Promise<{ success: boolean }>;
+		stitchProjectSlides?: (options: {
+			slides: Array<{ filePath: string; durationSec: number }>;
+			transitions?: Array<{ type: string; durationSec: number }>;
+			globalAudio?: { path: string; volume?: number; loop?: boolean };
+			outputPath: string;
+		}) => Promise<{
+			success: boolean;
+			outputPath?: string;
+			error?: string;
+		}>;
 	};
 }
 

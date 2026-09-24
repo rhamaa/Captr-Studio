@@ -71,6 +71,14 @@ export interface SlideWorkspaceProps<TMeta = Record<string, unknown>> {
 	canvasDimensions: CanvasDimensions;
 }
 
+export interface SlideChunkExportOptions {
+	outputPath?: string;
+	fps: number;
+	width: number;
+	height: number;
+	onProgress?: (progressPercent: number) => void;
+}
+
 export interface SlideModule<TMeta = Record<string, unknown>> {
 	type: SlideType;
 	displayName: string;
@@ -96,6 +104,13 @@ export interface SlideModule<TMeta = Record<string, unknown>> {
 		offlineAudioContext: OfflineAudioContext,
 	) => Promise<AudioBuffer | null>;
 
+	// Direct chunk exporter if the module produces an MP4 chunk directly
+	exportChunk?: (
+		slide: SlideData<TMeta>,
+		options: SlideChunkExportOptions,
+	) => Promise<{ filePath: string; durationSec: number }>;
+
 	// Create default metadata for a newly added slide
 	createDefaultMeta: () => TMeta;
 }
+

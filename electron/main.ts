@@ -709,6 +709,14 @@ ipcMain.handle("show-open-dialog", async (_event, options: Electron.OpenDialogOp
 	return result;
 });
 
+ipcMain.handle("show-save-dialog", async (_event, options: Electron.SaveDialogOptions) => {
+	const result = await dialog.showSaveDialog(options);
+	if (!result.canceled && result.filePath) {
+		await rememberApprovedLocalReadPath(result.filePath);
+	}
+	return result;
+});
+
 ipcMain.handle("read-file-as-data-url", async (_event, filePath: string) => {
 	try {
 		const buffer = await fs.readFile(filePath);

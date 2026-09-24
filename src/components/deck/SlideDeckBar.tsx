@@ -3,6 +3,7 @@ import {
 	ArrowsLeftRight,
 	CaretLeft,
 	CaretRight,
+	DownloadSimple,
 	FilmSlate,
 	Lightning,
 	Plus,
@@ -12,6 +13,8 @@ import {
 } from "@phosphor-icons/react";
 import { useSlideDeck } from "@/core/slides/SlideDeckContext";
 import type { SlideType, TransitionType } from "@/core/slides/types";
+import { MultiSlideExportDialog } from "./MultiSlideExportDialog";
+
 
 interface SlideDeckBarProps {
 	className?: string;
@@ -30,6 +33,7 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 	} = useSlideDeck();
 
 	const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+	const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
 	const [activeTransitionPair, setActiveTransitionPair] = useState<{
 		fromId: string;
 		toId: string;
@@ -302,6 +306,24 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 					)}
 				</div>
 			</div>
+
+			{/* Right Actions: Export Button */}
+			<div className="flex items-center gap-2 pl-3 border-l border-slate-800 shrink-0">
+				<button
+					type="button"
+					onClick={() => setIsExportDialogOpen(true)}
+					className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-500 transition-colors"
+				>
+					<DownloadSimple size={15} weight="bold" />
+					<span>Export Video</span>
+				</button>
+			</div>
+
+			{/* Multi-Slide Export Dialog */}
+			<MultiSlideExportDialog
+				isOpen={isExportDialogOpen}
+				onClose={() => setIsExportDialogOpen(false)}
+			/>
 		</div>
 	);
 };

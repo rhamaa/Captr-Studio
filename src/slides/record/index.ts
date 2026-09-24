@@ -11,6 +11,24 @@ export const recordSlideModule: SlideModule<RecordSlideMeta> = {
 	icon: VideoCamera,
 	WorkspaceComponent: RecordSlideWorkspace,
 	createDefaultMeta: createDefaultRecordMeta,
+	exportChunk: async (slide, options) => {
+		const meta = slide.meta;
+		const durationSec = Math.max(0.5, slide.durationMs / 1000);
+		options.onProgress?.(100);
+		return {
+			filePath: meta.videoPath || "",
+			durationSec,
+		};
+	},
+	renderFrame: async (slide, _timeMs, targetCanvas) => {
+		const ctx = targetCanvas.getContext("2d") as
+			| CanvasRenderingContext2D
+			| OffscreenCanvasRenderingContext2D
+			| null;
+		if (!ctx) return;
+		ctx.fillStyle = slide.meta.wallpaper || "#0f172a";
+		ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+	},
 };
 
 // Auto-register to SlideRegistry

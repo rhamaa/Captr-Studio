@@ -85,20 +85,25 @@ Core Data     Slide Deck    Modularisasi   Pembuatan     Global Render   Future 
 ## Phase 5: Global Render Stitcher & Transition Engine
 **Tujuan**: Merender semua slide beserta transisinya menjadi satu file video utuh.
 
-- [ ] **5.1. Per-Slide Chunk Exporter**
-  - Setiap slide mengekspor frame-frame dirinya sendiri menjadi temp video MP4 via WebCodecs.
+- [x] **5.1. Per-Slide Chunk Exporter**
+  - Buat `src/core/export/slideChunkExporter.ts`:
+    - Delegasi ke `module.exportChunk` atau render frame sekuensial dengan WebCodecs `VideoEncoder` & `OffscreenCanvas`.
+    - Fallback cerdas ke metadata video source (`RecordSlide` & `VideoSlide`).
+    - Unit tests terverifikasi di `src/core/export/slideChunkExporter.test.ts`.
 - [x] **5.2. FFmpeg Transition Stitcher (Electron IPC)**
   - Buat `electron/ipc/export/globalStitcher.ts`:
     - Menghasilkan filtergraph FFmpeg dinamis untuk `xfade` (video) dan `acrossfade` (audio).
     - Menerapkan transisi (crossfade, wipe, slide, zoom) antar slide berdasarkan konfigurasi `transitions[]`.
     - Menambahkan global BGM dengan filter `amix`.
     - Unit tests terverifikasi di `electron/ipc/export/globalStitcher.test.ts`.
-- [ ] **5.3. Export Progress UI**
-  - Dialog progress terpadu:
-    - Step 1: Render Slide 1/N
-    - Step 2: Render Slide 2/N ...
-    - Step 3: Stitching & Applying Transitions (FFmpeg)
-    - Output final disimpan ke tujuan user.
+- [x] **5.3. Export Progress UI & Integration**
+  - Buat orchestrator pipeline di `src/core/export/multiSlideExporter.ts`.
+  - Buat dialog progress terpadu di `src/components/deck/MultiSlideExportDialog.tsx`:
+    - Step 1: Render Slide 1/N ... N/N
+    - Step 2: Stitching & Applying Transitions (FFmpeg)
+    - Step 3: Selesai & tombol "Buka Folder" via `window.electronAPI.revealInFolder`.
+  - Terintegrasi langsung ke tombol `Export Video` di `src/components/deck/SlideDeckBar.tsx`.
+  - Unit tests terverifikasi di `src/core/export/multiSlideExporter.test.ts`.
 
 ---
 
