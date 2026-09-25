@@ -13,6 +13,7 @@ import {
 	releaseOwnedExportPath,
 	writeToExportStream,
 } from "../export/exportStream";
+import { type StitchProjectOptions, stitchSlidesWithTransitions } from "../export/globalStitcher";
 import {
 	enqueueNativeVideoExportFrameWrite,
 	enqueueNativeVideoExportFrameWrites,
@@ -44,7 +45,6 @@ import {
 	type NativeVideoExportFinishOptions,
 } from "../nativeVideoExport";
 import { isAllowedLocalReadPath, resolveApprovedLocalMediaPath } from "../project/manager";
-import { stitchSlidesWithTransitions, type StitchProjectOptions } from "../export/globalStitcher";
 import { approveUserPath } from "../utils";
 
 function getPartialExportDestinationPath(destinationPath: string) {
@@ -1028,10 +1028,158 @@ export function registerExportHandlers() {
 		}
 	});
 
+	ipcMain.handle("stitch-project-slides", async (_event, options: StitchProjectOptions) => {
+		return await stitchSlidesWithTransitions(options);
+	});
+
 	ipcMain.handle(
-		"stitch-project-slides",
-		async (_event, options: StitchProjectOptions) => {
-			return await stitchSlidesWithTransitions(options);
+		"render-motion-slide",
+		async (
+			event,
+			options: {
+				htmlDocument: string;
+				durationMs: number;
+				width?: number;
+				height?: number;
+				fps?: number;
+			},
+		) => {
+			const { htmlDocument, durationMs } = options;
+			const width = options.width || 1920;
+			const height = options.height || 1080;
+			const fps = options.fps || 30;
+			const durationSec = Math.max(0.5, (durationMs || 5000) / 1000);
+			const totalFrames = Math.max(1, Math.round(durationSec * fps));
+
+			const tempFileName = `motion-export-${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`;
+			const tempPath = path.join(app.getPath("temp"), tempFileName);
+			registerOwnedExportPath(tempPath);
+
+			const renderWin = new BrowserWindow({
+				width,
+				height,
+				show: false,
+				frame: false,
+				backgroundColor: "#000000",
+				webPreferences: {
+					backgroundThrottling: false,
+					nodeIntegration: false,
+					contextIsolation: true,
+				},
+			});
+
+			try {
+				await renderWin.loadURL(
+					`data:text/html;charset=utf-8,${encodeURIComponent(htmlDocument)}`,
+				);
+
+				await new Promise<void>((resolve) => {
+					if (!renderWin.webContents.isLoading()) {
+						resolve();
+					} else {
+						renderWin.webContents.once("did-finish-load", () => resolve());
+					}
+				});
+				await new Promise((r) => setTimeout(r, 250));
+
+				const ffmpegPath = getFfmpegBinaryPath();
+				const ffmpeg = spawn(ffmpegPath, [
+					"-y",
+					"-f",
+					"image2pipe",
+					"-vcodec",
+					"mjpeg",
+					"-framerate",
+					String(fps),
+					"-i",
+					"-",
+					"-f",
+					"lavfi",
+					"-i",
+					"anullsrc=channel_layout=stereo:sample_rate=44100",
+					"-c:v",
+					"libx264",
+					"-preset",
+					"ultrafast",
+					"-pix_fmt",
+					"yuv420p",
+					"-c:a",
+					"aac",
+					"-shortest",
+					"-movflags",
+					"+faststart",
+					tempPath,
+				]);
+
+				let ffmpegError = "";
+				ffmpeg.stderr.on("data", (data) => {
+					ffmpegError += data.toString();
+				});
+
+				const ffmpegExitPromise = new Promise<{ code: number | null }>((resolve) => {
+					ffmpeg.on("close", (code) => resolve({ code }));
+				});
+
+				for (let i = 0; i < totalFrames; i++) {
+					const timeMs = (i / fps) * 1000;
+					try {
+						await renderWin.webContents.executeJavaScript(`
+							if (typeof window.setSeekTime === "function") {
+								try { window.setSeekTime(${timeMs}, ${durationMs}); } catch(e) {}
+							}
+						`);
+					} catch {
+						// Ignore JS error
+					}
+
+					await new Promise((r) => setTimeout(r, 12));
+
+					const image = await renderWin.webContents.capturePage({
+						x: 0,
+						y: 0,
+						width,
+						height,
+					});
+					const jpegBuffer = image.toJPEG(85);
+
+					const canWrite = ffmpeg.stdin.write(jpegBuffer);
+					if (!canWrite) {
+						await new Promise((resolve) => ffmpeg.stdin.once("drain", resolve));
+					}
+
+					const percent = Math.round(((i + 1) / totalFrames) * 95);
+					event.sender.send("render-motion-slide-progress", {
+						currentFrame: i + 1,
+						totalFrames,
+						percentage: percent,
+					});
+				}
+
+				ffmpeg.stdin.end();
+				const { code } = await ffmpegExitPromise;
+				renderWin.destroy();
+
+				if (code !== 0) {
+					return {
+						success: false,
+						error: `FFmpeg render error (${code}): ${ffmpegError.slice(-300)}`,
+					};
+				}
+
+				return {
+					success: true,
+					tempPath,
+					durationSec,
+				};
+			} catch (err) {
+				if (!renderWin.isDestroyed()) {
+					renderWin.destroy();
+				}
+				return {
+					success: false,
+					error: String(err),
+				};
+			}
 		},
 	);
 }

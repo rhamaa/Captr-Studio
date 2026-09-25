@@ -301,6 +301,21 @@ interface Window {
 			outputPath?: string;
 			error?: string;
 		}>;
+		renderMotionSlide: (options: {
+			htmlDocument: string;
+			durationMs: number;
+			width?: number;
+			height?: number;
+			fps?: number;
+		}) => Promise<{
+			success: boolean;
+			tempPath?: string;
+			durationSec?: number;
+			error?: string;
+		}>;
+		onRenderMotionSlideProgress: (
+			callback: (progress: { currentFrame: number; totalFrames: number; percentage: number }) => void,
+		) => () => void;
 		recordAdditionalClip: () => Promise<{
 			success: boolean;
 			path?: string;

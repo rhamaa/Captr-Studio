@@ -537,6 +537,31 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	stitchVideoClips: (clipPaths: string[]) => {
 		return ipcRenderer.invoke("stitch-video-clips", clipPaths);
 	},
+	renderMotionSlide: (options: {
+		htmlDocument: string;
+		durationMs: number;
+		width?: number;
+		height?: number;
+		fps?: number;
+	}) => {
+		return ipcRenderer.invoke("render-motion-slide", options);
+	},
+	onRenderMotionSlideProgress: (
+		callback: (progress: {
+			currentFrame: number;
+			totalFrames: number;
+			percentage: number;
+		}) => void,
+	) => {
+		const listener = (
+			_event: Electron.IpcRendererEvent,
+			progress: { currentFrame: number; totalFrames: number; percentage: number },
+		) => callback(progress);
+		ipcRenderer.on("render-motion-slide-progress", listener);
+		return () => {
+			ipcRenderer.removeListener("render-motion-slide-progress", listener);
+		};
+	},
 	recordAdditionalClip: () => {
 		return ipcRenderer.invoke("record-additional-clip");
 	},

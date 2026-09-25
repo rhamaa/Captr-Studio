@@ -25,15 +25,14 @@ export const VALID_VIDEO_SECTIONS = [
 	"audio",
 ] as const;
 
-export const VALID_MOTION_SECTIONS = [
-	"motion",
-	"settings",
-	"transitions",
-	"clip",
-] as const;
+export const VALID_MOTION_SECTIONS = ["motion", "settings", "transitions", "clip"] as const;
 
 export function isRecordSlide(clip: ClipEntry | null | undefined): boolean {
 	return (clip?.slideMode ?? (clip?.origin === "uploaded" ? "video" : "record")) === "record";
+}
+
+export function isMotionSlide(clip: ClipEntry | null | undefined): boolean {
+	return clip?.slideMode === "motion";
 }
 
 export function sanitizeSectionForSlideMode(

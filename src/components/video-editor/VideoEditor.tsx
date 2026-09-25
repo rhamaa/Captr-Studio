@@ -101,6 +101,7 @@ import { resolveExportStatusModel } from "./exportStatusModel";
 import { resolveMp4ExportRouting } from "./mp4ExportRouting";
 import { resolveMp4ExportSettings } from "./mp4ExportSettings";
 import {
+	isMotionSlide,
 	isRecordSlide,
 	resolveSceneEditingState,
 	sanitizeSectionForSlideMode,
@@ -6514,12 +6515,140 @@ export default function VideoEditor() {
 
 					let result: ExportResult;
 
-					if (clips.length > 1) {
+					const isSingleMotion =
+						clips.length <= 1 &&
+						(activeSlideMode === "motion" ||
+							(clips.length === 1 && isMotionSlide(clips[0])));
+
+					if (isSingleMotion) {
+						if (!window.electronAPI?.renderMotionSlide) {
+							throw new Error(
+								"Motion slide export is only supported in Captr Studio desktop.",
+							);
+						}
+						const targetClip = clips[0] ?? activeSlide;
+						const meta =
+							targetClip?.motionMeta ??
+							(activeSlide?.id === targetClip?.id
+								? activeSlide?.motionMeta
+								: undefined) ??
+							createDefaultMotionMeta();
+						const htmlDocument = buildMotionPreviewDocument(meta);
+						const durationMs = targetClip?.durationMs || meta.durationMs || 5000;
+
+						const unsubscribe = window.electronAPI.onRenderMotionSlideProgress?.(
+							(prog) => {
+								const exportProg: ExportProgress = {
+									currentFrame: prog.currentFrame,
+									totalFrames: prog.totalFrames,
+									percentage: prog.percentage,
+									estimatedTimeRemaining: Math.max(
+										0,
+										Math.round(
+											(prog.totalFrames - prog.currentFrame) /
+												Math.max(1, selectedMp4FrameRate),
+										),
+									),
+									phase: "extracting",
+								};
+								recordSmokeProgress(exportProg);
+								setExportProgress(exportProg);
+							},
+						);
+
+						try {
+							const motionResult = await window.electronAPI.renderMotionSlide({
+								htmlDocument,
+								durationMs,
+								width: exportWidth,
+								height: exportHeight,
+								fps: selectedMp4FrameRate,
+							});
+
+							if (!motionResult.success || !motionResult.tempPath) {
+								throw new Error(
+									motionResult.error || "Failed to render motion slide",
+								);
+							}
+
+							result = {
+								success: true,
+								tempFilePath: motionResult.tempPath,
+							};
+						} finally {
+							unsubscribe?.();
+						}
+					} else if (clips.length > 1) {
 						const renderedClipPaths: string[] = [];
 						const totalClips = clips.length;
 
 						for (let i = 0; i < clips.length; i++) {
 							const clip = clips[i];
+
+							if (isMotionSlide(clip)) {
+								if (!window.electronAPI?.renderMotionSlide) {
+									throw new Error(
+										"Motion slide export is only supported in Captr Studio desktop.",
+									);
+								}
+								const meta =
+									clip.motionMeta ??
+									(activeSlide?.id === clip.id
+										? activeSlide?.motionMeta
+										: undefined) ??
+									createDefaultMotionMeta();
+								const htmlDocument = buildMotionPreviewDocument(meta);
+								const durationMs = clip.durationMs || meta.durationMs || 5000;
+
+								const unsubscribe =
+									window.electronAPI.onRenderMotionSlideProgress?.((prog) => {
+										const aggregateProgress: ExportProgress = {
+											currentFrame: prog.currentFrame,
+											totalFrames: prog.totalFrames,
+											percentage: Math.round(
+												((i + prog.percentage / 100) / totalClips) * 100,
+											),
+											estimatedTimeRemaining: Math.max(
+												0,
+												Math.round(
+													(prog.totalFrames - prog.currentFrame) /
+														Math.max(1, selectedMp4FrameRate),
+												),
+											),
+											phase: "extracting",
+										};
+										recordSmokeProgress(aggregateProgress);
+										setExportProgress(aggregateProgress);
+									});
+
+								let motionResult: {
+									success: boolean;
+									tempPath?: string;
+									error?: string;
+								};
+								try {
+									motionResult = await window.electronAPI.renderMotionSlide({
+										htmlDocument,
+										durationMs,
+										width: exportWidth,
+										height: exportHeight,
+										fps: selectedMp4FrameRate,
+									});
+								} finally {
+									unsubscribe?.();
+								}
+
+								if (!motionResult.success || !motionResult.tempPath) {
+									throw new Error(
+										motionResult.error ||
+											`Failed to render Motion Slide ${i + 1}`,
+									);
+								}
+
+								renderedClipPaths.push(motionResult.tempPath);
+								continue;
+							}
+
 							const isRecorded = isRecordSlide(clip);
 							const scene = resolveSceneEditingState(clip);
 							const clipVideoUrl = await resolveVideoUrl(clip.videoPath);
