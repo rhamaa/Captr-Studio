@@ -257,12 +257,11 @@ export function SlideList({
 					const region = clipRegions.find((r) => r.id === slide.id);
 					const transitionIn = region?.transitionIn ?? "none";
 					const transitionInDurationMs = region?.transitionInDurationMs ?? 400;
-					const hasTransitionBefore = index > 0;
-
 					const slideMode: SlideMode =
 						slide.slideMode ?? (slide.origin === "uploaded" ? "video" : "record");
 					const isVideoMode = slideMode === "video";
 					const isMotionMode = slideMode === "motion";
+					const hasTransitionBefore = index > 0 && !isVideoMode && !isMotionMode;
 
 					return (
 						<div

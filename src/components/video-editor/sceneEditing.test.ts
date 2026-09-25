@@ -94,7 +94,7 @@ describe("separate scene editors", () => {
 		expect(sanitizeSectionForSlideMode("video", "webcam")).toBe("media");
 		expect(sanitizeSectionForSlideMode("video", "media")).toBe("media");
 		expect(sanitizeSectionForSlideMode("video", "video-adjust")).toBe("media");
-		expect(sanitizeSectionForSlideMode("video", "transitions")).toBe("transitions");
+		expect(sanitizeSectionForSlideMode("video", "transitions")).toBe("media");
 		expect(sanitizeSectionForSlideMode("video", "unknown" as any)).toBe("media");
 
 		// Record mode sanitization
@@ -109,7 +109,7 @@ describe("separate scene editors", () => {
 		expect(sanitizeSectionForSlideMode("motion", "layout")).toBe("motion");
 		expect(sanitizeSectionForSlideMode("motion", "motion")).toBe("motion");
 		expect(sanitizeSectionForSlideMode("motion", "settings")).toBe("settings");
-		expect(sanitizeSectionForSlideMode("motion", "transitions")).toBe("transitions");
+		expect(sanitizeSectionForSlideMode("motion", "transitions")).toBe("motion");
 		expect(sanitizeSectionForSlideMode("motion", "clip")).toBe("clip");
 		expect(sanitizeSectionForSlideMode("motion", "unknown" as any)).toBe("motion");
 	});

@@ -1,5 +1,4 @@
 import {
-	ArrowsLeftRight,
 	BookmarkSimple,
 	Check,
 	CaretDown as ChevronDown,
@@ -128,9 +127,6 @@ const PhFolder = (props: { className?: string; weight?: "fill" | "regular" }) =>
 );
 const PhMicrophone = (props: { className?: string; weight?: "fill" | "regular" }) => (
 	<Microphone weight={props.weight ?? "regular"} className={props.className} />
-);
-const PhArrowsLeftRight = (props: { className?: string; weight?: "fill" | "regular" }) => (
-	<ArrowsLeftRight weight={props.weight ?? "regular"} className={props.className} />
 );
 const PhCode = (props: { className?: string; weight?: "fill" | "regular" }) => (
 	<PhCodeRegular weight={props.weight ?? "regular"} className={props.className} />
@@ -1706,11 +1702,6 @@ export default function VideoEditor() {
 					label: t("settings.sections.motion", "Motion Code"),
 					icon: PhCode,
 				},
-				{
-					id: "transitions" as const,
-					label: t("settings.sections.transitions", "Transitions"),
-					icon: PhArrowsLeftRight,
-				},
 			];
 		}
 
@@ -1725,11 +1716,6 @@ export default function VideoEditor() {
 					id: "audio-record" as const,
 					label: t("settings.sections.audioRecord", "Audio & Mic"),
 					icon: PhMicrophone,
-				},
-				{
-					id: "transitions" as const,
-					label: t("settings.sections.transitions", "Transitions"),
-					icon: PhArrowsLeftRight,
 				},
 			];
 		}
@@ -3090,12 +3076,11 @@ export default function VideoEditor() {
 				const clip =
 					clipsRef.current.find((c) => c.id === id) ?? clips.find((c) => c.id === id);
 				const isRecord = isRecordSlide(clip);
+				const mode =
+					clip?.slideMode ??
+					(isRecord ? "record" : clip?.origin === "uploaded" ? "video" : "record");
 				setActiveEffectSection(
-					(prev) =>
-						sanitizeSectionForSlideMode(
-							isRecord ? "record" : "video",
-							prev,
-						) as EditorEffectSection,
+					(prev) => sanitizeSectionForSlideMode(mode, prev) as EditorEffectSection,
 				);
 				setSelectedZoomId(null);
 				setSelectedLayoutId(null);
@@ -3440,6 +3425,13 @@ export default function VideoEditor() {
 
 	const handleTransitionChange = useCallback(
 		(slideId: string, transitionType: ClipTransitionType, durationMs: number) => {
+			const targetClip = clipsRef.current.find((c) => c.id === slideId);
+			if (
+				targetClip &&
+				(targetClip.slideMode === "video" || targetClip.slideMode === "motion")
+			) {
+				return;
+			}
 			setClips((prev) =>
 				prev.map((c) =>
 					c.id === slideId

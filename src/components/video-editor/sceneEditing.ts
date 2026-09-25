@@ -16,16 +16,9 @@ export const VALID_RECORD_SECTIONS = [
 	"crop",
 ] as const;
 
-export const VALID_VIDEO_SECTIONS = [
-	"media",
-	"audio-record",
-	"transitions",
-	"settings",
-	"clip",
-	"audio",
-] as const;
+export const VALID_VIDEO_SECTIONS = ["media", "audio-record", "settings", "clip", "audio"] as const;
 
-export const VALID_MOTION_SECTIONS = ["motion", "settings", "transitions", "clip"] as const;
+export const VALID_MOTION_SECTIONS = ["motion", "settings", "clip"] as const;
 
 export function isRecordSlide(clip: ClipEntry | null | undefined): boolean {
 	return (clip?.slideMode ?? (clip?.origin === "uploaded" ? "video" : "record")) === "record";
