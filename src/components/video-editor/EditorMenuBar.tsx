@@ -345,6 +345,14 @@ export function EditorMenuBar({
 					</DropdownMenuItem>
 
 					<DropdownMenuItem
+						onClick={() => onOpenSettings("storage")}
+						className="cursor-pointer gap-2 py-1.5"
+					>
+						<FolderIcon className="w-4 h-4 text-muted-foreground" />
+						<span>Storage & Folders...</span>
+					</DropdownMenuItem>
+
+					<DropdownMenuItem
 						onClick={onOpenShortcuts}
 						className="cursor-pointer gap-2 py-1.5"
 					>

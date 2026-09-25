@@ -15,7 +15,6 @@ import {
 	Microphone,
 	Pause,
 	Camera as PhCameraRegular,
-	Faders as PhFaders,
 	Play,
 	Plus,
 	ArrowClockwise as Redo2,
@@ -118,9 +117,6 @@ const PhCamera = (props: { className?: string; weight?: "fill" | "regular" }) =>
 
 const PhSparkle = (props: { className?: string; weight?: "fill" | "regular" }) => (
 	<Sparkle weight={props.weight ?? "regular"} className={props.className} />
-);
-const PhSettings = (props: { className?: string; weight?: "fill" | "regular" }) => (
-	<Gear weight={props.weight ?? "regular"} className={props.className} />
 );
 const PhLayout = (props: { className?: string; weight?: "fill" | "regular" }) => (
 	<LayoutIcon weight={props.weight ?? "regular"} className={props.className} />
@@ -1711,16 +1707,6 @@ export default function VideoEditor() {
 					label: t("settings.sections.transitions", "Transitions"),
 					icon: PhArrowsLeftRight,
 				},
-				{
-					id: "color-grading" as const,
-					label: t("settings.sections.colorGrading", "Filters & Color"),
-					icon: PhFaders,
-				},
-				{
-					id: "settings" as const,
-					label: t("settings.sections.settings", "Settings"),
-					icon: PhSettings,
-				},
 			];
 		}
 
@@ -1740,16 +1726,6 @@ export default function VideoEditor() {
 				id: "layout" as const,
 				label: t("settings.sections.layout", "Layout"),
 				icon: PhLayout,
-			},
-			{
-				id: "color-grading" as const,
-				label: t("settings.sections.colorGrading", "Filters & Color"),
-				icon: PhFaders,
-			},
-			{
-				id: "settings" as const,
-				label: t("settings.sections.settings", "Settings"),
-				icon: PhSettings,
 			},
 		];
 	}, [activeSlideMode, t]);

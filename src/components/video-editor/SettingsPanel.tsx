@@ -33,7 +33,6 @@ import { SectionLabel } from "./settings/components/SettingsSectionLabel";
 import { AudioRecordSection } from "./settings/sections/AudioRecordSection";
 import { AudioTrackSection } from "./settings/sections/AudioTrackSection";
 import { ClipItemSection } from "./settings/sections/ClipItemSection";
-import { ColorGradingSection } from "./settings/sections/ColorGradingSection";
 import { CursorSection } from "./settings/sections/CursorSection";
 import { GeneralPreferencesSection } from "./settings/sections/GeneralPreferencesSection";
 import { LayoutItemSection } from "./settings/sections/LayoutItemSection";
@@ -969,14 +968,6 @@ export function SettingsPanel({
 				);
 			case "scene":
 				return sceneSectionContent;
-			case "color-grading":
-				return (
-					<ColorGradingSection
-						colorGrading={colorGrading}
-						onColorGradingChange={onColorGradingChange}
-						tSettings={tSettings}
-					/>
-				);
 			case "zoom":
 				return (
 					<ZoomItemSection
