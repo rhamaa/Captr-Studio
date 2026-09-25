@@ -21,7 +21,6 @@ import {
 import { DEFAULT_WALLPAPER_PATH } from "@/lib/wallpapers";
 import { ASPECT_RATIOS, type AspectRatio, isCustomAspectRatio } from "@/utils/aspectRatioUtils";
 import { normalizePropertyKeyframes } from "./annotationKeyframes";
-import { normalizeColorGrading } from "./colorGrading";
 import { CURSOR_MOTION_PRESETS, resolveCursorMotionPresetId } from "./cursorMotionPresets";
 import { normalizeLayoutRegion } from "./layoutScenes";
 import { migrateMediaTrackLayers } from "./sceneLayers";
@@ -32,7 +31,6 @@ import {
 	type AudioRegion,
 	type ClipEntry,
 	type ClipRegion,
-	type ColorGradingSettings,
 	type CropRegion,
 	type CursorStyle,
 	DEFAULT_ANNOTATION_POSITION,
@@ -89,7 +87,6 @@ export interface ProjectEditorState {
 	wallpaper: string;
 	shadowIntensity: number;
 	backgroundBlur: number;
-	colorGrading: ColorGradingSettings;
 	zoomMotionBlur: number;
 	zoomMotionBlurTuning: ZoomMotionBlurTuning;
 	zoomTemporalMotionBlur: number;
@@ -325,21 +322,13 @@ export function normalizeSceneVisualSettings(
 	value?: Partial<ProjectEditorState>,
 ): import("./types").SceneVisualSettings {
 	const normalized = normalizeProjectEditor(value ?? {});
-	const {
-		padding,
-		borderRadius,
-		shadowIntensity,
-		backgroundBlur,
-		colorGrading,
-		frame,
-		audioDuckingSettings,
-	} = normalized;
+	const { padding, borderRadius, shadowIntensity, backgroundBlur, frame, audioDuckingSettings } =
+		normalized;
 	return {
 		padding,
 		borderRadius,
 		shadowIntensity,
 		backgroundBlur,
-		colorGrading,
 		frame,
 		audioDuckingSettings,
 	};
@@ -1041,7 +1030,6 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		wallpaper: typeof editor.wallpaper === "string" ? editor.wallpaper : DEFAULT_WALLPAPER_PATH,
 		shadowIntensity: typeof editor.shadowIntensity === "number" ? editor.shadowIntensity : 0.67,
 		backgroundBlur: normalizedBackgroundBlur,
-		colorGrading: normalizeColorGrading(editor.colorGrading),
 		zoomMotionBlur: normalizedZoomMotionBlur,
 		zoomMotionBlurTuning: normalizedZoomMotionBlurTuning,
 		zoomTemporalMotionBlur: normalizedZoomTemporalMotionBlur,

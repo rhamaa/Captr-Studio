@@ -32,7 +32,6 @@ import {
 	isVideoWallpaperSource,
 } from "@/lib/wallpapers";
 import { computeDuckingGain } from "./audio/audioDucking";
-import { applyColorGradingToFilter, getVignetteTexture } from "./colorGrading";
 import { resolveLayoutSceneAtTime } from "./layoutScenes";
 import { toFileUrl } from "./projectPersistence";
 import { SocialSafeZoneOverlay } from "./SocialSafeZoneOverlay";
@@ -41,7 +40,6 @@ import {
 	type AudioDuckingSettings,
 	type AudioRegion,
 	type ClipRegion,
-	type ColorGradingSettings,
 	type CursorStyle,
 	DEFAULT_CAMERA_PERSPECTIVE_TILT,
 	type LayoutRegion,
@@ -394,7 +392,6 @@ interface VideoPlaybackProps {
 	cursorClickBounceDuration?: number;
 	cursorSway?: number;
 	cameraPerspectiveTilt?: number;
-	colorGrading?: ColorGradingSettings;
 	volume?: number;
 	suspendRendering?: boolean;
 }
@@ -477,7 +474,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cursorClickBounceDuration = DEFAULT_CURSOR_CLICK_BOUNCE_DURATION,
 			cursorSway = DEFAULT_CURSOR_SWAY,
 			cameraPerspectiveTilt = DEFAULT_CAMERA_PERSPECTIVE_TILT,
-			colorGrading,
 			volume = 1,
 			suspendRendering = false,
 		},
@@ -492,9 +488,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const cursorContainerRef = useRef<Container | null>(null);
 		const zoomBlurFilterRef = useRef<ZoomBlurFilter | null>(null);
 		const motionBlurFilterRef = useRef<MotionBlurFilter | null>(null);
-		const colorMatrixFilterRef = useRef<ColorMatrixFilter | null>(null);
-		const vignetteSpriteRef = useRef<Sprite | null>(null);
-		const colorGradingRef = useRef<ColorGradingSettings | undefined>(colorGrading);
 		const cameraContainerRef = useRef<Container | null>(null);
 
 		const timeUpdateAnimationRef = useRef<number | null>(null);
@@ -1025,11 +1018,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				baseScaleRef.current = result.baseScale;
 				baseOffsetRef.current = result.baseOffset;
 				baseMaskRef.current = result.maskRect;
-				if (vignetteSpriteRef.current && result.maskRect) {
-					vignetteSpriteRef.current.position.set(result.maskRect.x, result.maskRect.y);
-					vignetteSpriteRef.current.width = result.maskRect.width;
-					vignetteSpriteRef.current.height = result.maskRect.height;
-				}
 				cropBoundsRef.current = result.cropBounds;
 
 				// Sync extension cursor effects canvas resolution with renderer
@@ -1676,24 +1664,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		}, [cameraPerspectiveTilt]);
 
 		useEffect(() => {
-			colorGradingRef.current = colorGrading;
-			const filter = colorMatrixFilterRef.current;
-			const videoContainer = videoContainerRef.current;
-			const vignetteSprite = vignetteSpriteRef.current;
-
-			if (filter && videoContainer) {
-				const hasActiveFilter = applyColorGradingToFilter(filter, colorGrading);
-				videoContainer.filters = hasActiveFilter ? [filter] : null;
-			}
-
-			if (vignetteSprite) {
-				const vig = (colorGrading?.vignette ?? 0) / 100;
-				vignetteSprite.alpha = vig;
-				vignetteSprite.visible = vig > 0;
-			}
-		}, [colorGrading, pixiReady]);
-
-		useEffect(() => {
 			const timeMs = currentTime * 1000;
 			currentTimeRef.current = timeMs;
 			const videoInfo = extensionHost.getVideoInfoSnapshot();
@@ -2017,7 +1987,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				const videoEffectsContainer = new Container();
 				videoEffectsContainerRef.current = videoEffectsContainer;
 				zoomBlurFilterRef.current = new ZoomBlurFilter({ strength: 0, maxKernelSize: 13 });
-				motionBlurFilterRef.current = new MotionBlurFilter({ velocity: [0, 0], kernelSize: 5, offset: 0 });
+				motionBlurFilterRef.current = new MotionBlurFilter({
+					velocity: [0, 0],
+					kernelSize: 5,
+					offset: 0,
+				});
 				videoEffectsContainer.filters = [
 					motionBlurFilterRef.current,
 					zoomBlurFilterRef.current,
@@ -2029,20 +2003,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				const videoContainer = new Container();
 				videoContainerRef.current = videoContainer;
 				videoEffectsContainer.addChild(videoContainer);
-
-				const colorMatrixFilter = new ColorMatrixFilter();
-				colorMatrixFilterRef.current = colorMatrixFilter;
-				const hasActiveColorFilter = applyColorGradingToFilter(
-					colorMatrixFilter,
-					colorGradingRef.current,
-				);
-				videoContainer.filters = hasActiveColorFilter ? [colorMatrixFilter] : null;
-
-				const vignetteSprite = new Sprite(getVignetteTexture());
-				vignetteSprite.alpha = (colorGradingRef.current?.vignette ?? 0) / 100;
-				vignetteSprite.visible = (colorGradingRef.current?.vignette ?? 0) > 0;
-				vignetteSpriteRef.current = vignetteSprite;
-				videoContainer.addChild(vignetteSprite);
 
 				// Device frame overlay container - sits above video but below cursor
 				const frameContainer = new Container();

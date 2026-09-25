@@ -55,7 +55,6 @@ import type {
 	AudioDuckingSettings,
 	ClipEntry,
 	ClipTransitionType,
-	ColorGradingSettings,
 	CropRegion,
 	CursorStyle,
 	EditorEffectSection,
@@ -151,8 +150,6 @@ interface SettingsPanelProps {
 	onAudioDelete?: (id: string) => void;
 	audioDuckingSettings?: AudioDuckingSettings;
 	onAudioDuckingSettingsChange?: (settings: AudioDuckingSettings) => void;
-	colorGrading?: ColorGradingSettings;
-	onColorGradingChange?: (colorGrading: ColorGradingSettings) => void;
 
 	shadowIntensity?: number;
 	onShadowChange?: (intensity: number) => void;
@@ -316,8 +313,6 @@ export function SettingsPanel({
 	onAudioDelete,
 	audioDuckingSettings,
 	onAudioDuckingSettingsChange,
-	colorGrading,
-	onColorGradingChange,
 	shadowIntensity = 0.67,
 	onShadowChange,
 	backgroundBlur = 0,

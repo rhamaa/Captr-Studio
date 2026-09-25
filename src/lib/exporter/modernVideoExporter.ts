@@ -3,7 +3,6 @@ import type {
 	AudioDuckingSettings,
 	AudioRegion,
 	ClipRegion,
-	ColorGradingSettings,
 	CropRegion,
 	CursorStyle,
 	CursorTelemetryPoint,
@@ -142,7 +141,6 @@ interface VideoExporterConfig extends ExportConfig {
 	zoomSmoothness?: number;
 	zoomClassicMode?: boolean;
 	frame?: string | null;
-	colorGrading?: ColorGradingSettings;
 	audioRegions?: AudioRegion[];
 	audioDuckingSettings?: AudioDuckingSettings;
 	clipRegions?: ClipRegion[];
@@ -631,7 +629,6 @@ export class ModernVideoExporter {
 					zoomClassicMode: this.config.zoomClassicMode,
 					frame: this.config.frame,
 					clipRegions: this.config.clipRegions,
-					colorGrading: this.config.colorGrading,
 				});
 				await this.renderer.initialize();
 				this.rendererInitTimeMs = this.getNowMs() - stageStartedAt;

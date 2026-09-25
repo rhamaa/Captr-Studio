@@ -67,36 +67,11 @@ export type EditorEffectSection =
 	| "extensions"
 	| "clip"
 	| "audio"
-	| "color-grading"
 	| "media"
 	| "audio-record"
 	| "video-adjust"
 	| "transitions"
 	| `ext:${string}`;
-
-export type ColorFilterPreset =
-	| "none"
-	| "clean-studio"
-	| "cyber-glow"
-	| "warm-editorial"
-	| "cool-minimalist"
-	| "black-white";
-
-export interface ColorGradingSettings {
-	preset: ColorFilterPreset;
-	exposure: number; // -100 to +100
-	contrast: number; // -100 to +100
-	saturation: number; // -100 to +100
-	vignette: number; // 0 to 100 (%)
-}
-
-export const DEFAULT_COLOR_GRADING: ColorGradingSettings = {
-	preset: "none",
-	exposure: 0,
-	contrast: 0,
-	saturation: 0,
-	vignette: 0,
-};
 
 export type ZoomTransitionEasing = "recordly" | "glide" | "smooth" | "snappy" | "linear";
 
@@ -265,7 +240,6 @@ export type SceneVisualSettings = Pick<
 	| "borderRadius"
 	| "shadowIntensity"
 	| "backgroundBlur"
-	| "colorGrading"
 	| "frame"
 	| "audioDuckingSettings"
 >;

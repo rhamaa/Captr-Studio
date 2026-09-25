@@ -206,7 +206,6 @@ import {
 	type ClipEntry,
 	type ClipRegion,
 	type ClipTransitionType,
-	type ColorGradingSettings,
 	type CropRegion,
 	type CursorStyle,
 	type CursorTelemetryPoint,
@@ -217,7 +216,6 @@ import {
 	DEFAULT_ANNOTATION_STYLE,
 	DEFAULT_AUDIO_DUCKING_SETTINGS,
 	DEFAULT_AUTO_ZOOM_DEPTH,
-	DEFAULT_COLOR_GRADING,
 	DEFAULT_CONNECTED_ZOOM_DURATION_MS,
 	DEFAULT_CONNECTED_ZOOM_EASING,
 	DEFAULT_CONNECTED_ZOOM_GAP_MS,
@@ -543,9 +541,6 @@ export default function VideoEditor() {
 	const [cursorSway, setCursorSway] = useState(initialEditorPreferences.cursorSway);
 	const [cameraPerspectiveTilt, setCameraPerspectiveTilt] = useState(
 		initialEditorPreferences.cameraPerspectiveTilt,
-	);
-	const [colorGrading, setColorGrading] = useState<ColorGradingSettings>(
-		initialEditorPreferences.colorGrading ?? DEFAULT_COLOR_GRADING,
 	);
 	const [borderRadius, setBorderRadius] = useState(initialEditorPreferences.borderRadius);
 	const [padding, setPadding] = useState(initialEditorPreferences.padding);
@@ -916,7 +911,6 @@ export default function VideoEditor() {
 			cursorSway,
 			cameraPerspectiveTilt,
 			borderRadius,
-			colorGrading: { ...colorGrading },
 			padding: { ...padding },
 			frame,
 			webcam: { ...webcam },
@@ -966,7 +960,6 @@ export default function VideoEditor() {
 			cursorSway,
 			cameraPerspectiveTilt,
 			borderRadius,
-			colorGrading,
 			padding,
 			frame,
 			webcam,
@@ -1057,9 +1050,6 @@ export default function VideoEditor() {
 		setCursorSway(snapshot.cursorSway);
 		setCameraPerspectiveTilt(snapshot.cameraPerspectiveTilt ?? 0);
 		setBorderRadius(snapshot.borderRadius);
-		setColorGrading(
-			snapshot.colorGrading ? { ...snapshot.colorGrading } : DEFAULT_COLOR_GRADING,
-		);
 		setPadding({ ...snapshot.padding });
 		setFrame(snapshot.frame);
 		setWebcam({ ...snapshot.webcam });
@@ -1776,7 +1766,6 @@ export default function VideoEditor() {
 				cursorSway: number;
 				cameraPerspectiveTilt: number;
 				borderRadius: number;
-				colorGrading: ColorGradingSettings;
 				padding: Padding;
 				frame: string | null;
 				cropRegion: CropRegion;
@@ -1883,7 +1872,6 @@ export default function VideoEditor() {
 				cursorSway,
 				cameraPerspectiveTilt,
 				borderRadius,
-				colorGrading,
 				padding,
 				frame,
 				cropRegion,
@@ -1947,7 +1935,6 @@ export default function VideoEditor() {
 			cursorSway,
 			cameraPerspectiveTilt,
 			borderRadius,
-			colorGrading,
 			padding,
 			cropRegion,
 			webcam,
@@ -1981,19 +1968,10 @@ export default function VideoEditor() {
 			borderRadius,
 			shadowIntensity,
 			backgroundBlur,
-			colorGrading,
 			frame,
 			audioDuckingSettings,
 		}),
-		[
-			padding,
-			borderRadius,
-			shadowIntensity,
-			backgroundBlur,
-			colorGrading,
-			frame,
-			audioDuckingSettings,
-		],
+		[padding, borderRadius, shadowIntensity, backgroundBlur, frame, audioDuckingSettings],
 	);
 	const restoreSceneEditing = useCallback((clip: ClipEntry) => {
 		const state = resolveSceneEditingState(clip);
@@ -2007,7 +1985,6 @@ export default function VideoEditor() {
 		setBorderRadius(state.sceneSettings.borderRadius);
 		setShadowIntensity(state.sceneSettings.shadowIntensity);
 		setBackgroundBlur(state.sceneSettings.backgroundBlur);
-		setColorGrading(state.sceneSettings.colorGrading);
 		setFrame(state.sceneSettings.frame);
 		setAudioDuckingSettings(state.sceneSettings.audioDuckingSettings);
 		if (clip.audioRegions) {
@@ -2253,7 +2230,6 @@ export default function VideoEditor() {
 			setCursorSway(normalizedEditor.cursorSway);
 			setCameraPerspectiveTilt(normalizedEditor.cameraPerspectiveTilt);
 			setBorderRadius(normalizedEditor.borderRadius);
-			setColorGrading(normalizedEditor.colorGrading);
 			setPadding(normalizedEditor.padding);
 			setFrame(normalizedEditor.frame);
 			setCropRegion(normalizedEditor.cropRegion);
@@ -6299,7 +6275,6 @@ export default function VideoEditor() {
 						zoomOutEasing,
 						connectedZoomEasing,
 						borderRadius,
-						colorGrading,
 						padding,
 						cropRegion,
 						layoutRegions: recordToolsEnabled ? layoutRegions : [],
@@ -8124,8 +8099,6 @@ export default function VideoEditor() {
 								onAudioDelete={handleAudioDelete}
 								audioDuckingSettings={audioDuckingSettings}
 								onAudioDuckingSettingsChange={setAudioDuckingSettings}
-								colorGrading={colorGrading}
-								onColorGradingChange={setColorGrading}
 								shadowIntensity={shadowIntensity}
 								onShadowChange={setShadowIntensity}
 								backgroundBlur={backgroundBlur}
@@ -8479,7 +8452,6 @@ export default function VideoEditor() {
 													zoomOutEasing={zoomOutEasing}
 													connectedZoomEasing={connectedZoomEasing}
 													borderRadius={borderRadius}
-													colorGrading={colorGrading}
 													padding={padding}
 													frame={frame}
 													cropRegion={cropRegion}

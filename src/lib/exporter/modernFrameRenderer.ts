@@ -10,15 +10,10 @@ import {
 } from "pixi.js";
 import { MotionBlurFilter } from "pixi-filters/motion-blur";
 import { ZoomBlurFilter } from "pixi-filters/zoom-blur";
-import {
-	applyColorGradingToFilter,
-	getVignetteTexture,
-} from "@/components/video-editor/colorGrading";
 import { resolveLayoutSceneAtTime } from "@/components/video-editor/layoutScenes";
 import type {
 	AnnotationRegion,
 	ClipRegion,
-	ColorGradingSettings,
 	CropRegion,
 	CursorStyle,
 	CursorTelemetryPoint,
@@ -169,7 +164,6 @@ interface FrameRenderConfig {
 	zoomSmoothness?: number;
 	zoomClassicMode?: boolean;
 	frame?: string | null;
-	colorGrading?: ColorGradingSettings;
 	nativeReadbackMode?: "pixels" | "canvas";
 }
 
@@ -418,8 +412,6 @@ export class FrameRenderer {
 	private webcamMaskGraphics: Graphics | null = null;
 	private zoomBlurFilter: ZoomBlurFilter | null = null;
 	private motionBlurFilter: MotionBlurFilter | null = null;
-	private colorMatrixFilter: ColorMatrixFilter | null = null;
-	private vignetteSprite: Sprite | null = null;
 
 	private backgroundBlurFilter: BlurFilter | null = null;
 	private annotationAssets: AnnotationRenderAssets | null = null;
@@ -607,18 +599,6 @@ export class FrameRenderer {
 		this.videoContainer.addChild(this.videoMaskGraphics);
 		this.videoContainer.addChild(this.transitionOverlayGraphics);
 
-		this.colorMatrixFilter = new ColorMatrixFilter();
-		const hasActiveColorFilter = applyColorGradingToFilter(
-			this.colorMatrixFilter,
-			this.config.colorGrading,
-		);
-		this.videoContainer.filters = hasActiveColorFilter ? [this.colorMatrixFilter] : null;
-
-		this.vignetteSprite = new Sprite(getVignetteTexture());
-		this.vignetteSprite.alpha = (this.config.colorGrading?.vignette ?? 0) / 100;
-		this.vignetteSprite.visible = (this.config.colorGrading?.vignette ?? 0) > 0;
-		this.videoContainer.addChild(this.vignetteSprite);
-
 		this.videoContainer.mask = this.videoMaskGraphics;
 
 		this.webcamMaskGraphics = new Graphics();
@@ -659,7 +639,11 @@ export class FrameRenderer {
 				strength: 0,
 				maxKernelSize: 13,
 			});
-			this.motionBlurFilter = new MotionBlurFilter({ velocity: [0, 0], kernelSize: 5, offset: 0 });
+			this.motionBlurFilter = new MotionBlurFilter({
+				velocity: [0, 0],
+				kernelSize: 5,
+				offset: 0,
+			});
 		}
 
 		this.compositeCanvas = document.createElement("canvas");
@@ -3446,12 +3430,6 @@ export class FrameRenderer {
 			},
 		};
 
-		if (this.vignetteSprite) {
-			this.vignetteSprite.position.set(layout.centerOffsetX, layout.centerOffsetY);
-			this.vignetteSprite.width = layout.croppedDisplayWidth;
-			this.vignetteSprite.height = layout.croppedDisplayHeight;
-		}
-
 		this.updateFrameLayout();
 	}
 
@@ -3798,9 +3776,6 @@ export class FrameRenderer {
 		this.zoomBlurFilter?.destroy();
 		this.motionBlurFilter?.destroy();
 		this.backgroundBlurFilter?.destroy();
-		this.colorMatrixFilter?.destroy();
-		this.colorMatrixFilter = null;
-		this.vignetteSprite = null;
 
 		this.app?.destroy(true, {
 			children: true,

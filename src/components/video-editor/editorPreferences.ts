@@ -48,7 +48,6 @@ type PersistedEditorControls = Pick<
 	| "frame"
 	| "webcam"
 	| "aspectRatio"
-	| "colorGrading"
 	| "exportEncodingMode"
 	| "exportBackendPreference"
 	| "exportPipelineModel"
@@ -123,7 +122,6 @@ export const DEFAULT_EDITOR_PREFERENCES: EditorPreferences = {
 	frame: DEFAULT_EDITOR_CONTROLS.frame,
 	webcam: DEFAULT_EDITOR_CONTROLS.webcam,
 	aspectRatio: DEFAULT_EDITOR_CONTROLS.aspectRatio,
-	colorGrading: DEFAULT_EDITOR_CONTROLS.colorGrading,
 	exportEncodingMode: DEFAULT_EDITOR_CONTROLS.exportEncodingMode,
 	exportBackendPreference: DEFAULT_EDITOR_CONTROLS.exportBackendPreference,
 	exportPipelineModel: DEFAULT_EDITOR_CONTROLS.exportPipelineModel,
@@ -282,7 +280,6 @@ function normalizeEditorControls(
 		frame: sanitizedRaw.frame !== undefined ? sanitizedRaw.frame : fallback.frame,
 		webcam: sanitizedRaw.webcam ?? fallback.webcam,
 		aspectRatio: sanitizedRaw.aspectRatio ?? fallback.aspectRatio,
-		colorGrading: sanitizedRaw.colorGrading ?? fallback.colorGrading,
 		exportEncodingMode: sanitizedRaw.exportEncodingMode ?? fallback.exportEncodingMode,
 		exportBackendPreference:
 			sanitizedRaw.exportBackendPreference === undefined
@@ -344,7 +341,6 @@ function normalizeEditorControls(
 		frame: normalized.frame,
 		webcam: normalized.webcam,
 		aspectRatio: normalized.aspectRatio,
-		colorGrading: normalized.colorGrading,
 		exportEncodingMode: normalized.exportEncodingMode,
 		exportBackendPreference: normalized.exportBackendPreference,
 		exportPipelineModel: normalized.exportPipelineModel,
