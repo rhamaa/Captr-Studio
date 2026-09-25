@@ -27,7 +27,7 @@ describe("SlideRegistry", () => {
 
 	it("throws error when accessing unregistered module", () => {
 		const registry = new SlideRegistry();
-		expect(() => registry.get("remotion")).toThrow(/No slide module registered/);
+		expect(() => registry.get("motion")).toThrow(/No slide module registered/);
 	});
 
 	it("lists all registered slide types", () => {

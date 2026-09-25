@@ -1,4 +1,3 @@
-import React, { useState } from "react";
 import {
 	ArrowsLeftRight,
 	CaretLeft,
@@ -11,10 +10,10 @@ import {
 	Trash,
 	VideoCamera,
 } from "@phosphor-icons/react";
+import React, { useState } from "react";
 import { useSlideDeck } from "@/core/slides/SlideDeckContext";
 import type { SlideType, TransitionType } from "@/core/slides/types";
 import { MultiSlideExportDialog } from "./MultiSlideExportDialog";
-
 
 interface SlideDeckBarProps {
 	className?: string;
@@ -64,11 +63,11 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 					icon: Sparkle,
 					colorClass: "bg-purple-500/20 text-purple-400 border-purple-500/30",
 				};
-			case "remotion":
+			case "motion":
 				return {
-					label: "Remotion",
+					label: "Motion",
 					icon: Lightning,
-					colorClass: "bg-pink-500/20 text-pink-400 border-pink-500/30",
+					colorClass: "bg-amber-500/20 text-amber-400 border-amber-500/30",
 				};
 			default:
 				return {
@@ -93,7 +92,9 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 					const Icon = badge.icon;
 					const durationSec = (slide.durationMs / 1000).toFixed(1);
 					const nextSlide = project.slides[index + 1];
-					const transition = nextSlide ? getTransitionBetween(slide.id, nextSlide.id) : null;
+					const transition = nextSlide
+						? getTransitionBetween(slide.id, nextSlide.id)
+						: null;
 
 					return (
 						<React.Fragment key={slide.id}>
@@ -110,7 +111,9 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 								<div className="flex items-center justify-between">
 									<span
 										className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${
-											isActive ? "bg-emerald-500 text-slate-950" : "bg-slate-800 text-slate-400"
+											isActive
+												? "bg-emerald-500 text-slate-950"
+												: "bg-slate-800 text-slate-400"
 										}`}
 									>
 										{index + 1}
@@ -125,7 +128,10 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 								</div>
 
 								{/* Card Body: Title */}
-								<div className="truncate px-0.5 text-xs font-medium text-slate-200" title={slide.title}>
+								<div
+									className="truncate px-0.5 text-xs font-medium text-slate-200"
+									title={slide.title}
+								>
 									{slide.title}
 								</div>
 
@@ -266,8 +272,12 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 									<VideoCamera size={16} weight="bold" />
 								</div>
 								<div>
-									<div className="text-xs font-medium text-white">Record Slide</div>
-									<div className="text-[10px] text-slate-400">Screen Studio, auto-zoom</div>
+									<div className="text-xs font-medium text-white">
+										Record Slide
+									</div>
+									<div className="text-[10px] text-slate-400">
+										Screen Studio, auto-zoom
+									</div>
 								</div>
 							</button>
 
@@ -280,8 +290,12 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 									<FilmSlate size={16} weight="bold" />
 								</div>
 								<div>
-									<div className="text-xs font-medium text-white">Video Slide</div>
-									<div className="text-[10px] text-slate-400">CapCut multi-track NLE</div>
+									<div className="text-xs font-medium text-white">
+										Video Slide
+									</div>
+									<div className="text-[10px] text-slate-400">
+										CapCut multi-track NLE
+									</div>
 								</div>
 							</button>
 
@@ -295,13 +309,23 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 								<span className="text-[9px] text-slate-500">Soon</span>
 							</div>
 
-							<div className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 opacity-50 cursor-not-allowed">
-								<div className="flex items-center gap-2">
-									<Lightning size={14} className="text-pink-400" />
-									<span className="text-xs text-slate-300">Remotion Slide</span>
+							<button
+								type="button"
+								onClick={() => handleAddSlide("motion")}
+								className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-slate-800"
+							>
+								<div className="flex h-7 w-7 items-center justify-center rounded bg-amber-500/20 text-amber-400">
+									<Lightning size={16} weight="bold" />
 								</div>
-								<span className="text-[9px] text-slate-500">Soon</span>
-							</div>
+								<div>
+									<div className="text-xs font-medium text-white">
+										Motion Slide
+									</div>
+									<div className="text-[10px] text-slate-400">
+										HTML, CSS & JS Motion Graphics
+									</div>
+								</div>
+							</button>
 						</div>
 					)}
 				</div>

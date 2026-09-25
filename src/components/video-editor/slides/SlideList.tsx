@@ -5,6 +5,7 @@ import {
 	Copy,
 	FilmSlate,
 	FilmStrip,
+	Lightning,
 	MagnifyingGlassPlus,
 	Plus,
 	Scissors,
@@ -27,6 +28,7 @@ export interface SlideListProps {
 	onAddSlide?: () => void;
 	onAddRecordSlide?: () => void;
 	onAddVideoSlide?: () => void;
+	onAddMotionSlide?: () => void;
 	onDeleteSlide?: (id: string) => void;
 	onDuplicateSlide?: (id: string) => void;
 	onSplitSlide?: (id: string) => void;
@@ -92,6 +94,7 @@ export function SlideList({
 	onAddSlide,
 	onAddRecordSlide,
 	onAddVideoSlide,
+	onAddMotionSlide,
 	onDeleteSlide,
 	onDuplicateSlide,
 	onSplitSlide,
@@ -114,6 +117,15 @@ export function SlideList({
 		setIsAddMenuOpen(false);
 		if (onAddVideoSlide) {
 			onAddVideoSlide();
+		} else if (onAddSlide) {
+			onAddSlide();
+		}
+	};
+
+	const handleAddMotion = () => {
+		setIsAddMenuOpen(false);
+		if (onAddMotionSlide) {
+			onAddMotionSlide();
 		} else if (onAddSlide) {
 			onAddSlide();
 		}
@@ -206,6 +218,30 @@ export function SlideList({
 									</div>
 									<p className="text-[10px] text-muted-foreground leading-snug mt-0.5">
 										Filmora / CapCut style media editor
+									</p>
+								</div>
+							</button>
+
+							{/* Option 3: Motion Slide */}
+							<button
+								type="button"
+								onClick={handleAddMotion}
+								className="w-full flex items-start gap-2.5 p-2 rounded-lg text-left hover:bg-foreground/10 transition-colors cursor-pointer group"
+							>
+								<div className="p-1.5 rounded-md bg-amber-500/10 text-amber-400 group-hover:bg-amber-500/20 group-hover:text-amber-300 mt-0.5">
+									<Lightning className="w-4 h-4" weight="fill" />
+								</div>
+								<div className="min-w-0 flex-1">
+									<div className="flex items-center gap-1.5">
+										<span className="text-xs font-semibold text-foreground">
+											Motion Slide
+										</span>
+										<span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/15 text-amber-400 font-bold font-mono">
+											MOTION
+										</span>
+									</div>
+									<p className="text-[10px] text-muted-foreground leading-snug mt-0.5">
+										HTML, CSS & JS Motion Graphics
 									</p>
 								</div>
 							</button>

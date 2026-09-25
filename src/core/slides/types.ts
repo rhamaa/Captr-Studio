@@ -1,6 +1,6 @@
 import type React from "react";
 
-export type SlideType = "record" | "video" | "keyframe" | "remotion";
+export type SlideType = "record" | "video" | "keyframe" | "motion";
 
 export interface SlideData<TMeta = Record<string, unknown>> {
 	id: string;
