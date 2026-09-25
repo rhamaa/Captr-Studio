@@ -25,11 +25,24 @@ export const VALID_VIDEO_SECTIONS = [
 	"audio",
 ] as const;
 
+export const VALID_MOTION_SECTIONS = [
+	"motion",
+	"settings",
+	"transitions",
+	"clip",
+] as const;
+
 export function isRecordSlide(clip: ClipEntry | null | undefined): boolean {
 	return (clip?.slideMode ?? (clip?.origin === "uploaded" ? "video" : "record")) === "record";
 }
 
-export function sanitizeSectionForSlideMode(mode: "record" | "video", section: string): string {
+export function sanitizeSectionForSlideMode(
+	mode: "record" | "video" | "motion",
+	section: string,
+): string {
+	if (mode === "motion") {
+		return (VALID_MOTION_SECTIONS as readonly string[]).includes(section) ? section : "motion";
+	}
 	if (mode === "video") {
 		return (VALID_VIDEO_SECTIONS as readonly string[]).includes(section) ? section : "media";
 	}

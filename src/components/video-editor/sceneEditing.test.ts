@@ -105,8 +105,13 @@ describe("separate scene editors", () => {
 		expect(sanitizeSectionForSlideMode("record", "zoom")).toBe("zoom");
 		expect(sanitizeSectionForSlideMode("record", "cursor")).toBe("cursor");
 		expect(sanitizeSectionForSlideMode("record", "webcam")).toBe("webcam");
-		expect(sanitizeSectionForSlideMode("record", "transitions")).toBe("transitions");
-		expect(sanitizeSectionForSlideMode("record", "unknown" as any)).toBe("scene");
+		// Motion mode sanitization
+		expect(sanitizeSectionForSlideMode("motion", "layout")).toBe("motion");
+		expect(sanitizeSectionForSlideMode("motion", "motion")).toBe("motion");
+		expect(sanitizeSectionForSlideMode("motion", "settings")).toBe("settings");
+		expect(sanitizeSectionForSlideMode("motion", "transitions")).toBe("transitions");
+		expect(sanitizeSectionForSlideMode("motion", "clip")).toBe("clip");
+		expect(sanitizeSectionForSlideMode("motion", "unknown" as any)).toBe("motion");
 	});
 
 	it("prevents video clips from inheriting global default layout or zoom in getEffectiveClipSettings", () => {

@@ -211,6 +211,43 @@ export function createUploadedClip(params: {
 }
 
 /**
+ * Factory for creating a Motion Graphics slide clip
+ */
+export function createMotionClip(params: {
+	id: string;
+	startMsOffset: number;
+	durationMs?: number;
+	label?: string;
+	motionMeta?: import("@/slides/motion/schema").MotionSlideMeta;
+}): ClipEntry {
+	const durationMs = params.durationMs ?? params.motionMeta?.durationMs ?? 5000;
+	return {
+		id: params.id,
+		origin: "uploaded",
+		slideMode: "motion",
+		layoutRegions: [],
+		zoomRegions: [],
+		annotationRegions: [],
+		audioRegions: [],
+		videoPath: "",
+		webcamPath: null,
+		microphoneAudioPath: null,
+		systemAudioPath: null,
+		cursorTelemetry: null,
+		startMsOffset: params.startMsOffset,
+		durationMs,
+		label: params.label || "Motion Slide",
+		webcam: {
+			...DEFAULT_WEBCAM_OVERLAY,
+			enabled: false,
+			sourcePath: null,
+		},
+		showCursor: false,
+		motionMeta: params.motionMeta,
+	};
+}
+
+/**
  * Gets the local elapsed time within a specific clip from a timeline millisecond
  */
 export function getClipLocalTimeMs(clip: ClipEntry, timelineMs: number): number {

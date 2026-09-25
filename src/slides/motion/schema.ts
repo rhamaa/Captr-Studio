@@ -1,4 +1,5 @@
 export interface MotionSlideMeta {
+	document?: string;
 	html: string;
 	css: string;
 	js: string;
@@ -8,6 +9,66 @@ export interface MotionSlideMeta {
 	templateId?: string;
 	modeSelected?: boolean;
 	sourceFileName?: string;
+}
+
+export function extractDocumentParts(docString: string): {
+	html: string;
+	css: string;
+	js: string;
+} {
+	if (typeof window !== "undefined" && typeof DOMParser !== "undefined") {
+		try {
+			const parser = new DOMParser();
+			const doc = parser.parseFromString(docString, "text/html");
+
+			const styleElements = Array.from(doc.querySelectorAll("style"));
+			const css = styleElements
+				.map((el) => el.textContent || "")
+				.filter(Boolean)
+				.join("\n\n");
+			styleElements.forEach((el) => el.remove());
+
+			const scriptElements = Array.from(doc.querySelectorAll("script:not([src])"));
+			const js = scriptElements
+				.map((el) => el.textContent || "")
+				.filter(Boolean)
+				.join("\n\n");
+			scriptElements.forEach((el) => el.remove());
+
+			const bodyHtml = doc.body ? doc.body.innerHTML.trim() : docString;
+			return {
+				html: bodyHtml || docString,
+				css: css || "",
+				js: js || "",
+			};
+		} catch {
+			// fallback to regex
+		}
+	}
+
+	const cssMatches: string[] = [];
+	const cleanCss = docString.replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, (_match, p1) => {
+		cssMatches.push(p1.trim());
+		return "";
+	});
+
+	const jsMatches: string[] = [];
+	const cleanJs = cleanCss.replace(
+		/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi,
+		(_match, p1) => {
+			jsMatches.push(p1.trim());
+			return "";
+		},
+	);
+
+	const bodyMatch = /<body\b[^>]*>([\s\S]*?)<\/body>/i.exec(cleanJs);
+	const html = (bodyMatch ? bodyMatch[1] : cleanJs).trim();
+
+	return {
+		html: html || docString,
+		css: cssMatches.filter(Boolean).join("\n\n"),
+		js: jsMatches.filter(Boolean).join("\n\n"),
+	};
 }
 
 export const STARTER_HTML = `<div class="motion-canvas">
@@ -358,8 +419,75 @@ window.setSeekTime = function(timeMs, durationMs) {
 
 console.log("[Motion Slide] Starter template initialized!");`;
 
+export const DEFAULT_SINGLE_DOCUMENT_TEMPLATE = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+${STARTER_CSS}
+  </style>
+</head>
+<body>
+${STARTER_HTML}
+
+  <script>
+${STARTER_JS}
+  </script>
+</body>
+</html>`;
+
+export function buildMotionPreviewDocument(meta: Partial<MotionSlideMeta>): string {
+	let doc = meta.document?.trim();
+	if (!doc) {
+		const html = meta.html ?? STARTER_HTML;
+		const css = meta.css ?? STARTER_CSS;
+		const js = meta.js ?? STARTER_JS;
+		doc = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+${css}
+  </style>
+</head>
+<body>
+${html}
+
+  <script>
+${js}
+  </script>
+</body>
+</html>`;
+	}
+
+	const seekBridgeScript = `
+  <script data-captr-bridge="true">
+    (function() {
+      window.addEventListener("message", function(e) {
+        if (e.data && e.data.type === "SEEK") {
+          if (typeof window.setSeekTime === "function") {
+            try {
+              window.setSeekTime(e.data.timeMs, e.data.durationMs);
+            } catch(seekErr) {
+              console.error("[Captr Motion Seek Error]", seekErr);
+            }
+          }
+        }
+      });
+    })();
+  </script>`;
+
+	if (doc.includes("</body>")) {
+		return doc.replace("</body>", `${seekBridgeScript}\n</body>`);
+	}
+	return `${doc}\n${seekBridgeScript}`;
+}
+
 export function createDefaultMotionMeta(): MotionSlideMeta {
 	return {
+		document: DEFAULT_SINGLE_DOCUMENT_TEMPLATE,
 		html: STARTER_HTML,
 		css: STARTER_CSS,
 		js: STARTER_JS,

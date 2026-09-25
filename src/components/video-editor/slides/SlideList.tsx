@@ -262,6 +262,7 @@ export function SlideList({
 					const slideMode: SlideMode =
 						slide.slideMode ?? (slide.origin === "uploaded" ? "video" : "record");
 					const isVideoMode = slideMode === "video";
+					const isMotionMode = slideMode === "motion";
 
 					return (
 						<div
@@ -448,11 +449,22 @@ export function SlideList({
 										{/* Slide kind is fixed; editing one kind never reconfigures another. */}
 										<span
 											title={
-												isVideoMode ? "Video Editor Mode" : "Record Mode"
+												isMotionMode
+													? "Motion Graphics Mode"
+													: isVideoMode
+														? "Video Editor Mode"
+														: "Record Mode"
 											}
-											className="text-[9px] font-bold px-1 text-muted-foreground"
+											className={cn(
+												"text-[9px] font-bold px-1 rounded",
+												isMotionMode
+													? "text-amber-400 bg-amber-500/15"
+													: isVideoMode
+														? "text-cyan-400 bg-cyan-500/15"
+														: "text-muted-foreground",
+											)}
 										>
-											{isVideoMode ? "VID" : "REC"}
+											{isMotionMode ? "MOTION" : isVideoMode ? "VID" : "REC"}
 										</span>
 									</div>
 
@@ -504,9 +516,11 @@ export function SlideList({
 								<div className="flex items-end justify-between z-10 mt-auto">
 									<p className="text-[10px] font-medium text-foreground truncate max-w-[65px]">
 										{slide.label ||
-											(isVideoMode
-												? `Video ${index + 1}`
-												: `Take ${index + 1}`)}
+											(isMotionMode
+												? `Motion ${index + 1}`
+												: isVideoMode
+													? `Video ${index + 1}`
+													: `Take ${index + 1}`)}
 									</p>
 									<span className="text-[9px] font-mono text-muted-foreground font-semibold flex-shrink-0">
 										{formatSlideDuration(slide.durationMs)}

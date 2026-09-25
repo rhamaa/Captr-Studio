@@ -360,7 +360,7 @@ export function normalizeClipEntries(candidateClips: unknown): ClipEntry[] {
 						: `Take ${index + 1}`;
 
 			const slideMode: import("./types").SlideMode =
-				raw.slideMode === "video" || raw.slideMode === "record"
+				raw.slideMode === "video" || raw.slideMode === "record" || raw.slideMode === "motion"
 					? raw.slideMode
 					: origin === "uploaded"
 						? "video"
@@ -484,6 +484,10 @@ export function normalizeClipEntries(candidateClips: unknown): ClipEntry[] {
 										: "imported",
 							})) as import("./types").SlideAssetFile[])
 					: undefined,
+				motionMeta:
+					raw.motionMeta && typeof raw.motionMeta === "object"
+						? (raw.motionMeta as import("@/slides/motion/schema").MotionSlideMeta)
+						: undefined,
 			};
 		});
 }

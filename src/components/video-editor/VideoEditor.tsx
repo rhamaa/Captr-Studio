@@ -15,6 +15,7 @@ import {
 	Microphone,
 	Pause,
 	Camera as PhCameraRegular,
+	Code as PhCodeRegular,
 	Play,
 	Plus,
 	ArrowClockwise as Redo2,
@@ -130,12 +131,26 @@ const PhMicrophone = (props: { className?: string; weight?: "fill" | "regular" }
 const PhArrowsLeftRight = (props: { className?: string; weight?: "fill" | "regular" }) => (
 	<ArrowsLeftRight weight={props.weight ?? "regular"} className={props.className} />
 );
+const PhCode = (props: { className?: string; weight?: "fill" | "regular" }) => (
+	<PhCodeRegular weight={props.weight ?? "regular"} className={props.className} />
+);
 
 import { CaptrLogo } from "@/components/brand/CaptrLogo";
 import { AppSettingsDialog } from "@/components/settings/AppSettingsDialog";
 import type { SourceAudioTrackSettings } from "@/components/video-editor/audio/audioTypes";
 import { WelcomeScreen } from "@/components/welcome/WelcomeScreen";
 import { extensionHost } from "@/lib/extensions";
+import {
+	MotionCodeEditor,
+	type MotionEditorTab,
+} from "@/slides/motion/components/MotionCodeEditor";
+import {
+	buildMotionPreviewDocument,
+	createDefaultMotionMeta,
+	DEFAULT_SINGLE_DOCUMENT_TEMPLATE,
+	extractDocumentParts,
+	type MotionSlideMeta,
+} from "@/slides/motion/schema";
 import {
 	applySilenceRemovalToTimeline,
 	detectSilenceFromAudioUrl,
@@ -145,6 +160,7 @@ import {
 import { useVideoEditorAudio } from "./audio/useVideoEditorAudio";
 import { CropControl } from "./CropControl";
 import {
+	createMotionClip,
 	createRecordedClip,
 	createUploadedClip,
 	findClipAtTimelineTime,
@@ -559,6 +575,8 @@ export default function VideoEditor() {
 	// after encoding has started.
 	const [cursorTelemetrySourcePath, setCursorTelemetrySourcePath] = useState<string | null>(null);
 	const [selectedZoomId, setSelectedZoomId] = useState<string | null>(null);
+	const [motionEditorTab, setMotionEditorTab] = useState<MotionEditorTab>("document");
+	const motionIframeRef = useRef<HTMLIFrameElement | null>(null);
 	const [trimRegions, setTrimRegions] = useState<TrimRegion[]>([]);
 	const [clipRegions, setClipRegions] = useState<ClipRegion[]>([]);
 	const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
@@ -1680,6 +1698,21 @@ export default function VideoEditor() {
 
 	// Extension-contributed standalone section pages (no parentSection)
 	const editorSectionButtons = useMemo(() => {
+		if (activeSlideMode === "motion") {
+			return [
+				{
+					id: "motion" as const,
+					label: t("settings.sections.motion", "Motion Code"),
+					icon: PhCode,
+				},
+				{
+					id: "transitions" as const,
+					label: t("settings.sections.transitions", "Transitions"),
+					icon: PhArrowsLeftRight,
+				},
+			];
+		}
+
 		if (activeSlideMode === "video") {
 			return [
 				{
@@ -3265,6 +3298,91 @@ export default function VideoEditor() {
 		[deriveUniqueClipId, videoPath, handleSelectClip, buildHistorySnapshot, syncHistoryButtons],
 	);
 
+	const handleAddMotionSlide = useCallback(
+		(motionMetaInput?: MotionSlideMeta, labelInput?: string) => {
+			const currentClips = clipsRef.current;
+			const currentClipRegions = clipRegionsRef.current;
+			const nextSlideNum = currentClips.length + 1;
+			const newClipId = deriveUniqueClipId(currentClips, currentClipRegions);
+			const meta = motionMetaInput ? { ...motionMetaInput } : createDefaultMotionMeta();
+			meta.modeSelected = true;
+			const durationMs = meta.durationMs || 5000;
+			const label = labelInput || `Motion ${nextSlideNum}`;
+
+			if (currentClips.length === 0 && !videoPath) {
+				const newClip = createMotionClip({
+					id: newClipId,
+					startMsOffset: 0,
+					durationMs,
+					label,
+					motionMeta: meta,
+				});
+				setClips([newClip]);
+				clipsRef.current = [newClip];
+				setSelectedClipId(newClipId);
+				setActiveSceneId(newClipId);
+				restoreSceneEditing(newClip);
+				setClipRegions([
+					{
+						id: newClipId,
+						startMs: 0,
+						endMs: durationMs,
+						speed: 1,
+					},
+				]);
+				clipRegionsRef.current = [
+					{
+						id: newClipId,
+						startMs: 0,
+						endMs: durationMs,
+						speed: 1,
+					},
+				];
+				setDuration(durationMs / 1000);
+				toast.success(`Slide Motion ditambahkan: ${label}`);
+			} else {
+				const startMsOffset = currentClips.reduce((acc, c) => acc + c.durationMs, 0);
+				const newClip = createMotionClip({
+					id: newClipId,
+					startMsOffset,
+					durationMs,
+					label,
+					motionMeta: meta,
+				});
+				const currentClipsEndTime = currentClipRegions.reduce(
+					(acc, c) => Math.max(acc, c.endMs),
+					0,
+				);
+				const newClipRegion: ClipRegion = {
+					id: newClipId,
+					startMs: currentClipsEndTime,
+					endMs: currentClipsEndTime + durationMs,
+					speed: 1,
+				};
+				const updatedClips = [...currentClips, newClip];
+				const updatedRegions = [...currentClipRegions, newClipRegion];
+				setClips(updatedClips);
+				clipsRef.current = updatedClips;
+				setClipRegions(updatedRegions);
+				clipRegionsRef.current = updatedRegions;
+				handleSelectClip(newClipId);
+				setDuration((currentClipsEndTime + durationMs) / 1000);
+				toast.success(`Slide Motion ditambahkan: ${label}`);
+			}
+			recordEditorHistorySnapshot(editorHistoryRef.current, buildHistorySnapshot());
+			syncHistoryButtons();
+		},
+		[
+			deriveUniqueClipId,
+			videoPath,
+			restoreSceneEditing,
+			handleSelectClip,
+			setDuration,
+			buildHistorySnapshot,
+			syncHistoryButtons,
+		],
+	);
+
 	const handleVideoPlaybackError = useCallback((errorMessage: string) => {
 		console.error("[VideoEditor] Playback error:", errorMessage);
 		toast.error(errorMessage, {
@@ -4070,6 +4188,50 @@ export default function VideoEditor() {
 		return Math.max(1, duration);
 	}, [activeSlide, duration]);
 
+	const motionPreviewDoc = useMemo(() => {
+		if (activeSlideMode !== "motion") return "";
+		const meta = activeSlide?.motionMeta || createDefaultMotionMeta();
+		return buildMotionPreviewDocument(meta);
+	}, [activeSlideMode, activeSlide?.motionMeta]);
+
+	useEffect(() => {
+		if (activeSlideMode !== "motion") return;
+		const iframe = motionIframeRef.current;
+		if (!iframe || !iframe.contentWindow) return;
+		const durationMs = activeSlide?.durationMs || 5000;
+		iframe.contentWindow.postMessage(
+			{
+				type: "SEEK",
+				timeMs: currentTime * 1000,
+				durationMs,
+			},
+			"*",
+		);
+	}, [activeSlideMode, currentTime, activeSlide?.durationMs]);
+
+	useEffect(() => {
+		if (activeSlideMode !== "motion" || !isPlaying) return;
+		let lastNow = performance.now();
+		let animId: number;
+
+		const onTick = (now: number) => {
+			const deltaSec = (now - lastNow) / 1000;
+			lastNow = now;
+			setCurrentTime((prev) => {
+				const next = prev + deltaSec;
+				if (next >= slideDurationSec) {
+					setIsPlaying(false);
+					return 0;
+				}
+				return next;
+			});
+			animId = requestAnimationFrame(onTick);
+		};
+
+		animId = requestAnimationFrame(onTick);
+		return () => cancelAnimationFrame(animId);
+	}, [activeSlideMode, isPlaying, slideDurationSec]);
+
 	const slideLocalClipRegions = useMemo<ClipRegion[]>(() => {
 		const durMs = activeSlide ? activeSlide.durationMs : Math.round(duration * 1000);
 		const id = activeSlide ? activeSlide.id : "slide-1";
@@ -4138,6 +4300,10 @@ export default function VideoEditor() {
 	});
 
 	function togglePlayPause() {
+		if (activeSlideMode === "motion") {
+			setIsPlaying((prev) => !prev);
+			return;
+		}
 		const playback = videoPlaybackRef.current;
 		const video = playback?.video;
 		if (!playback || !video) return;
@@ -4155,6 +4321,14 @@ export default function VideoEditor() {
 
 	const handleSeek = useCallback(
 		(time: number, options: { pause?: boolean } = {}) => {
+			if (activeSlideMode === "motion") {
+				if (options.pause) {
+					setIsPlaying(false);
+				}
+				setCurrentTime(Math.max(0, Math.min(time, slideDurationSec)));
+				return;
+			}
+
 			const playback = videoPlaybackRef.current;
 			const video = playback?.video;
 			if (!video) return;
@@ -4180,26 +4354,39 @@ export default function VideoEditor() {
 
 			video.currentTime = mapTimelineTimeToSourceTime(time * 1000) / 1000;
 		},
-		[clips, selectedClipId, handleSelectClip, mapTimelineTimeToSourceTime],
+		[
+			activeSlideMode,
+			clips,
+			selectedClipId,
+			handleSelectClip,
+			mapTimelineTimeToSourceTime,
+			slideDurationSec,
+		],
 	);
 
 	const handleTimelineSeek = useCallback(
 		(time: number) => {
+			const maxDuration =
+				activeSlide && activeSlide.durationMs > 0
+					? activeSlide.durationMs / 1000
+					: duration;
+			const targetTime = Math.max(0, Math.min(time, maxDuration));
+
+			if (activeSlideMode === "motion") {
+				setCurrentTime(targetTime);
+				return;
+			}
+
 			const playback = videoPlaybackRef.current;
 			const video = playback?.video;
 			if (!video) return;
 			if (!video.paused) {
 				playback?.pause();
 			}
-			const maxDuration =
-				activeSlide && activeSlide.durationMs > 0
-					? activeSlide.durationMs / 1000
-					: duration;
-			const targetTime = Math.max(0, Math.min(time, maxDuration));
 			video.currentTime = targetTime;
 			setCurrentTime(targetTime);
 		},
-		[activeSlide, duration],
+		[activeSlide, activeSlideMode, duration],
 	);
 
 	// Auto-advance across clips during playback
@@ -5874,6 +6061,11 @@ export default function VideoEditor() {
 					return;
 				}
 				e.preventDefault();
+
+				if (activeSlideMode === "motion") {
+					setIsPlaying((prev) => !prev);
+					return;
+				}
 
 				const playback = videoPlaybackRef.current;
 				if (playback?.video) {
@@ -7942,282 +8134,449 @@ export default function VideoEditor() {
 
 						{/* Function Panel (Middle Inspector) */}
 						<div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-							<SettingsPanel
-								panelMode="editor"
-								className="w-full h-full border-none rounded-none shadow-none bg-transparent"
-								activeEffectSection={
-									activeSlideMode === "video" &&
-									[
-										"scene",
-										"layout",
-										"zoom",
-										"cursor",
-										"webcam",
-										"frame",
-										"crop",
-										"video-adjust",
-									].includes(activeEffectSection)
-										? "media"
-										: activeEffectSection
-								}
-								recordToolsEnabled={recordToolsEnabled}
-								slides={clips}
-								onAddAsSlide={(filePath, label) => {
-									void handleImportVideoClip(filePath, label);
-								}}
-								onImportMedia={(subfolder) => {
-									if (activeSlideMode === "video") {
-										void handleImportMediaToSlide(subfolder);
-									} else {
-										void handleImportVideoClip();
+							{activeSlideMode === "motion" && activeEffectSection === "motion" ? (
+								<MotionCodeEditor
+									isSidebarMode={true}
+									activeTab={motionEditorTab}
+									onChangeTab={setMotionEditorTab}
+									documentCode={
+										activeSlide?.motionMeta?.document ??
+										DEFAULT_SINGLE_DOCUMENT_TEMPLATE
 									}
-								}}
-								onUseAsset={handleUseAssetInSlide}
-								onRemoveAsset={handleRemoveAssetFromSlide}
-								onAudioAdded={handleAudioAdded}
-								currentTime={currentTime}
-								selected={wallpaper}
-								onWallpaperChange={setWallpaper}
-								selectedZoomDepth={
-									selectedZoomId
-										? zoomRegions.find((z) => z.id === selectedZoomId)?.depth
-										: null
-								}
-								onZoomDepthChange={(depth) =>
-									selectedZoomId && handleZoomDepthChange(depth)
-								}
-								selectedZoomId={selectedZoomId}
-								selectedZoomMode={
-									selectedZoomId
-										? (zoomRegions.find((z) => z.id === selectedZoomId)?.mode ??
-											"auto")
-										: null
-								}
-								onZoomModeChange={(mode) =>
-									selectedZoomId && handleZoomModeChange(mode)
-								}
-								onZoomDelete={handleZoomDelete}
-								selectedClipId={selectedClipId}
-								selectedClipSpeed={
-									selectedClipId
-										? (clipRegions.find((c) => c.id === selectedClipId)
-												?.speed ?? 1)
-										: null
-								}
-								selectedClipMuted={
-									selectedClipId
-										? (clipRegions.find((c) => c.id === selectedClipId)
-												?.muted ?? false)
-										: null
-								}
-								selectedClipShowSourceAudio={
-									selectedClipId
-										? (clipRegions.find((c) => c.id === selectedClipId)
-												?.showSourceAudio ?? false)
-										: null
-								}
-								onClipSpeedChange={handleClipSpeedChange}
-								onClipMutedChange={handleClipMutedChange}
-								onClipShowSourceAudioChange={handleClipShowSourceAudioChange}
-								onClipDelete={handleClipDelete}
-								onClipRippleDelete={(id) => handleClipDelete(id, true)}
-								selectedClipTransitionIn={
-									selectedClipId
-										? (clipRegions.find((c) => c.id === selectedClipId)
-												?.transitionIn ?? "none")
-										: "none"
-								}
-								selectedClipTransitionInDurationMs={
-									selectedClipId
-										? (clipRegions.find((c) => c.id === selectedClipId)
-												?.transitionInDurationMs ?? 400)
-										: 400
-								}
-								onClipTransitionInChange={handleClipTransitionInChange}
-								onClipTransitionInDurationChange={
-									handleClipTransitionInDurationChange
-								}
-								selectedLayoutId={selectedLayoutId}
-								selectedLayoutPreset={
-									selectedLayoutId
-										? (layoutRegions.find(
-												(region) => region.id === selectedLayoutId,
-											)?.preset ?? null)
-										: null
-								}
-								selectedLayoutTransitionMs={
-									selectedLayoutId
-										? (layoutRegions.find(
-												(region) => region.id === selectedLayoutId,
-											)?.transitionMs ?? null)
-										: null
-								}
-								selectedLayoutEasing={
-									selectedLayoutId
-										? (layoutRegions.find(
-												(region) => region.id === selectedLayoutId,
-											)?.easing ?? null)
-										: null
-								}
-								onLayoutPresetChange={handleLayoutPresetChange}
-								onLayoutTransitionChange={handleLayoutTransitionChange}
-								onLayoutEasingChange={handleLayoutEasingChange}
-								onLayoutDelete={handleLayoutDelete}
-								hasClipSourceAudio={hasClipSourceAudio}
-								sourceAudioTrackMeta={audio.sourceAudioTrackMeta}
-								sourceAudioTrackSettings={
-									audio.selectedClipSourceAudioTrackSettings
-								}
-								onSourceAudioTrackVolumeChange={
-									audio.onSelectedClipSourceAudioTrackVolumeChange
-								}
-								onSourceAudioTrackNormalizeChange={
-									audio.onSelectedClipSourceAudioTrackNormalizeChange
-								}
-								selectedAudioId={selectedAudioId}
-								selectedAudioVolume={
-									selectedAudioId
-										? (audioRegions.find((r) => r.id === selectedAudioId)
-												?.volume ?? null)
-										: null
-								}
-								selectedAudioNormalize={
-									selectedAudioId
-										? (audioRegions.find((r) => r.id === selectedAudioId)
-												?.normalize ?? false)
-										: null
-								}
-								selectedAudioDucking={
-									selectedAudioId
-										? (audioRegions.find((r) => r.id === selectedAudioId)
-												?.ducking ?? true)
-										: null
-								}
-								onAudioVolumeChange={handleAudioVolumeChange}
-								onAudioNormalizeChange={handleAudioNormalizeChange}
-								onAudioDuckingChange={handleAudioDuckingChange}
-								onAudioDelete={handleAudioDelete}
-								audioDuckingSettings={audioDuckingSettings}
-								onAudioDuckingSettingsChange={setAudioDuckingSettings}
-								shadowIntensity={shadowIntensity}
-								onShadowChange={setShadowIntensity}
-								backgroundBlur={backgroundBlur}
-								onBackgroundBlurChange={setBackgroundBlur}
-								zoomMotionBlurTuning={zoomMotionBlurTuning}
-								onZoomMotionBlurTuningChange={setZoomMotionBlurTuning}
-								zoomTemporalMotionBlur={zoomTemporalMotionBlur}
-								onZoomTemporalMotionBlurChange={setZoomTemporalMotionBlur}
-								zoomMotionBlurSampleCount={zoomMotionBlurSampleCount}
-								onZoomMotionBlurSampleCountChange={setZoomMotionBlurSampleCount}
-								zoomMotionBlurShutterFraction={zoomMotionBlurShutterFraction}
-								onZoomMotionBlurShutterFractionChange={
-									setZoomMotionBlurShutterFraction
-								}
-								autoApplyFreshRecordingAutoZooms={autoApplyFreshRecordingAutoZooms}
-								onAutoApplyFreshRecordingAutoZoomsChange={
-									setAutoApplyFreshRecordingAutoZooms
-								}
-								connectZooms={connectZooms}
-								onConnectZoomsChange={setConnectZooms}
-								zoomInDurationMs={zoomInDurationMs}
-								onZoomInDurationMsChange={setZoomInDurationMs}
-								zoomInOverlapMs={zoomInOverlapMs}
-								onZoomInOverlapMsChange={setZoomInOverlapMs}
-								zoomOutDurationMs={zoomOutDurationMs}
-								onZoomOutDurationMsChange={setZoomOutDurationMs}
-								connectedZoomGapMs={connectedZoomGapMs}
-								onConnectedZoomGapMsChange={setConnectedZoomGapMs}
-								connectedZoomDurationMs={connectedZoomDurationMs}
-								onConnectedZoomDurationMsChange={setConnectedZoomDurationMs}
-								zoomInEasing={zoomInEasing}
-								onZoomInEasingChange={setZoomInEasing}
-								zoomOutEasing={zoomOutEasing}
-								onZoomOutEasingChange={setZoomOutEasing}
-								connectedZoomEasing={connectedZoomEasing}
-								onConnectedZoomEasingChange={setConnectedZoomEasing}
-								showCursor={effectiveShowCursor}
-								onShowCursorChange={handleShowCursorChange}
-								loopCursor={loopCursor}
-								onLoopCursorChange={setLoopCursor}
-								cursorStyle={cursorStyle}
-								onCursorStyleChange={setCursorStyle}
-								cursorSize={cursorSize}
-								onCursorSizeChange={setCursorSize}
-								cursorSmoothing={cursorSmoothing}
-								onCursorSmoothingChange={setCursorSmoothing}
-								cursorSpringStiffnessMultiplier={cursorSpringStiffnessMultiplier}
-								onCursorSpringStiffnessMultiplierChange={
-									setCursorSpringStiffnessMultiplier
-								}
-								cursorSpringDampingMultiplier={cursorSpringDampingMultiplier}
-								onCursorSpringDampingMultiplierChange={
-									setCursorSpringDampingMultiplier
-								}
-								cursorSpringMassMultiplier={cursorSpringMassMultiplier}
-								onCursorSpringMassMultiplierChange={setCursorSpringMassMultiplier}
-								cameraSpringStiffnessMultiplier={cameraSpringStiffnessMultiplier}
-								onCameraSpringStiffnessMultiplierChange={
-									setCameraSpringStiffnessMultiplier
-								}
-								cameraSpringDampingMultiplier={cameraSpringDampingMultiplier}
-								onCameraSpringDampingMultiplierChange={
-									setCameraSpringDampingMultiplier
-								}
-								cameraSpringMassMultiplier={cameraSpringMassMultiplier}
-								onCameraSpringMassMultiplierChange={setCameraSpringMassMultiplier}
-								zoomClassicMode={zoomClassicMode}
-								onZoomClassicModeChange={setZoomClassicMode}
-								cursorMotionBlur={cursorMotionBlur}
-								onCursorMotionBlurChange={setCursorMotionBlur}
-								cursorClickBounce={cursorClickBounce}
-								onCursorClickBounceChange={setCursorClickBounce}
-								cursorClickBounceDuration={cursorClickBounceDuration}
-								onCursorClickBounceDurationChange={setCursorClickBounceDuration}
-								cursorSway={cursorSway}
-								onCursorSwayChange={setCursorSway}
-								cameraPerspectiveTilt={
-									recordToolsEnabled ? cameraPerspectiveTilt : 0
-								}
-								onCameraPerspectiveTiltChange={setCameraPerspectiveTilt}
-								borderRadius={borderRadius}
-								onBorderRadiusChange={setBorderRadius}
-								webcam={
-									recordToolsEnabled
-										? webcam
-										: { ...webcam, enabled: false, sourcePath: null }
-								}
-								webcamPreviewSrc={webcam.sourcePath ? resolvedWebcamVideoUrl : null}
-								webcamPreviewCurrentTime={currentTime}
-								webcamPreviewPlaying={isPlaying}
-								onWebcamChange={setWebcam}
-								onUploadWebcam={handleUploadWebcam}
-								onClearWebcam={handleClearWebcam}
-								padding={padding}
-								onPaddingChange={setPadding}
-								frame={frame}
-								onFrameChange={setFrame}
-								cropRegion={cropRegion}
-								onCropChange={setCropRegion}
-								aspectRatio={aspectRatio}
-								onAspectRatioChange={setAspectRatio}
-								selectedAnnotationId={selectedAnnotationId}
-								annotationRegions={annotationRegions}
-								nativeCaptureUnavailableSession={sessionNativeCaptureUnavailable}
-								onOpenNativeCaptureUnavailableModal={() =>
-									setNativeCaptureUnavailableModalOpen(true)
-								}
-								onAnnotationContentChange={handleAnnotationContentChange}
-								onAnnotationTypeChange={handleAnnotationTypeChange}
-								onAnnotationStyleChange={handleAnnotationStyleChange}
-								onAnnotationFigureDataChange={handleAnnotationFigureDataChange}
-								onAnnotationBlurIntensityChange={
-									handleAnnotationBlurIntensityChange
-								}
-								onAnnotationBlurColorChange={handleAnnotationBlurColorChange}
-								onAnnotationAnimationChange={handleAnnotationAnimationChange}
-								onAnnotationLayerChange={handleAnnotationLayerChange}
-								onAnnotationDelete={handleAnnotationDelete}
-							/>
+									htmlCode={activeSlide?.motionMeta?.html ?? ""}
+									cssCode={activeSlide?.motionMeta?.css ?? ""}
+									jsCode={activeSlide?.motionMeta?.js ?? ""}
+									durationMs={activeSlide?.durationMs || 5000}
+									onChangeDuration={(newDurationMs) => {
+										setClips((prev) =>
+											prev.map((c) =>
+												c.id === selectedClipId
+													? {
+															...c,
+															durationMs: newDurationMs,
+															motionMeta: {
+																...(c.motionMeta ||
+																	createDefaultMotionMeta()),
+																durationMs: newDurationMs,
+															},
+														}
+													: c,
+											),
+										);
+										setClipRegions((prev) =>
+											prev.map((r) =>
+												r.id === selectedClipId
+													? {
+															...r,
+															endMs: r.startMs + newDurationMs,
+														}
+													: r,
+											),
+										);
+										setDuration(newDurationMs / 1000);
+									}}
+									onChangeDocument={(val) => {
+										const parts = extractDocumentParts(val);
+										setClips((prev) =>
+											prev.map((c) =>
+												c.id === selectedClipId
+													? {
+															...c,
+															motionMeta: {
+																...(c.motionMeta ||
+																	createDefaultMotionMeta()),
+																document: val,
+																html: parts.html,
+																css: parts.css,
+																js: parts.js,
+															},
+														}
+													: c,
+											),
+										);
+									}}
+									onChangeHtml={(val) => {
+										setClips((prev) =>
+											prev.map((c) => {
+												if (c.id !== selectedClipId) return c;
+												const prevMeta =
+													c.motionMeta || createDefaultMotionMeta();
+												return {
+													...c,
+													motionMeta: {
+														...prevMeta,
+														html: val,
+													},
+												};
+											}),
+										);
+									}}
+									onChangeCss={(val) => {
+										setClips((prev) =>
+											prev.map((c) => {
+												if (c.id !== selectedClipId) return c;
+												const prevMeta =
+													c.motionMeta || createDefaultMotionMeta();
+												return {
+													...c,
+													motionMeta: {
+														...prevMeta,
+														css: val,
+													},
+												};
+											}),
+										);
+									}}
+									onChangeJs={(val) => {
+										setClips((prev) =>
+											prev.map((c) => {
+												if (c.id !== selectedClipId) return c;
+												const prevMeta =
+													c.motionMeta || createDefaultMotionMeta();
+												return {
+													...c,
+													motionMeta: {
+														...prevMeta,
+														js: val,
+													},
+												};
+											}),
+										);
+									}}
+									onImportDocument={(content, fileName) => {
+										const parts = extractDocumentParts(content);
+										setClips((prev) =>
+											prev.map((c) =>
+												c.id === selectedClipId
+													? {
+															...c,
+															label: fileName
+																? fileName.replace(/\.html?$/i, "")
+																: c.label,
+															motionMeta: {
+																...(c.motionMeta ||
+																	createDefaultMotionMeta()),
+																document: content,
+																html: parts.html,
+																css: parts.css,
+																js: parts.js,
+																sourceFileName: fileName,
+															},
+														}
+													: c,
+											),
+										);
+										toast.success("File HTML berhasil di-import!");
+									}}
+									onResetStarter={() => {
+										const defaultMeta = createDefaultMotionMeta();
+										setClips((prev) =>
+											prev.map((c) =>
+												c.id === selectedClipId
+													? {
+															...c,
+															motionMeta: defaultMeta,
+														}
+													: c,
+											),
+										);
+										toast.info("Template starter berhasil di-reset");
+									}}
+									autoReload={true}
+								/>
+							) : (
+								<SettingsPanel
+									panelMode="editor"
+									className="w-full h-full border-none rounded-none shadow-none bg-transparent"
+									activeEffectSection={
+										activeSlideMode === "video" &&
+										[
+											"scene",
+											"layout",
+											"zoom",
+											"cursor",
+											"webcam",
+											"frame",
+											"crop",
+											"video-adjust",
+										].includes(activeEffectSection)
+											? "media"
+											: activeEffectSection
+									}
+									recordToolsEnabled={recordToolsEnabled}
+									slides={clips}
+									onAddAsSlide={(filePath, label) => {
+										void handleImportVideoClip(filePath, label);
+									}}
+									onImportMedia={(subfolder) => {
+										if (activeSlideMode === "video") {
+											void handleImportMediaToSlide(subfolder);
+										} else {
+											void handleImportVideoClip();
+										}
+									}}
+									onUseAsset={handleUseAssetInSlide}
+									onRemoveAsset={handleRemoveAssetFromSlide}
+									onAudioAdded={handleAudioAdded}
+									currentTime={currentTime}
+									selected={wallpaper}
+									onWallpaperChange={setWallpaper}
+									selectedZoomDepth={
+										selectedZoomId
+											? zoomRegions.find((z) => z.id === selectedZoomId)
+													?.depth
+											: null
+									}
+									onZoomDepthChange={(depth) =>
+										selectedZoomId && handleZoomDepthChange(depth)
+									}
+									selectedZoomId={selectedZoomId}
+									selectedZoomMode={
+										selectedZoomId
+											? (zoomRegions.find((z) => z.id === selectedZoomId)
+													?.mode ?? "auto")
+											: null
+									}
+									onZoomModeChange={(mode) =>
+										selectedZoomId && handleZoomModeChange(mode)
+									}
+									onZoomDelete={handleZoomDelete}
+									selectedClipId={selectedClipId}
+									selectedClipSpeed={
+										selectedClipId
+											? (clipRegions.find((c) => c.id === selectedClipId)
+													?.speed ?? 1)
+											: null
+									}
+									selectedClipMuted={
+										selectedClipId
+											? (clipRegions.find((c) => c.id === selectedClipId)
+													?.muted ?? false)
+											: null
+									}
+									selectedClipShowSourceAudio={
+										selectedClipId
+											? (clipRegions.find((c) => c.id === selectedClipId)
+													?.showSourceAudio ?? false)
+											: null
+									}
+									onClipSpeedChange={handleClipSpeedChange}
+									onClipMutedChange={handleClipMutedChange}
+									onClipShowSourceAudioChange={handleClipShowSourceAudioChange}
+									onClipDelete={handleClipDelete}
+									onClipRippleDelete={(id) => handleClipDelete(id, true)}
+									selectedClipTransitionIn={
+										selectedClipId
+											? (clipRegions.find((c) => c.id === selectedClipId)
+													?.transitionIn ?? "none")
+											: "none"
+									}
+									selectedClipTransitionInDurationMs={
+										selectedClipId
+											? (clipRegions.find((c) => c.id === selectedClipId)
+													?.transitionInDurationMs ?? 400)
+											: 400
+									}
+									onClipTransitionInChange={handleClipTransitionInChange}
+									onClipTransitionInDurationChange={
+										handleClipTransitionInDurationChange
+									}
+									selectedLayoutId={selectedLayoutId}
+									selectedLayoutPreset={
+										selectedLayoutId
+											? (layoutRegions.find(
+													(region) => region.id === selectedLayoutId,
+												)?.preset ?? null)
+											: null
+									}
+									selectedLayoutTransitionMs={
+										selectedLayoutId
+											? (layoutRegions.find(
+													(region) => region.id === selectedLayoutId,
+												)?.transitionMs ?? null)
+											: null
+									}
+									selectedLayoutEasing={
+										selectedLayoutId
+											? (layoutRegions.find(
+													(region) => region.id === selectedLayoutId,
+												)?.easing ?? null)
+											: null
+									}
+									onLayoutPresetChange={handleLayoutPresetChange}
+									onLayoutTransitionChange={handleLayoutTransitionChange}
+									onLayoutEasingChange={handleLayoutEasingChange}
+									onLayoutDelete={handleLayoutDelete}
+									hasClipSourceAudio={hasClipSourceAudio}
+									sourceAudioTrackMeta={audio.sourceAudioTrackMeta}
+									sourceAudioTrackSettings={
+										audio.selectedClipSourceAudioTrackSettings
+									}
+									onSourceAudioTrackVolumeChange={
+										audio.onSelectedClipSourceAudioTrackVolumeChange
+									}
+									onSourceAudioTrackNormalizeChange={
+										audio.onSelectedClipSourceAudioTrackNormalizeChange
+									}
+									selectedAudioId={selectedAudioId}
+									selectedAudioVolume={
+										selectedAudioId
+											? (audioRegions.find((r) => r.id === selectedAudioId)
+													?.volume ?? null)
+											: null
+									}
+									selectedAudioNormalize={
+										selectedAudioId
+											? (audioRegions.find((r) => r.id === selectedAudioId)
+													?.normalize ?? false)
+											: null
+									}
+									selectedAudioDucking={
+										selectedAudioId
+											? (audioRegions.find((r) => r.id === selectedAudioId)
+													?.ducking ?? true)
+											: null
+									}
+									onAudioVolumeChange={handleAudioVolumeChange}
+									onAudioNormalizeChange={handleAudioNormalizeChange}
+									onAudioDuckingChange={handleAudioDuckingChange}
+									onAudioDelete={handleAudioDelete}
+									audioDuckingSettings={audioDuckingSettings}
+									onAudioDuckingSettingsChange={setAudioDuckingSettings}
+									shadowIntensity={shadowIntensity}
+									onShadowChange={setShadowIntensity}
+									backgroundBlur={backgroundBlur}
+									onBackgroundBlurChange={setBackgroundBlur}
+									zoomMotionBlurTuning={zoomMotionBlurTuning}
+									onZoomMotionBlurTuningChange={setZoomMotionBlurTuning}
+									zoomTemporalMotionBlur={zoomTemporalMotionBlur}
+									onZoomTemporalMotionBlurChange={setZoomTemporalMotionBlur}
+									zoomMotionBlurSampleCount={zoomMotionBlurSampleCount}
+									onZoomMotionBlurSampleCountChange={setZoomMotionBlurSampleCount}
+									zoomMotionBlurShutterFraction={zoomMotionBlurShutterFraction}
+									onZoomMotionBlurShutterFractionChange={
+										setZoomMotionBlurShutterFraction
+									}
+									autoApplyFreshRecordingAutoZooms={
+										autoApplyFreshRecordingAutoZooms
+									}
+									onAutoApplyFreshRecordingAutoZoomsChange={
+										setAutoApplyFreshRecordingAutoZooms
+									}
+									connectZooms={connectZooms}
+									onConnectZoomsChange={setConnectZooms}
+									zoomInDurationMs={zoomInDurationMs}
+									onZoomInDurationMsChange={setZoomInDurationMs}
+									zoomInOverlapMs={zoomInOverlapMs}
+									onZoomInOverlapMsChange={setZoomInOverlapMs}
+									zoomOutDurationMs={zoomOutDurationMs}
+									onZoomOutDurationMsChange={setZoomOutDurationMs}
+									connectedZoomGapMs={connectedZoomGapMs}
+									onConnectedZoomGapMsChange={setConnectedZoomGapMs}
+									connectedZoomDurationMs={connectedZoomDurationMs}
+									onConnectedZoomDurationMsChange={setConnectedZoomDurationMs}
+									zoomInEasing={zoomInEasing}
+									onZoomInEasingChange={setZoomInEasing}
+									zoomOutEasing={zoomOutEasing}
+									onZoomOutEasingChange={setZoomOutEasing}
+									connectedZoomEasing={connectedZoomEasing}
+									onConnectedZoomEasingChange={setConnectedZoomEasing}
+									showCursor={effectiveShowCursor}
+									onShowCursorChange={handleShowCursorChange}
+									loopCursor={loopCursor}
+									onLoopCursorChange={setLoopCursor}
+									cursorStyle={cursorStyle}
+									onCursorStyleChange={setCursorStyle}
+									cursorSize={cursorSize}
+									onCursorSizeChange={setCursorSize}
+									cursorSmoothing={cursorSmoothing}
+									onCursorSmoothingChange={setCursorSmoothing}
+									cursorSpringStiffnessMultiplier={
+										cursorSpringStiffnessMultiplier
+									}
+									onCursorSpringStiffnessMultiplierChange={
+										setCursorSpringStiffnessMultiplier
+									}
+									cursorSpringDampingMultiplier={cursorSpringDampingMultiplier}
+									onCursorSpringDampingMultiplierChange={
+										setCursorSpringDampingMultiplier
+									}
+									cursorSpringMassMultiplier={cursorSpringMassMultiplier}
+									onCursorSpringMassMultiplierChange={
+										setCursorSpringMassMultiplier
+									}
+									cameraSpringStiffnessMultiplier={
+										cameraSpringStiffnessMultiplier
+									}
+									onCameraSpringStiffnessMultiplierChange={
+										setCameraSpringStiffnessMultiplier
+									}
+									cameraSpringDampingMultiplier={cameraSpringDampingMultiplier}
+									onCameraSpringDampingMultiplierChange={
+										setCameraSpringDampingMultiplier
+									}
+									cameraSpringMassMultiplier={cameraSpringMassMultiplier}
+									onCameraSpringMassMultiplierChange={
+										setCameraSpringMassMultiplier
+									}
+									zoomClassicMode={zoomClassicMode}
+									onZoomClassicModeChange={setZoomClassicMode}
+									cursorMotionBlur={cursorMotionBlur}
+									onCursorMotionBlurChange={setCursorMotionBlur}
+									cursorClickBounce={cursorClickBounce}
+									onCursorClickBounceChange={setCursorClickBounce}
+									cursorClickBounceDuration={cursorClickBounceDuration}
+									onCursorClickBounceDurationChange={setCursorClickBounceDuration}
+									cursorSway={cursorSway}
+									onCursorSwayChange={setCursorSway}
+									cameraPerspectiveTilt={
+										recordToolsEnabled ? cameraPerspectiveTilt : 0
+									}
+									onCameraPerspectiveTiltChange={setCameraPerspectiveTilt}
+									borderRadius={borderRadius}
+									onBorderRadiusChange={setBorderRadius}
+									webcam={
+										recordToolsEnabled
+											? webcam
+											: { ...webcam, enabled: false, sourcePath: null }
+									}
+									webcamPreviewSrc={
+										webcam.sourcePath ? resolvedWebcamVideoUrl : null
+									}
+									webcamPreviewCurrentTime={currentTime}
+									webcamPreviewPlaying={isPlaying}
+									onWebcamChange={setWebcam}
+									onUploadWebcam={handleUploadWebcam}
+									onClearWebcam={handleClearWebcam}
+									padding={padding}
+									onPaddingChange={setPadding}
+									frame={frame}
+									onFrameChange={setFrame}
+									cropRegion={cropRegion}
+									onCropChange={setCropRegion}
+									aspectRatio={aspectRatio}
+									onAspectRatioChange={setAspectRatio}
+									selectedAnnotationId={selectedAnnotationId}
+									annotationRegions={annotationRegions}
+									nativeCaptureUnavailableSession={
+										sessionNativeCaptureUnavailable
+									}
+									onOpenNativeCaptureUnavailableModal={() =>
+										setNativeCaptureUnavailableModalOpen(true)
+									}
+									onAnnotationContentChange={handleAnnotationContentChange}
+									onAnnotationTypeChange={handleAnnotationTypeChange}
+									onAnnotationStyleChange={handleAnnotationStyleChange}
+									onAnnotationFigureDataChange={handleAnnotationFigureDataChange}
+									onAnnotationBlurIntensityChange={
+										handleAnnotationBlurIntensityChange
+									}
+									onAnnotationBlurColorChange={handleAnnotationBlurColorChange}
+									onAnnotationAnimationChange={handleAnnotationAnimationChange}
+									onAnnotationLayerChange={handleAnnotationLayerChange}
+									onAnnotationDelete={handleAnnotationDelete}
+								/>
+							)}
 						</div>
 					</div>
 
@@ -8374,7 +8733,33 @@ export default function VideoEditor() {
 												boxSizing: "border-box",
 											}}
 										>
-											{clips.length === 0 && !videoPath ? (
+											{activeSlideMode === "motion" ? (
+												<div className="relative w-full h-full flex items-center justify-center bg-slate-950 overflow-hidden">
+													<iframe
+														ref={motionIframeRef}
+														key={selectedClipId || "motion-preview"}
+														title="Captr Motion Preview"
+														srcDoc={motionPreviewDoc}
+														onLoad={() => {
+															const iframe = motionIframeRef.current;
+															if (!iframe || !iframe.contentWindow)
+																return;
+															iframe.contentWindow.postMessage(
+																{
+																	type: "SEEK",
+																	timeMs: currentTime * 1000,
+																	durationMs:
+																		activeSlide?.durationMs ||
+																		5000,
+																},
+																"*",
+															);
+														}}
+														sandbox="allow-scripts allow-same-origin"
+														className="h-full w-full border-0 select-none pointer-events-auto"
+													/>
+												</div>
+											) : clips.length === 0 && !videoPath ? (
 												<div className="flex flex-col items-center justify-center h-full w-full max-w-md mx-auto rounded-3xl border border-foreground/10 bg-foreground/[0.02] p-8 text-center backdrop-blur-md shadow-2xl my-auto">
 													<div className="p-4 rounded-2xl bg-foreground/5 border border-foreground/10 mb-4 shadow-inner">
 														<CaptrLogo
@@ -8811,6 +9196,7 @@ export default function VideoEditor() {
 								onAddSlide={() => void handleImportVideoClip()}
 								onAddRecordSlide={handleOpenRecorderHud}
 								onAddVideoSlide={() => void handleImportVideoClip()}
+								onAddMotionSlide={handleAddMotionSlide}
 								onDeleteSlide={handleDeleteClip}
 								onDuplicateSlide={handleDuplicateSlide}
 								onSplitSlide={handleSplitSlide}

@@ -53,7 +53,7 @@ export interface CursorVisualSettings {
 export type CursorStyle = "macos" | "tahoe" | "tahoe-inverted" | "dot" | "figma" | (string & {}); // extension-contributed cursor styles
 export const DEFAULT_CURSOR_STYLE: CursorStyle = "macos";
 
-export type SlideMode = "record" | "video";
+export type SlideMode = "record" | "video" | "motion";
 
 export type EditorEffectSection =
 	| "scene"
@@ -71,6 +71,7 @@ export type EditorEffectSection =
 	| "audio-record"
 	| "video-adjust"
 	| "transitions"
+	| "motion"
 	| `ext:${string}`;
 
 export type ZoomTransitionEasing = "recordly" | "glide" | "smooth" | "snappy" | "linear";
@@ -291,6 +292,8 @@ export interface ClipEntry {
 	keyframes?: PropertyKeyframe[];
 	/** Exclusive per-slide asset library for video and multimedia slides */
 	assetFiles?: SlideAssetFile[];
+	/** Motion slide HTML/CSS/JS metadata and configuration */
+	motionMeta?: import("@/slides/motion/schema").MotionSlideMeta;
 }
 
 export function getClipSourceEndMs(clip: ClipRegion): number {

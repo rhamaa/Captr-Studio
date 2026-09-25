@@ -133,8 +133,8 @@ export const MotionSlideWorkspace: React.FC<SlideWorkspaceProps<MotionSlideMeta>
 }) => {
 	const meta = slide.meta || createDefaultMotionMeta();
 
-	// Mode Selection Popup: shown on initial load if not selected, or via toolbar button
-	const [showModeModal, setShowModeModal] = useState(() => !meta.modeSelected);
+	// Mode Selection Popup: accessible via toolbar / template button
+	const [showModeModal, setShowModeModal] = useState(false);
 	const [sourceFileName, setSourceFileName] = useState(() => meta.sourceFileName || "");
 	const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -371,16 +371,25 @@ export const MotionSlideWorkspace: React.FC<SlideWorkspaceProps<MotionSlideMeta>
 						)}
 					</div>
 
-					{/* Actions: Mode/Import + Auto Reload & Manual Reload */}
-					<div className="flex items-center gap-2.5">
+					{/* Actions: Import HTML + Template + Auto Reload & Manual Reload */}
+					<div className="flex items-center gap-2">
+						<button
+							type="button"
+							onClick={handleTriggerFileInput}
+							title="Import file HTML dari komputer"
+							className="flex items-center gap-1.5 rounded border border-sky-500/40 bg-sky-500/15 px-2.5 py-1 text-xs text-sky-300 hover:bg-sky-500/25 hover:text-white transition shadow-xs cursor-pointer font-medium"
+						>
+							<UploadSimple size={13} weight="bold" />
+							<span>Import HTML</span>
+						</button>
+
 						<button
 							type="button"
 							onClick={() => setShowModeModal(true)}
-							title="Pilih mode atau import file HTML"
+							title="Pilih template atau panduan animasi"
 							className="flex items-center gap-1.5 rounded border border-slate-700 bg-slate-800/90 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition shadow-xs cursor-pointer"
 						>
-							<UploadSimple size={13} weight="bold" />
-							<span>Mode / Import</span>
+							<span>Template</span>
 						</button>
 
 						<div className="h-4 w-[1px] bg-slate-800" />
@@ -403,6 +412,42 @@ export const MotionSlideWorkspace: React.FC<SlideWorkspaceProps<MotionSlideMeta>
 						>
 							<ArrowsClockwise size={13} weight="bold" />
 							<span>Reload</span>
+						</button>
+					</div>
+				</div>
+
+				{/* Quick Guidance / Action Bar */}
+				<div className="flex items-center justify-between gap-3 px-4 py-2 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-b border-amber-500/15 text-xs shrink-0">
+					<div className="flex items-center gap-2 text-slate-300 min-w-0">
+						<Lightning className="w-3.5 h-3.5 text-amber-400 shrink-0" weight="fill" />
+						<span className="truncate text-[11px]">
+							<strong className="text-amber-300 font-semibold">Motion Studio:</strong> Edit kode langsung di tab (HTML/CSS/JS), atau{" "}
+							<button
+								type="button"
+								onClick={handleTriggerFileInput}
+								className="underline text-sky-400 hover:text-sky-300 cursor-pointer font-medium"
+							>
+								upload file HTML
+							</button>
+							, atau{" "}
+							<button
+								type="button"
+								onClick={() => setShowModeModal(true)}
+								className="underline text-amber-400 hover:text-amber-300 cursor-pointer font-medium"
+							>
+								pilih template
+							</button>
+							.
+						</span>
+					</div>
+					<div className="flex items-center gap-1.5 shrink-0">
+						<button
+							type="button"
+							onClick={handleTriggerFileInput}
+							className="flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-semibold bg-sky-500/15 text-sky-300 hover:bg-sky-500/25 border border-sky-500/30 transition cursor-pointer"
+						>
+							<UploadSimple size={12} weight="bold" />
+							<span>Upload HTML</span>
 						</button>
 					</div>
 				</div>
