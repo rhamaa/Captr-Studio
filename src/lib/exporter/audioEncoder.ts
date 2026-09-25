@@ -1220,7 +1220,7 @@ export class AudioProcessor {
 				}
 			}
 
-			if (!audioConfig) {
+			if (!audioConfig || !demuxer) {
 				return { buffer: null, hasAudioTrack: isBlobOrData ? true : false };
 			}
 
@@ -1307,7 +1307,7 @@ export class AudioProcessor {
 
 			decoder.configure(audioConfig);
 
-			const audioStream = demuxer.read("audio");
+			const audioStream = (demuxer as any).read("audio");
 			const reader = (audioStream as ReadableStream<EncodedAudioChunk>).getReader();
 
 			try {
@@ -1361,7 +1361,7 @@ export class AudioProcessor {
 		} finally {
 			source.revoke();
 			try {
-				demuxer?.destroy();
+				(demuxer as any)?.destroy?.();
 			} catch {
 				/* cleanup */
 			}
