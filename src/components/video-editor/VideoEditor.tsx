@@ -6326,6 +6326,7 @@ export default function VideoEditor() {
 						colorGrading,
 						padding,
 						cropRegion,
+						layoutRegions: recordToolsEnabled ? layoutRegions : [],
 						webcam: recordToolsEnabled
 							? webcam
 							: { ...webcam, enabled: false, sourcePath: null },

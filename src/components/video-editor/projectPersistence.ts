@@ -436,7 +436,29 @@ export function normalizeClipEntries(candidateClips: unknown): ClipEntry[] {
 				audioRegions: Array.isArray(raw.audioRegions)
 					? normalizeProjectEditor({ audioRegions: raw.audioRegions as AudioRegion[] })
 							.audioRegions
-					: undefined,
+					: Array.isArray((raw as Record<string, unknown>).audioTracks)
+						? normalizeProjectEditor({
+								audioRegions: (
+									(raw as Record<string, unknown>).audioTracks as Array<{
+										id?: string;
+										sourcePath?: string;
+										startOffsetMs?: number;
+										durationMs?: number;
+										volume?: number;
+									}>
+								)
+									.filter((t) => Boolean(t && typeof t.sourcePath === "string"))
+									.map((t, tIdx) => ({
+										id: t.id || `audio-track-${tIdx + 1}`,
+										startMs: Number(t.startOffsetMs) || 0,
+										endMs:
+											(Number(t.startOffsetMs) || 0) +
+											(Number(t.durationMs) || 1000),
+										audioPath: t.sourcePath!,
+										volume: typeof t.volume === "number" ? t.volume : 1,
+									})),
+							}).audioRegions
+						: undefined,
 				keyframes: normalizePropertyKeyframes(raw.keyframes),
 				transitionIn: normalizeClipTransition(raw.transitionIn ?? raw.transitionToNext),
 				assetFiles: Array.isArray(raw.assetFiles)

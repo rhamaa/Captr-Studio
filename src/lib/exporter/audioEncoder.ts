@@ -16,7 +16,7 @@ import type {
 import { buildResolvedAudioPlan, SourceTrackId } from "@/lib/exporter/audioRoutingEngine";
 import { estimateCompanionAudioStartDelaySeconds } from "@/lib/mediaTiming";
 import { buildLayerAudioSchedule } from "./layerAudioSchedule";
-import { resolveMediaElementSource } from "./localMediaSource";
+import { createReadableMediaResourceFile, resolveMediaElementSource } from "./localMediaSource";
 import type { VideoMuxer } from "./muxer";
 import { resolveSourceTrackRoutingPolicy } from "./sourceTrackRoutingPolicy";
 
@@ -703,10 +703,10 @@ export class AudioProcessor {
 
 		// Decode embedded source audio separately from companion sidecars.
 		const mainBuffer = resolvedPlan.includeEmbeddedInExport
-			? await this.decodeAudioFromUrl(videoUrl)
+			? await this.decodeAudioFromUrl(videoUrl, { isVideoContainer: true })
 			: null;
 		const mainBufferGain = resolveSourceTrackGain(sourceAudioTrackSettings, "mixed");
-		const mainBufferEntry = mainBuffer ? { buffer: mainBuffer, gain: mainBufferGain } : null;
+		let mainBufferEntry = mainBuffer ? { buffer: mainBuffer, gain: mainBufferGain } : null;
 		if (this.cancelled) throw new Error("Export cancelled");
 
 		// Decode companion / sidecar audio files
@@ -749,9 +749,36 @@ export class AudioProcessor {
 		this.onProgress?.(0.2);
 
 		// Determine source duration for timeline calculation
-		const primaryBuffer = mainBufferEntry?.buffer ?? companionEntries[0]?.buffer ?? null;
+		let primaryBuffer = mainBufferEntry?.buffer ?? companionEntries[0]?.buffer ?? null;
 		if (!primaryBuffer && regionEntries.length === 0) {
-			throw new Error("No decodable audio sources found");
+			console.warn(
+				"[AudioProcessor] No decodable audio sources found, generating silent fallback buffer for timeline",
+			);
+			let fallbackDurationSec = 1;
+			try {
+				fallbackDurationSec = Math.max(0.1, await this.getMediaDurationSec(videoUrl));
+			} catch {
+				fallbackDurationSec = 1;
+			}
+			const fallbackLength = Math.max(
+				1,
+				Math.floor(fallbackDurationSec * OFFLINE_AUDIO_SAMPLE_RATE),
+			);
+			primaryBuffer =
+				typeof AudioBuffer !== "undefined"
+					? new AudioBuffer({
+							length: fallbackLength,
+							numberOfChannels: 2,
+							sampleRate: OFFLINE_AUDIO_SAMPLE_RATE,
+						})
+					: ({
+							length: fallbackLength,
+							duration: fallbackDurationSec,
+							numberOfChannels: 2,
+							sampleRate: OFFLINE_AUDIO_SAMPLE_RATE,
+							getChannelData: () => new Float32Array(fallbackLength),
+						} as unknown as AudioBuffer);
+			mainBufferEntry = { buffer: primaryBuffer, gain: 0 };
 		}
 
 		let sourceDurationSec: number;
@@ -761,6 +788,9 @@ export class AudioProcessor {
 			sourceDurationSec = await this.getMediaDurationSec(videoUrl);
 		} else {
 			sourceDurationSec = primaryBuffer?.duration ?? 0;
+		}
+		if (sourceDurationSec <= 0 && regionEntries.length > 0) {
+			sourceDurationSec = Math.max(0.1, ...regionEntries.map((r) => r.region.endMs / 1000));
 		}
 		const sourceDurationMs = sourceDurationSec * 1000;
 
@@ -778,7 +808,10 @@ export class AudioProcessor {
 			outputDurationMs = Math.max(outputDurationMs, regionEndOutput);
 		}
 
-		const numChannels = Math.min(primaryBuffer?.numberOfChannels ?? 2, 2);
+		const numChannels = Math.min(
+			primaryBuffer?.numberOfChannels ?? regionEntries[0]?.buffer.numberOfChannels ?? 2,
+			2,
+		);
 		const mutedSourceOutputRangesSec = (clipRegions ?? [])
 			.filter(
 				(clip) =>
@@ -1089,10 +1122,21 @@ export class AudioProcessor {
 	// Decode audio from a URL using streaming WebCodecs decode with bulk fallback.
 	// Streaming decode avoids holding the full compressed file in memory alongside
 	// the decoded AudioBuffer, reducing peak memory for large recordings.
-	public async decodeAudioFromUrl(url: string): Promise<AudioBuffer | null> {
+	public async decodeAudioFromUrl(
+		url: string,
+		options: { isVideoContainer?: boolean } = {},
+	): Promise<AudioBuffer | null> {
+		const isBlobOrData = url.startsWith("blob:") || url.startsWith("data:");
+		if (isBlobOrData) {
+			// In-memory audio blobs (voiceovers, recorded clips) decode natively
+			// without worker XHR issues or WebDemuxer container mismatch.
+			const bulkBuffer = await this.bulkDecodeFromUrl(url, OFFLINE_AUDIO_SAMPLE_RATE);
+			if (bulkBuffer) return bulkBuffer;
+		}
+
 		try {
 			const result = await this.streamDecodeFromUrl(url);
-			if (result.hasAudioTrack === false) {
+			if (result.hasAudioTrack === false && options.isVideoContainer) {
 				return null;
 			}
 			if (result.buffer) return result.buffer;
@@ -1116,14 +1160,68 @@ export class AudioProcessor {
 
 		try {
 			const wasmUrl = new URL("./wasm/web-demuxer.wasm", window.location.href).href;
-			demuxer = new WebDemuxer({ wasmFilePath: wasmUrl });
-			await demuxer.load(source.src);
+			const isBlobOrData =
+				url.startsWith("blob:") ||
+				url.startsWith("data:") ||
+				source.src.startsWith("blob:") ||
+				source.src.startsWith("data:");
 
-			let audioConfig: AudioDecoderConfig;
-			try {
-				audioConfig = (await demuxer.getDecoderConfig("audio")) as AudioDecoderConfig;
-			} catch {
-				return { buffer: null, hasAudioTrack: false }; // Container has no audio track
+			const initDemuxer = async (mediaTarget: string | File) => {
+				if (demuxer) {
+					try {
+						demuxer.destroy();
+					} catch {
+						/* cleanup */
+					}
+				}
+				demuxer = new WebDemuxer({ wasmFilePath: wasmUrl });
+				await demuxer.load(mediaTarget);
+				return (await demuxer.getDecoderConfig("audio")) as AudioDecoderConfig;
+			};
+
+			let audioConfig: AudioDecoderConfig | null = null;
+
+			if (isBlobOrData) {
+				try {
+					const file = await createReadableMediaResourceFile(url);
+					audioConfig = await initDemuxer(file);
+				} catch (err: unknown) {
+					console.warn(
+						"[AudioProcessor] WebDemuxer load for blob failed, will use native bulk decode:",
+						err,
+					);
+					return { buffer: null, hasAudioTrack: true };
+				}
+			} else {
+				try {
+					audioConfig = await initDemuxer(source.src);
+				} catch (directError: unknown) {
+					const directMsg =
+						directError instanceof Error ? directError.message : String(directError);
+					if (directMsg.includes("Cannot find wanted stream")) {
+						return { buffer: null, hasAudioTrack: false };
+					}
+					console.warn(
+						"[AudioProcessor] Direct demuxer load failed, retrying with readable file source:",
+						url,
+						directError,
+					);
+					try {
+						const file = await createReadableMediaResourceFile(url);
+						audioConfig = await initDemuxer(file);
+					} catch (fileError: unknown) {
+						const fileMsg =
+							fileError instanceof Error ? fileError.message : String(fileError);
+						if (fileMsg.includes("Cannot find wanted stream")) {
+							return { buffer: null, hasAudioTrack: false };
+						}
+						throw fileError;
+					}
+				}
+			}
+
+			if (!audioConfig) {
+				return { buffer: null, hasAudioTrack: isBlobOrData ? true : false };
 			}
 
 			const sampleRate = audioConfig.sampleRate || 48_000;
@@ -1306,15 +1404,16 @@ export class AudioProcessor {
 	// Bulk decode fallback: loads entire file into memory and uses decodeAudioData.
 	private async bulkDecodeFromUrl(url: string, sampleRate: number): Promise<AudioBuffer | null> {
 		try {
-			const source = await resolveMediaElementSource(url);
-			try {
-				const response = await fetch(source.src);
-				const arrayBuffer = await response.arrayBuffer();
-				const tempCtx = new OfflineAudioContext(2, 1, sampleRate);
-				return await tempCtx.decodeAudioData(arrayBuffer);
-			} finally {
-				source.revoke();
+			let arrayBuffer: ArrayBuffer;
+			if (url.startsWith("blob:") || url.startsWith("data:")) {
+				const response = await fetch(url);
+				arrayBuffer = await response.arrayBuffer();
+			} else {
+				const file = await createReadableMediaResourceFile(url);
+				arrayBuffer = await file.arrayBuffer();
 			}
+			const tempCtx = new OfflineAudioContext(2, 1, sampleRate);
+			return await tempCtx.decodeAudioData(arrayBuffer);
 		} catch (error) {
 			console.warn("[AudioProcessor] Failed to decode audio from URL:", url, error);
 			return null;
@@ -1789,8 +1888,38 @@ export class AudioProcessor {
 			const source = await resolveMediaElementSource(audioPath);
 			try {
 				const wasmUrl = new URL("./wasm/web-demuxer.wasm", window.location.href).href;
-				const demuxer = new WebDemuxer({ wasmFilePath: wasmUrl });
-				await demuxer.load(source.src);
+				let demuxer: WebDemuxer = new WebDemuxer({ wasmFilePath: wasmUrl });
+				const isBlobOrData =
+					audioPath.startsWith("blob:") ||
+					audioPath.startsWith("data:") ||
+					source.src.startsWith("blob:") ||
+					source.src.startsWith("data:");
+
+				if (isBlobOrData) {
+					const file = await createReadableMediaResourceFile(audioPath);
+					await demuxer.load(file);
+					await demuxer.getMediaInfo();
+				} else {
+					try {
+						await demuxer.load(source.src);
+						await demuxer.getMediaInfo();
+					} catch (directLoadErr) {
+						console.warn(
+							"[AudioProcessor] Direct sidecar demuxer load failed, retrying with file:",
+							audioPath,
+							directLoadErr,
+						);
+						try {
+							demuxer.destroy();
+						} catch {
+							/* cleanup */
+						}
+						demuxer = new WebDemuxer({ wasmFilePath: wasmUrl });
+						const file = await createReadableMediaResourceFile(audioPath);
+						await demuxer.load(file);
+						await demuxer.getMediaInfo();
+					}
+				}
 				return demuxer;
 			} finally {
 				source.revoke();

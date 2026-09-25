@@ -116,9 +116,29 @@ export async function resolveMediaResourceUrl(resource: string): Promise<string>
 	return /^file:\/\//i.test(resource) ? resource : toFileUrl(localFilePath);
 }
 
+export function ensureFilenameExtension(filename: string, mimeType?: string | null): string {
+	if (/\.[a-zA-Z0-9]{2,5}$/.test(filename)) {
+		return filename;
+	}
+	if (!mimeType) {
+		return filename;
+	}
+	const lower = mimeType.toLowerCase();
+	if (lower.includes("webm")) return `${filename}.webm`;
+	if (lower.includes("wav") || lower.includes("wave")) return `${filename}.wav`;
+	if (lower.includes("mp4")) return `${filename}.mp4`;
+	if (lower.includes("m4a") || lower.includes("aac")) return `${filename}.m4a`;
+	if (lower.includes("mpeg") || lower.includes("mp3")) return `${filename}.mp3`;
+	if (lower.includes("ogg") || lower.includes("opus")) return `${filename}.ogg`;
+	if (lower.includes("flac")) return `${filename}.flac`;
+	if (lower.includes("matroska") || lower.includes("mkv")) return `${filename}.mkv`;
+	if (lower.includes("quicktime")) return `${filename}.mov`;
+	return filename;
+}
+
 export async function createReadableMediaResourceFile(resource: string): Promise<File> {
 	const localFilePath = getLocalFilePath(resource);
-	const filename = (localFilePath ?? resource).split(/[\\/]/).pop()?.split("?")[0] || "media";
+	let filename = (localFilePath ?? resource).split(/[\\/]/).pop()?.split("?")[0] || "media";
 
 	if (localFilePath && typeof window !== "undefined" && window.electronAPI?.readLocalFile) {
 		const result = await window.electronAPI.readLocalFile(localFilePath);
@@ -131,7 +151,9 @@ export async function createReadableMediaResourceFile(resource: string): Promise
 			bytes.byteOffset,
 			bytes.byteOffset + bytes.byteLength,
 		) as ArrayBuffer;
-		return new File([arrayBuffer], filename, { type: inferMimeType(filename) });
+		const mimeType = inferMimeType(filename);
+		filename = ensureFilenameExtension(filename, mimeType);
+		return new File([arrayBuffer], filename, { type: mimeType });
 	}
 
 	const resourceUrl = await resolveMediaResourceUrl(resource);
@@ -141,7 +163,9 @@ export async function createReadableMediaResourceFile(resource: string): Promise
 	}
 
 	const blob = await response.blob();
-	return new File([blob], filename, { type: blob.type || inferMimeType(filename) });
+	const mimeType = blob.type || inferMimeType(filename);
+	filename = ensureFilenameExtension(filename, mimeType);
+	return new File([blob], filename, { type: mimeType });
 }
 
 export async function resolveMediaElementSource(resource: string): Promise<{

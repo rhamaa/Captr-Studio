@@ -1,4 +1,3 @@
-import React, { useEffect, useRef, useState } from "react";
 import {
 	FilmSlate,
 	MusicNote,
@@ -14,9 +13,11 @@ import {
 	UploadSimple,
 	Waveform,
 } from "@phosphor-icons/react";
-import type { SlideWorkspaceProps } from "@/core/slides/types";
+import React, { useEffect, useRef, useState } from "react";
 import { SlideVoiceoverBar } from "@/core/audio/SlideVoiceoverBar";
 import { useSlideAudioRecorder } from "@/core/audio/useSlideAudioRecorder";
+import type { SlideWorkspaceProps } from "@/core/slides/types";
+import { resolveMediaElementSource } from "@/lib/exporter/localMediaSource";
 import type { AudioTrackItem, VideoClipItem, VideoSlideMeta } from "../schema";
 
 function formatTime(ms: number): string {
@@ -57,7 +58,7 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 			setIsPlaying(true);
 			if (videoRef.current) {
 				videoRef.current.currentTime = currentTimeMs / 1000;
-				videoRef.current.play().catch(() => {});
+				videoRef.current.play().catch(() => undefined);
 			}
 		},
 		onPausePlayback: () => {
@@ -88,6 +89,88 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 			}));
 		},
 	});
+
+	// Synchronize audio element instances with meta.audioTracks
+	const audioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
+
+	useEffect(() => {
+		const existingMap = audioElementsRef.current;
+		const tracks = meta.audioTracks || [];
+		const currentIds = new Set(tracks.map((t) => t.id));
+
+		for (const [id, audio] of existingMap.entries()) {
+			if (!currentIds.has(id)) {
+				audio.pause();
+				audio.src = "";
+				existingMap.delete(id);
+			}
+		}
+
+		for (const track of tracks) {
+			let audio = existingMap.get(track.id);
+			if (!audio) {
+				audio = new Audio();
+				audio.preload = "auto";
+				existingMap.set(track.id, audio);
+				resolveMediaElementSource(track.sourcePath)
+					.then((resolved) => {
+						if (audio && resolved?.src) {
+							audio.src = resolved.src;
+						}
+					})
+					.catch(() => undefined);
+			}
+			audio.volume = isAudioMuted ? 0 : Math.max(0, Math.min(1, track.volume ?? 1));
+		}
+	}, [meta.audioTracks, isAudioMuted]);
+
+	// Playback time sync for audio tracks
+	useEffect(() => {
+		const tracks = meta.audioTracks || [];
+		const map = audioElementsRef.current;
+
+		if (!isPlaying) {
+			for (const audio of map.values()) {
+				if (!audio.paused) {
+					audio.pause();
+				}
+			}
+			return;
+		}
+
+		for (const track of tracks) {
+			const audio = map.get(track.id);
+			if (!audio) continue;
+
+			const startMs = track.startOffsetMs;
+			const endMs = startMs + track.durationMs;
+
+			if (currentTimeMs >= startMs && currentTimeMs < endMs) {
+				const expectedTrackTimeSec = (currentTimeMs - startMs) / 1000;
+				if (Math.abs(audio.currentTime - expectedTrackTimeSec) > 0.15) {
+					audio.currentTime = expectedTrackTimeSec;
+				}
+				if (audio.paused) {
+					audio.play().catch(() => undefined);
+				}
+			} else {
+				if (!audio.paused) {
+					audio.pause();
+				}
+			}
+		}
+	}, [isPlaying, currentTimeMs, meta.audioTracks]);
+
+	// Cleanup on unmount
+	useEffect(() => {
+		return () => {
+			for (const audio of audioElementsRef.current.values()) {
+				audio.pause();
+				audio.src = "";
+			}
+			audioElementsRef.current.clear();
+		};
+	}, []);
 
 	// Playhead tick when playing
 	useEffect(() => {
@@ -134,8 +217,9 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 			}
 			setIsPlaying(true);
 			if (videoRef.current) {
-				videoRef.current.currentTime = (currentTimeMs >= slide.durationMs ? 0 : currentTimeMs) / 1000;
-				videoRef.current.play().catch(() => {});
+				videoRef.current.currentTime =
+					(currentTimeMs >= slide.durationMs ? 0 : currentTimeMs) / 1000;
+				videoRef.current.play().catch(() => undefined);
 			}
 		}
 	};
@@ -143,6 +227,9 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 	const handleRewind = () => {
 		setCurrentTimeMs(0);
 		if (videoRef.current) videoRef.current.currentTime = 0;
+		for (const audio of audioElementsRef.current.values()) {
+			audio.currentTime = 0;
+		}
 	};
 
 	const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -154,6 +241,17 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 		setCurrentTimeMs(targetMs);
 		if (videoRef.current) {
 			videoRef.current.currentTime = targetMs / 1000;
+		}
+		for (const track of meta.audioTracks || []) {
+			const audio = audioElementsRef.current.get(track.id);
+			if (!audio) continue;
+			const startMs = track.startOffsetMs;
+			const endMs = startMs + track.durationMs;
+			if (targetMs >= startMs && targetMs < endMs) {
+				audio.currentTime = (targetMs - startMs) / 1000;
+			} else {
+				audio.pause();
+			}
 		}
 	};
 
@@ -195,7 +293,10 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 		}));
 	};
 
-	const playheadPercent = Math.min(100, Math.max(0, (currentTimeMs / (slide.durationMs || 1000)) * 100));
+	const playheadPercent = Math.min(
+		100,
+		Math.max(0, (currentTimeMs / (slide.durationMs || 1000)) * 100),
+	);
 
 	return (
 		<div className="flex h-full w-full flex-col bg-slate-950 text-slate-200 select-none">
@@ -222,7 +323,9 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 						{meta.mediaPool.length === 0 ? (
 							<div className="flex h-32 flex-col items-center justify-center rounded-lg border border-dashed border-slate-800 p-4 text-center">
 								<FilmSlate size={24} className="text-slate-600 mb-1" />
-								<p className="text-[11px] text-slate-400">Tarik video atau audio ke sini</p>
+								<p className="text-[11px] text-slate-400">
+									Tarik video atau audio ke sini
+								</p>
 							</div>
 						) : (
 							<div className="space-y-1.5">
@@ -232,7 +335,9 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 										className="flex items-center justify-between rounded bg-slate-800/80 px-2.5 py-1.5 text-xs text-slate-300"
 									>
 										<span className="truncate">{asset.name}</span>
-										<span className="text-[10px] text-slate-500">{asset.type}</span>
+										<span className="text-[10px] text-slate-500">
+											{asset.type}
+										</span>
 									</div>
 								))}
 							</div>
@@ -265,7 +370,8 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 							<div className="flex flex-col items-center justify-center gap-2 p-8 text-center">
 								<FilmSlate size={36} className="text-blue-400 opacity-60" />
 								<span className="text-xs text-slate-400">
-									Preview Video NLE ({canvasDimensions.width}x{canvasDimensions.height} @ {canvasDimensions.fps}fps)
+									Preview Video NLE ({canvasDimensions.width}x
+									{canvasDimensions.height} @ {canvasDimensions.fps}fps)
 								</span>
 							</div>
 						)}
@@ -301,11 +407,17 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 
 					<div className="space-y-3">
 						<div className="rounded-lg border border-slate-800 bg-slate-900 p-2.5">
-							<div className="text-[11px] font-semibold text-slate-300 mb-1">Durasi Slide</div>
-							<div className="text-xs text-slate-400">{(slide.durationMs / 1000).toFixed(1)} detik</div>
+							<div className="text-[11px] font-semibold text-slate-300 mb-1">
+								Durasi Slide
+							</div>
+							<div className="text-xs text-slate-400">
+								{(slide.durationMs / 1000).toFixed(1)} detik
+							</div>
 						</div>
 						<div className="rounded-lg border border-slate-800 bg-slate-900 p-2.5">
-							<div className="text-[11px] font-semibold text-slate-300 mb-1">Audio Voiceovers</div>
+							<div className="text-[11px] font-semibold text-slate-300 mb-1">
+								Audio Voiceovers
+							</div>
 							<div className="text-xs text-slate-400">
 								{(meta.audioTracks || []).length} audio clip aktif
 							</div>
@@ -352,7 +464,11 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 							disabled={recorder.isRecording}
 							className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm hover:bg-blue-500 disabled:opacity-50"
 						>
-							{isPlaying ? <Pause size={13} weight="fill" /> : <Play size={13} weight="fill" className="ml-0.5" />}
+							{isPlaying ? (
+								<Pause size={13} weight="fill" />
+							) : (
+								<Play size={13} weight="fill" className="ml-0.5" />
+							)}
 						</button>
 						<span className="font-mono text-xs font-semibold text-slate-200">
 							{formatTime(currentTimeMs)}
@@ -443,12 +559,18 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 								className="relative flex flex-1 items-center h-9 rounded bg-slate-950/80 px-2 border border-slate-800/80 overflow-hidden cursor-pointer"
 							>
 								{track.clips.length === 0 ? (
-									<span className="text-[10px] text-slate-600 italic">Track kosong</span>
+									<span className="text-[10px] text-slate-600 italic">
+										Track kosong
+									</span>
 								) : (
 									track.clips.map((clip) => {
 										const isSelected = selectedClipId === clip.id;
-										const leftPct = (clip.startOffsetMs / slide.durationMs) * 100;
-										const widthPct = Math.max(8, (clip.durationMs / slide.durationMs) * 100);
+										const leftPct =
+											(clip.startOffsetMs / slide.durationMs) * 100;
+										const widthPct = Math.max(
+											8,
+											(clip.durationMs / slide.durationMs) * 100,
+										);
 
 										return (
 											<div
@@ -467,7 +589,9 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 													width: `${widthPct}%`,
 												}}
 											>
-												<span className="truncate text-[10px] font-medium">{clip.title}</span>
+												<span className="truncate text-[10px] font-medium">
+													{clip.title}
+												</span>
 												<button
 													type="button"
 													onClick={(e) => {
@@ -500,7 +624,11 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 								className="text-slate-400 hover:text-white"
 								title={isAudioMuted ? "Unmute" : "Mute"}
 							>
-								{isAudioMuted ? <SpeakerSimpleSlash size={12} className="text-rose-400" /> : <SpeakerHigh size={12} />}
+								{isAudioMuted ? (
+									<SpeakerSimpleSlash size={12} className="text-rose-400" />
+								) : (
+									<SpeakerHigh size={12} />
+								)}
 							</button>
 						</div>
 
@@ -511,12 +639,16 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 						>
 							{(meta.audioTracks || []).length === 0 ? (
 								<span className="text-[10px] text-slate-600 italic">
-									Gunakan tombol &quot;Record Audio&quot; di atas untuk merekam voiceover tersinkronisasi
+									Gunakan tombol &quot;Record Audio&quot; di atas untuk merekam
+									voiceover tersinkronisasi
 								</span>
 							) : (
 								meta.audioTracks.map((audio) => {
 									const leftPct = (audio.startOffsetMs / slide.durationMs) * 100;
-									const widthPct = Math.max(8, (audio.durationMs / slide.durationMs) * 100);
+									const widthPct = Math.max(
+										8,
+										(audio.durationMs / slide.durationMs) * 100,
+									);
 
 									return (
 										<div
@@ -529,8 +661,13 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 											}}
 										>
 											<div className="flex items-center gap-1 truncate">
-												<Waveform size={12} className="text-emerald-400 shrink-0" />
-												<span className="truncate text-[10px] font-medium">{audio.name}</span>
+												<Waveform
+													size={12}
+													className="text-emerald-400 shrink-0"
+												/>
+												<span className="truncate text-[10px] font-medium">
+													{audio.name}
+												</span>
 											</div>
 											<button
 												type="button"

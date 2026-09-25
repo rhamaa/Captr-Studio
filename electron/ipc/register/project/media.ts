@@ -123,9 +123,29 @@ export function registerProjectMediaHandlers() {
 				await fs.mkdir(targetDir, { recursive: true });
 				const filePath = path.join(targetDir, fileName);
 
-				const buffer = Buffer.isBuffer(payload.audioBuffer)
-					? payload.audioBuffer
-					: Buffer.from(payload.audioBuffer as ArrayBuffer);
+				let buffer: Buffer;
+				if (Buffer.isBuffer(payload.audioBuffer)) {
+					buffer = payload.audioBuffer;
+				} else if (payload.audioBuffer instanceof Uint8Array) {
+					buffer = Buffer.from(
+						payload.audioBuffer.buffer,
+						payload.audioBuffer.byteOffset,
+						payload.audioBuffer.byteLength,
+					);
+				} else if (payload.audioBuffer instanceof ArrayBuffer) {
+					buffer = Buffer.from(payload.audioBuffer);
+				} else if (
+					typeof payload.audioBuffer === "object" &&
+					payload.audioBuffer !== null &&
+					"data" in payload.audioBuffer &&
+					Array.isArray((payload.audioBuffer as { data: number[] }).data)
+				) {
+					buffer = Buffer.from((payload.audioBuffer as { data: number[] }).data);
+				} else if (Array.isArray(payload.audioBuffer)) {
+					buffer = Buffer.from(payload.audioBuffer);
+				} else {
+					buffer = Buffer.from(new Uint8Array(payload.audioBuffer as ArrayBuffer));
+				}
 
 				await fs.writeFile(filePath, buffer);
 				await rememberApprovedLocalReadPath(filePath);

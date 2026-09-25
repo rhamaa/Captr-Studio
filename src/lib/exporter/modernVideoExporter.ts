@@ -1976,18 +1976,26 @@ export class ModernVideoExporter {
 					};
 				}
 
-				const renderedAudio = await this.renderEditedAudioForNativeMux(
-					"Native static-layout edited audio rendering",
-					(progress) =>
-						this.reportProgress(0, totalFrames, "preparing", undefined, progress),
-					audioPlan.sourceAudioFallbackPaths,
-				);
+				try {
+					const renderedAudio = await this.renderEditedAudioForNativeMux(
+						"Native static-layout edited audio rendering",
+						(progress) =>
+							this.reportProgress(0, totalFrames, "preparing", undefined, progress),
+						audioPlan.sourceAudioFallbackPaths,
+					);
 
-				return {
-					audioMode: audioPlan.audioMode,
-					editedTrackStrategy: audioPlan.strategy,
-					...renderedAudio,
-				};
+					return {
+						audioMode: audioPlan.audioMode,
+						editedTrackStrategy: audioPlan.strategy,
+						...renderedAudio,
+					};
+				} catch (audioErr) {
+					console.warn(
+						"[VideoExporter] Native static layout audio rendering failed; continuing with audioMode: 'none'",
+						audioErr,
+					);
+					return { audioMode: "none" as const };
+				}
 			}
 		}
 	}

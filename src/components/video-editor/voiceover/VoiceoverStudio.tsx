@@ -112,6 +112,8 @@ export function VoiceoverStudio({
 			const recorder = new MediaRecorder(stream);
 			mediaRecorderRef.current = recorder;
 
+			const startEpoch = Date.now();
+
 			recorder.ondataavailable = (e) => {
 				if (e.data && e.data.size > 0) {
 					audioChunksRef.current.push(e.data);
@@ -132,7 +134,7 @@ export function VoiceoverStudio({
 				setPeakLevel(0);
 
 				const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-				const durationMs = recordingDuration * 1000;
+				const durationMs = Date.now() - startEpoch;
 				const startMs = recordStartPlayheadRef.current;
 				const endMs = startMs + Math.max(1000, durationMs);
 
@@ -170,7 +172,6 @@ export function VoiceoverStudio({
 			setIsRecording(true);
 			setRecordingDuration(0);
 
-			const startEpoch = Date.now();
 			timerRef.current = window.setInterval(() => {
 				setRecordingDuration(Math.round((Date.now() - startEpoch) / 1000));
 			}, 200);
