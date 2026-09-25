@@ -2,7 +2,7 @@ import { VideoCamera } from "@phosphor-icons/react";
 import { slideRegistry } from "@/core/slides/registry";
 import type { SlideModule } from "@/core/slides/types";
 import { RecordSlideWorkspace } from "./components/RecordSlideWorkspace";
-import { type RecordSlideMeta, createDefaultRecordMeta } from "./schema";
+import { createDefaultRecordMeta, type RecordSlideMeta } from "./schema";
 
 export const recordSlideModule: SlideModule<RecordSlideMeta> = {
 	type: "record",

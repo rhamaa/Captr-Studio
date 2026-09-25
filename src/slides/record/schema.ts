@@ -1,4 +1,3 @@
-import type { AspectRatio } from "@/utils/aspectRatioUtils";
 import type {
 	AnnotationRegion,
 	AudioRegion,
@@ -15,6 +14,7 @@ import type {
 	ZoomRegion,
 	ZoomTransitionEasing,
 } from "@/components/video-editor/types";
+import type { AspectRatio } from "@/utils/aspectRatioUtils";
 
 export type {
 	AnnotationRegion,
