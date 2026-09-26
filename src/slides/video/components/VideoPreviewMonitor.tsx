@@ -11,7 +11,7 @@ function formatTime(ms: number): string {
 }
 
 interface VideoPreviewMonitorProps {
-	videoRef: React.RefObject<HTMLVideoElement | null>;
+	videoRef: React.RefObject<HTMLVideoElement>;
 	previewVideoSrc: string;
 	isAudioMuted: boolean;
 	isRecording: boolean;

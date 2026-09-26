@@ -9,7 +9,14 @@ export interface SlideStitchInput {
 }
 
 export interface TransitionStitchConfig {
-	type: "none" | "crossfade" | "fade-black" | "wipe-left" | "wipe-right" | "slide-left" | "slide-right";
+	type:
+		| "none"
+		| "crossfade"
+		| "fade-black"
+		| "wipe-left"
+		| "wipe-right"
+		| "slide-left"
+		| "slide-right";
 	durationSec: number;
 }
 
@@ -91,9 +98,7 @@ export function buildStitchFiltergraph(
 				);
 			} else {
 				const dur = slides[i].durationSec || 5;
-				filterParts.push(
-					`aevalsrc=0:d=${dur.toFixed(3)}:s=48000:c=stereo[na_${i}]`,
-				);
+				filterParts.push(`aevalsrc=0:d=${dur.toFixed(3)}:s=48000:c=stereo[na_${i}]`);
 			}
 		}
 	}
@@ -178,7 +183,24 @@ export async function stitchSlidesWithTransitions(
 	const targetWidth = firstValid?.width ?? 1920;
 	const targetHeight = firstValid?.height ?? 1080;
 	const targetFps = firstValid?.frameRate ?? 60;
-	const hasAudioPerSlide = probes.map((p) => p?.hasAudio ?? true);
+	// Resolve audio presence per input. A failed probe must NOT be treated as
+	// "has audio": the filtergraph would reference a stream that does not exist
+	// and the whole stitch aborts. Confirm with a direct stream check, and only
+	// fall back to a silent placeholder when that fails too.
+	const hasAudioPerSlide = await Promise.all(
+		slides.map(async (slide, index) => {
+			const probe = probes[index];
+			if (typeof probe?.hasAudio === "boolean") return probe.hasAudio;
+			try {
+				// Loaded lazily: the diagnostics module pulls app-scoped paths that
+				// must not be evaluated when this file is imported in tests.
+				const { hasEmbeddedAudioStream } = await import("../recording/diagnostics");
+				return await hasEmbeddedAudioStream(slide.filePath);
+			} catch {
+				return false;
+			}
+		}),
+	);
 
 	const args: string[] = ["-y"];
 

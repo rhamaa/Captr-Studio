@@ -57,24 +57,41 @@ export async function exportMultiSlideProject(
 			message: `Merender Slide ${i + 1}/${totalSlides}: "${slide.title}"...`,
 		});
 
-		// Export chunk via modular slideChunkExporter
-		const chunk = await exportSlideChunk({
-			slide,
-			canvas: project.canvas,
-			onProgress: (percent) => {
-				const slideSlice = 80 / totalSlides;
-				const basePercent = i * slideSlice;
-				const currentPercent = Math.round(basePercent + (percent / 100) * slideSlice);
-				onProgress?.({
-					stage: "rendering-slide",
-					currentSlideIndex: i + 1,
-					totalSlides,
-					slideTitle: slide.title,
-					percentage: currentPercent,
-					message: `Merender Slide ${i + 1}/${totalSlides}: "${slide.title}" (${percent}%)...`,
-				});
-			},
-		});
+		// Export chunk via modular slideChunkExporter. A slide that cannot produce
+		// media must abort the export with a clear message: bubbling the rejection
+		// leaves the export dialog stuck (it has no catch), and handing an empty
+		// path to FFmpeg surfaces only later as an opaque mid-stitch failure.
+		let chunk: Awaited<ReturnType<typeof exportSlideChunk>>;
+		try {
+			chunk = await exportSlideChunk({
+				slide,
+				canvas: project.canvas,
+				onProgress: (percent) => {
+					const slideSlice = 80 / totalSlides;
+					const basePercent = i * slideSlice;
+					const currentPercent = Math.round(basePercent + (percent / 100) * slideSlice);
+					onProgress?.({
+						stage: "rendering-slide",
+						currentSlideIndex: i + 1,
+						totalSlides,
+						slideTitle: slide.title,
+						percentage: currentPercent,
+						message: `Merender Slide ${i + 1}/${totalSlides}: "${slide.title}" (${percent}%)...`,
+					});
+				},
+			});
+		} catch (renderError) {
+			const message = String(renderError);
+			onProgress?.({
+				stage: "error",
+				currentSlideIndex: i + 1,
+				totalSlides,
+				slideTitle: slide.title,
+				percentage: 100,
+				message: `Gagal merender Slide ${i + 1}/${totalSlides}: ${message}`,
+			});
+			return { success: false, error: message };
+		}
 
 		slideStitchInputs.push({
 			filePath: chunk.filePath,
@@ -94,10 +111,25 @@ export async function exportMultiSlideProject(
 		message: "Menggabungkan slide dan menerapkan transisi dengan FFmpeg...",
 	});
 
-	const transitionConfigs = project.transitions.map((trans) => ({
-		type: trans.type as "crossfade" | "fade-black" | "wipe-left" | "wipe-right" | "slide-left" | "slide-right",
-		durationSec: (trans.durationMs || 500) / 1000,
-	}));
+	// FFmpeg xfade is chained per BOUNDARY: `transitions[i]` sits between
+	// slides[i] and slides[i + 1]. Stored slide transitions carry explicit
+	// fromSlideId/toSlideId and may be sparse or stored in a different order, so
+	// resolve them per boundary instead of mapping the stored array positionally —
+	// a positional mapping attaches one slide's transition to another pair.
+	const transitionConfigs = project.slides.slice(1).map((slide, index) => {
+		const previousSlide = project.slides[index];
+		const stored = project.transitions.find(
+			(transition) =>
+				transition.fromSlideId === previousSlide.id && transition.toSlideId === slide.id,
+		);
+		const requested = stored?.type ?? "crossfade";
+		return {
+			// `zoom-in` has no FFmpeg xfade counterpart: degrade it to the default
+			// crossfade so the boundary keeps its own transition definition.
+			type: requested === "zoom-in" ? "crossfade" : requested,
+			durationSec: (stored?.durationMs || 500) / 1000,
+		};
+	});
 
 	// Stage 3: Call Electron IPC stitcher
 	try {

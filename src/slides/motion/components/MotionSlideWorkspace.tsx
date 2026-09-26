@@ -159,7 +159,7 @@ export const MotionSlideWorkspace: React.FC<SlideWorkspaceProps<MotionSlideMeta>
 
 	const durationMs = slide.durationMs || meta.durationMs || 5000;
 
-	const iframeRef = useRef<HTMLIFrameElement | null>(null);
+	const iframeRef = useRef<HTMLIFrameElement>(null);
 	const rafRef = useRef<number | null>(null);
 	const lastFrameTimeRef = useRef<number>(0);
 	const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -421,7 +421,8 @@ export const MotionSlideWorkspace: React.FC<SlideWorkspaceProps<MotionSlideMeta>
 					<div className="flex items-center gap-2 text-slate-300 min-w-0">
 						<Lightning className="w-3.5 h-3.5 text-amber-400 shrink-0" weight="fill" />
 						<span className="truncate text-[11px]">
-							<strong className="text-amber-300 font-semibold">Motion Studio:</strong> Edit kode langsung di tab (HTML/CSS/JS), atau{" "}
+							<strong className="text-amber-300 font-semibold">Motion Studio:</strong>{" "}
+							Edit kode langsung di tab (HTML/CSS/JS), atau{" "}
 							<button
 								type="button"
 								onClick={handleTriggerFileInput}

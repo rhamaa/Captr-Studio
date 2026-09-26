@@ -21,10 +21,9 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [isAudioMuted, setIsAudioMuted] = useState(false);
 
-	const videoRef = useRef<HTMLVideoElement | null>(null);
+	const videoRef = useRef<HTMLVideoElement>(null);
 	const playheadRafRef = useRef<number | null>(null);
 	const lastEpochRef = useRef<number>(0);
-	const timelineTrackRef = useRef<HTMLDivElement | null>(null);
 
 	// Find first video clip source for the preview monitor
 	const primaryVideoClip = meta.videoTracks?.[0]?.clips?.[0];
@@ -212,33 +211,16 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 		}
 	};
 
-	const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
-		const trackEl = timelineTrackRef.current;
-		if (!trackEl) return;
-
-		const rect = trackEl.getBoundingClientRect();
-		const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-		const ratio = clickX / rect.width;
-		const targetMs = Math.round(ratio * slide.durationMs);
-
-		setCurrentTimeMs(targetMs);
-		if (videoRef.current) {
-			videoRef.current.currentTime = targetMs / 1000;
-		}
-	};
-
-	const handleAddSampleClip = (trackId: string) => {
+	const handleAddSampleClip = (trackId?: string) => {
+		if (!trackId) return;
 		const newClip: VideoClipItem = {
 			id: `clip-${Date.now()}`,
 			title: `Clip ${meta.videoTracks.flatMap((t) => t.clips).length + 1}`,
 			sourcePath: "",
 			startOffsetMs: currentTimeMs,
 			durationMs: Math.min(3000, slide.durationMs - currentTimeMs),
-			inPointMs: 0,
-			outPointMs: 3000,
-			speed: 1,
+			speedMultiplier: 1,
 			volume: 1,
-			opacity: 1,
 		};
 
 		onUpdateMeta((prev) => ({
@@ -282,7 +264,11 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 							...tr,
 							clips: tr.clips.map((c) =>
 								c.id === clipId
-									? { ...c, startOffsetMs: newStartOffsetMs, durationMs: newDurationMs }
+									? {
+											...c,
+											startOffsetMs: newStartOffsetMs,
+											durationMs: newDurationMs,
+										}
 									: c,
 							),
 						}
@@ -316,7 +302,9 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 				tr.id === trackId
 					? {
 							...tr,
-							clips: tr.clips.flatMap((c) => (c.id === clipId ? [leftClip, rightClip] : [c])),
+							clips: tr.clips.flatMap((c) =>
+								c.id === clipId ? [leftClip, rightClip] : [c],
+							),
 						}
 					: tr,
 			),

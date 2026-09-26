@@ -147,6 +147,8 @@ import {
 	extractDocumentParts,
 	type MotionSlideMeta,
 } from "@/slides/motion/schema";
+import { type RecordSlideTimelineHandle } from "@/slides/record/components/RecordSlideTimeline";
+import { createDefaultVideoMeta } from "@/slides/video/schema";
 import {
 	applySilenceRemovalToTimeline,
 	detectSilenceFromAudioUrl,
@@ -160,6 +162,7 @@ import {
 	createRecordedClip,
 	createUploadedClip,
 	findClipAtTimelineTime,
+	foldActiveAudioRegionsIntoClips,
 	reorderClips,
 } from "./clipsUtils";
 import { EditorMenuBar } from "./EditorMenuBar";
@@ -196,6 +199,8 @@ import {
 	validateProjectData,
 } from "./projectPersistence";
 import { SettingsPanel } from "./SettingsPanel";
+import SlideTimelineHost, { type SlideTimelineMode } from "./SlideTimelineHost";
+import { resolveLoadedSlideAudioRegions, resolveSlideAudioSourcePath } from "./slideAudioIsolation";
 import { SlideList } from "./slides/SlideList";
 import { getDevOpenRecordingConfig, getSmokeExportConfig } from "./smokeExportConfig";
 import { createSmokeExportProgressSampler } from "./smokeExportProgress";
@@ -206,9 +211,6 @@ import {
 	openExternalLink,
 	RECORDLY_ISSUES_URL,
 } from "./TutorialHelp";
-import SlideTimelineHost, { type SlideTimelineMode } from "./SlideTimelineHost";
-import { type RecordSlideTimelineHandle } from "@/slides/record/components/RecordSlideTimeline";
-import { createDefaultVideoMeta } from "@/slides/video/schema";
 import {
 	buildAutoReframeSuggestions,
 	normalizeCursorTelemetry,
@@ -587,6 +589,11 @@ export default function VideoEditor() {
 	clipRegionsRef.current = clipRegions;
 	const videoSourcePathRef = useRef(videoSourcePath);
 	videoSourcePathRef.current = videoSourcePath;
+	// Slide-scoped guard for the resolved preview URL. `videoSourcePathRef`
+	// only updates on render, so a fast `resolveVideoUrl()` could read a stale
+	// value and leave the previous slide's media URL (and its audio) in place.
+	// This ref is written synchronously by the slide switch itself.
+	const pendingVideoSourcePathRef = useRef<string | null>(null);
 
 	useEffect(() => {
 		if (duration > 0 && clips.length === 1 && clips[0].durationMs === 0) {
@@ -2340,9 +2347,16 @@ export default function VideoEditor() {
 			} else {
 				setClips([]);
 			}
+			// Slide-level audio wins. The top-level editor state mirrors whichever
+			// slide was open at save time, so it may only be adopted for projects
+			// with a single slide (then it can only belong to that slide).
+			const persistedSlides = project.clips ? normalizeClipEntries(project.clips) : [];
 			setAudioRegions(
-				normalizeClipEntries(project.clips)[0]?.audioRegions ??
-					normalizedEditor.audioRegions,
+				resolveLoadedSlideAudioRegions({
+					persistedClipAudioRegions: persistedSlides[0]?.audioRegions,
+					editorAudioRegions: normalizedEditor.audioRegions,
+					clipCount: persistedSlides.length,
+				}),
 			);
 			setSourceAudioTrackSettingsByClip(
 				normalizedEditor.sourceAudioTrackSettingsByClip ?? {},
@@ -2414,7 +2428,13 @@ export default function VideoEditor() {
 						sourcePath,
 						buildPersistedEditorState(normalizedEditor),
 						project.projectId ?? null,
-						project.clips ?? [],
+						// Fold the open slide's audio into its own clip so a later load
+						// restores it onto the same slide, not onto the first slide.
+						foldActiveAudioRegionsIntoClips(
+							project.clips ?? [],
+							initialSelectedClipId,
+							normalizedEditor.audioRegions,
+						),
 					),
 				),
 			);
@@ -2437,9 +2457,19 @@ export default function VideoEditor() {
 			currentSourcePath,
 			currentPersistedEditorState,
 			lastSavedSnapshot?.projectId ?? null,
-			clips,
+			// Fold the open slide's audio into its own clip: a clip that is still
+			// open keeps its audio in the editor only, so without this fold the
+			// saved clip could hold a stale copy (or no audio at all).
+			foldActiveAudioRegionsIntoClips(clips, activeSceneId, audioRegions),
 		);
-	}, [currentPersistedEditorState, currentSourcePath, lastSavedSnapshot?.projectId, clips]);
+	}, [
+		activeSceneId,
+		audioRegions,
+		clips,
+		currentPersistedEditorState,
+		currentSourcePath,
+		lastSavedSnapshot?.projectId,
+	]);
 
 	const syncRecordingSessionWebcam = useCallback(
 		async (webcamPath: string | null, timeOffsetMs?: number) => {
@@ -3112,13 +3142,27 @@ export default function VideoEditor() {
 					}
 					if (clip.id !== activeSceneId) restoreSceneEditing(clip);
 
-					// Main video
-					if (clip.videoPath && clip.videoPath !== videoSourcePath) {
-						setVideoSourcePath(clip.videoPath);
-						resolveVideoUrl(clip.videoPath).then((url) => {
-							if (videoSourcePathRef.current !== clip.videoPath) return;
-							setVideoPath(url);
-						});
+					// ISOLATION: Main video is strictly slide-scoped. A slide without
+					// its own media (motion, empty video slide) must never keep the
+					// previous slide's media URL, or its embedded/companion audio
+					// keeps playing under the newly selected slide.
+					if (clip.videoPath) {
+						if (clip.videoPath !== videoSourcePath) {
+							setVideoSourcePath(clip.videoPath);
+							// Drop the stale URL immediately, then resolve this slide's
+							// own media. The pending ref makes the late-resolving swap
+							// race-free.
+							setVideoPath(null);
+							pendingVideoSourcePathRef.current = clip.videoPath;
+							resolveVideoUrl(clip.videoPath).then((url) => {
+								if (pendingVideoSourcePathRef.current !== clip.videoPath) return;
+								setVideoPath(url);
+							});
+						}
+					} else {
+						// No source media owned by this slide: clear the resolved URL so
+						// the previous slide's video/audio cannot leak into it.
+						setVideoPath(null);
 					}
 
 					// ISOLATION: Webcam sidecar
@@ -3527,7 +3571,11 @@ export default function VideoEditor() {
 									currentSourcePath,
 									currentPersistedEditorState,
 									forceSaveAs ? null : (lastSavedSnapshot?.projectId ?? null),
-									clips,
+									foldActiveAudioRegionsIntoClips(
+										clips,
+										activeSceneId,
+										audioRegions,
+									),
 								);
 
 					const fileNameBase =
@@ -3602,8 +3650,11 @@ export default function VideoEditor() {
 			});
 		},
 		[
+			activeSceneId,
+			audioRegions,
 			captureProjectThumbnail,
 			clearPendingProjectAutosave,
+			clips,
 			currentSourcePath,
 			currentProjectPath,
 			currentProjectSnapshot,
@@ -3683,7 +3734,7 @@ export default function VideoEditor() {
 								currentSourcePath,
 								currentPersistedEditorState,
 								lastSavedSnapshot?.projectId ?? null,
-								clips,
+								foldActiveAudioRegionsIntoClips(clips, activeSceneId, audioRegions),
 							);
 				const thumbnailDataUrl = await captureProjectThumbnail();
 				const result = await window.electronAPI.saveProjectFileNamed(
@@ -3723,7 +3774,10 @@ export default function VideoEditor() {
 			}
 		},
 		[
+			activeSceneId,
+			audioRegions,
 			captureProjectThumbnail,
+			clips,
 			currentPersistedEditorState,
 			currentProjectSnapshot,
 			currentSourcePath,
@@ -4323,12 +4377,7 @@ export default function VideoEditor() {
 	);
 
 	const handleVideoSlideClipTrim = useCallback(
-		(
-			trackId: string,
-			clipId: string,
-			newStartOffsetMs: number,
-			newDurationMs: number,
-		) => {
+		(trackId: string, clipId: string, newStartOffsetMs: number, newDurationMs: number) => {
 			if (!activeSlide) return;
 			const currentMeta = activeSlide.videoMeta || {
 				...createDefaultVideoMeta(),
@@ -4447,8 +4496,22 @@ export default function VideoEditor() {
 		() => [...audioRegions, ...buildVideoLayerAudioRegions(annotationRegions)],
 		[audioRegions, annotationRegions],
 	);
+	// ISOLATION: companion/source audio is resolved from the ACTIVE slide's own
+	// media path only. Companion sidecars (*.mic.wav / *.system.wav) are
+	// discovered by walking that path, so a stale record path makes the record
+	// audio play under the Video/Motion slides. Motion slides never carry source
+	// audio, and a media-less slide must not inherit the previous slide's path.
+	const slideScopedAudioSourcePath = useMemo(
+		() =>
+			resolveSlideAudioSourcePath({
+				activeSlide,
+				activeSlideMode,
+				currentSourcePath,
+			}),
+		[activeSlide, activeSlideMode, currentSourcePath],
+	);
 	const audio = useVideoEditorAudio({
-		currentSourcePath,
+		currentSourcePath: slideScopedAudioSourcePath,
 		selectedClipId,
 		clipRegions,
 		audioRegions: mixedAudioRegions,
@@ -6886,93 +6949,93 @@ export default function VideoEditor() {
 								}
 							}
 
-								const matchingRegion = clipRegions.find(
-									(region) => region.id === clip.id,
-								);
-								const clipStartOffset = clip.startMsOffset || 0;
-								const effectiveTrimStart =
-									clip.trimStartMs !== undefined
-										? clip.trimStartMs
-										: matchingRegion
-											? Math.max(0, matchingRegion.startMs - clipStartOffset)
-											: 0;
-								const effectiveTrimEnd =
-									clip.trimEndMs !== undefined
-										? clip.trimEndMs
-										: matchingRegion
-											? Math.min(clip.durationMs, matchingRegion.endMs - clipStartOffset)
-											: clip.durationMs;
+							const matchingRegion = clipRegions.find(
+								(region) => region.id === clip.id,
+							);
+							const clipStartOffset = clip.startMsOffset || 0;
+							const effectiveTrimStart =
+								clip.trimStartMs !== undefined
+									? clip.trimStartMs
+									: matchingRegion
+										? Math.max(0, matchingRegion.startMs - clipStartOffset)
+										: 0;
+							const effectiveTrimEnd =
+								clip.trimEndMs !== undefined
+									? clip.trimEndMs
+									: matchingRegion
+										? Math.min(
+												clip.durationMs,
+												matchingRegion.endMs - clipStartOffset,
+											)
+										: clip.durationMs;
 
-								const clipExporterConfig = {
-									...exporterConfig,
-									...(clip.id === activeSceneId
-										? sceneSettings
-										: scene.sceneSettings),
-									videoUrl: clipVideoUrl,
-									annotationRegions:
-										clip.id === activeSceneId
-											? annotationRegions
-											: (clip.annotationRegions ?? []),
-									audioRegions:
-										clip.id === activeSceneId
-											? mixedAudioRegions
-											: [
-													...(clip.audioRegions ?? []),
-													...buildVideoLayerAudioRegions(
-														clip.annotationRegions ?? [],
-													),
-												],
-									sourceAudioFallbackPaths: [
-										clip.systemAudioPath,
-										clip.microphoneAudioPath,
-									].filter((path): path is string => Boolean(path)),
-									sourceAudioFallbackStartDelayMsByPath: {},
-									sourceAudioTrackSettings:
-										sourceAudioTrackSettingsByClip[clip.id] ??
-										defaultSourceAudioTrackSettings,
-									trimRegions: [
-										...(effectiveTrimStart > 0
-											? [
-													{
-														id: "scene-head",
-														startMs: 0,
-														endMs: effectiveTrimStart,
-													},
-												]
-											: []),
-										...(effectiveTrimEnd < clip.durationMs
-											? [
-													{
-														id: "scene-tail",
-														startMs: effectiveTrimEnd,
-														endMs: clip.durationMs,
-													},
-												]
-											: []),
-									],
-									speedRegions: [
-										{
-											id: `scene-speed-${clip.id}`,
-											startMs: 0,
-											endMs: clip.durationMs,
-											speed: (clip.speed ??
-												matchingRegion?.speed ??
-												1) as SpeedRegion["speed"],
-										},
-									],
-									clipRegions: [
-										{
-											id: clip.id,
-											startMs: effectiveTrimStart,
-											endMs: effectiveTrimEnd,
-											speed:
-												clip.speed ??
-												matchingRegion?.speed ??
-												1,
-											transitionIn: clip.transitionIn?.type,
-											transitionInDurationMs: clip.transitionIn?.durationMs,
-										},
-									],
+							const clipExporterConfig = {
+								...exporterConfig,
+								...(clip.id === activeSceneId
+									? sceneSettings
+									: scene.sceneSettings),
+								videoUrl: clipVideoUrl,
+								annotationRegions:
+									clip.id === activeSceneId
+										? annotationRegions
+										: (clip.annotationRegions ?? []),
+								audioRegions:
+									clip.id === activeSceneId
+										? mixedAudioRegions
+										: [
+												...(clip.audioRegions ?? []),
+												...buildVideoLayerAudioRegions(
+													clip.annotationRegions ?? [],
+												),
+											],
+								sourceAudioFallbackPaths: [
+									clip.systemAudioPath,
+									clip.microphoneAudioPath,
+								].filter((path): path is string => Boolean(path)),
+								sourceAudioFallbackStartDelayMsByPath: {},
+								sourceAudioTrackSettings:
+									sourceAudioTrackSettingsByClip[clip.id] ??
+									defaultSourceAudioTrackSettings,
+								trimRegions: [
+									...(effectiveTrimStart > 0
+										? [
+												{
+													id: "scene-head",
+													startMs: 0,
+													endMs: effectiveTrimStart,
+												},
+											]
+										: []),
+									...(effectiveTrimEnd < clip.durationMs
+										? [
+												{
+													id: "scene-tail",
+													startMs: effectiveTrimEnd,
+													endMs: clip.durationMs,
+												},
+											]
+										: []),
+								],
+								speedRegions: [
+									{
+										id: `scene-speed-${clip.id}`,
+										startMs: 0,
+										endMs: clip.durationMs,
+										speed: (clip.speed ??
+											matchingRegion?.speed ??
+											1) as SpeedRegion["speed"],
+									},
+								],
+								clipRegions: [
+									{
+										id: clip.id,
+										startMs: effectiveTrimStart,
+										endMs: effectiveTrimEnd,
+										speed: clip.speed ?? matchingRegion?.speed ?? 1,
+										transitionIn: clip.transitionIn?.type,
+										transitionInDurationMs: clip.transitionIn?.durationMs,
+									},
+								],
 								wallpaper: clip.id === activeSceneId ? wallpaper : scene.wallpaper,
 								cropRegion:
 									clip.id === activeSceneId ? cropRegion : scene.cropRegion,
@@ -9656,7 +9719,8 @@ export default function VideoEditor() {
 								autoSuggestZoomsTrigger: autoSuggestZoomsTrigger,
 								onAutoSuggestZoomsConsumed: handleAutoSuggestZoomsConsumed,
 								disableSuggestedZooms:
-									activeSlideMode !== "record" || !autoApplyFreshRecordingAutoZooms,
+									activeSlideMode !== "record" ||
+									!autoApplyFreshRecordingAutoZooms,
 								zoomRegions: activeSlideMode === "record" ? zoomRegions : [],
 								onZoomAdded: handleZoomAdded,
 								onZoomSuggested: handleZoomSuggested,
@@ -9705,7 +9769,8 @@ export default function VideoEditor() {
 							}}
 							motionProps={{
 								currentTimeMs: Math.round(currentTime * 1000),
-								durationMs: activeSlide?.durationMs || Math.round(slideDurationSec * 1000),
+								durationMs:
+									activeSlide?.durationMs || Math.round(slideDurationSec * 1000),
 								isPlaying: isPlaying,
 								onSeek: (ms) => handleTimelineSeek(ms / 1000),
 								onTogglePlay: togglePlayPause,
@@ -9718,7 +9783,8 @@ export default function VideoEditor() {
 														...c,
 														durationMs: newDurationMs,
 														motionMeta: {
-															...(c.motionMeta || createDefaultMotionMeta()),
+															...(c.motionMeta ||
+																createDefaultMotionMeta()),
 															durationMs: newDurationMs,
 														},
 													}

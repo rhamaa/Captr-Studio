@@ -1,12 +1,4 @@
-import {
-	Pause,
-	Play,
-	Plus,
-	Rewind,
-	Scissors,
-	SpeakerHigh,
-	SpeakerSimpleSlash,
-} from "@phosphor-icons/react";
+import { Pause, Play, Plus, Rewind, SpeakerHigh, SpeakerSimpleSlash } from "@phosphor-icons/react";
 import React from "react";
 
 function formatTime(ms: number): string {

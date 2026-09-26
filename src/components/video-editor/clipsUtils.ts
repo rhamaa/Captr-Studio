@@ -1,5 +1,6 @@
 import { isRecordSlide } from "./sceneEditing";
 import {
+	type AudioRegion,
 	type ClipEntry,
 	type ClipRegion,
 	type CropRegion,
@@ -245,6 +246,30 @@ export function createMotionClip(params: {
 		showCursor: false,
 		motionMeta: params.motionMeta,
 	};
+}
+
+/**
+ * Folds the ACTIVE slide's audio regions into its own clip before persisting.
+ *
+ * Slide-scoped state lives in the editor (top-level `editor.*`) while a slide is
+ * open; it is copied back into the clip only when the user leaves that slide.
+ * Without this fold, saving right after editing audio persists a *stale* clip
+ * copy next to the fresh top-level state, and loading the project then prefers
+ * the stale copy — the edit appears to revert, and the audio of one slide can be
+ * restored onto another. Returns the same array reference when nothing changes
+ * so memoized callers stay stable.
+ */
+export function foldActiveAudioRegionsIntoClips(
+	clips: ClipEntry[],
+	activeClipId: string | null,
+	audioRegions: AudioRegion[],
+): ClipEntry[] {
+	if (!activeClipId) return clips;
+	const index = clips.findIndex((clip) => clip.id === activeClipId);
+	if (index < 0) return clips;
+	return clips.map((clip, i) =>
+		i === index ? { ...clip, audioRegions: structuredClone(audioRegions) } : clip,
+	);
 }
 
 /**

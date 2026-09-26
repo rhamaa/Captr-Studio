@@ -1,5 +1,4 @@
 import React from "react";
-import type { VideoSlideMeta } from "../schema";
 
 interface VideoClipInspectorProps {
 	title: string;

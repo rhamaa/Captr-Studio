@@ -1,7 +1,6 @@
 import {
 	FilmSlate,
 	Gauge,
-	Minus,
 	Pause,
 	Play,
 	Plus,
@@ -12,7 +11,7 @@ import {
 	Trash,
 } from "@phosphor-icons/react";
 import React, { useMemo } from "react";
-import type { AudioTrackItem, VideoClipItem, VideoTrack } from "../schema";
+import type { AudioTrackItem, VideoTrack } from "../schema";
 import { VideoTimelineTracks } from "./VideoTimelineTracks";
 
 export interface VideoSlideTimelineProps {
@@ -70,7 +69,6 @@ export const VideoSlideTimeline: React.FC<VideoSlideTimelineProps> = ({
 	onAddClip,
 	onDeleteAudioTrack,
 	onChangeClipSpeed,
-	onChangeClipVolume,
 	className = "",
 }) => {
 	// Find currently selected clip and its track
@@ -110,11 +108,7 @@ export const VideoSlideTimeline: React.FC<VideoSlideTimelineProps> = ({
 
 	const handleSplit = () => {
 		if (!clipUnderPlayhead || !onSplitClip) return;
-		onSplitClip(
-			clipUnderPlayhead.track.id,
-			clipUnderPlayhead.clip.id,
-			currentTimeMs,
-		);
+		onSplitClip(clipUnderPlayhead.track.id, clipUnderPlayhead.clip.id, currentTimeMs);
 	};
 
 	const handleDeleteSelected = () => {
@@ -163,7 +157,11 @@ export const VideoSlideTimeline: React.FC<VideoSlideTimelineProps> = ({
 									: "text-slate-400 hover:bg-slate-800 hover:text-white"
 							}`}
 						>
-							{isAudioMuted ? <SpeakerSimpleSlash size={15} /> : <SpeakerHigh size={15} />}
+							{isAudioMuted ? (
+								<SpeakerSimpleSlash size={15} />
+							) : (
+								<SpeakerHigh size={15} />
+							)}
 						</button>
 					)}
 
@@ -274,7 +272,7 @@ export const VideoSlideTimeline: React.FC<VideoSlideTimelineProps> = ({
 				slideDurationMs={slideDurationMs}
 				currentTimeMs={currentTimeMs}
 				selectedClipId={selectedClipId}
-				onTimelineClick={(e) => {
+				onTimelineClick={() => {
 					// Default click on empty lane selects null
 					onSelectClip?.(null);
 				}}

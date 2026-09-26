@@ -72,6 +72,54 @@ describe("slideChunkExporter", () => {
 		expect(result.durationSec).toBe(12);
 	});
 
+	it("fails loudly when a module returns an empty chunk path", async () => {
+		const brokenModule: SlideModule = {
+			type: "motion",
+			displayName: "Motion",
+			description: "",
+			icon: () => null,
+			WorkspaceComponent: () => null,
+			createDefaultMeta: () => ({}),
+			exportChunk: async () => ({ filePath: "", durationSec: 5 }),
+		};
+
+		slideRegistry.register(brokenModule);
+
+		const slide: SlideData = {
+			id: "m1",
+			type: "motion",
+			title: "Motion Slide",
+			durationMs: 5000,
+			order: 0,
+			meta: {},
+		};
+
+		await expect(
+			exportSlideChunk({
+				slide,
+				canvas: { width: 1920, height: 1080, fps: 30 },
+			}),
+		).rejects.toThrow(/exportChunk tidak mengembalikan filePath/);
+	});
+
+	it("fails loudly when the slide has no media to fall back to", async () => {
+		const slide: SlideData = {
+			id: "m2",
+			type: "video",
+			title: "Empty Video Slide",
+			durationMs: 3000,
+			order: 0,
+			meta: { videoTracks: [] },
+		};
+
+		await expect(
+			exportSlideChunk({
+				slide,
+				canvas: { width: 1920, height: 1080, fps: 30 },
+			}),
+		).rejects.toThrow(/tidak memiliki berkas media/);
+	});
+
 	it("falls back to video track clip for video slides", async () => {
 		const slide: SlideData = {
 			id: "s3",

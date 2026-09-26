@@ -1,13 +1,4 @@
-import {
-	Clock,
-	FastForward,
-	Gauge,
-	Pause,
-	Play,
-	Repeat,
-	Rewind,
-	Sparkle,
-} from "@phosphor-icons/react";
+import { Clock, Pause, Play, Repeat, Rewind, Sparkle } from "@phosphor-icons/react";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 export interface MotionSlideTimelineProps {
@@ -203,7 +194,9 @@ export const MotionSlideTimeline: React.FC<MotionSlideTimelineProps> = ({
 				<div className="flex items-center gap-3">
 					{onChangeDuration && (
 						<div className="flex items-center gap-1.5 text-xs text-foreground/70">
-							<span className="text-[11px] font-medium text-foreground/50">Durasi:</span>
+							<span className="text-[11px] font-medium text-foreground/50">
+								Durasi:
+							</span>
 							<div className="relative flex items-center">
 								<input
 									type="number"
@@ -218,7 +211,9 @@ export const MotionSlideTimeline: React.FC<MotionSlideTimelineProps> = ({
 									}}
 									className="w-16 rounded-md border border-foreground/15 bg-foreground/5 px-2 py-1 text-center font-mono text-xs text-foreground focus:border-amber-500 focus:outline-none"
 								/>
-								<span className="ml-1 text-[11px] text-foreground/40 font-mono">s</span>
+								<span className="ml-1 text-[11px] text-foreground/40 font-mono">
+									s
+								</span>
 							</div>
 						</div>
 					)}
@@ -281,7 +276,8 @@ export const MotionSlideTimeline: React.FC<MotionSlideTimelineProps> = ({
 				{/* Help tip footer */}
 				<div className="flex items-center justify-between pt-2 px-1 text-[11px] text-foreground/40 font-sans">
 					<span>
-						💡 Geser scrubber untuk melihat frame animasi web HTML & CSS Anda secara real-time.
+						💡 Geser scrubber untuk melihat frame animasi web HTML & CSS Anda secara
+						real-time.
 					</span>
 					<span className="font-mono text-[10px]">Canvas Mode: 60 FPS Export</span>
 				</div>

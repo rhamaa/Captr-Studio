@@ -1,7 +1,7 @@
 import React from "react";
 
 interface MotionPreviewMonitorProps {
-	iframeRef: React.RefObject<HTMLIFrameElement | null>;
+	iframeRef: React.RefObject<HTMLIFrameElement>;
 	srcDoc: string;
 	aspectRatio: number;
 	onIframeLoad: () => void;

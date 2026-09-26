@@ -151,4 +151,88 @@ describe("multiSlideExporter", () => {
 		expect(stages).toContain("stitching");
 		expect(stages).toContain("completed");
 	});
+
+	it("resolves transitions per slide pair instead of by stored order", async () => {
+		const stitchMock = vi.fn().mockResolvedValue({
+			success: true,
+			outputPath: "/final/output.mp4",
+		});
+
+		if (typeof window === "undefined") {
+			(globalThis as any).window = {};
+		}
+		(window as any).electronAPI = { stitchProjectSlides: stitchMock };
+
+		const project: ProjectV2Data = {
+			version: 2,
+			projectId: "p-transitions",
+			title: "Transition Pairing",
+			canvas: { width: 1920, height: 1080, fps: 30 },
+			slides: [
+				{
+					id: "s1",
+					type: "record",
+					title: "One",
+					durationMs: 5000,
+					order: 0,
+					meta: { videoPath: "/media/one.mp4" },
+				},
+				{
+					id: "s2",
+					type: "record",
+					title: "Two",
+					durationMs: 5000,
+					order: 1,
+					meta: { videoPath: "/media/two.mp4" },
+				},
+				{
+					id: "s3",
+					type: "video",
+					title: "Three",
+					durationMs: 5000,
+					order: 2,
+					meta: {
+						videoTracks: [
+							{
+								id: "v1",
+								clips: [{ id: "c1", sourcePath: "/media/three.mp4" }],
+							},
+						],
+					},
+				},
+			],
+			// Stored for the SECOND boundary only — a positional mapping would
+			// wrongly apply this wipe to the s1 -> s2 boundary instead.
+			transitions: [
+				{
+					id: "t23",
+					fromSlideId: "s2",
+					toSlideId: "s3",
+					type: "wipe-left",
+					durationMs: 800,
+				},
+			],
+			globalAudioTracks: [],
+		};
+
+		const result = await exportMultiSlideProject({
+			project,
+			outputPath: "/final/output.mp4",
+		});
+
+		expect(result.success).toBe(true);
+		const stitchCallArgs = stitchMock.mock.calls[0][0];
+		expect(stitchCallArgs.slides.length).toBe(3);
+		expect(stitchCallArgs.transitions).toHaveLength(2);
+		// Boundary s1 -> s2: no stored transition, keeps the default crossfade.
+		expect(stitchCallArgs.transitions[0]).toMatchObject({
+			type: "crossfade",
+			durationSec: 0.5,
+		});
+		// Boundary s2 -> s3: carries exactly the stored wipe-left.
+		expect(stitchCallArgs.transitions[1]).toMatchObject({
+			type: "wipe-left",
+			durationSec: 0.8,
+		});
+	});
 });

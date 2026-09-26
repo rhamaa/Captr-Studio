@@ -235,6 +235,33 @@ Rendering project multi-slide menggunakan pendekatan **2-Tier Pipeline**:
 
 ---
 
+## 6. Status integrasi & aturan isolasi
+
+### 6.1 Dua model yang hidup (periksa sebelum menambah kode slide)
+
+| Model | Lokasi | Status |
+|---|---|---|
+| **Editor live** — `clips: ClipEntry[]` + `slideMode: "record" \| "video" \| "motion"` | `src/components/video-editor/VideoEditor.tsx` | ✅ Dipakai UI hari ini (preview, timeline, save, ekspor native) |
+| **Registry/deck** — `SlideModule` + `ProjectV2Data.slides` + `SlideDeckContext` | `src/core/slides/*`, `src/slides/*`, `src/components/deck/*` | ⚠️ Sudah diuji unit-test, tetapi **belum di-mount di UI mana pun**: `SlideDeckBar` dan `SlideWorkspaceHost` tidak dirender, sehingga `multiSlideExporter` → `window.electronAPI.stitchProjectSlides` (→ `globalStitcher`) hanya tercapai lewat `MultiSlideExportDialog` |
+
+Jangan asumsikan ekspor multi-slide bisa dicapai dari editor tanpa memasang `SlideDeckBar` terlebih dahulu.
+
+### 6.2 Aturan isolasi antar slide (kontrak)
+
+1. **Sumber audio per slide.** Path sumber (dan sidecar mic/system yang ditemukan dengan cara menempelkan `.mic.wav` / `.system.wav` di path itu) hanya boleh diambil dari slide yang sedang aktif — `resolveSlideAudioSourcePath` (`src/components/video-editor/slideAudioIsolation.ts`). Slide tanpa media sendiri (motion, video kosong) tidak pernah mewarisi path slide sebelumnya.
+2. **State editor → clip.** `audioRegions` disimpan di editor selama slide terbuka dan harus di-fold ke clip miliknya saat menyimpan (`foldActiveAudioRegionsIntoClips`); saat memuat, data clip menang dan data top-level legacy hanya diadopsi bila project punya satu slide (`resolveLoadedSlideAudioRegions`).
+3. **Transisi diekstrak per pasangan**, bukan posisional: `transitions[i]` = batas `slides[i] → slides[i+1]` (`multiSlideExporter`).
+4. **Audio per slide di-probe** sebelum membangun filtergraph; kegagalan probe berarti *silent* (`aevalsrc`), bukan mengasumsikan stream audio ada (`globalStitcher`).
+5. **Chunk kosong = gagal cepat** dengan pesan jelas (`slideChunkExporter`), agar berkas media milik slide lain tidak pernah berdiri sebagai hasil slide ini.
+
+### 6.3 Gap yang diketahui
+
+- `motionSlideModule.exportChunk` masih stub (mengembalikan `""`) — ekspor multi-slide yang memuat motion slide akan berhenti dengan pesan jelas sampai *Headless Frame Capture* (bagian 4, `src/slides/motion/README.md`) diimplementasikan.
+- `recordSlideModule.exportChunk` mengembalikan berkas rekaman mentah, jadi efek slide record (zoom, cursor, anotasi) belum ter-render pada jalur ekspor ini.
+- Tipe transisi `zoom-in` tidak punya padanan FFmpeg `xfade` dan didegradasi ke `crossfade`.
+
+---
+
 ## 5. Struktur Direktori Baru Codebase
 
 ### A. Renderer Process (`src/`)

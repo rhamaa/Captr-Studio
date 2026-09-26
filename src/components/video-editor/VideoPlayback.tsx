@@ -1,13 +1,4 @@
-import {
-	Application,
-	ColorMatrixFilter,
-	Container,
-	Graphics,
-	Rectangle,
-	Sprite,
-	Texture,
-	VideoSource,
-} from "pixi.js";
+import { Application, Container, Graphics, Rectangle, Sprite, Texture, VideoSource } from "pixi.js";
 import { MotionBlurFilter } from "pixi-filters/motion-blur";
 import { ZoomBlurFilter } from "pixi-filters/zoom-blur";
 import type React from "react";

@@ -13,7 +13,7 @@ export interface RecordPreviewMonitorProps {
 	videoPath?: string;
 	resolvedVideoSrc: string;
 	canvasDimensions: { width: number; height: number; fps: number };
-	videoPlaybackRef: React.RefObject<VideoPlaybackRef | null>;
+	videoPlaybackRef: React.RefObject<VideoPlaybackRef>;
 	currentTimeMs: number;
 	isPlaying: boolean;
 	onTimeUpdate: (ms: number) => void;

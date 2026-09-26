@@ -4,6 +4,7 @@ import {
 	createRecordedClip,
 	createUploadedClip,
 	findClipAtTimelineTime,
+	foldActiveAudioRegionsIntoClips,
 	formatClipDuration,
 	getClipLocalTimeMs,
 	getEffectiveClipSettings,
@@ -12,7 +13,7 @@ import {
 	recalculateClipOffsets,
 	reorderClips,
 } from "./clipsUtils";
-import type { ClipEntry, CropRegion, WebcamOverlaySettings } from "./types";
+import type { AudioRegion, ClipEntry, CropRegion, WebcamOverlaySettings } from "./types";
 
 describe("clipsUtils", () => {
 	it("preserves transition and audio edits when scenes are reordered", () => {
@@ -235,5 +236,39 @@ describe("clipsUtils", () => {
 			expect(getClipLocalTimeMs(clip, 8000)).toBe(0); // clamped to 0
 			expect(getClipLocalTimeMs(clip, 16000)).toBe(5000); // clamped to duration
 		});
+	});
+});
+
+describe("foldActiveAudioRegionsIntoClips", () => {
+	const recordAudio: AudioRegion[] = [
+		{ id: "audio-1", startMs: 0, endMs: 1000, audioPath: "C:/recordings/mic.wav", volume: 1 },
+	];
+	const slides: ClipEntry[] = [
+		{ id: "clip-1", videoPath: "record.mp4", startMsOffset: 0, durationMs: 5000 },
+		{ id: "clip-2", videoPath: "", startMsOffset: 5000, durationMs: 3000, slideMode: "motion" },
+	];
+
+	it("writes the active slide's audio into its own clip only", () => {
+		const folded = foldActiveAudioRegionsIntoClips(slides, "clip-2", recordAudio);
+		expect(folded[1].audioRegions).toEqual(recordAudio);
+		expect(folded[0].audioRegions).toBeUndefined();
+	});
+
+	it("keeps the other slides byte-identical", () => {
+		const folded = foldActiveAudioRegionsIntoClips(slides, "clip-1", recordAudio);
+		expect(folded[0]).not.toBe(slides[0]);
+		expect(folded[1]).toBe(slides[1]);
+		expect(folded[1].audioRegions).toBeUndefined();
+	});
+
+	it("returns the same reference when no slide is active", () => {
+		expect(foldActiveAudioRegionsIntoClips(slides, null, recordAudio)).toBe(slides);
+		expect(foldActiveAudioRegionsIntoClips(slides, "missing", recordAudio)).toBe(slides);
+	});
+
+	it("deep-clones the regions so later edits cannot mutate the stored clip", () => {
+		const folded = foldActiveAudioRegionsIntoClips(slides, "clip-1", recordAudio);
+		(recordAudio[0] as { endMs: number }).endMs = 9999;
+		expect(folded[0].audioRegions?.[0].endMs).toBe(1000);
 	});
 });

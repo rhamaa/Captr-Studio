@@ -1,15 +1,5 @@
-import {
-	FilmSlate,
-	MusicNote,
-	Plus,
-	Scissors,
-	SpeakerHigh,
-	SpeakerSimpleSlash,
-	TextT,
-	Trash,
-	Waveform,
-} from "@phosphor-icons/react";
-import React, { useCallback, useRef, useState } from "react";
+import { FilmSlate, MusicNote, Plus, TextT, Trash, Waveform } from "@phosphor-icons/react";
+import React, { useCallback, useRef } from "react";
 import type { AudioTrackItem, VideoClipItem, VideoTrack } from "../schema";
 
 export interface VideoTimelineTracksProps {
@@ -18,7 +8,7 @@ export interface VideoTimelineTracksProps {
 	slideDurationMs: number;
 	currentTimeMs: number;
 	selectedClipId: string | null;
-	timelineTrackRef?: React.RefObject<HTMLDivElement | null>;
+	timelineTrackRef?: React.RefObject<HTMLDivElement>;
 	onTimelineClick: (e: React.MouseEvent<HTMLDivElement>) => void;
 	onSeek?: (timeMs: number) => void;
 	onSelectClip: (clipId: string | null) => void;
@@ -53,10 +43,7 @@ export const VideoTimelineTracks: React.FC<VideoTimelineTracksProps> = ({
 	const isScrubbingRef = useRef(false);
 
 	const safeDurationMs = Math.max(100, slideDurationMs);
-	const playheadPercent = Math.min(
-		100,
-		Math.max(0, (currentTimeMs / safeDurationMs) * 100),
-	);
+	const playheadPercent = Math.min(100, Math.max(0, (currentTimeMs / safeDurationMs) * 100));
 
 	// Ruler scrubbing handler (smooth drag & seek)
 	const handlePointerDownRuler = useCallback(
@@ -218,7 +205,9 @@ export const VideoTimelineTracks: React.FC<VideoTimelineTracksProps> = ({
 						className="relative flex flex-1 items-center h-10 rounded bg-slate-950/90 px-1 border border-slate-800/80 overflow-hidden cursor-pointer"
 					>
 						{track.clips.length === 0 ? (
-							<span className="text-[10px] text-slate-600 italic px-2">Track kosong</span>
+							<span className="text-[10px] text-slate-600 italic px-2">
+								Track kosong
+							</span>
 						) : (
 							track.clips.map((clip) => {
 								const isSelected = selectedClipId === clip.id;
@@ -249,7 +238,9 @@ export const VideoTimelineTracks: React.FC<VideoTimelineTracksProps> = ({
 										{/* Left Trim Handle */}
 										{onTrimClip && (
 											<div
-												onPointerDown={(e) => handleTrimDrag(e, "left", track.id, clip)}
+												onPointerDown={(e) =>
+													handleTrimDrag(e, "left", track.id, clip)
+												}
 												className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 group-hover:opacity-100 bg-white/40 hover:bg-white/80 rounded-l transition-opacity"
 												title="Drag to trim start"
 											/>
@@ -281,7 +272,9 @@ export const VideoTimelineTracks: React.FC<VideoTimelineTracksProps> = ({
 										{/* Right Trim Handle */}
 										{onTrimClip && (
 											<div
-												onPointerDown={(e) => handleTrimDrag(e, "right", track.id, clip)}
+												onPointerDown={(e) =>
+													handleTrimDrag(e, "right", track.id, clip)
+												}
 												className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 group-hover:opacity-100 bg-white/40 hover:bg-white/80 rounded-r transition-opacity"
 												title="Drag to trim end"
 											/>

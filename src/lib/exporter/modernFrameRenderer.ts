@@ -1,13 +1,4 @@
-import {
-	Application,
-	BlurFilter,
-	ColorMatrixFilter,
-	Container,
-	Graphics,
-	Rectangle,
-	Sprite,
-	Texture,
-} from "pixi.js";
+import { Application, BlurFilter, Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 import { MotionBlurFilter } from "pixi-filters/motion-blur";
 import { ZoomBlurFilter } from "pixi-filters/zoom-blur";
 import { resolveLayoutSceneAtTime } from "@/components/video-editor/layoutScenes";

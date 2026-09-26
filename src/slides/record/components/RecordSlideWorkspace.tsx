@@ -35,7 +35,7 @@ export const RecordSlideWorkspace: React.FC<SlideWorkspaceProps<RecordSlideMeta>
 	canvasDimensions,
 }) => {
 	const meta = slide.meta;
-	const videoPlaybackRef = useRef<VideoPlaybackRef | null>(null);
+	const videoPlaybackRef = useRef<VideoPlaybackRef>(null);
 	const fileInputRef = useRef<HTMLInputElement | null>(null);
 	const webcamFileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -625,7 +625,7 @@ export const RecordSlideWorkspace: React.FC<SlideWorkspaceProps<RecordSlideMeta>
 						zoomMotionBlur: val,
 					}))
 				}
-				frame={meta.frame}
+				frame={meta.frame ?? null}
 				wallpaper={meta.wallpaper}
 				borderRadius={meta.borderRadius}
 				shadowIntensity={meta.shadowIntensity}

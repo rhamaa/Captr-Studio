@@ -26,7 +26,7 @@ export function isWebCodecsSupported(): boolean {
 
 /**
  * Exports a single slide as a standalone video chunk (MP4) ready for the global stitcher.
- * 
+ *
  * Strategy:
  * 1. If module provides `exportChunk`, delegates to it.
  * 2. If module provides `renderFrame` and WebCodecs is supported, renders frames sequentially.
@@ -53,6 +53,15 @@ export async function exportSlideChunk(
 			fps: canvas.fps,
 			onProgress,
 		});
+		// A module that cannot produce media (for example a motion slide whose
+		// headless renderer is not wired up yet) must fail HERE with a clear
+		// message: an empty path would silently reach FFmpeg as a useless input
+		// and let another slide's output stand in for this one during stitching.
+		if (!chunk?.filePath) {
+			throw new Error(
+				`Slide "${slide.title}" (${slide.type}) tidak dapat diekspor: exportChunk tidak mengembalikan filePath.`,
+			);
+		}
 		return {
 			filePath: chunk.filePath,
 			durationSec: chunk.durationSec || durationSec,
@@ -62,12 +71,20 @@ export async function exportSlideChunk(
 	// 2. WebCodecs Frame-by-frame rendering if renderFrame is available
 	if (module?.renderFrame && isWebCodecsSupported() && typeof OffscreenCanvas !== "undefined") {
 		try {
-			const renderedChunk = await renderFramesWithWebCodecs(slide, module.renderFrame, canvas, onProgress);
+			const renderedChunk = await renderFramesWithWebCodecs(
+				slide,
+				module.renderFrame,
+				canvas,
+				onProgress,
+			);
 			if (renderedChunk) {
 				return renderedChunk;
 			}
 		} catch (err) {
-			console.warn(`[slideChunkExporter] WebCodecs render failed for slide ${slide.id}, falling back:`, err);
+			console.warn(
+				`[slideChunkExporter] WebCodecs render failed for slide ${slide.id}, falling back:`,
+				err,
+			);
 		}
 	}
 
@@ -78,6 +95,14 @@ export async function exportSlideChunk(
 	if (!sourcePath && Array.isArray(meta.videoTracks)) {
 		const tracks = meta.videoTracks as Array<{ clips?: Array<{ sourcePath: string }> }>;
 		sourcePath = tracks[0]?.clips?.[0]?.sourcePath || "";
+	}
+
+	// Same fail-fast contract as the module path above: an empty path would
+	// silently reach FFmpeg and let another slide's output stand in for this one.
+	if (!sourcePath) {
+		throw new Error(
+			`Slide "${slide.title}" (${slide.type}) tidak dapat diekspor: slide tidak memiliki berkas media.`,
+		);
 	}
 
 	onProgress?.(100);
@@ -103,7 +128,11 @@ async function renderFramesWithWebCodecs(
 	const offscreen = new OffscreenCanvas(canvasDim.width, canvasDim.height);
 
 	// Test if electron export stream is available to write temp file
-	if (!window.electronAPI?.openExportStream || !window.electronAPI?.writeExportStreamChunk || !window.electronAPI?.closeExportStream) {
+	if (
+		!window.electronAPI?.openExportStream ||
+		!window.electronAPI?.writeExportStreamChunk ||
+		!window.electronAPI?.closeExportStream
+	) {
 		return null;
 	}
 
@@ -122,7 +151,9 @@ async function renderFramesWithWebCodecs(
 			output: (chunk) => {
 				const buffer = new Uint8Array(chunk.byteLength);
 				chunk.copyTo(buffer);
-				window.electronAPI?.writeExportStreamChunk(streamId, 0, buffer).catch(console.error);
+				window.electronAPI
+					?.writeExportStreamChunk(streamId, 0, buffer)
+					.catch(console.error);
 			},
 			error: (e) => {
 				console.error("[slideChunkExporter] VideoEncoder error:", e);
