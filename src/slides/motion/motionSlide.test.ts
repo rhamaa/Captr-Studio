@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { slideRegistry } from "@/core/slides/registry";
 import "@/slides"; // auto-registers all slide modules
 import { motionSlideModule, MotionSlideTimeline } from "./index";
@@ -36,13 +36,33 @@ describe("MotionSlideModule", () => {
 			meta: createDefaultMotionMeta(),
 		};
 
-		const chunkResult = await motionSlideModule.exportChunk!(dummySlide, {
-			width: 1920,
-			height: 1080,
-			fps: 60,
+		const originalElectronApi = window.electronAPI;
+		Object.defineProperty(window, "electronAPI", {
+			configurable: true,
+			value: {
+				renderMotionSlide: vi.fn().mockResolvedValue({
+					success: true,
+					tempPath: "/tmp/motion-slide.mp4",
+					durationSec: 4,
+				}),
+				onRenderMotionSlideProgress: vi.fn(() => () => {}),
+			},
 		});
 
-		expect(chunkResult.durationSec).toBe(4);
+		try {
+			const chunkResult = await motionSlideModule.exportChunk!(dummySlide, {
+				width: 1920,
+				height: 1080,
+				fps: 60,
+			});
+
+			expect(chunkResult.durationSec).toBe(4);
+		} finally {
+			Object.defineProperty(window, "electronAPI", {
+				configurable: true,
+				value: originalElectronApi,
+			});
+		}
 	});
 
 	it("correctly parses raw HTML into separated body, css, and js", async () => {
@@ -61,7 +81,7 @@ describe("MotionSlideModule", () => {
 </body>
 </html>`;
 
-		const { parseHtmlFileContent } = await import("./components/MotionSlideWorkspace");
+		const { parseHtmlFileContent } = await import("./motionDocument");
 		const parsed = parseHtmlFileContent(rawHtml);
 		expect(parsed.html).toContain("Hello Motion");
 		expect(parsed.css).toContain(".banner { color: red; }");

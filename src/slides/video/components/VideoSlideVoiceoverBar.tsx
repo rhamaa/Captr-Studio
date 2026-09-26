@@ -6,7 +6,7 @@ import {
 	X,
 } from "@phosphor-icons/react";
 
-export interface SlideVoiceoverBarProps {
+export interface VideoSlideVoiceoverBarProps {
 	isRecording: boolean;
 	countdown: number | null;
 	audioLevel: number;
@@ -30,7 +30,7 @@ function formatTime(ms: number): string {
 	return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${tenths}`;
 }
 
-export const SlideVoiceoverBar: React.FC<SlideVoiceoverBarProps> = ({
+export const VideoSlideVoiceoverBar: React.FC<VideoSlideVoiceoverBarProps> = ({
 	isRecording,
 	countdown,
 	audioLevel,

@@ -136,15 +136,11 @@ import { AppSettingsDialog } from "@/components/settings/AppSettingsDialog";
 import type { SourceAudioTrackSettings } from "@/components/video-editor/audio/audioTypes";
 import { WelcomeScreen } from "@/components/welcome/WelcomeScreen";
 import { extensionHost } from "@/lib/extensions";
+import { MotionSlideCodeEditorPanel } from "@/slides/motion/components/MotionSlideCodeEditorPanel";
+import { renderMotionSlideChunk } from "@/slides/motion/export/renderMotionSlideChunk";
+import { useMotionSlidePreview } from "@/slides/motion/hooks/useMotionSlidePreview";
 import {
-	MotionCodeEditor,
-	type MotionEditorTab,
-} from "@/slides/motion/components/MotionCodeEditor";
-import {
-	buildMotionPreviewDocument,
 	createDefaultMotionMeta,
-	DEFAULT_SINGLE_DOCUMENT_TEMPLATE,
-	extractDocumentParts,
 	type MotionSlideMeta,
 } from "@/slides/motion/schema";
 import { type RecordSlideTimelineHandle } from "@/slides/record/components/RecordSlideTimeline";
@@ -563,8 +559,6 @@ export default function VideoEditor() {
 	const [resolvedWebcamVideoUrl, setResolvedWebcamVideoUrl] = useState<string | null>(null);
 	const [zoomRegions, setZoomRegions] = useState<ZoomRegion[]>([]);
 	const [selectedZoomId, setSelectedZoomId] = useState<string | null>(null);
-	const [motionEditorTab, setMotionEditorTab] = useState<MotionEditorTab>("document");
-	const motionIframeRef = useRef<HTMLIFrameElement | null>(null);
 	const [trimRegions, setTrimRegions] = useState<TrimRegion[]>([]);
 	const [clipRegions, setClipRegions] = useState<ClipRegion[]>([]);
 	const [selectedClipId, setSelectedClipId] = useState<string | null>(null);
@@ -4132,26 +4126,67 @@ export default function VideoEditor() {
 		return Math.max(1, duration);
 	}, [activeSlide, duration]);
 
-	const motionPreviewDoc = useMemo(() => {
-		if (activeSlideMode !== "motion") return "";
-		const meta = activeSlide?.motionMeta || createDefaultMotionMeta();
-		return buildMotionPreviewDocument(meta);
-	}, [activeSlideMode, activeSlide?.motionMeta]);
+	const motionPreview = useMotionSlidePreview({
+		isActive: activeSlideMode === "motion",
+		meta: activeSlide?.motionMeta,
+		currentTimeMs: currentTime * 1000,
+		durationMs: activeSlide?.durationMs || 5000,
+	});
 
-	useEffect(() => {
-		if (activeSlideMode !== "motion") return;
-		const iframe = motionIframeRef.current;
-		if (!iframe || !iframe.contentWindow) return;
-		const durationMs = activeSlide?.durationMs || 5000;
-		iframe.contentWindow.postMessage(
-			{
-				type: "SEEK",
-				timeMs: currentTime * 1000,
-				durationMs,
-			},
-			"*",
-		);
-	}, [activeSlideMode, currentTime, activeSlide?.durationMs]);
+	const updateSelectedMotionMeta = useCallback(
+		(updater: (meta: MotionSlideMeta) => MotionSlideMeta) => {
+			setClips((previousClips) =>
+				previousClips.map((clip) =>
+					clip.id === selectedClipId
+						? {
+								...clip,
+								motionMeta: updater(clip.motionMeta || createDefaultMotionMeta()),
+							}
+						: clip,
+				),
+			);
+		},
+		[selectedClipId],
+	);
+
+	const handleSelectedMotionDurationChange = useCallback(
+		(nextDurationMs: number) => {
+			setClips((previousClips) =>
+				previousClips.map((clip) =>
+					clip.id === selectedClipId
+						? {
+								...clip,
+								durationMs: nextDurationMs,
+								motionMeta: {
+									...(clip.motionMeta || createDefaultMotionMeta()),
+									durationMs: nextDurationMs,
+								},
+							}
+						: clip,
+				),
+			);
+			setClipRegions((previousRegions) =>
+				previousRegions.map((region) =>
+					region.id === selectedClipId
+						? { ...region, endMs: region.startMs + nextDurationMs }
+						: region,
+				),
+			);
+			setDuration(nextDurationMs / 1000);
+		},
+		[selectedClipId],
+	);
+
+	const handleSelectedMotionLabelChange = useCallback(
+		(label: string) => {
+			setClips((previousClips) =>
+				previousClips.map((clip) =>
+					clip.id === selectedClipId ? { ...clip, label } : clip,
+				),
+			);
+		},
+		[selectedClipId],
+	);
 
 	useEffect(() => {
 		if (activeSlideMode !== "motion" || !isPlaying) return;
@@ -6510,11 +6545,6 @@ export default function VideoEditor() {
 							(clips.length === 1 && isMotionSlide(clips[0])));
 
 					if (isSingleMotion) {
-						if (!window.electronAPI?.renderMotionSlide) {
-							throw new Error(
-								"Motion slide export is only supported in Captr Studio desktop.",
-							);
-						}
 						const targetClip = clips[0] ?? activeSlide;
 						const meta =
 							targetClip?.motionMeta ??
@@ -6522,19 +6552,20 @@ export default function VideoEditor() {
 								? activeSlide?.motionMeta
 								: undefined) ??
 							createDefaultMotionMeta();
-						const htmlDocument = buildMotionPreviewDocument(meta);
 						const durationMs = targetClip?.durationMs || meta.durationMs || 5000;
-
-						const unsubscribe = window.electronAPI.onRenderMotionSlideProgress?.(
-							(prog) => {
+						const motionResult = await renderMotionSlideChunk({
+							meta,
+							durationMs,
+							width: exportWidth,
+							height: exportHeight,
+							fps: selectedMp4FrameRate,
+							onProgress: (progress) => {
 								const exportProg: ExportProgress = {
-									currentFrame: prog.currentFrame,
-									totalFrames: prog.totalFrames,
-									percentage: prog.percentage,
+									...progress,
 									estimatedTimeRemaining: Math.max(
 										0,
 										Math.round(
-											(prog.totalFrames - prog.currentFrame) /
+											(progress.totalFrames - progress.currentFrame) /
 												Math.max(1, selectedMp4FrameRate),
 										),
 									),
@@ -6543,30 +6574,11 @@ export default function VideoEditor() {
 								recordSmokeProgress(exportProg);
 								setExportProgress(exportProg);
 							},
-						);
-
-						try {
-							const motionResult = await window.electronAPI.renderMotionSlide({
-								htmlDocument,
-								durationMs,
-								width: exportWidth,
-								height: exportHeight,
-								fps: selectedMp4FrameRate,
-							});
-
-							if (!motionResult.success || !motionResult.tempPath) {
-								throw new Error(
-									motionResult.error || "Failed to render motion slide",
-								);
-							}
-
-							result = {
-								success: true,
-								tempFilePath: motionResult.tempPath,
-							};
-						} finally {
-							unsubscribe?.();
-						}
+						});
+						result = {
+							success: true,
+							tempFilePath: motionResult.filePath,
+						};
 					} else if (clips.length > 1) {
 						const renderedClipPaths: string[] = [];
 						const totalClips = clips.length;
@@ -6575,32 +6587,29 @@ export default function VideoEditor() {
 							const clip = clips[i];
 
 							if (isMotionSlide(clip)) {
-								if (!window.electronAPI?.renderMotionSlide) {
-									throw new Error(
-										"Motion slide export is only supported in Captr Studio desktop.",
-									);
-								}
 								const meta =
 									clip.motionMeta ??
 									(activeSlide?.id === clip.id
 										? activeSlide?.motionMeta
 										: undefined) ??
 									createDefaultMotionMeta();
-								const htmlDocument = buildMotionPreviewDocument(meta);
 								const durationMs = clip.durationMs || meta.durationMs || 5000;
-
-								const unsubscribe =
-									window.electronAPI.onRenderMotionSlideProgress?.((prog) => {
+								const motionResult = await renderMotionSlideChunk({
+									meta,
+									durationMs,
+									width: exportWidth,
+									height: exportHeight,
+									fps: selectedMp4FrameRate,
+									onProgress: (progress) => {
 										const aggregateProgress: ExportProgress = {
-											currentFrame: prog.currentFrame,
-											totalFrames: prog.totalFrames,
+											...progress,
 											percentage: Math.round(
-												((i + prog.percentage / 100) / totalClips) * 100,
+												((i + progress.percentage / 100) / totalClips) * 100,
 											),
 											estimatedTimeRemaining: Math.max(
 												0,
 												Math.round(
-													(prog.totalFrames - prog.currentFrame) /
+													(progress.totalFrames - progress.currentFrame) /
 														Math.max(1, selectedMp4FrameRate),
 												),
 											),
@@ -6608,33 +6617,10 @@ export default function VideoEditor() {
 										};
 										recordSmokeProgress(aggregateProgress);
 										setExportProgress(aggregateProgress);
-									});
+									},
+								});
 
-								let motionResult: {
-									success: boolean;
-									tempPath?: string;
-									error?: string;
-								};
-								try {
-									motionResult = await window.electronAPI.renderMotionSlide({
-										htmlDocument,
-										durationMs,
-										width: exportWidth,
-										height: exportHeight,
-										fps: selectedMp4FrameRate,
-									});
-								} finally {
-									unsubscribe?.();
-								}
-
-								if (!motionResult.success || !motionResult.tempPath) {
-									throw new Error(
-										motionResult.error ||
-											`Failed to render Motion Slide ${i + 1}`,
-									);
-								}
-
-								renderedClipPaths.push(motionResult.tempPath);
+								renderedClipPaths.push(motionResult.filePath);
 								setExportProgress((prev) => ({
 									currentFrame: prev?.currentFrame ?? 1,
 									totalFrames: prev?.totalFrames ?? 1,
@@ -8271,154 +8257,12 @@ export default function VideoEditor() {
 						{/* Function Panel (Middle Inspector) */}
 						<div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
 							{activeSlideMode === "motion" && activeEffectSection === "motion" ? (
-								<MotionCodeEditor
-									isSidebarMode={true}
-									activeTab={motionEditorTab}
-									onChangeTab={setMotionEditorTab}
-									documentCode={
-										activeSlide?.motionMeta?.document ??
-										DEFAULT_SINGLE_DOCUMENT_TEMPLATE
-									}
-									htmlCode={activeSlide?.motionMeta?.html ?? ""}
-									cssCode={activeSlide?.motionMeta?.css ?? ""}
-									jsCode={activeSlide?.motionMeta?.js ?? ""}
+								<MotionSlideCodeEditorPanel
+									motionMeta={activeSlide?.motionMeta}
 									durationMs={activeSlide?.durationMs || 5000}
-									onChangeDuration={(newDurationMs) => {
-										setClips((prev) =>
-											prev.map((c) =>
-												c.id === selectedClipId
-													? {
-															...c,
-															durationMs: newDurationMs,
-															motionMeta: {
-																...(c.motionMeta ||
-																	createDefaultMotionMeta()),
-																durationMs: newDurationMs,
-															},
-														}
-													: c,
-											),
-										);
-										setClipRegions((prev) =>
-											prev.map((r) =>
-												r.id === selectedClipId
-													? {
-															...r,
-															endMs: r.startMs + newDurationMs,
-														}
-													: r,
-											),
-										);
-										setDuration(newDurationMs / 1000);
-									}}
-									onChangeDocument={(val) => {
-										const parts = extractDocumentParts(val);
-										setClips((prev) =>
-											prev.map((c) =>
-												c.id === selectedClipId
-													? {
-															...c,
-															motionMeta: {
-																...(c.motionMeta ||
-																	createDefaultMotionMeta()),
-																document: val,
-																html: parts.html,
-																css: parts.css,
-																js: parts.js,
-															},
-														}
-													: c,
-											),
-										);
-									}}
-									onChangeHtml={(val) => {
-										setClips((prev) =>
-											prev.map((c) => {
-												if (c.id !== selectedClipId) return c;
-												const prevMeta =
-													c.motionMeta || createDefaultMotionMeta();
-												return {
-													...c,
-													motionMeta: {
-														...prevMeta,
-														html: val,
-													},
-												};
-											}),
-										);
-									}}
-									onChangeCss={(val) => {
-										setClips((prev) =>
-											prev.map((c) => {
-												if (c.id !== selectedClipId) return c;
-												const prevMeta =
-													c.motionMeta || createDefaultMotionMeta();
-												return {
-													...c,
-													motionMeta: {
-														...prevMeta,
-														css: val,
-													},
-												};
-											}),
-										);
-									}}
-									onChangeJs={(val) => {
-										setClips((prev) =>
-											prev.map((c) => {
-												if (c.id !== selectedClipId) return c;
-												const prevMeta =
-													c.motionMeta || createDefaultMotionMeta();
-												return {
-													...c,
-													motionMeta: {
-														...prevMeta,
-														js: val,
-													},
-												};
-											}),
-										);
-									}}
-									onImportDocument={(content, fileName) => {
-										const parts = extractDocumentParts(content);
-										setClips((prev) =>
-											prev.map((c) =>
-												c.id === selectedClipId
-													? {
-															...c,
-															label: fileName
-																? fileName.replace(/\.html?$/i, "")
-																: c.label,
-															motionMeta: {
-																...(c.motionMeta ||
-																	createDefaultMotionMeta()),
-																document: content,
-																html: parts.html,
-																css: parts.css,
-																js: parts.js,
-																sourceFileName: fileName,
-															},
-														}
-													: c,
-											),
-										);
-										toast.success("File HTML berhasil di-import!");
-									}}
-									onResetStarter={() => {
-										const defaultMeta = createDefaultMotionMeta();
-										setClips((prev) =>
-											prev.map((c) =>
-												c.id === selectedClipId
-													? {
-															...c,
-															motionMeta: defaultMeta,
-														}
-													: c,
-											),
-										);
-										toast.info("Template starter berhasil di-reset");
-									}}
-									autoReload={true}
+									onUpdateMeta={updateSelectedMotionMeta}
+									onChangeDuration={handleSelectedMotionDurationChange}
+									onChangeSlideLabel={handleSelectedMotionLabelChange}
 								/>
 							) : (
 								<SettingsPanel
@@ -8877,25 +8721,11 @@ export default function VideoEditor() {
 											{activeSlideMode === "motion" ? (
 												<div className="relative w-full h-full flex items-center justify-center bg-slate-950 overflow-hidden">
 													<iframe
-														ref={motionIframeRef}
+														ref={motionPreview.iframeRef}
 														key={selectedClipId || "motion-preview"}
 														title="Captr Motion Preview"
-														srcDoc={motionPreviewDoc}
-														onLoad={() => {
-															const iframe = motionIframeRef.current;
-															if (!iframe || !iframe.contentWindow)
-																return;
-															iframe.contentWindow.postMessage(
-																{
-																	type: "SEEK",
-																	timeMs: currentTime * 1000,
-																	durationMs:
-																		activeSlide?.durationMs ||
-																		5000,
-																},
-																"*",
-															);
-														}}
+														srcDoc={motionPreview.srcDoc}
+														onLoad={motionPreview.onIframeLoad}
 														sandbox="allow-scripts allow-same-origin"
 														className="h-full w-full border-0 select-none pointer-events-auto"
 													/>

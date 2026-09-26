@@ -1,8 +1,8 @@
 import React from "react";
 import { describe, expect, it, vi } from "vitest";
-import { SlideVoiceoverBar } from "./SlideVoiceoverBar";
+import { VideoSlideVoiceoverBar } from "./VideoSlideVoiceoverBar";
 
-describe("SlideVoiceoverBar", () => {
+describe("VideoSlideVoiceoverBar", () => {
 	it("renders idle state with record button", () => {
 		const onStart = vi.fn();
 		const onStop = vi.fn();
@@ -10,7 +10,7 @@ describe("SlideVoiceoverBar", () => {
 		const onSelectDev = vi.fn();
 
 		const element = (
-			<SlideVoiceoverBar
+			<VideoSlideVoiceoverBar
 				isRecording={false}
 				countdown={null}
 				audioLevel={0}
@@ -31,7 +31,7 @@ describe("SlideVoiceoverBar", () => {
 
 	it("renders recording state with stop button", () => {
 		const element = (
-			<SlideVoiceoverBar
+			<VideoSlideVoiceoverBar
 				isRecording={true}
 				countdown={null}
 				audioLevel={0.65}

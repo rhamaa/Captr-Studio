@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { useSlideAudioRecorder } from "./useSlideAudioRecorder";
+import { useVideoSlideAudioRecorder } from "./useVideoSlideAudioRecorder";
 
-describe("useSlideAudioRecorder", () => {
+describe("useVideoSlideAudioRecorder", () => {
 	it("exposes expected interface and default state", () => {
-		expect(typeof useSlideAudioRecorder).toBe("function");
+		expect(typeof useVideoSlideAudioRecorder).toBe("function");
 	});
 
 	it("captures startPlayheadMs from getCurrentTimeMs callback", () => {

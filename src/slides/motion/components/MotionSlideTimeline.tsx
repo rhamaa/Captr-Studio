@@ -41,6 +41,10 @@ export const MotionSlideTimeline: React.FC<MotionSlideTimelineProps> = ({
 }) => {
 	const rulerRef = useRef<HTMLDivElement | null>(null);
 	const isDraggingRef = useRef(false);
+	const dragListenersRef = useRef<{
+		handleMouseMove: (event: MouseEvent) => void;
+		handleMouseUp: () => void;
+	} | null>(null);
 	const [durationInputVal, setDurationInputVal] = useState(
 		((durationMs || 5000) / 1000).toFixed(1),
 	);
@@ -48,6 +52,17 @@ export const MotionSlideTimeline: React.FC<MotionSlideTimelineProps> = ({
 	useEffect(() => {
 		setDurationInputVal(((durationMs || 5000) / 1000).toFixed(1));
 	}, [durationMs]);
+
+	useEffect(() => {
+		return () => {
+			isDraggingRef.current = false;
+			const listeners = dragListenersRef.current;
+			if (!listeners) return;
+			window.removeEventListener("mousemove", listeners.handleMouseMove);
+			window.removeEventListener("mouseup", listeners.handleMouseUp);
+			dragListenersRef.current = null;
+		};
+	}, []);
 
 	const safeDurationMs = Math.max(500, durationMs || 5000);
 	const progressRatio = Math.min(1, Math.max(0, currentTimeMs / safeDurationMs));
@@ -67,6 +82,11 @@ export const MotionSlideTimeline: React.FC<MotionSlideTimelineProps> = ({
 	);
 
 	const handleMouseDown = (e: React.MouseEvent) => {
+		const previousListeners = dragListenersRef.current;
+		if (previousListeners) {
+			window.removeEventListener("mousemove", previousListeners.handleMouseMove);
+			window.removeEventListener("mouseup", previousListeners.handleMouseUp);
+		}
 		isDraggingRef.current = true;
 		handleSeekAtMouse(e.clientX);
 
@@ -80,8 +100,10 @@ export const MotionSlideTimeline: React.FC<MotionSlideTimelineProps> = ({
 			isDraggingRef.current = false;
 			window.removeEventListener("mousemove", handleMouseMove);
 			window.removeEventListener("mouseup", handleMouseUp);
+			dragListenersRef.current = null;
 		};
 
+		dragListenersRef.current = { handleMouseMove, handleMouseUp };
 		window.addEventListener("mousemove", handleMouseMove);
 		window.addEventListener("mouseup", handleMouseUp);
 	};

@@ -2,8 +2,8 @@ import {
 	DEFAULT_SINGLE_DOCUMENT_TEMPLATE,
 	type MotionSlideMeta,
 	createDefaultMotionMeta,
-	extractDocumentParts,
 } from "./schema";
+import { extractDocumentParts } from "./motionDocument";
 
 describe("Motion single document structure", () => {
 	it("extracts html, css, and js from unified single document", () => {

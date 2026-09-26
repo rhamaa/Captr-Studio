@@ -2,6 +2,7 @@ import { Lightning } from "@phosphor-icons/react";
 import { slideRegistry } from "@/core/slides/registry";
 import type { SlideModule } from "@/core/slides/types";
 import { MotionSlideWorkspace } from "./components/MotionSlideWorkspace";
+import { exportMotionSlideChunk } from "./export/renderMotionSlideChunk";
 import { createDefaultMotionMeta, type MotionSlideMeta } from "./schema";
 
 export const motionSlideModule: SlideModule<MotionSlideMeta> = {
@@ -12,14 +13,7 @@ export const motionSlideModule: SlideModule<MotionSlideMeta> = {
 	icon: Lightning,
 	WorkspaceComponent: MotionSlideWorkspace,
 	createDefaultMeta: createDefaultMotionMeta,
-	exportChunk: async (slide, options) => {
-		const durationSec = Math.max(0.5, (slide.durationMs || 5000) / 1000);
-		options.onProgress?.(100);
-		return {
-			filePath: "",
-			durationSec,
-		};
-	},
+	exportChunk: exportMotionSlideChunk,
 	renderFrame: async (slide, _timeMs, targetCanvas) => {
 		const ctx = targetCanvas.getContext("2d") as
 			| CanvasRenderingContext2D
@@ -36,4 +30,5 @@ slideRegistry.register(motionSlideModule);
 
 export * from "./components/MotionSlideWorkspace";
 export * from "./components/MotionSlideTimeline";
+export * from "./motionDocument";
 export * from "./schema";

@@ -6,7 +6,7 @@ export interface RecordedAudioClip {
 	durationMs: number;
 }
 
-export interface UseSlideAudioRecorderOptions {
+export interface UseVideoSlideAudioRecorderOptions {
 	slideId: string;
 	getCurrentTimeMs: () => number;
 	onStartPlayback?: () => void;
@@ -14,7 +14,7 @@ export interface UseSlideAudioRecorderOptions {
 	onAudioClipRecorded?: (clip: RecordedAudioClip) => void;
 }
 
-export function useSlideAudioRecorder(options: UseSlideAudioRecorderOptions) {
+export function useVideoSlideAudioRecorder(options: UseVideoSlideAudioRecorderOptions) {
 	const {
 		slideId,
 		getCurrentTimeMs,
@@ -55,7 +55,7 @@ export function useSlideAudioRecorder(options: UseSlideAudioRecorderOptions) {
 					setSelectedDeviceId(audioInputs[0].deviceId);
 				}
 			} catch (err) {
-				console.error("[useSlideAudioRecorder] Enumerate devices failed:", err);
+				console.error("[VideoSlideAudioRecorder] Enumerate devices failed:", err);
 			}
 		}
 		void fetchDevices();
@@ -161,7 +161,7 @@ export function useSlideAudioRecorder(options: UseSlideAudioRecorderOptions) {
 							}
 						}
 					} catch (saveErr) {
-						console.error("[useSlideAudioRecorder] Failed to persist audio to disk:", saveErr);
+						console.error("[VideoSlideAudioRecorder] Failed to persist audio to disk:", saveErr);
 					}
 
 					if (!finalPath) {
@@ -189,7 +189,7 @@ export function useSlideAudioRecorder(options: UseSlideAudioRecorderOptions) {
 			// Synchronously start preview video playback so playhead moves along with voiceover!
 			onStartPlayback?.();
 		} catch (err) {
-			console.error("[useSlideAudioRecorder] Failed to start microphone recording:", err);
+			console.error("[VideoSlideAudioRecorder] Failed to start microphone recording:", err);
 			setIsRecording(false);
 			onPausePlayback?.();
 		}
