@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Canvas Geometric Network — Captr Motion</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #020617;
+      color: #f8fafc;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    #stage {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    .hud-overlay {
+      position: relative;
+      z-index: 10;
+      pointer-events: none;
+      text-align: center;
+      background: radial-gradient(circle, rgba(15, 23, 42, 0.7) 0%, transparent 80%);
+      padding: 60px;
+      border-radius: 40px;
+    }
+
+    .hud-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #38bdf8;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .hud-title {
+      font-size: 54px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 50%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hud-subtitle {
+      font-size: 16px;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="stage"></canvas>
+
+  <div class="hud-overlay">
+    <div class="hud-tag">Generative 2D Canvas</div>
+    <h1 class="hud-title">Deterministic Node Matrix</h1>
+    <p class="hud-subtitle">Mathematical wave equations evaluated directly from timeMs</p>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("stage");
+    const ctx = canvas.getContext("2d");
+
+    let width = 0;
+    let height = 0;
+
+    function resize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width * window.devicePixelRatio;
+      canvas.height = height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    // Generate static seed particles
+    const PARTICLE_COUNT = 45;
+    const particles = [];
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particles.push({
+        baseX: (i / PARTICLE_COUNT) * 1.2 - 0.1,
+        baseY: 0.15 + (Math.sin(i * 3.7) * 0.5 + 0.5) * 0.7,
+        speedX: 0.3 + (i % 5) * 0.15,
+        speedY: 0.4 + (i % 7) * 0.1,
+        radius: 2.5 + (i % 3) * 1.5,
+        phase: i * 0.45
+      });
+    }
+
+    // Deterministic render function based strictly on time
+    function renderFrame(timeSec, totalDurationSec) {
+      ctx.clearRect(0, 0, width, height);
+
+      const progress = Math.min(1, Math.max(0, timeSec / totalDurationSec));
+      const positions = [];
+
+      // Calculate particle coordinates
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const p = particles[i];
+        const t = timeSec * 0.8 + p.phase;
+        const x = ((p.baseX + Math.sin(t * p.speedX) * 0.08) % 1.2) * width;
+        const y = (p.baseY + Math.cos(t * p.speedY) * 0.06) * height;
+        positions.push({ x, y, r: p.radius });
+      }
+
+      // Draw connecting lines if within proximity
+      ctx.lineWidth = 1;
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        for (let j = i + 1; j < PARTICLE_COUNT; j++) {
+          const dx = positions[i].x - positions[j].x;
+          const dy = positions[i].y - positions[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < 180) {
+            const alpha = (1 - dist / 180) * 0.25;
+            ctx.strokeStyle = `rgba(56, 189, 248, ${alpha})`;
+            ctx.beginPath();
+            ctx.moveTo(positions[i].x, positions[i].y);
+            ctx.lineTo(positions[j].x, positions[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Draw particle points & pulsing halos
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const pt = positions[i];
+        const pulse = 1 + Math.sin(timeSec * 3 + i) * 0.3;
+
+        // Halo
+        ctx.fillStyle = "rgba(56, 189, 248, 0.15)";
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, pt.r * 3 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Core
+        ctx.fillStyle = "#38bdf8";
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Initial render at time 0
+    renderFrame(0, 5);
+
+    // Timeline Hook called by Captr Studio
+    window.setSeekTime = function(timeMs, durationMs) {
+      const timeSec = timeMs / 1000;
+      const totalSec = (durationMs || 5000) / 1000;
+      renderFrame(timeSec, totalSec);
+    };
+
+    console.log("[Canvas Matrix] Ready for deterministic rendering");
+  </script>
+</body>
+</html>

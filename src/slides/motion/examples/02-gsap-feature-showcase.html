@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GSAP Feature Showcase — Captr Motion</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <!-- GSAP CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #020617;
+      color: #f8fafc;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 50% 20%, #0f172a 0%, #020617 80%);
+      padding: 40px;
+    }
+
+    /* Ambient background grid */
+    .bg-grid {
+      position: absolute;
+      inset: 0;
+      background-image: linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      mask-image: radial-gradient(circle at 50% 50%, black 40%, transparent 80%);
+      pointer-events: none;
+    }
+
+    .header-zone {
+      text-align: center;
+      margin-bottom: 48px;
+      z-index: 10;
+    }
+
+    .category-chip {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 4px 14px;
+      border-radius: 9999px;
+      margin-bottom: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+    }
+
+    .hero-title {
+      font-size: 44px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+    }
+
+    .hero-title span {
+      background: linear-gradient(135deg, #38bdf8, #818cf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-sub {
+      font-size: 15px;
+      color: #94a3b8;
+    }
+
+    /* Cards Deck */
+    .deck-container {
+      display: flex;
+      gap: 24px;
+      max-width: 1080px;
+      width: 100%;
+      z-index: 10;
+    }
+
+    .feature-card {
+      flex: 1;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 32px 28px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(16px);
+      transform-origin: center bottom;
+    }
+
+    .card-glow {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 120px;
+      height: 120px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.3) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      font-size: 22px;
+    }
+
+    .feature-card h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #f8fafc;
+    }
+
+    .feature-card p {
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: #94a3b8;
+      margin-bottom: 20px;
+    }
+
+    .card-tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="bg-grid"></div>
+
+    <div class="header-zone">
+      <div class="category-chip" id="category">Architecture & Performance</div>
+      <h1 class="hero-title" id="headline">Designed for <span>Seamless Motion</span></h1>
+      <p class="hero-sub" id="subtext">Timeline scrubbing powered by GSAP Timeline Seek</p>
+    </div>
+
+    <div class="deck-container">
+      <div class="feature-card card-1" id="card-1">
+        <div class="card-glow"></div>
+        <div class="card-icon">⚡</div>
+        <h2>Instant Compile</h2>
+        <p>Preview edits synchronously in isolated sandboxes without external build steps.</p>
+        <div class="card-tag">Hot Reload</div>
+      </div>
+
+      <div class="feature-card card-2" id="card-2">
+        <div class="card-glow" style="background: radial-gradient(circle, rgba(192, 132, 252, 0.3) 0%, transparent 70%);"></div>
+        <div class="card-icon" style="background: rgba(192, 132, 252, 0.15); border-color: rgba(192, 132, 252, 0.3);">💎</div>
+        <h2>GSAP Driven</h2>
+        <p>Complete programmatic control over complex tweens, easing, and stagger timings.</p>
+        <div class="card-tag">Tween Control</div>
+      </div>
+
+      <div class="feature-card card-3" id="card-3">
+        <div class="card-glow" style="background: radial-gradient(circle, rgba(129, 140, 248, 0.3) 0%, transparent 70%);"></div>
+        <div class="card-icon" style="background: rgba(129, 140, 248, 0.15); border-color: rgba(129, 140, 248, 0.3);">🎯</div>
+        <h2>Lossless Export</h2>
+        <p>Headless frame extraction captures each tick with zero dropped frames or jitter.</p>
+        <div class="card-tag">4K / 60 FPS</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let gsapTimeline = null;
+
+    function initGsapTimeline(totalDurationSec) {
+      if (typeof gsap === "undefined") {
+        console.warn("GSAP CDN not loaded yet, will retry");
+        return;
+      }
+
+      // 1. Create a paused timeline with normalized total duration
+      gsapTimeline = gsap.timeline({ paused: true });
+
+      // 2. Animate header elements
+      gsapTimeline.from("#category", {
+        y: -20,
+        opacity: 0,
+        duration: 0.8,
+        ease: "power3.out"
+      }, 0);
+
+      gsapTimeline.from("#headline", {
+        y: 30,
+        opacity: 0,
+        duration: 1.0,
+        ease: "power4.out"
+      }, 0.2);
+
+      gsapTimeline.from("#subtext", {
+        y: 20,
+        opacity: 0,
+        duration: 0.8,
+        ease: "power2.out"
+      }, 0.4);
+
+      // 3. Stagger animate 3D feature cards
+      gsapTimeline.from(".feature-card", {
+        y: 80,
+        rotationX: -15,
+        opacity: 0,
+        scale: 0.9,
+        duration: 1.2,
+        stagger: 0.2,
+        ease: "back.out(1.4)"
+      }, 0.6);
+
+      // Scale entire timeline to match requested duration
+      gsapTimeline.duration(totalDurationSec);
+    }
+
+    // Initialize with default 5.0 seconds
+    initGsapTimeline(5.0);
+
+    // Timeline Hook called by Captr Studio
+    window.setSeekTime = function(timeMs, durationMs) {
+      const durationSec = (durationMs || 5000) / 1000;
+      const timeSec = timeMs / 1000;
+
+      if (!gsapTimeline) {
+        initGsapTimeline(durationSec);
+      }
+
+      if (gsapTimeline) {
+        if (Math.abs(gsapTimeline.duration() - durationSec) > 0.05) {
+          gsapTimeline.duration(durationSec);
+        }
+        gsapTimeline.seek(timeSec);
+      }
+    };
+
+    console.log("[GSAP Showcase] Ready for timeline seek");
+  </script>
+</body>
+</html>
