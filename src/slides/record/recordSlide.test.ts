@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { slideRegistry } from "@/core/slides/registry";
 import "@/slides"; // auto-registers all slide modules
-import { recordSlideModule } from "./index";
+import { recordSlideModule, RecordSlideTimeline } from "./index";
 import { createDefaultRecordMeta } from "./schema";
 
 describe("RecordSlideModule", () => {
@@ -25,5 +25,9 @@ describe("RecordSlideModule", () => {
 	it("exports recordSlideModule with WorkspaceComponent", () => {
 		expect(recordSlideModule.type).toBe("record");
 		expect(typeof recordSlideModule.WorkspaceComponent).toBe("function");
+	});
+
+	it("exports RecordSlideTimeline component", () => {
+		expect(RecordSlideTimeline).toBeDefined();
 	});
 });

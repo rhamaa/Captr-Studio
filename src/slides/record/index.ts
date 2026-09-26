@@ -33,3 +33,7 @@ export const recordSlideModule: SlideModule<RecordSlideMeta> = {
 
 // Auto-register to SlideRegistry
 slideRegistry.register(recordSlideModule);
+
+export * from "./components/RecordSlideTimeline";
+export * from "./schema";
+

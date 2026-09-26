@@ -206,7 +206,9 @@ import {
 	openExternalLink,
 	RECORDLY_ISSUES_URL,
 } from "./TutorialHelp";
-import TimelineEditor, { type TimelineEditorHandle } from "./timeline/TimelineEditor";
+import SlideTimelineHost, { type SlideTimelineMode } from "./SlideTimelineHost";
+import { type RecordSlideTimelineHandle } from "@/slides/record/components/RecordSlideTimeline";
+import { createDefaultVideoMeta } from "@/slides/video/schema";
 import {
 	buildAutoReframeSuggestions,
 	normalizeCursorTelemetry,
@@ -735,7 +737,7 @@ export default function VideoEditor() {
 	const projectSaveQueueRef = useRef<Promise<unknown>>(Promise.resolve());
 	const smokeExportReadyStateRef = useRef<Record<string, unknown>>({});
 	const [historyVersion, setHistoryVersion] = useState(0);
-	const timelineRef = useRef<TimelineEditorHandle>(null);
+	const timelineRef = useRef<RecordSlideTimelineHandle>(null);
 
 	function formatTime(seconds: number) {
 		if (!isFinite(seconds) || isNaN(seconds) || seconds < 0) return "0:00";
@@ -4239,6 +4241,185 @@ export default function VideoEditor() {
 			},
 		];
 	}, [activeSlide, duration]);
+
+	// Dedicated Video Slide multi-track timeline data and handlers
+	const activeVideoTracks = useMemo(() => {
+		if (activeSlide?.videoMeta?.videoTracks && activeSlide.videoMeta.videoTracks.length > 0) {
+			return activeSlide.videoMeta.videoTracks;
+		}
+		return [
+			{
+				id: "track-v1",
+				name: "Main Video (V1)",
+				type: "video" as const,
+				clips: [
+					{
+						id: activeSlide?.id || "clip-1",
+						title: activeSlide?.label || "Video Clip",
+						sourcePath: activeSlide?.videoPath || "",
+						startOffsetMs: 0,
+						durationMs: activeSlide?.durationMs || Math.round(slideDurationSec * 1000),
+						speedMultiplier: activeSlide?.speed || 1,
+						volume: 1,
+					},
+				],
+			},
+		];
+	}, [activeSlide, slideDurationSec]);
+
+	const activeAudioTracks = useMemo(() => {
+		return activeSlide?.videoMeta?.audioTracks || [];
+	}, [activeSlide?.videoMeta?.audioTracks]);
+
+	const handleVideoSlideClipSplit = useCallback(
+		(trackId: string, clipId: string, splitMs: number) => {
+			if (!activeSlide) return;
+			const currentMeta = activeSlide.videoMeta || {
+				...createDefaultVideoMeta(),
+				videoTracks: activeVideoTracks,
+			};
+			const targetTrack = currentMeta.videoTracks.find((t) => t.id === trackId);
+			if (!targetTrack) return;
+			const targetClip = targetTrack.clips.find((c) => c.id === clipId);
+			if (!targetClip) return;
+
+			const leftDuration = splitMs - targetClip.startOffsetMs;
+			const rightDuration = targetClip.durationMs - leftDuration;
+			if (leftDuration <= 200 || rightDuration <= 200) return;
+
+			const leftClip = {
+				...targetClip,
+				durationMs: leftDuration,
+			};
+			const rightClip = {
+				...targetClip,
+				id: `clip-${Date.now()}`,
+				title: `${targetClip.title} (Part 2)`,
+				startOffsetMs: splitMs,
+				durationMs: rightDuration,
+			};
+
+			const newTracks = currentMeta.videoTracks.map((tr) =>
+				tr.id === trackId
+					? {
+							...tr,
+							clips: tr.clips.flatMap((c) =>
+								c.id === clipId ? [leftClip, rightClip] : [c],
+							),
+						}
+					: tr,
+			);
+
+			setClips((prev) =>
+				prev.map((c) =>
+					c.id === activeSlide.id
+						? { ...c, videoMeta: { ...currentMeta, videoTracks: newTracks } }
+						: c,
+				),
+			);
+			toast.success(t("editor.clip.splitSuccess", "Clip split at playhead"));
+		},
+		[activeSlide, activeVideoTracks, setClips, t],
+	);
+
+	const handleVideoSlideClipTrim = useCallback(
+		(
+			trackId: string,
+			clipId: string,
+			newStartOffsetMs: number,
+			newDurationMs: number,
+		) => {
+			if (!activeSlide) return;
+			const currentMeta = activeSlide.videoMeta || {
+				...createDefaultVideoMeta(),
+				videoTracks: activeVideoTracks,
+			};
+			const newTracks = currentMeta.videoTracks.map((tr) =>
+				tr.id === trackId
+					? {
+							...tr,
+							clips: tr.clips.map((c) =>
+								c.id === clipId
+									? {
+											...c,
+											startOffsetMs: newStartOffsetMs,
+											durationMs: newDurationMs,
+										}
+									: c,
+							),
+						}
+					: tr,
+			);
+
+			setClips((prev) =>
+				prev.map((c) =>
+					c.id === activeSlide.id
+						? { ...c, videoMeta: { ...currentMeta, videoTracks: newTracks } }
+						: c,
+				),
+			);
+		},
+		[activeSlide, activeVideoTracks, setClips],
+	);
+
+	const handleVideoSlideClipDelete = useCallback(
+		(trackId: string, clipId: string) => {
+			if (!activeSlide) return;
+			const currentMeta = activeSlide.videoMeta || {
+				...createDefaultVideoMeta(),
+				videoTracks: activeVideoTracks,
+			};
+			const newTracks = currentMeta.videoTracks.map((tr) =>
+				tr.id === trackId
+					? {
+							...tr,
+							clips: tr.clips.filter((c) => c.id !== clipId),
+						}
+					: tr,
+			);
+
+			setClips((prev) =>
+				prev.map((c) =>
+					c.id === activeSlide.id
+						? { ...c, videoMeta: { ...currentMeta, videoTracks: newTracks } }
+						: c,
+				),
+			);
+			if (selectedClipId === clipId) {
+				setSelectedClipId(null);
+			}
+		},
+		[activeSlide, activeVideoTracks, selectedClipId, setClips],
+	);
+
+	const handleVideoSlideClipSpeed = useCallback(
+		(trackId: string, clipId: string, speed: number) => {
+			if (!activeSlide) return;
+			const currentMeta = activeSlide.videoMeta || {
+				...createDefaultVideoMeta(),
+				videoTracks: activeVideoTracks,
+			};
+			const newTracks = currentMeta.videoTracks.map((tr) =>
+				tr.id === trackId
+					? {
+							...tr,
+							clips: tr.clips.map((c) =>
+								c.id === clipId ? { ...c, speedMultiplier: speed } : c,
+							),
+						}
+					: tr,
+			);
+
+			setClips((prev) =>
+				prev.map((c) =>
+					c.id === activeSlide.id
+						? { ...c, videoMeta: { ...currentMeta, videoTracks: newTracks } }
+						: c,
+				),
+			);
+		},
+		[activeSlide, activeVideoTracks, setClips],
+	);
 
 	// Merge clip speeds into speed regions so playback + export respect per-clip speed
 	const effectiveSpeedRegions = useMemo<SpeedRegion[]>(() => {
@@ -9445,84 +9626,134 @@ export default function VideoEditor() {
 							</Button>
 						</div>
 					) : (
-						<TimelineEditor
-							recordToolsEnabled={activeSlideMode === "record"}
+						<SlideTimelineHost
 							ref={timelineRef}
-							videoDuration={slideDurationSec}
-							currentTime={currentTime}
-							playheadTime={currentTime}
-							onSeek={handleTimelineSeek}
-							videoPath={activeSlide?.videoPath ?? videoSourcePath ?? videoPath}
-							videoSourcePath={activeSlide?.videoPath ?? videoSourcePath}
-							webcamPath={
-								activeSlide?.webcamPath ??
-								activeSlide?.webcam?.sourcePath ??
-								(activeSlide?.id === selectedClipId
-									? (resolvedWebcamVideoUrl ?? webcam.sourcePath)
-									: null) ??
-								resolvedWebcamVideoUrl ??
-								webcam.sourcePath
-							}
-							webcamEnabled={Boolean(
-								(activeSlide?.webcamPath ??
+							mode={activeSlideMode as SlideTimelineMode}
+							recordProps={{
+								recordToolsEnabled: activeSlideMode === "record",
+								videoDuration: slideDurationSec,
+								currentTime: currentTime,
+								playheadTime: currentTime,
+								onSeek: handleTimelineSeek,
+								videoPath: activeSlide?.videoPath ?? videoSourcePath ?? videoPath,
+								videoSourcePath: activeSlide?.videoPath ?? videoSourcePath,
+								webcamPath:
+									activeSlide?.webcamPath ??
 									activeSlide?.webcam?.sourcePath ??
-									webcam.sourcePath) &&
-									(activeSlide?.webcam?.enabled ?? webcam.enabled) !== false,
-							)}
-							cursorTelemetrySourcePath={cursorTelemetrySourcePath}
-							cursorTelemetry={normalizedCursorTelemetry}
-							autoSuggestZoomsTrigger={autoSuggestZoomsTrigger}
-							onAutoSuggestZoomsConsumed={handleAutoSuggestZoomsConsumed}
-							disableSuggestedZooms={
-								activeSlideMode !== "record" || !autoApplyFreshRecordingAutoZooms
-							}
-							zoomRegions={activeSlideMode === "record" ? zoomRegions : []}
-							onZoomAdded={handleZoomAdded}
-							onZoomSuggested={handleZoomSuggested}
-							onZoomSpanChange={handleZoomSpanChange}
-							onZoomDelete={handleZoomDelete}
-							selectedZoomId={selectedZoomId}
-							onSelectZoom={handleSelectZoom}
-							trimRegions={trimRegions}
-							clipRegions={slideLocalClipRegions}
-							onClipSplit={handleClipSplit}
-							onClipSpanChange={handleClipSpanChange}
-							onClipDelete={handleClipDelete}
-							selectedClipId={selectedClipId}
-							onSelectClip={handleSelectClip}
-							layoutRegions={activeSlideMode === "record" ? layoutRegions : []}
-							onLayoutAdded={handleLayoutAdded}
-							onLayoutSpanChange={handleLayoutSpanChange}
-							onLayoutDelete={handleLayoutDelete}
-							selectedLayoutId={selectedLayoutId}
-							onSelectLayout={handleSelectLayout}
-							audioRegions={audioRegions}
-							onAudioAdded={handleAudioAdded}
-							onAudioSpanChange={handleAudioSpanChange}
-							onAudioDelete={handleAudioDelete}
-							selectedAudioId={selectedAudioId}
-							onSelectAudio={handleSelectAudio}
-							annotationRegions={annotationRegions}
-							onAnnotationAdded={handleAnnotationAdded}
-							onAnnotationSpanChange={handleAnnotationSpanChange}
-							onAnnotationDelete={handleAnnotationDelete}
-							onAnnotationKeyframesChange={(id, keyframes) =>
-								handleAnnotationLayerChange(id, { keyframes })
-							}
-							selectedAnnotationId={selectedAnnotationId}
-							onSelectAnnotation={handleSelectAnnotation}
-							showSourceAudioTrack={false}
-							sourceAudioTrackSettings={audio.activeSourceAudioTrackSettings}
-							getSourceAudioTrackSettingsForClip={
-								audio.getSourceAudioTrackSettingsForClip
-							}
-							onSourceAudioAvailabilityChange={(available) => {
-								setHasClipSourceAudio(available);
+									(activeSlide?.id === selectedClipId
+										? (resolvedWebcamVideoUrl ?? webcam.sourcePath)
+										: null) ??
+									resolvedWebcamVideoUrl ??
+									webcam.sourcePath,
+								webcamEnabled: Boolean(
+									(activeSlide?.webcamPath ??
+										activeSlide?.webcam?.sourcePath ??
+										webcam.sourcePath) &&
+										(activeSlide?.webcam?.enabled ?? webcam.enabled) !== false,
+								),
+								cursorTelemetrySourcePath: cursorTelemetrySourcePath,
+								cursorTelemetry: normalizedCursorTelemetry,
+								autoSuggestZoomsTrigger: autoSuggestZoomsTrigger,
+								onAutoSuggestZoomsConsumed: handleAutoSuggestZoomsConsumed,
+								disableSuggestedZooms:
+									activeSlideMode !== "record" || !autoApplyFreshRecordingAutoZooms,
+								zoomRegions: activeSlideMode === "record" ? zoomRegions : [],
+								onZoomAdded: handleZoomAdded,
+								onZoomSuggested: handleZoomSuggested,
+								onZoomSpanChange: handleZoomSpanChange,
+								onZoomDelete: handleZoomDelete,
+								selectedZoomId: selectedZoomId,
+								onSelectZoom: handleSelectZoom,
+								trimRegions: trimRegions,
+								clipRegions: slideLocalClipRegions,
+								onClipSplit: handleClipSplit,
+								onClipSpanChange: handleClipSpanChange,
+								onClipDelete: handleClipDelete,
+								selectedClipId: selectedClipId,
+								onSelectClip: handleSelectClip,
+								layoutRegions: activeSlideMode === "record" ? layoutRegions : [],
+								onLayoutAdded: handleLayoutAdded,
+								onLayoutSpanChange: handleLayoutSpanChange,
+								onLayoutDelete: handleLayoutDelete,
+								selectedLayoutId: selectedLayoutId,
+								onSelectLayout: handleSelectLayout,
+								audioRegions: audioRegions,
+								onAudioAdded: handleAudioAdded,
+								onAudioSpanChange: handleAudioSpanChange,
+								onAudioDelete: handleAudioDelete,
+								selectedAudioId: selectedAudioId,
+								onSelectAudio: handleSelectAudio,
+								annotationRegions: annotationRegions,
+								onAnnotationAdded: handleAnnotationAdded,
+								onAnnotationSpanChange: handleAnnotationSpanChange,
+								onAnnotationDelete: handleAnnotationDelete,
+								onAnnotationKeyframesChange: (id, keyframes) =>
+									handleAnnotationLayerChange(id, { keyframes }),
+								selectedAnnotationId: selectedAnnotationId,
+								onSelectAnnotation: handleSelectAnnotation,
+								showSourceAudioTrack: false,
+								sourceAudioTrackSettings: audio.activeSourceAudioTrackSettings,
+								getSourceAudioTrackSettingsForClip:
+									audio.getSourceAudioTrackSettingsForClip,
+								onSourceAudioAvailabilityChange: (available) => {
+									setHasClipSourceAudio(available);
+								},
+								onSourceAudioTracksMetaChange: (tracks) => {
+									audio.onSourceAudioTracksMetaChange(tracks);
+								},
+								onDropMediaAsset: handleDropMediaAssetOnTimeline,
 							}}
-							onSourceAudioTracksMetaChange={(tracks) => {
-								audio.onSourceAudioTracksMetaChange(tracks);
+							motionProps={{
+								currentTimeMs: Math.round(currentTime * 1000),
+								durationMs: activeSlide?.durationMs || Math.round(slideDurationSec * 1000),
+								isPlaying: isPlaying,
+								onSeek: (ms) => handleTimelineSeek(ms / 1000),
+								onTogglePlay: togglePlayPause,
+								onRewind: () => handleTimelineSeek(0),
+								onChangeDuration: (newDurationMs) => {
+									setClips((prev) =>
+										prev.map((c) =>
+											c.id === selectedClipId
+												? {
+														...c,
+														durationMs: newDurationMs,
+														motionMeta: {
+															...(c.motionMeta || createDefaultMotionMeta()),
+															durationMs: newDurationMs,
+														},
+													}
+												: c,
+										),
+									);
+									setClipRegions((prev) =>
+										prev.map((r) =>
+											r.id === selectedClipId
+												? {
+														...r,
+														endMs: r.startMs + newDurationMs,
+													}
+												: r,
+										),
+									);
+								},
 							}}
-							onDropMediaAsset={handleDropMediaAssetOnTimeline}
+							videoProps={{
+								videoTracks: activeVideoTracks,
+								audioTracks: activeAudioTracks,
+								slideDurationMs:
+									activeSlide?.durationMs || Math.round(slideDurationSec * 1000),
+								currentTimeMs: Math.round(currentTime * 1000),
+								isPlaying: isPlaying,
+								selectedClipId: selectedClipId,
+								onSeek: (ms) => handleTimelineSeek(ms / 1000),
+								onTogglePlay: togglePlayPause,
+								onRewind: () => handleTimelineSeek(0),
+								onSelectClip: handleSelectClip,
+								onSplitClip: handleVideoSlideClipSplit,
+								onTrimClip: handleVideoSlideClipTrim,
+								onDeleteClip: handleVideoSlideClipDelete,
+								onChangeClipSpeed: handleVideoSlideClipSpeed,
+							}}
 						/>
 					)}
 				</div>

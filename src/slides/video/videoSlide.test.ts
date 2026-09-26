@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { slideRegistry } from "@/core/slides/registry";
 import "@/slides"; // auto-registers all slide modules
-import { videoSlideModule } from "./index";
+import { videoSlideModule, VideoSlideTimeline } from "./index";
 import { createDefaultVideoMeta } from "./schema";
 
 describe("VideoSlideModule", () => {
@@ -25,5 +25,9 @@ describe("VideoSlideModule", () => {
 		expect(videoSlideModule.type).toBe("video");
 		expect(typeof videoSlideModule.WorkspaceComponent).toBe("function");
 		expect(typeof videoSlideModule.renderFrame).toBe("function");
+	});
+
+	it("exports VideoSlideTimeline component", () => {
+		expect(VideoSlideTimeline).toBeDefined();
 	});
 });

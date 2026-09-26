@@ -69,3 +69,6 @@ export const videoSlideModule: SlideModule<VideoSlideMeta> = {
 
 // Auto-register to SlideRegistry
 slideRegistry.register(videoSlideModule);
+
+export { VideoSlideTimeline } from "./components/VideoSlideTimeline";
+

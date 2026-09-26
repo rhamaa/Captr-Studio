@@ -35,4 +35,5 @@ export const motionSlideModule: SlideModule<MotionSlideMeta> = {
 slideRegistry.register(motionSlideModule);
 
 export * from "./components/MotionSlideWorkspace";
+export * from "./components/MotionSlideTimeline";
 export * from "./schema";

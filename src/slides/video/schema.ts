@@ -20,6 +20,8 @@ export interface VideoTrack {
 	clips: VideoClipItem[];
 }
 
+export type VideoTrackItem = VideoTrack;
+
 export interface AudioTrackItem {
 	id: string;
 	name: string;

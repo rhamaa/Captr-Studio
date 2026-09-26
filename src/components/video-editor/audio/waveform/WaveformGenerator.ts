@@ -16,6 +16,11 @@ export class WaveformGenerator {
 	>();
 
 	constructor() {
+		if (typeof window === "undefined") {
+			this.audioContext = null as any;
+			this.worker = null as any;
+			return;
+		}
 		this.audioContext = new (
 			window.AudioContext ||
 			(window as typeof window & { webkitAudioContext?: typeof AudioContext })

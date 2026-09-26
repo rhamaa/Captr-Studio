@@ -5,9 +5,8 @@ import type { SlideWorkspaceProps } from "@/core/slides/types";
 import type { AudioTrackItem, VideoClipItem, VideoSlideMeta } from "../schema";
 import { VideoClipInspector } from "./VideoClipInspector";
 import { VideoMediaPool } from "./VideoMediaPool";
-import { VideoPlaybackControls } from "./VideoPlaybackControls";
 import { VideoPreviewMonitor } from "./VideoPreviewMonitor";
-import { VideoTimelineTracks } from "./VideoTimelineTracks";
+import { VideoSlideTimeline } from "./VideoSlideTimeline";
 
 export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> = ({
 	slide,
@@ -269,6 +268,77 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 		}));
 	};
 
+	const handleTrimClip = (
+		trackId: string,
+		clipId: string,
+		newStartOffsetMs: number,
+		newDurationMs: number,
+	) => {
+		onUpdateMeta((prev) => ({
+			...prev,
+			videoTracks: prev.videoTracks.map((tr) =>
+				tr.id === trackId
+					? {
+							...tr,
+							clips: tr.clips.map((c) =>
+								c.id === clipId
+									? { ...c, startOffsetMs: newStartOffsetMs, durationMs: newDurationMs }
+									: c,
+							),
+						}
+					: tr,
+			),
+		}));
+	};
+
+	const handleSplitClip = (trackId: string, clipId: string, splitMs: number) => {
+		const track = meta.videoTracks.find((t) => t.id === trackId);
+		if (!track) return;
+		const clip = track.clips.find((c) => c.id === clipId);
+		if (!clip) return;
+
+		const leftDuration = splitMs - clip.startOffsetMs;
+		const rightDuration = clip.durationMs - leftDuration;
+		if (leftDuration <= 200 || rightDuration <= 200) return;
+
+		const leftClip = { ...clip, durationMs: leftDuration };
+		const rightClip = {
+			...clip,
+			id: `clip-${Date.now()}`,
+			title: `${clip.title} (Part 2)`,
+			startOffsetMs: splitMs,
+			durationMs: rightDuration,
+		};
+
+		onUpdateMeta((prev) => ({
+			...prev,
+			videoTracks: prev.videoTracks.map((tr) =>
+				tr.id === trackId
+					? {
+							...tr,
+							clips: tr.clips.flatMap((c) => (c.id === clipId ? [leftClip, rightClip] : [c])),
+						}
+					: tr,
+			),
+		}));
+	};
+
+	const handleChangeClipSpeed = (trackId: string, clipId: string, speed: number) => {
+		onUpdateMeta((prev) => ({
+			...prev,
+			videoTracks: prev.videoTracks.map((tr) =>
+				tr.id === trackId
+					? {
+							...tr,
+							clips: tr.clips.map((c) =>
+								c.id === clipId ? { ...c, speedMultiplier: speed } : c,
+							),
+						}
+					: tr,
+			),
+		}));
+	};
+
 	return (
 		<div className="flex h-full w-full flex-col bg-slate-950 text-slate-200 select-none overflow-hidden">
 			{/* Top Panel: Media Pool + Preview Monitor + Inspector */}
@@ -313,30 +383,30 @@ export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> 
 
 			{/* Bottom Panel: CapCut Style Multi-Track Timeline */}
 			<div className="flex h-60 flex-col bg-slate-900/90 backdrop-blur shrink-0">
-				<VideoPlaybackControls
-					isPlaying={isPlaying}
-					isRecording={recorder.isRecording}
-					isAudioMuted={isAudioMuted}
-					currentTimeMs={currentTimeMs}
-					slideDurationMs={slide.durationMs}
-					onTogglePlay={togglePlayPause}
-					onRewind={handleRewind}
-					onToggleMute={() => setIsAudioMuted((m) => !m)}
-					onAddClip={() => handleAddSampleClip("track-v1")}
-				/>
-
-				<VideoTimelineTracks
+				<VideoSlideTimeline
 					videoTracks={meta.videoTracks}
 					audioTracks={meta.audioTracks || []}
 					slideDurationMs={slide.durationMs}
 					currentTimeMs={currentTimeMs}
+					isPlaying={isPlaying}
+					isAudioMuted={isAudioMuted}
 					selectedClipId={selectedClipId}
-					timelineTrackRef={timelineTrackRef}
-					onTimelineClick={handleTimelineClick}
+					onSeek={(timeMs) => {
+						setCurrentTimeMs(timeMs);
+						if (videoRef.current) {
+							videoRef.current.currentTime = timeMs / 1000;
+						}
+					}}
+					onTogglePlay={togglePlayPause}
+					onRewind={handleRewind}
+					onToggleMute={() => setIsAudioMuted((m) => !m)}
 					onSelectClip={setSelectedClipId}
 					onDeleteClip={handleDeleteClip}
-					onAddSampleClip={handleAddSampleClip}
+					onSplitClip={handleSplitClip}
+					onTrimClip={handleTrimClip}
+					onAddClip={handleAddSampleClip}
 					onDeleteAudioTrack={handleDeleteAudioTrack}
+					onChangeClipSpeed={handleChangeClipSpeed}
 				/>
 			</div>
 		</div>

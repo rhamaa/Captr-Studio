@@ -294,6 +294,8 @@ export interface ClipEntry {
 	assetFiles?: SlideAssetFile[];
 	/** Motion slide HTML/CSS/JS metadata and configuration */
 	motionMeta?: import("@/slides/motion/schema").MotionSlideMeta;
+	/** Video slide multi-track NLE metadata */
+	videoMeta?: import("@/slides/video/schema").VideoSlideMeta;
 }
 
 export function getClipSourceEndMs(clip: ClipRegion): number {

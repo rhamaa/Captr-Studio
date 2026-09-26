@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { slideRegistry } from "@/core/slides/registry";
 import "@/slides"; // auto-registers all slide modules
-import { motionSlideModule } from "./index";
+import { motionSlideModule, MotionSlideTimeline } from "./index";
 import { createDefaultMotionMeta } from "./schema";
 
 describe("MotionSlideModule", () => {
@@ -66,5 +66,9 @@ describe("MotionSlideModule", () => {
 		expect(parsed.html).toContain("Hello Motion");
 		expect(parsed.css).toContain(".banner { color: red; }");
 		expect(parsed.js).toContain("animating");
+	});
+
+	it("exports MotionSlideTimeline component", () => {
+		expect(MotionSlideTimeline).toBeDefined();
 	});
 });
