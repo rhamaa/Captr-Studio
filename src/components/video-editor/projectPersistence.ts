@@ -193,11 +193,7 @@ export function normalizeExportBackendPreference(value: unknown): ExportBackendP
 	return "auto";
 }
 
-export function normalizeExportPipelineModel(value: unknown): ExportPipelineModel {
-	if (value === "modern" || value === "legacy") {
-		return value;
-	}
-
+export function normalizeExportPipelineModel(_value: unknown): ExportPipelineModel {
 	return "modern";
 }
 

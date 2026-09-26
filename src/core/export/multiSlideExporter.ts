@@ -13,6 +13,7 @@ export interface ExportProgressUpdate {
 export interface MultiSlideExportOptions {
 	project: ProjectV2Data;
 	outputPath: string;
+	selectedSlideIds?: string[];
 	onProgress?: (update: ExportProgressUpdate) => void;
 }
 
@@ -28,10 +29,18 @@ export interface MultiSlideExportResult {
 export async function exportMultiSlideProject(
 	options: MultiSlideExportOptions,
 ): Promise<MultiSlideExportResult> {
-	const { project, outputPath, onProgress } = options;
+	const { project, outputPath, onProgress, selectedSlideIds } = options;
 
 	if (!project.slides || project.slides.length === 0) {
 		return { success: false, error: "Project tidak memiliki slide untuk diekspor." };
+	}
+
+	const selectedIds = selectedSlideIds ? new Set(selectedSlideIds) : null;
+	const slides = selectedIds
+		? project.slides.filter((slide) => selectedIds.has(slide.id))
+		: project.slides;
+	if (slides.length === 0) {
+		return { success: false, error: "Pilih setidaknya satu slide untuk diekspor." };
 	}
 
 	if (typeof window === "undefined" || !window.electronAPI?.stitchProjectSlides) {
@@ -41,12 +50,12 @@ export async function exportMultiSlideProject(
 		};
 	}
 
-	const totalSlides = project.slides.length;
+	const totalSlides = slides.length;
 	const slideStitchInputs: Array<{ filePath: string; durationSec: number }> = [];
 
 	// Stage 1: Render each slide chunk
 	for (let i = 0; i < totalSlides; i++) {
-		const slide = project.slides[i];
+		const slide = slides[i];
 
 		onProgress?.({
 			stage: "rendering-slide",
@@ -116,18 +125,15 @@ export async function exportMultiSlideProject(
 	// fromSlideId/toSlideId and may be sparse or stored in a different order, so
 	// resolve them per boundary instead of mapping the stored array positionally —
 	// a positional mapping attaches one slide's transition to another pair.
-	const transitionConfigs = project.slides.slice(1).map((slide, index) => {
-		const previousSlide = project.slides[index];
+	const transitionConfigs = slides.slice(1).map((slide, index) => {
+		const previousSlide = slides[index];
 		const stored = project.transitions.find(
 			(transition) =>
 				transition.fromSlideId === previousSlide.id && transition.toSlideId === slide.id,
 		);
-		const requested = stored?.type ?? "crossfade";
 		return {
-			// `zoom-in` has no FFmpeg xfade counterpart: degrade it to the default
-			// crossfade so the boundary keeps its own transition definition.
-			type: requested === "zoom-in" ? "crossfade" : requested,
-			durationSec: (stored?.durationMs || 500) / 1000,
+			type: stored?.type ?? "none",
+			durationSec: stored ? stored.durationMs / 1000 : 0,
 		};
 	});
 

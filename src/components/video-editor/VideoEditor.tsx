@@ -74,7 +74,7 @@ import {
 	ModernVideoExporter,
 	probeSupportedMp4Dimensions,
 	type SupportedMp4Dimensions,
-	VideoExporter,
+	type VideoExporter,
 } from "@/lib/exporter";
 import { getMp4ExportBitrate, getSourceQualityBitrate } from "@/lib/exporter/exportBitrate";
 import {
@@ -6811,13 +6811,10 @@ export default function VideoEditor() {
 								},
 							};
 
-							const clipExporter =
-								pipelineModel === "modern"
-									? new ModernVideoExporter({
-											...clipExporterConfig,
-											backendPreference,
-										})
-									: new VideoExporter(clipExporterConfig);
+							const clipExporter = new ModernVideoExporter({
+								...clipExporterConfig,
+								backendPreference,
+							});
 
 							exporterRef.current = clipExporter;
 							const clipResult = await clipExporter.export();
@@ -6867,13 +6864,10 @@ export default function VideoEditor() {
 							tempFilePath: stitchRes.outputPath,
 						};
 					} else {
-						const exporter =
-							pipelineModel === "modern"
-								? new ModernVideoExporter({
-										...exporterConfig,
-										backendPreference,
-									})
-								: new VideoExporter(exporterConfig);
+						const exporter = new ModernVideoExporter({
+							...exporterConfig,
+							backendPreference,
+						});
 
 						exporterRef.current = exporter;
 						result = await exporter.export();
@@ -8121,8 +8115,6 @@ export default function VideoEditor() {
 									onExportEncodingModeChange={setExportEncodingMode}
 									mp4FrameRate={mp4FrameRate}
 									onMp4FrameRateChange={setMp4FrameRate}
-									exportPipelineModel={exportPipelineModel}
-									onExportPipelineModelChange={setExportPipelineModel}
 									experimentalNvidiaCudaExport={
 										experimentalNvidiaCudaExport && nvidiaCudaExportAvailable
 									}

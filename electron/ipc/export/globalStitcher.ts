@@ -59,6 +59,8 @@ export function mapToFfmpegXfadeType(type: TransitionStitchConfig["type"]): stri
 			return "slideleft";
 		case "slide-right":
 			return "slideright";
+		case "zoom-in":
+			return "zoomin";
 		default:
 			return "fade";
 	}
@@ -113,7 +115,7 @@ export function buildStitchFiltergraph(
 		const nextVideoLabel = `v_out_${i}`;
 		const nextAudioLabel = `a_out_${i}`;
 
-		const trans = transitions[i - 1] ?? { type: "crossfade", durationSec: 0.5 };
+		const trans = transitions[i - 1] ?? { type: "none", durationSec: 0 };
 		const transDuration = trans.type === "none" ? 0 : Math.min(trans.durationSec, 2.0);
 		const xfadeName = mapToFfmpegXfadeType(trans.type);
 

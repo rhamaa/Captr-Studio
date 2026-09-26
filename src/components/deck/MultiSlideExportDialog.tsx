@@ -19,25 +19,52 @@ interface MultiSlideExportDialogProps {
 	onClose: () => void;
 }
 
+type ExportScope = "full" | "current" | "selective";
+
 export const MultiSlideExportDialog: React.FC<MultiSlideExportDialogProps> = ({
 	isOpen,
 	onClose,
 }) => {
-	const { project } = useSlideDeck();
+	const { project, activeSlideId } = useSlideDeck();
 
 	const [isExporting, setIsExporting] = useState(false);
+	const [exportScope, setExportScope] = useState<ExportScope>("full");
+	const [selectedSlideIds, setSelectedSlideIds] = useState<string[]>([]);
 	const [progress, setProgress] = useState<ExportProgressUpdate | null>(null);
 	const [exportSuccessPath, setExportSuccessPath] = useState<string | null>(null);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-	const totalDurationSec = project.slides.reduce(
-		(acc, s) => acc + s.durationMs / 1000,
+	const currentSlide = project.slides.find((slide) => slide.id === activeSlideId) ?? null;
+	const slidesToExport =
+		exportScope === "full"
+			? project.slides
+			: exportScope === "current"
+				? currentSlide
+					? [currentSlide]
+					: []
+				: project.slides.filter((slide) => selectedSlideIds.includes(slide.id));
+	const selectedDurationSec = slidesToExport.reduce(
+		(total, slide) => total + slide.durationMs / 1000,
 		0,
 	);
+	const selectedTransitionCount = slidesToExport.slice(1).filter((slide, index) => {
+		const previousSlide = slidesToExport[index];
+		return project.transitions.some(
+			(transition) =>
+				transition.fromSlideId === previousSlide.id &&
+				transition.toSlideId === slide.id &&
+				transition.type !== "none",
+		);
+	}).length;
 
 	if (!isOpen) return null;
 
 	const handleStartExport = async () => {
+		if (slidesToExport.length === 0) {
+			setErrorMessage("Pilih setidaknya satu slide untuk diekspor.");
+			return;
+		}
+
 		setIsExporting(true);
 		setErrorMessage(null);
 		setExportSuccessPath(null);
@@ -67,6 +94,7 @@ export const MultiSlideExportDialog: React.FC<MultiSlideExportDialogProps> = ({
 		const result = await exportMultiSlideProject({
 			project,
 			outputPath,
+			selectedSlideIds: slidesToExport.map((slide) => slide.id),
 			onProgress: (update) => setProgress(update),
 		});
 
@@ -97,7 +125,7 @@ export const MultiSlideExportDialog: React.FC<MultiSlideExportDialogProps> = ({
 						<div>
 							<h3 className="text-sm font-semibold text-white">Ekspor Multi-Slide Project</h3>
 							<p className="text-[11px] text-slate-400">
-								{project.slides.length} slide · Total durasi: {totalDurationSec.toFixed(1)}s
+								{slidesToExport.length} slide dipilih · Durasi: {selectedDurationSec.toFixed(1)}s
 							</p>
 						</div>
 					</div>
@@ -118,6 +146,79 @@ export const MultiSlideExportDialog: React.FC<MultiSlideExportDialogProps> = ({
 					{/* Status: Ready to Export */}
 					{!isExporting && !exportSuccessPath && !errorMessage && (
 						<div className="space-y-3">
+							<div className="space-y-2">
+								<p className="text-xs font-medium text-slate-300">Pilih slide untuk dirender</p>
+								<div className="grid grid-cols-3 gap-2">
+									{([
+										{
+											id: "full",
+											label: "Full render",
+											detail: `${project.slides.length} slide`,
+										},
+										{
+											id: "current",
+											label: "Current slide",
+											detail: currentSlide?.title ?? "Tidak ada slide aktif",
+										},
+										{
+											id: "selective",
+											label: "Selective",
+											detail: `${slidesToExport.length} dipilih`,
+										},
+									] satisfies Array<{ id: ExportScope; label: string; detail: string }>).map(
+										(option) => (
+											<button
+												key={option.id}
+												type="button"
+												onClick={() => setExportScope(option.id)}
+												aria-pressed={exportScope === option.id}
+												className={`min-w-0 rounded-lg border p-2 text-left transition-colors ${
+													exportScope === option.id
+													? "border-emerald-500/50 bg-emerald-950/40 text-white"
+													: "border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700"
+												}`}
+											>
+												<span className="block text-[11px] font-semibold">{option.label}</span>
+												<span className="mt-0.5 block truncate text-[10px] opacity-75">
+													{option.detail}
+												</span>
+											</button>
+										),
+									)}
+								</div>
+							</div>
+
+							{exportScope === "selective" && (
+								<div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/60 p-2">
+									{project.slides.map((slide, index) => (
+										<label
+											key={slide.id}
+											className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-slate-800/70"
+										>
+											<input
+												type="checkbox"
+												checked={selectedSlideIds.includes(slide.id)}
+												onChange={(event) => {
+													const checked = event.currentTarget.checked;
+													setSelectedSlideIds((current) =>
+														checked
+															? [...new Set([...current, slide.id])]
+															: current.filter((id) => id !== slide.id),
+													);
+												}}
+												className="accent-emerald-500"
+											/>
+											<span className="min-w-0 flex-1 truncate text-slate-200">
+												{index + 1}. {slide.title}
+											</span>
+											<span className="shrink-0 text-[10px] text-slate-500">
+												{(slide.durationMs / 1000).toFixed(1)}s
+											</span>
+										</label>
+									))}
+								</div>
+							)}
+
 							<div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5 space-y-2 text-xs">
 								<div className="flex justify-between">
 									<span className="text-slate-400">Resolusi Canvas:</span>
@@ -132,13 +233,14 @@ export const MultiSlideExportDialog: React.FC<MultiSlideExportDialogProps> = ({
 								<div className="flex justify-between">
 									<span className="text-slate-400">Jumlah Transisi:</span>
 									<span className="font-semibold text-white">
-										{project.transitions.length} transisi
+										{selectedTransitionCount} transisi aktif
 									</span>
 								</div>
 							</div>
 
 							<p className="text-[11px] text-slate-400 leading-relaxed">
-								Proses ekspor akan merender setiap slide secara modular dan menggabungkannya dengan transisi mulus menggunakan FFmpeg.
+								Slide terpilih dirender satu per satu dengan ukuran canvas proyek. Transisi
+								diterapkan jika pasangan slide terpilih memiliki transisi yang diatur.
 							</p>
 						</div>
 					)}
@@ -252,7 +354,7 @@ export const MultiSlideExportDialog: React.FC<MultiSlideExportDialogProps> = ({
 							<button
 								type="button"
 								onClick={handleStartExport}
-								disabled={isExporting}
+								disabled={isExporting || slidesToExport.length === 0}
 								className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
 							>
 								{isExporting ? (
