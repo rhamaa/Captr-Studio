@@ -199,6 +199,9 @@ import { resolveLoadedSlideAudioRegions, resolveSlideAudioSourcePath } from "./s
 import { SlideList } from "./slides/SlideList";
 import { getDevOpenRecordingConfig, getSmokeExportConfig } from "./smokeExportConfig";
 import { createSmokeExportProgressSampler } from "./smokeExportProgress";
+import { useProjectPersistence } from "./useProjectPersistence";
+import { useProjectStartup } from "./useProjectStartup";
+import { useVideoEditorExportState, type PendingExportSave } from "./useVideoEditorExportState";
 import {
 	APP_HEADER_ICON_BUTTON_CLASS,
 	DiscordLinkButton,
@@ -270,20 +273,6 @@ import {
 	getDisplayedTimelineWindowMs,
 } from "./videoPlayback/cursorLoopTelemetry";
 
-type PendingExportSave = {
-	fileName: string;
-	// Exactly one of these is populated. `tempFilePath` is the preferred form
-	// for MP4 exports — the main process holds the finished file on disk, so
-	// "Save Again" just renames it instead of round-tripping through the
-	// renderer's ArrayBuffer heap.
-	arrayBuffer?: ArrayBuffer;
-	tempFilePath?: string;
-};
-
-type CancelableExporter = {
-	cancel(): void;
-};
-
 const EXPORT_BLOB_STREAM_CHUNK_BYTES = 16 * 1024 * 1024;
 
 async function streamExportBlobToTempFile(blob: Blob, extension: string): Promise<string | null> {
@@ -334,13 +323,6 @@ async function streamExportBlobToTempFile(blob: Blob, extension: string): Promis
 		throw error;
 	}
 }
-
-type SaveProjectOptions = {
-	silent?: boolean;
-	remountPreviewAfterSave?: boolean;
-	refreshLibraryAfterSave?: boolean;
-	captureThumbnail?: boolean;
-};
 
 async function writeSmokeExportReport(
 	outputPath: string | null,
@@ -602,10 +584,23 @@ export default function VideoEditor() {
 	);
 	const [showSocialSafeZone, setShowSocialSafeZone] = useState(false);
 
-	const [isExporting, setIsExporting] = useState(false);
-	const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
-	const [exportError, setExportError] = useState<string | null>(null);
-	const [showExportDropdown, setShowExportDropdown] = useState(false);
+	const {
+		clearPendingExportSave,
+		exportError,
+		exporterRef,
+		exportedFilePath,
+		exportProgress,
+		hasPendingExportSave,
+		isExporting,
+		pendingExportSaveRef,
+		setExportError,
+		setExportProgress,
+		setExportedFilePath,
+		setHasPendingExportSave,
+		setIsExporting,
+		setShowExportDropdown,
+		showExportDropdown,
+	} = useVideoEditorExportState();
 	const [previewVolume, setPreviewVolume] = useState(1);
 	const applySessionPresentation = useCallback(
 		(
@@ -669,8 +664,6 @@ export default function VideoEditor() {
 	const [gifSizePreset, setGifSizePreset] = useState<GifSizePreset>(
 		initialEditorPreferences.gifSizePreset,
 	);
-	const [exportedFilePath, setExportedFilePath] = useState<string | undefined>(undefined);
-	const [hasPendingExportSave, setHasPendingExportSave] = useState(false);
 	const [lastSavedSnapshot, setLastSavedSnapshot] = useState<EditorProjectData | null>(null);
 	const [editorPresets, setEditorPresets] = useState<EditorPreset[]>(() => loadEditorPresets());
 	const [activeEditorPresetId, setActiveEditorPresetId] = useState<string | null>(null);
@@ -703,10 +696,8 @@ export default function VideoEditor() {
 	const { shortcuts, isMac, openConfig } = useShortcuts();
 	const nextAnnotationIdRef = useRef(1);
 	const nextAnnotationZIndexRef = useRef(1); // Track z-index for stacking order
-	const exporterRef = useRef<CancelableExporter | null>(null);
 	const editorHistoryRef = useRef(createEditorHistoryStack());
 	const applyingHistoryRef = useRef(false);
-	const pendingExportSaveRef = useRef<PendingExportSave | null>(null);
 	const cropSnapshotRef = useRef<CropRegion | null>(null);
 	const mp4SupportRequestRef = useRef(0);
 	const smokeExportStartedRef = useRef(false);
@@ -1179,17 +1170,6 @@ export default function VideoEditor() {
 			setPresetNameDraft("");
 		}
 	}, [handleSaveEditorPreset, presetNameDraft]);
-
-	const clearPendingExportSave = useCallback(() => {
-		const pending = pendingExportSaveRef.current;
-		pendingExportSaveRef.current = null;
-		setHasPendingExportSave(false);
-		if (pending?.tempFilePath && typeof window !== "undefined") {
-			// Best-effort cleanup — main-process also reaps stale temp files on
-			// before-quit, so we ignore failures here.
-			void window.electronAPI.discardExportedTemp?.(pending.tempFilePath);
-		}
-	}, []);
 
 	const refreshProjectLibrary = useCallback(async () => {
 		try {
@@ -2520,157 +2500,44 @@ export default function VideoEditor() {
 		[currentProjectSnapshot, lastSavedSnapshot],
 	);
 
-	useEffect(() => {
-		async function loadInitialData() {
-			try {
-				if (smokeExportConfig.enabled && smokeExportConfig.projectPath) {
-					const projectResult = await window.electronAPI.openProjectFileAtPath(
-						smokeExportConfig.projectPath,
-					);
-					if (!projectResult.success || !projectResult.project) {
-						setError(
-							`Smoke export failed to load project ${smokeExportConfig.projectPath}: ${
-								projectResult.error || projectResult.message || "unknown error"
-							}`,
-						);
-						return;
-					}
-					const restored = await applyLoadedProject(
-						projectResult.project,
-						projectResult.path ?? smokeExportConfig.projectPath,
-					);
-					if (!restored) {
-						setError(
-							`Smoke export could not apply project ${smokeExportConfig.projectPath}`,
-						);
-						return;
-					}
-					setError(null);
-					return;
-				}
+	const applyInitialEditorPreferences = useCallback(() => {
+		setPadding(initialEditorPreferences.padding);
+		setBorderRadius(initialEditorPreferences.borderRadius);
+		setAspectRatio(initialEditorPreferences.aspectRatio);
+		setExportFormat(initialEditorPreferences.exportFormat);
+		setMp4FrameRate(
+			initialEditorPreferences.mp4FrameRate ?? DEFAULT_MP4_EXPORT_FRAME_RATE,
+		);
+		setExportQuality(initialEditorPreferences.exportQuality);
+		setExportEncodingMode(initialEditorPreferences.exportEncodingMode);
+		setExportBackendPreference(initialEditorPreferences.exportBackendPreference);
+		setExportPipelineModel(initialEditorPreferences.exportPipelineModel);
+		setGifFrameRate(initialEditorPreferences.gifFrameRate);
+		setGifLoop(initialEditorPreferences.gifLoop);
+		setGifSizePreset(initialEditorPreferences.gifSizePreset);
+	}, [initialEditorPreferences]);
 
-				if (!smokeExportConfig.enabled && devOpenRecordingConfig.inputPath) {
-					const sourcePath = fromFileUrl(devOpenRecordingConfig.inputPath);
-					const sourceVideoUrl = await resolveVideoUrl(sourcePath);
-					const webcamSourcePath = devOpenRecordingConfig.webcamInputPath
-						? fromFileUrl(devOpenRecordingConfig.webcamInputPath)
-						: null;
-					setVideoSourcePath(sourcePath);
-					setVideoPath(sourceVideoUrl);
-					setCurrentProjectPath(null);
-					setLastSavedSnapshot(null);
-					requestFreshRecordingAutoZoom(
-						autoApplyFreshRecordingAutoZooms ? sourceVideoUrl : null,
-					);
-					setWebcam((prev) => ({
-						...prev,
-						enabled: Boolean(webcamSourcePath),
-						sourcePath: webcamSourcePath,
-						timeOffsetMs: DEFAULT_WEBCAM_TIME_OFFSET_MS,
-					}));
-					setError(null);
-					return;
-				}
-
-				if (smokeExportConfig.enabled) {
-					if (!smokeExportConfig.inputPath) {
-						setError("Smoke export input path is missing.");
-						return;
-					}
-
-					const sourcePath = fromFileUrl(smokeExportConfig.inputPath);
-					const sourceVideoUrl = await resolveVideoUrl(sourcePath);
-					const smokeWebcamSourcePath = smokeExportConfig.webcamInputPath
-						? fromFileUrl(smokeExportConfig.webcamInputPath)
-						: null;
-					setVideoSourcePath(sourcePath);
-					setVideoPath(sourceVideoUrl);
-					setCurrentProjectPath(null);
-					setLastSavedSnapshot(null);
-					clearPendingFreshRecordingAutoZoom();
-					setWebcam((prev) => ({
-						...prev,
-						enabled: !!smokeWebcamSourcePath,
-						sourcePath: smokeWebcamSourcePath,
-						timeOffsetMs: DEFAULT_WEBCAM_TIME_OFFSET_MS,
-						shadow:
-							smokeExportConfig.webcamShadow === undefined
-								? prev.shadow
-								: smokeExportConfig.webcamShadow,
-						size:
-							smokeExportConfig.webcamSize === undefined
-								? prev.size
-								: smokeExportConfig.webcamSize,
-					}));
-					setError(null);
-					return;
-				}
-
-				const currentProjectResult = await window.electronAPI.loadCurrentProjectFile();
-				if (currentProjectResult.success && currentProjectResult.project) {
-					const restored = await applyLoadedProject(
-						currentProjectResult.project,
-						currentProjectResult.path ?? null,
-					);
-					if (restored) {
-						// Re-apply user preferences so stale project data does not
-						// overwrite the last-used padding, aspect ratio, export
-						// settings, etc. that were saved to localStorage.
-						setPadding(initialEditorPreferences.padding);
-						setBorderRadius(initialEditorPreferences.borderRadius);
-						setAspectRatio(initialEditorPreferences.aspectRatio);
-						setExportFormat(initialEditorPreferences.exportFormat);
-						setMp4FrameRate(
-							initialEditorPreferences.mp4FrameRate ?? DEFAULT_MP4_EXPORT_FRAME_RATE,
-						);
-						setExportQuality(initialEditorPreferences.exportQuality);
-						setExportEncodingMode(initialEditorPreferences.exportEncodingMode);
-						setExportBackendPreference(
-							initialEditorPreferences.exportBackendPreference,
-						);
-						setExportPipelineModel(initialEditorPreferences.exportPipelineModel);
-						setGifFrameRate(initialEditorPreferences.gifFrameRate);
-						setGifLoop(initialEditorPreferences.gifLoop);
-						setGifSizePreset(initialEditorPreferences.gifSizePreset);
-						setViewMode("editor");
-						return;
-					}
-				}
-
-				// Fresh / empty studio startup in Captr Studio:
-				// Clear any leftover stale recording session from main process memory
-				// and present the Welcome / Home screen to the user.
-				await window.electronAPI.clearCurrentVideoPath?.();
-				setVideoSourcePath(null);
-				setVideoPath(null);
-				setClips([]);
-				setClipRegions([]);
-				setSelectedClipId(null);
-				setError(null);
-				setViewMode("welcome");
-			} catch (err) {
-				setError("Error loading video: " + String(err));
-			} finally {
-				setLoading(false);
-			}
-		}
-
-		loadInitialData();
-	}, [
-		applyLoadedProject,
-		applySessionPresentation,
+	useProjectStartup({
 		autoApplyFreshRecordingAutoZooms,
-		devOpenRecordingConfig.inputPath,
-		devOpenRecordingConfig.webcamInputPath,
+		applyInitialEditorPreferences,
+		applyLoadedProject,
+		clearPendingFreshRecordingAutoZoom,
+		devOpenRecordingConfig,
 		initialEditorPreferences,
-		smokeExportConfig.enabled,
-		smokeExportConfig.inputPath,
-		smokeExportConfig.projectPath,
-		smokeExportConfig.webcamInputPath,
-		smokeExportConfig.webcamShadow,
-		smokeExportConfig.webcamSize,
-	]);
-
+		requestFreshRecordingAutoZoom,
+		setClipRegions,
+		setClips,
+		setCurrentProjectPath,
+		setError,
+		setLastSavedSnapshot,
+		setLoading,
+		setSelectedClipId,
+		setVideoPath,
+		setVideoSourcePath,
+		setViewMode,
+		setWebcam,
+		smokeExportConfig,
+	});
 	useEffect(() => {
 		if (!window.electronAPI.onRecordingSessionChanged) {
 			return;
@@ -3523,124 +3390,24 @@ export default function VideoEditor() {
 		[clips, buildHistorySnapshot, syncHistoryButtons],
 	);
 
-	const saveProject = useCallback(
-		async (forceSaveAs: boolean, options?: SaveProjectOptions) => {
-			clearPendingProjectAutosave();
-			return queueProjectSave(async () => {
-				if (!currentSourcePath) {
-					if (!options?.silent) {
-						toast.error("No video loaded");
-					}
-					return false;
-				}
-
-				const shouldCaptureThumbnail = options?.captureThumbnail ?? true;
-				const shouldRefreshLibrary = options?.refreshLibraryAfterSave ?? true;
-				const shouldRemountPreview = options?.remountPreviewAfterSave ?? true;
-
-				try {
-					const projectData =
-						currentProjectSnapshot?.videoPath === currentSourcePath && !forceSaveAs
-							? currentProjectSnapshot
-							: createProjectData(
-									currentSourcePath,
-									currentPersistedEditorState,
-									forceSaveAs ? null : (lastSavedSnapshot?.projectId ?? null),
-									foldActiveAudioRegionsIntoClips(
-										clips,
-										activeSceneId,
-										audioRegions,
-									),
-								);
-
-					const fileNameBase =
-						currentSourcePath
-							.split(/[\\/]/)
-							.pop()
-							?.replace(/\.[^.]+$/, "") || `project-${Date.now()}`;
-					let targetProjectPath = forceSaveAs
-						? undefined
-						: (currentProjectPath ?? undefined);
-
-					if (!forceSaveAs && !targetProjectPath) {
-						const activeProjectResult =
-							await window.electronAPI.loadCurrentProjectFile();
-						if (activeProjectResult.success && activeProjectResult.path) {
-							targetProjectPath = activeProjectResult.path;
-							setCurrentProjectPath(activeProjectResult.path);
-						}
-					}
-
-					const thumbnailDataUrl = shouldCaptureThumbnail
-						? await captureProjectThumbnail()
-						: undefined;
-
-					const result = await window.electronAPI.saveProjectFile(
-						projectData,
-						fileNameBase,
-						targetProjectPath,
-						thumbnailDataUrl,
-					);
-
-					if (result.canceled) {
-						if (!options?.silent) {
-							toast.info("Project save canceled");
-						}
-						return false;
-					}
-
-					if (!result.success) {
-						if (!options?.silent) {
-							toast.error(result.message || "Failed to save project");
-						}
-						return false;
-					}
-
-					if (result.path) {
-						setCurrentProjectPath(result.path);
-					}
-					setLastSavedSnapshot(
-						cloneStructured(
-							createProjectData(
-								projectData.videoPath,
-								projectData.editor,
-								result.projectId ?? projectData.projectId ?? null,
-								projectData.clips,
-							),
-						),
-					);
-					if (shouldRefreshLibrary) {
-						await refreshProjectLibrary();
-					}
-
-					if (!options?.silent) {
-						toast.success(`Project saved to ${result.path}`);
-					}
-					return true;
-				} finally {
-					if (shouldRemountPreview) {
-						remountPreview();
-					}
-				}
-			});
-		},
-		[
-			activeSceneId,
-			audioRegions,
-			captureProjectThumbnail,
-			clearPendingProjectAutosave,
-			clips,
-			currentSourcePath,
-			currentProjectPath,
-			currentProjectSnapshot,
-			currentPersistedEditorState,
-			lastSavedSnapshot?.projectId,
-			queueProjectSave,
-			refreshProjectLibrary,
-			remountPreview,
-		],
-	);
-
+	const { saveProject, saveProjectWithName } = useProjectPersistence({
+		activeSceneId,
+		audioRegions,
+		captureProjectThumbnail,
+		clearPendingProjectAutosave,
+		clips,
+		cloneProjectData: cloneStructured,
+		currentPersistedEditorState,
+		currentProjectPath,
+		currentProjectSnapshot,
+		currentSourcePath,
+		lastSavedSnapshot,
+		queueProjectSave,
+		refreshProjectLibrary,
+		remountPreview,
+		setCurrentProjectPath,
+		setLastSavedSnapshot,
+	});
 	useEffect(() => {
 		window.electronAPI.setHasUnsavedChanges(hasUnsavedChanges);
 	}, [hasUnsavedChanges]);
@@ -3684,83 +3451,6 @@ export default function VideoEditor() {
 			clearPendingProjectAutosave();
 		};
 	}, [clearPendingProjectAutosave, currentProjectPath, hasUnsavedChanges, saveProject]);
-
-	/**
-	 * Saves the current project directly into the projects library under a chosen name.
-	 */
-	const saveProjectWithName = useCallback(
-		async (projectName: string) => {
-			const trimmedProjectName = projectName.trim();
-			if (!trimmedProjectName) {
-				toast.error("Project name is required");
-				return false;
-			}
-
-			if (!currentSourcePath) {
-				toast.error("No video loaded");
-				return false;
-			}
-
-			try {
-				const projectData =
-					currentProjectSnapshot?.videoPath === currentSourcePath
-						? currentProjectSnapshot
-						: createProjectData(
-								currentSourcePath,
-								currentPersistedEditorState,
-								lastSavedSnapshot?.projectId ?? null,
-								foldActiveAudioRegionsIntoClips(clips, activeSceneId, audioRegions),
-							);
-				const thumbnailDataUrl = await captureProjectThumbnail();
-				const result = await window.electronAPI.saveProjectFileNamed(
-					projectData,
-					trimmedProjectName,
-					thumbnailDataUrl,
-				);
-
-				if (result.canceled) {
-					toast.info("Project save canceled");
-					return false;
-				}
-
-				if (!result.success) {
-					toast.error(result.message || "Failed to save project");
-					return false;
-				}
-
-				if (result.path) {
-					setCurrentProjectPath(result.path);
-				}
-				setLastSavedSnapshot(
-					cloneStructured(
-						createProjectData(
-							projectData.videoPath,
-							projectData.editor,
-							result.projectId ?? projectData.projectId ?? null,
-							projectData.clips,
-						),
-					),
-				);
-				await refreshProjectLibrary();
-				toast.success(result.path ? `Project saved to ${result.path}` : "Project saved");
-				return true;
-			} finally {
-				remountPreview();
-			}
-		},
-		[
-			activeSceneId,
-			audioRegions,
-			captureProjectThumbnail,
-			clips,
-			currentPersistedEditorState,
-			currentProjectSnapshot,
-			currentSourcePath,
-			lastSavedSnapshot?.projectId,
-			refreshProjectLibrary,
-			remountPreview,
-		],
-	);
 
 	/**
 	 * Resets the inline project-name editor back to the current saved display name.
