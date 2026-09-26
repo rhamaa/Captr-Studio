@@ -1,6 +1,6 @@
 import { Check, Scissors, Spinner, Waveform, X } from "@phosphor-icons/react";
 import React from "react";
-import type { SilenceRegion } from "@/components/video-editor/audio/silenceDetector";
+import type { SilenceRegion } from "@/slides/record/silenceDetector";
 import { formatTime } from "./recordConstants";
 
 export interface RecordSilenceModalProps {

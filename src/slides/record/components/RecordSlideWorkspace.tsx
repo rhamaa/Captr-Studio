@@ -3,7 +3,7 @@ import {
 	applySilenceRemovalToTimeline,
 	detectSilenceFromAudioUrl,
 	type SilenceRegion,
-} from "@/components/video-editor/audio/silenceDetector";
+} from "@/slides/record/silenceDetector";
 import {
 	buildInteractionZoomSuggestions,
 	normalizeCursorTelemetry,

@@ -148,13 +148,12 @@ import {
 	type MotionSlideMeta,
 } from "@/slides/motion/schema";
 import { type RecordSlideTimelineHandle } from "@/slides/record/components/RecordSlideTimeline";
+import { RecordSilenceAnalysisDialog } from "@/slides/record/components/RecordSilenceAnalysisDialog";
+import { useRecordSlideAutoReframe } from "@/slides/record/hooks/useRecordSlideAutoReframe";
+import { useRecordSlideSilenceAnalysis } from "@/slides/record/hooks/useRecordSlideSilenceAnalysis";
+import { useRecordSlideTelemetry } from "@/slides/record/hooks/useRecordSlideTelemetry";
 import { createDefaultVideoMeta } from "@/slides/video/schema";
-import {
-	applySilenceRemovalToTimeline,
-	detectSilenceFromAudioUrl,
-	NoAudioTrackError,
-	type SilenceRegion,
-} from "./audio/silenceDetector";
+import { applySilenceRemovalToTimeline } from "@/slides/record/silenceDetector";
 import { useVideoEditorAudio } from "./audio/useVideoEditorAudio";
 import { CropControl } from "./CropControl";
 import {
@@ -211,10 +210,6 @@ import {
 	openExternalLink,
 	RECORDLY_ISSUES_URL,
 } from "./TutorialHelp";
-import {
-	buildAutoReframeSuggestions,
-	normalizeCursorTelemetry,
-} from "./timeline/zoomSuggestionUtils";
 import {
 	type AnnotationRegion,
 	type AudioDuckingSettings,
@@ -567,13 +562,6 @@ export default function VideoEditor() {
 	);
 	const [resolvedWebcamVideoUrl, setResolvedWebcamVideoUrl] = useState<string | null>(null);
 	const [zoomRegions, setZoomRegions] = useState<ZoomRegion[]>([]);
-	const [cursorTelemetry, setCursorTelemetry] = useState<CursorTelemetryPoint[]>([]);
-	// Tracks the videoSourcePath for which the cursor telemetry IPC has already
-	// resolved. The smoke-export auto-trigger waits on this so long recordings
-	// still bake cursor/zoom animations into the output — without it, the
-	// auto-export fires as soon as the video loads and the telemetry arrives
-	// after encoding has started.
-	const [cursorTelemetrySourcePath, setCursorTelemetrySourcePath] = useState<string | null>(null);
 	const [selectedZoomId, setSelectedZoomId] = useState<string | null>(null);
 	const [motionEditorTab, setMotionEditorTab] = useState<MotionEditorTab>("document");
 	const motionIframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -620,12 +608,6 @@ export default function VideoEditor() {
 	);
 	const [showSocialSafeZone, setShowSocialSafeZone] = useState(false);
 
-	const [silenceModalOpen, setSilenceModalOpen] = useState(false);
-	const [isAnalyzingSilence, setIsAnalyzingSilence] = useState(false);
-	const [detectedSilences, setDetectedSilences] = useState<SilenceRegion[]>([]);
-	const [silenceTotalSavedMs, setSilenceTotalSavedMs] = useState(0);
-	const [silenceMinDurationMs, setSilenceMinDurationMs] = useState(1000);
-	const [silenceThresholdDb, setSilenceThresholdDb] = useState(-36);
 	const [isExporting, setIsExporting] = useState(false);
 	const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null);
 	const [exportError, setExportError] = useState<string | null>(null);
@@ -703,7 +685,6 @@ export default function VideoEditor() {
 	const [showCropModal, setShowCropModal] = useState(false);
 	const [previewVersion, setPreviewVersion] = useState(0);
 	const [isPreviewReady, setIsPreviewReady] = useState(false);
-	const [autoSuggestZoomsTrigger, setAutoSuggestZoomsTrigger] = useState(0);
 	const headerLeftControlsPaddingClass = appPlatform === "darwin" ? "pl-[76px]" : "";
 
 	const videoPlaybackRef = useRef<VideoPlaybackRef>(null);
@@ -729,14 +710,9 @@ export default function VideoEditor() {
 	const nextAnnotationIdRef = useRef(1);
 	const nextAnnotationZIndexRef = useRef(1); // Track z-index for stacking order
 	const exporterRef = useRef<CancelableExporter | null>(null);
-	const autoSuggestedVideoPathRef = useRef<string | null>(null);
-	const pendingFreshRecordingAutoZoomPathRef = useRef<string | null>(null);
 	const editorHistoryRef = useRef(createEditorHistoryStack());
 	const applyingHistoryRef = useRef(false);
 	const pendingExportSaveRef = useRef<PendingExportSave | null>(null);
-	const pendingTelemetryRetryTimeoutRef = useRef<number | null>(null);
-	const pendingFreshRecordingAutoSuggestTimeoutRef = useRef<number | null>(null);
-	const pendingFreshRecordingAutoSuggestTelemetryCountRef = useRef(0);
 	const cropSnapshotRef = useRef<CropRegion | null>(null);
 	const mp4SupportRequestRef = useRef(0);
 	const smokeExportStartedRef = useRef(false);
@@ -745,6 +721,27 @@ export default function VideoEditor() {
 	const smokeExportReadyStateRef = useRef<Record<string, unknown>>({});
 	const [historyVersion, setHistoryVersion] = useState(0);
 	const timelineRef = useRef<RecordSlideTimelineHandle>(null);
+	const recordSlideTelemetry = useRecordSlideTelemetry({
+		enabled: recordToolsEnabled,
+		videoPath,
+		videoSourcePath,
+		duration,
+		loading,
+		isPreviewReady,
+		hasZoomRegions: zoomRegions.length > 0,
+		autoApplyFreshRecordingAutoZooms,
+	});
+	const {
+		cursorTelemetry,
+		cursorTelemetrySourcePath,
+		normalizedCursorTelemetry,
+		autoSuggestZoomsTrigger,
+		clearCursorTelemetry,
+		clearPendingFreshRecordingAutoZoom,
+		requestFreshRecordingAutoZoom,
+		markFreshRecordingAutoZoomApplied,
+		consumeAutoSuggestZooms,
+	} = recordSlideTelemetry;
 
 	function formatTime(seconds: number) {
 		if (!isFinite(seconds) || isNaN(seconds) || seconds < 0) return "0:00";
@@ -875,15 +872,6 @@ export default function VideoEditor() {
 		void window.electronAPI?.getPlatform?.()?.then((platform) => {
 			setAppPlatform(platform);
 		});
-	}, []);
-
-	useEffect(() => {
-		autoSuggestedVideoPathRef.current = null;
-		pendingFreshRecordingAutoSuggestTelemetryCountRef.current = 0;
-		if (pendingFreshRecordingAutoSuggestTimeoutRef.current !== null) {
-			window.clearTimeout(pendingFreshRecordingAutoSuggestTimeoutRef.current);
-			pendingFreshRecordingAutoSuggestTimeoutRef.current = null;
-		}
 	}, []);
 
 	const [supportedMp4SourceDimensions, setSupportedMp4SourceDimensions] =
@@ -1548,14 +1536,6 @@ export default function VideoEditor() {
 			if (pending?.tempFilePath && typeof window !== "undefined") {
 				void window.electronAPI.discardExportedTemp?.(pending.tempFilePath);
 			}
-			if (pendingTelemetryRetryTimeoutRef.current !== null) {
-				window.clearTimeout(pendingTelemetryRetryTimeoutRef.current);
-				pendingTelemetryRetryTimeoutRef.current = null;
-			}
-			if (pendingFreshRecordingAutoSuggestTimeoutRef.current !== null) {
-				window.clearTimeout(pendingFreshRecordingAutoSuggestTimeoutRef.current);
-				pendingFreshRecordingAutoSuggestTimeoutRef.current = null;
-			}
 			if (projectAutosaveTimeoutRef.current !== null) {
 				window.clearTimeout(projectAutosaveTimeoutRef.current);
 				projectAutosaveTimeoutRef.current = null;
@@ -2198,7 +2178,7 @@ export default function VideoEditor() {
 			setVideoSourcePath(sourcePath || null);
 			setVideoPath(sourcePath ? await resolveVideoUrl(sourcePath) : null);
 			setCurrentProjectPath(path ?? null);
-			pendingFreshRecordingAutoZoomPathRef.current = null;
+			clearPendingFreshRecordingAutoZoom();
 			if (normalizedEditor.webcam.sourcePath) {
 				await window.electronAPI.setCurrentRecordingSession?.(
 					{
@@ -2444,6 +2424,7 @@ export default function VideoEditor() {
 		[
 			applySessionPresentation,
 			buildPersistedEditorState,
+			clearPendingFreshRecordingAutoZoom,
 			refreshProjectLibrary,
 			syncHistoryButtons,
 		],
@@ -2584,9 +2565,9 @@ export default function VideoEditor() {
 					setVideoPath(sourceVideoUrl);
 					setCurrentProjectPath(null);
 					setLastSavedSnapshot(null);
-					pendingFreshRecordingAutoZoomPathRef.current = autoApplyFreshRecordingAutoZooms
-						? sourceVideoUrl
-						: null;
+					requestFreshRecordingAutoZoom(
+						autoApplyFreshRecordingAutoZooms ? sourceVideoUrl : null,
+					);
 					setWebcam((prev) => ({
 						...prev,
 						enabled: Boolean(webcamSourcePath),
@@ -2612,7 +2593,7 @@ export default function VideoEditor() {
 					setVideoPath(sourceVideoUrl);
 					setCurrentProjectPath(null);
 					setLastSavedSnapshot(null);
-					pendingFreshRecordingAutoZoomPathRef.current = null;
+					clearPendingFreshRecordingAutoZoom();
 					setWebcam((prev) => ({
 						...prev,
 						enabled: !!smokeWebcamSourcePath,
@@ -2953,12 +2934,6 @@ export default function VideoEditor() {
 	}, [webcam.sourcePath]);
 
 	useEffect(() => {
-		if (!autoApplyFreshRecordingAutoZooms) {
-			pendingFreshRecordingAutoZoomPathRef.current = null;
-		}
-	}, [autoApplyFreshRecordingAutoZooms]);
-
-	useEffect(() => {
 		saveEditorPreferences({
 			wallpaper,
 			shadowIntensity,
@@ -3189,8 +3164,7 @@ export default function VideoEditor() {
 					// ISOLATION: Cursor Telemetry & synthetic cursor
 					if (!isRecordSlide(clip)) {
 						setShowCursor(false);
-						setCursorTelemetry([]);
-						setCursorTelemetrySourcePath(null);
+						clearCursorTelemetry();
 					} else {
 						if (typeof clip.showCursor === "boolean") {
 							setShowCursor(clip.showCursor);
@@ -3225,6 +3199,7 @@ export default function VideoEditor() {
 			layoutRegions,
 			zoomRegions,
 			webcam,
+			clearCursorTelemetry,
 		],
 	);
 
@@ -3280,8 +3255,7 @@ export default function VideoEditor() {
 					}));
 					setResolvedWebcamVideoUrl(null);
 					setShowCursor(false);
-					setCursorTelemetry([]);
-					setCursorTelemetrySourcePath(null);
+					clearCursorTelemetry();
 					setClipRegions([
 						{
 							id: newClipId,
@@ -3326,7 +3300,14 @@ export default function VideoEditor() {
 				toast.error("Failed to import clip");
 			}
 		},
-		[deriveUniqueClipId, videoPath, handleSelectClip, buildHistorySnapshot, syncHistoryButtons],
+		[
+			deriveUniqueClipId,
+			videoPath,
+			handleSelectClip,
+			buildHistorySnapshot,
+			syncHistoryButtons,
+			clearCursorTelemetry,
+		],
 	);
 
 	const handleAddMotionSlide = useCallback(
@@ -4023,91 +4004,6 @@ export default function VideoEditor() {
 		};
 	}, [handleOpenProjectFromLibrary]);
 
-	useEffect(() => {
-		let mounted = true;
-		let retryAttempts = 0;
-
-		async function loadCursorTelemetry() {
-			if (!videoPath || !videoSourcePath) {
-				if (mounted) {
-					setCursorTelemetry([]);
-					setCursorTelemetrySourcePath(null);
-				}
-				return;
-			}
-
-			try {
-				const result = await window.electronAPI.getCursorTelemetry(videoSourcePath);
-				if (mounted) {
-					const samples = result.success ? result.samples : [];
-					setCursorTelemetry(samples);
-					setCursorTelemetrySourcePath(videoSourcePath);
-
-					const shouldRetryFreshRecordingTelemetry =
-						pendingFreshRecordingAutoZoomPathRef.current === videoPath &&
-						autoSuggestedVideoPathRef.current !== videoPath &&
-						retryAttempts < 12;
-
-					if (shouldRetryFreshRecordingTelemetry) {
-						retryAttempts += 1;
-						pendingTelemetryRetryTimeoutRef.current = window.setTimeout(() => {
-							pendingTelemetryRetryTimeoutRef.current = null;
-							if (mounted) {
-								void loadCursorTelemetry();
-							}
-						}, 350);
-					}
-				}
-			} catch (telemetryError) {
-				console.warn("Unable to load cursor telemetry:", telemetryError);
-				if (mounted) {
-					setCursorTelemetry([]);
-					setCursorTelemetrySourcePath(videoSourcePath);
-					if (
-						pendingFreshRecordingAutoZoomPathRef.current === videoPath &&
-						autoSuggestedVideoPathRef.current !== videoPath &&
-						retryAttempts < 12
-					) {
-						retryAttempts += 1;
-						pendingTelemetryRetryTimeoutRef.current = window.setTimeout(() => {
-							pendingTelemetryRetryTimeoutRef.current = null;
-							if (mounted) {
-								void loadCursorTelemetry();
-							}
-						}, 350);
-					}
-				}
-			}
-		}
-
-		if (pendingTelemetryRetryTimeoutRef.current !== null) {
-			window.clearTimeout(pendingTelemetryRetryTimeoutRef.current);
-			pendingTelemetryRetryTimeoutRef.current = null;
-		}
-
-		loadCursorTelemetry();
-
-		return () => {
-			mounted = false;
-			if (pendingTelemetryRetryTimeoutRef.current !== null) {
-				window.clearTimeout(pendingTelemetryRetryTimeoutRef.current);
-				pendingTelemetryRetryTimeoutRef.current = null;
-			}
-		};
-	}, [videoPath, videoSourcePath]);
-
-	const normalizedCursorTelemetry = useMemo(() => {
-		if (cursorTelemetry.length === 0) {
-			return [] as CursorTelemetryPoint[];
-		}
-
-		const totalMs = Math.max(0, Math.round(duration * 1000));
-		return normalizeCursorTelemetry(
-			cursorTelemetry,
-			totalMs > 0 ? totalMs : Number.MAX_SAFE_INTEGER,
-		);
-	}, [cursorTelemetry, duration]);
-
 	const displayedTimelineWindow = useMemo(() => {
 		const totalMs = Math.max(0, Math.round(duration * 1000));
 		return getDisplayedTimelineWindowMs(totalMs, trimRegions);
@@ -4534,6 +4430,25 @@ export default function VideoEditor() {
 			);
 		},
 	});
+	const recordSilenceAnalysis = useRecordSlideSilenceAnalysis({
+		enabled: recordToolsEnabled,
+		videoPath,
+		videoSourcePath,
+		fallbackAudioPaths: audio.sourceAudioFallbackPaths,
+		resolveVideoUrl,
+	});
+	const {
+		isOpen: silenceModalOpen,
+		setIsOpen: setSilenceModalOpen,
+		isAnalyzing: isAnalyzingSilence,
+		detectedSilences,
+		totalSavedMs: silenceTotalSavedMs,
+		minDurationMs: silenceMinDurationMs,
+		setMinDurationMs: setSilenceMinDurationMs,
+		thresholdDb: silenceThresholdDb,
+		setThresholdDb: setSilenceThresholdDb,
+		analyze: handleAnalyzeSilence,
+	} = recordSilenceAnalysis;
 
 	function togglePlayPause() {
 		if (activeSlideMode === "motion") {
@@ -4550,10 +4465,6 @@ export default function VideoEditor() {
 			playback.play().catch((err) => console.error("Video play failed:", err));
 		}
 	}
-
-	const handleAutoSuggestZoomsConsumed = useCallback(() => {
-		setAutoSuggestZoomsTrigger(0);
-	}, []);
 
 	const handleSeek = useCallback(
 		(time: number, options: { pause?: boolean } = {}) => {
@@ -4643,93 +4554,6 @@ export default function VideoEditor() {
 		}
 	}, [isPlaying, clips, selectedClipId, currentTime, handleSelectClip]);
 
-	const handleAnalyzeSilence = useCallback(
-		async (minDuration = silenceMinDurationMs, threshold = silenceThresholdDb) => {
-			// Check if companion audio files (mic, system, etc.) exist first
-			const fallbackAudioPath =
-				audio.sourceAudioFallbackPaths.find(
-					(p) =>
-						typeof p === "string" &&
-						p.trim().length > 0 &&
-						!/\.(mp4|mov|webm|mkv)$/i.test(p),
-				) ||
-				audio.sourceAudioFallbackPaths[0] ||
-				null;
-
-			const targetSourcePath = fallbackAudioPath || videoSourcePath || videoPath;
-			if (!targetSourcePath) {
-				toast.error(t("editor.silence.noVideo", "No video loaded to analyze silence"));
-				return;
-			}
-
-			setIsAnalyzingSilence(true);
-			try {
-				let mediaUrl: string;
-				if (
-					targetSourcePath.startsWith("http") ||
-					targetSourcePath.startsWith("blob:") ||
-					targetSourcePath.startsWith("file:")
-				) {
-					mediaUrl = targetSourcePath;
-				} else if (
-					!fallbackAudioPath &&
-					(videoPath?.startsWith("http") ||
-						videoPath?.startsWith("blob:") ||
-						videoPath?.startsWith("file:"))
-				) {
-					mediaUrl = videoPath;
-				} else {
-					mediaUrl = await resolveVideoUrl(targetSourcePath);
-				}
-
-				const result = await detectSilenceFromAudioUrl(mediaUrl, {
-					minDurationMs: minDuration,
-					thresholdDb: threshold,
-					speechPaddingMs: 150,
-					windowMs: 50,
-				});
-
-				setDetectedSilences(result.silences);
-				setSilenceTotalSavedMs(result.totalSavedMs);
-				setSilenceModalOpen(true);
-
-				if (result.silences.length === 0) {
-					toast.info(
-						t(
-							"editor.silence.noneFound",
-							"No dead-air pauses detected. Audio is already dense.",
-						),
-					);
-				}
-			} catch (err) {
-				if (
-					err instanceof NoAudioTrackError ||
-					(err instanceof Error && err.name === "NoAudioTrackError")
-				) {
-					toast.error(
-						t(
-							"editor.silence.noAudioTrack",
-							"This video does not contain an audio track to analyze for silences.",
-						),
-					);
-				} else {
-					console.error("[SilenceDetector] Failed to analyze audio:", err);
-					toast.error(t("editor.silence.error", "Failed to analyze audio for silences"));
-				}
-			} finally {
-				setIsAnalyzingSilence(false);
-			}
-		},
-		[
-			audio.sourceAudioFallbackPaths,
-			videoPath,
-			videoSourcePath,
-			silenceMinDurationMs,
-			silenceThresholdDb,
-			t,
-		],
-	);
-
 	const handleApplySilenceRemoval = useCallback(() => {
 		if (detectedSilences.length === 0) {
 			setSilenceModalOpen(false);
@@ -4817,10 +4641,7 @@ export default function VideoEditor() {
 				focus: clampFocusToDepth({ cx: 0.5, cy: 0.5 }, defaultDepth),
 				mode: "auto",
 			};
-			if (videoPath && pendingFreshRecordingAutoZoomPathRef.current === videoPath) {
-				autoSuggestedVideoPathRef.current = videoPath;
-				pendingFreshRecordingAutoZoomPathRef.current = null;
-			}
+			markFreshRecordingAutoZoomApplied(videoPath);
 			setZoomRegions((prev) => [...prev, newRegion]);
 			setSelectedZoomId(id);
 			setSelectedAnnotationId(null);
@@ -4829,7 +4650,7 @@ export default function VideoEditor() {
 				data: { id, startMs: newRegion.startMs, endMs: newRegion.endMs },
 			});
 		},
-		[videoPath],
+		[videoPath, markFreshRecordingAutoZoomApplied],
 	);
 
 	const handleZoomSuggested = useCallback(
@@ -4845,10 +4666,7 @@ export default function VideoEditor() {
 				focus: clampFocusToDepth(focus, targetDepth),
 				mode: "auto",
 			};
-			if (videoPath && pendingFreshRecordingAutoZoomPathRef.current === videoPath) {
-				autoSuggestedVideoPathRef.current = videoPath;
-				pendingFreshRecordingAutoZoomPathRef.current = null;
-			}
+			markFreshRecordingAutoZoomApplied(videoPath);
 			setZoomRegions((prev) => [...prev, newRegion]);
 			// Don't auto-select suggested zooms — they follow cursor and don't need user interaction
 			extensionHost.emitEvent({
@@ -4856,89 +4674,16 @@ export default function VideoEditor() {
 				data: { id, startMs: newRegion.startMs, endMs: newRegion.endMs },
 			});
 		},
-		[videoPath],
+		[videoPath, markFreshRecordingAutoZoomApplied],
 	);
 
-	const handleAutoReframe = useCallback(() => {
-		if (!normalizedCursorTelemetry.length || duration <= 0) return;
-		const videoWidth = videoPlaybackRef.current?.video?.videoWidth ?? 1920;
-		const videoHeight = videoPlaybackRef.current?.video?.videoHeight ?? 1080;
-		const sourceAspectRatio = videoHeight > 0 ? videoWidth / videoHeight : 16 / 9;
-		const result = buildAutoReframeSuggestions({
-			cursorTelemetry: normalizedCursorTelemetry,
-			totalMs: duration * 1000,
-			targetAspectRatio: aspectRatio,
-			sourceAspectRatio,
-			reservedSpans: zoomRegions.map((r) => ({ start: r.startMs, end: r.endMs })),
-		});
-		if (result.status !== "ok" || result.suggestions.length === 0) {
-			toast.error("No auto-reframe suggestions found for this video.");
-			return;
-		}
-		for (const s of result.suggestions) {
-			handleZoomSuggested({ start: s.start, end: s.end }, s.focus, s.depth);
-		}
-		toast.success(`Auto-reframed ${result.suggestions.length} scene(s) for ${aspectRatio}`);
-	}, [normalizedCursorTelemetry, duration, aspectRatio, zoomRegions, handleZoomSuggested]);
-
-	useEffect(() => {
-		if (
-			!videoPath ||
-			loading ||
-			!isPreviewReady ||
-			duration <= 0 ||
-			zoomRegions.length > 0 ||
-			normalizedCursorTelemetry.length < 2
-		) {
-			if (pendingFreshRecordingAutoSuggestTimeoutRef.current !== null) {
-				window.clearTimeout(pendingFreshRecordingAutoSuggestTimeoutRef.current);
-				pendingFreshRecordingAutoSuggestTimeoutRef.current = null;
-			}
-			return;
-		}
-
-		if (pendingFreshRecordingAutoZoomPathRef.current !== videoPath) {
-			return;
-		}
-
-		if (autoSuggestedVideoPathRef.current === videoPath) {
-			pendingFreshRecordingAutoZoomPathRef.current = null;
-			return;
-		}
-
-		const telemetryPointCount = cursorTelemetry.length;
-		if (pendingFreshRecordingAutoSuggestTelemetryCountRef.current === telemetryPointCount) {
-			return;
-		}
-
-		pendingFreshRecordingAutoSuggestTelemetryCountRef.current = telemetryPointCount;
-
-		if (pendingFreshRecordingAutoSuggestTimeoutRef.current !== null) {
-			window.clearTimeout(pendingFreshRecordingAutoSuggestTimeoutRef.current);
-			pendingFreshRecordingAutoSuggestTimeoutRef.current = null;
-		}
-
-		pendingFreshRecordingAutoSuggestTimeoutRef.current = window.setTimeout(() => {
-			pendingFreshRecordingAutoSuggestTimeoutRef.current = null;
-			if (
-				pendingFreshRecordingAutoZoomPathRef.current !== videoPath ||
-				autoSuggestedVideoPathRef.current === videoPath ||
-				zoomRegions.length > 0
-			) {
-				return;
-			}
-
-			setAutoSuggestZoomsTrigger((value) => value + 1);
-		}, 500);
-	}, [
-		videoPath,
-		loading,
-		isPreviewReady,
+	const handleAutoReframe = useRecordSlideAutoReframe({
+		cursorTelemetry: normalizedCursorTelemetry,
 		duration,
-		cursorTelemetry.length,
-		normalizedCursorTelemetry,
+		aspectRatio,
 		zoomRegions,
-	]);
+		onZoomSuggested: handleZoomSuggested,
+	});
 
 	const handleZoomSpanChange = useCallback((id: string, span: Span) => {
 		setZoomRegions((prev) =>
@@ -9057,7 +8802,12 @@ export default function VideoEditor() {
 										<Button
 											variant="ghost"
 											size="sm"
-											onClick={handleAutoReframe}
+											onClick={() =>
+												handleAutoReframe({
+													width: videoPlaybackRef.current?.video?.videoWidth ?? 1920,
+													height: videoPlaybackRef.current?.video?.videoHeight ?? 1080,
+												})
+											}
 											disabled={
 												!normalizedCursorTelemetry.length || duration <= 0
 											}
@@ -9431,23 +9181,25 @@ export default function VideoEditor() {
 								>
 									<Scissors className="w-4 h-4" />
 								</Button>
-								<Button
-									onClick={() => void handleAnalyzeSilence()}
-									variant="ghost"
-									size="icon"
-									disabled={isAnalyzingSilence || !videoPath}
-									className="h-7 w-7 rounded-full text-muted-foreground transition-all hover:bg-emerald-500/10 hover:text-emerald-500"
-									title={t(
-										"editor.toolbar.cleanPauses",
-										"Clean Pauses / Auto Cut Dead-Air (Hapus Jeda Diam)",
-									)}
-								>
-									{isAnalyzingSilence ? (
-										<Redo2 className="w-4 h-4 animate-spin" />
-									) : (
-										<VolumeX className="w-4 h-4" />
-									)}
-								</Button>
+								{recordToolsEnabled && (
+									<Button
+										onClick={() => void handleAnalyzeSilence()}
+										variant="ghost"
+										size="icon"
+										disabled={isAnalyzingSilence || !videoPath}
+										className="h-7 w-7 rounded-full text-muted-foreground transition-all hover:bg-emerald-500/10 hover:text-emerald-500"
+						title={t(
+							"editor.toolbar.cleanPauses",
+							"Clean Pauses / Auto Cut Dead-Air (Hapus Jeda Diam)",
+						)}
+									>
+										{isAnalyzingSilence ? (
+											<Redo2 className="w-4 h-4 animate-spin" />
+										) : (
+											<VolumeX className="w-4 h-4" />
+										)}
+									</Button>
+								)}
 							</div>
 							{/* Playback controls - centered */}
 							<div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
@@ -9717,7 +9469,7 @@ export default function VideoEditor() {
 								cursorTelemetrySourcePath: cursorTelemetrySourcePath,
 								cursorTelemetry: normalizedCursorTelemetry,
 								autoSuggestZoomsTrigger: autoSuggestZoomsTrigger,
-								onAutoSuggestZoomsConsumed: handleAutoSuggestZoomsConsumed,
+								onAutoSuggestZoomsConsumed: consumeAutoSuggestZooms,
 								disableSuggestedZooms:
 									activeSlideMode !== "record" ||
 									!autoApplyFreshRecordingAutoZooms,
@@ -9872,171 +9624,19 @@ export default function VideoEditor() {
 			{projectBrowser}
 			{nativeCaptureUnavailableDialog}
 
-			<Dialog open={silenceModalOpen} onOpenChange={setSilenceModalOpen}>
-				<DialogContent className="sm:max-w-[480px] border-foreground/10 bg-editor-surface text-foreground shadow-2xl">
-					<DialogHeader>
-						<DialogTitle className="flex items-center gap-2 text-base font-semibold">
-							<VolumeX className="w-5 h-5 text-emerald-500" />
-							{t(
-								"editor.silence.modalTitle",
-								"Clean Pauses & Dead-Air (1-Click Cut)",
-							)}
-						</DialogTitle>
-						<DialogDescription className="text-xs text-muted-foreground">
-							{t(
-								"editor.silence.modalDescription",
-								"Automatically cut silent gaps and dead air to keep your video engaging and fast-paced.",
-							)}
-						</DialogDescription>
-					</DialogHeader>
-
-					<div className="space-y-4 py-2">
-						{/* Stats Summary */}
-						<div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-foreground/[0.04] border border-foreground/10">
-							<div>
-								<div className="text-[10px] uppercase font-semibold text-muted-foreground">
-									{t("editor.silence.detectedCount", "Pauses Found")}
-								</div>
-								<div className="text-2xl font-bold text-foreground mt-0.5">
-									{detectedSilences.length}
-								</div>
-							</div>
-							<div>
-								<div className="text-[10px] uppercase font-semibold text-muted-foreground">
-									{t("editor.silence.timeSaved", "Time Saved")}
-								</div>
-								<div className="text-2xl font-bold text-emerald-500 mt-0.5">
-									-{(silenceTotalSavedMs / 1000).toFixed(1)}s
-								</div>
-							</div>
-						</div>
-
-						{/* Settings */}
-						<div className="space-y-2.5 rounded-xl border border-foreground/10 bg-foreground/[0.02] p-3">
-							<div className="flex items-center justify-between text-xs">
-								<span className="font-medium text-foreground">
-									{t("editor.silence.minDurationLabel", "Min Pause Duration")}
-								</span>
-								<span className="font-mono text-muted-foreground">
-									{(silenceMinDurationMs / 1000).toFixed(1)}s
-								</span>
-							</div>
-							<input
-								type="range"
-								min="600"
-								max="3000"
-								step="100"
-								value={silenceMinDurationMs}
-								onChange={(e) => {
-									const val = Number(e.target.value);
-									setSilenceMinDurationMs(val);
-								}}
-								onMouseUp={() =>
-									void handleAnalyzeSilence(
-										silenceMinDurationMs,
-										silenceThresholdDb,
-									)
-								}
-								className="w-full h-1.5 bg-foreground/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-							/>
-							<div className="flex justify-between text-[10px] text-muted-foreground/60">
-								<span>Aggressive (0.6s)</span>
-								<span>Default (1.0s)</span>
-								<span>Relaxed (3.0s)</span>
-							</div>
-						</div>
-
-						<div className="space-y-2.5 rounded-xl border border-foreground/10 bg-foreground/[0.02] p-3">
-							<div className="flex items-center justify-between text-xs">
-								<span className="font-medium text-foreground">
-									{t("editor.silence.thresholdLabel", "Silence Volume Threshold")}
-								</span>
-								<span className="font-mono text-muted-foreground">
-									{silenceThresholdDb} dB
-								</span>
-							</div>
-							<input
-								type="range"
-								min="-50"
-								max="-20"
-								step="2"
-								value={silenceThresholdDb}
-								onChange={(e) => {
-									const val = Number(e.target.value);
-									setSilenceThresholdDb(val);
-								}}
-								onMouseUp={() =>
-									void handleAnalyzeSilence(
-										silenceMinDurationMs,
-										silenceThresholdDb,
-									)
-								}
-								className="w-full h-1.5 bg-foreground/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-							/>
-							<div className="flex justify-between text-[10px] text-muted-foreground/60">
-								<span>Sensitive (-50dB)</span>
-								<span>Default (-36dB)</span>
-								<span>Aggressive (-20dB)</span>
-							</div>
-						</div>
-
-						{/* Pause region breakdown list */}
-						{detectedSilences.length > 0 ? (
-							<div className="space-y-1">
-								<div className="text-[11px] font-medium text-muted-foreground">
-									{t("editor.silence.previewList", "Detected pauses:")}
-								</div>
-								<div className="max-h-32 overflow-y-auto space-y-1 pr-1 text-xs font-mono">
-									{detectedSilences.slice(0, 8).map((s) => (
-										<div
-											key={s.id}
-											className="flex justify-between items-center px-2.5 py-1 rounded bg-foreground/[0.03] text-muted-foreground"
-										>
-											<span>
-												{formatTime(s.startMs / 1000)} →{" "}
-												{formatTime(s.endMs / 1000)}
-											</span>
-											<span className="text-emerald-500 font-semibold">
-												-{(s.durationMs / 1000).toFixed(1)}s
-											</span>
-										</div>
-									))}
-									{detectedSilences.length > 8 ? (
-										<div className="text-center text-[10px] text-muted-foreground/60 py-0.5">
-											+{detectedSilences.length - 8} more pauses
-										</div>
-									) : null}
-								</div>
-							</div>
-						) : (
-							<div className="text-center py-4 text-xs text-muted-foreground">
-								{t(
-									"editor.silence.noPauses",
-									"No dead-air pauses detected matching criteria.",
-								)}
-							</div>
-						)}
-					</div>
-
-					<DialogFooter className="gap-2 sm:gap-0">
-						<Button
-							variant="ghost"
-							onClick={() => setSilenceModalOpen(false)}
-							className="text-xs"
-						>
-							{t("common.actions.cancel", "Cancel")}
-						</Button>
-						<Button
-							disabled={detectedSilences.length === 0}
-							onClick={handleApplySilenceRemoval}
-							className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium gap-1.5"
-						>
-							<Scissors className="w-3.5 h-3.5" />
-							{t("editor.silence.cutAllButton", "Cut All Pauses & Ripple Timeline")}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+			<RecordSilenceAnalysisDialog
+				open={recordToolsEnabled && silenceModalOpen}
+				onOpenChange={setSilenceModalOpen}
+				detectedSilences={detectedSilences}
+				silenceTotalSavedMs={silenceTotalSavedMs}
+				silenceMinDurationMs={silenceMinDurationMs}
+				onSilenceMinDurationChange={setSilenceMinDurationMs}
+				silenceThresholdDb={silenceThresholdDb}
+				onSilenceThresholdChange={setSilenceThresholdDb}
+				onAnalyze={handleAnalyzeSilence}
+				onApply={handleApplySilenceRemoval}
+				formatTime={formatTime}
+			/>
 
 			<AppSettingsDialog
 				open={isSettingsOpen}

@@ -4,7 +4,13 @@
  */
 
 import { AudioProcessor } from "@/lib/exporter/audioEncoder";
-import type { AnnotationRegion, AudioRegion, ClipRegion, LayoutRegion, ZoomRegion } from "../types";
+import type {
+	AnnotationRegion,
+	AudioRegion,
+	ClipRegion,
+	LayoutRegion,
+	ZoomRegion,
+} from "@/components/video-editor/types";
 
 export interface SilenceRegion {
 	id: string;
