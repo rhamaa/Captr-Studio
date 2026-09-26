@@ -52,4 +52,30 @@ describe("globalStitcher filtergraph builder", () => {
 		expect(result.lastVideoLabel).toBe("v_out_2");
 		expect(result.lastAudioLabel).toBe("a_out_2");
 	});
+
+	it("normalizes inputs when normalize option is enabled", () => {
+		const slides = [
+			{ filePath: "s1.mp4", durationSec: 10 },
+			{ filePath: "s2.mp4", durationSec: 6 },
+		];
+		const transitions = [
+			{ type: "crossfade" as const, durationSec: 1.0 },
+		];
+
+		const result = buildStitchFiltergraph(slides, transitions, {
+			normalize: true,
+			targetWidth: 1920,
+			targetHeight: 1080,
+			targetFps: 60,
+			hasAudioPerSlide: [true, false],
+		});
+
+		expect(result.filtergraph).toContain("[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=60[nv_0]");
+		expect(result.filtergraph).toContain("[0:a]aformat=sample_rates=48000:channel_layouts=stereo[na_0]");
+		expect(result.filtergraph).toContain("aevalsrc=0:d=6.000:s=48000:c=stereo[na_1]");
+		expect(result.filtergraph).toContain("[nv_0][nv_1]xfade=transition=fade");
+		expect(result.filtergraph).toContain("[na_0][na_1]acrossfade=d=1.000");
+		expect(result.lastVideoLabel).toBe("v_out_1");
+		expect(result.lastAudioLabel).toBe("a_out_1");
+	});
 });

@@ -30,6 +30,7 @@ import {
 	writeCursorTelemetry,
 } from "../cursor/telemetry";
 import { registerOwnedExportPath } from "../export/exportStream";
+import { probeNativeVideoMetadata } from "../export/native-video";
 import { getFfmpegBinaryPath } from "../ffmpeg/binary";
 import { getMonitorHandles } from "../monitorResolver";
 import {
@@ -1969,30 +1970,77 @@ export function registerRecordingHandlers(
 
 		try {
 			const timestamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-			const listPath = path.join(app.getPath("temp"), `captr-concat-list-${timestamp}.txt`);
 			const outputPath = path.join(app.getPath("temp"), `captr-stitched-${timestamp}.mp4`);
-
-			const listContent = clipPaths.map((p) => `file '${p.replace(/\\/g, "/")}'`).join("\n");
-			await fs.writeFile(listPath, listContent, "utf8");
-
 			const ffmpegPath = await getFfmpegBinaryPath();
-			const args = [
-				"-y",
-				"-hide_banner",
-				"-loglevel",
-				"error",
-				"-f",
-				"concat",
-				"-safe",
-				"0",
-				"-i",
-				listPath,
-				"-c",
-				"copy",
+
+			// Probe all clips to determine canvas dimensions, framerate, duration, and audio
+			const probes = await Promise.all(
+				clipPaths.map((cp) => probeNativeVideoMetadata(ffmpegPath, cp).catch(() => null)),
+			);
+
+			const firstValid = probes.find(Boolean);
+			const targetWidth = firstValid?.width ?? 1920;
+			const targetHeight = firstValid?.height ?? 1080;
+			const targetFps = firstValid?.frameRate ?? 60;
+
+			const args: string[] = ["-y", "-hide_banner", "-loglevel", "error"];
+			for (const cp of clipPaths) {
+				args.push("-i", cp);
+			}
+
+			const filterParts: string[] = [];
+			const concatInputs: string[] = [];
+
+			for (let i = 0; i < clipPaths.length; i++) {
+				const probe = probes[i];
+				const vLabel = `v${i}`;
+				const aLabel = `a${i}`;
+
+				// Normalize video to uniform target dimensions, centered with padding, setsar=1, fixed FPS
+				filterParts.push(
+					`[${i}:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${targetFps}[${vLabel}]`,
+				);
+
+				// Normalize audio: resample to 48kHz stereo, or generate silence if audio stream is missing
+				if (probe?.hasAudio) {
+					filterParts.push(
+						`[${i}:a]aformat=sample_rates=48000:channel_layouts=stereo[${aLabel}]`,
+					);
+				} else {
+					const dur = probe?.duration ?? 5;
+					filterParts.push(`aevalsrc=0:d=${dur.toFixed(3)}:s=48000:c=stereo[${aLabel}]`);
+				}
+
+				concatInputs.push(`[${vLabel}][${aLabel}]`);
+			}
+
+			filterParts.push(
+				`${concatInputs.join("")}concat=n=${clipPaths.length}:v=1:a=1[outv][outa]`,
+			);
+
+			args.push(
+				"-filter_complex",
+				filterParts.join(";"),
+				"-map",
+				"[outv]",
+				"-map",
+				"[outa]",
+				"-c:v",
+				"libx264",
+				"-preset",
+				"veryfast",
+				"-pix_fmt",
+				"yuv420p",
+				"-c:a",
+				"aac",
+				"-b:a",
+				"192k",
+				"-ar",
+				"48000",
 				"-movflags",
 				"+faststart",
 				outputPath,
-			];
+			);
 
 			await new Promise((resolve, reject) => {
 				const proc = spawn(ffmpegPath, args);
@@ -2002,12 +2050,11 @@ export function registerRecordingHandlers(
 				});
 				proc.on("close", (code) => {
 					if (code === 0) resolve(true);
-					else reject(new Error(`ffmpeg exited with code ${code}: ${stderr}`));
+					else reject(new Error(`ffmpeg stitch failed with code ${code}: ${stderr}`));
 				});
 				proc.on("error", reject);
 			});
 
-			await fs.rm(listPath, { force: true });
 			registerOwnedExportPath(outputPath);
 			return { success: true, outputPath };
 		} catch (error) {

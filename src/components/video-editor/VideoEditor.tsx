@@ -9,7 +9,6 @@ import {
 	DownloadSimple as Download,
 	FolderOpen,
 	FolderSimple,
-	Gear,
 	SquaresFour as LayoutIcon,
 	Microphone,
 	Pause,
@@ -6206,16 +6205,13 @@ export default function VideoEditor() {
 
 	const handleExport = useCallback(
 		async (settings: ExportSettings) => {
-			if (!videoPath) {
-				toast.error("No video loaded");
+			const hasContentToExport = clips.length > 0 || Boolean(videoPath);
+			if (!hasContentToExport) {
+				toast.error("No video or slides loaded");
 				return;
 			}
 
 			const video = videoPlaybackRef.current?.video;
-			if (!video) {
-				toast.error("Video not ready");
-				return;
-			}
 
 			setIsExporting(true);
 			setExportProgress(null);
@@ -6228,8 +6224,8 @@ export default function VideoEditor() {
 
 			try {
 				const wasPlaying = isPlaying;
-				const restoreTime = video.currentTime;
-				if (wasPlaying) {
+				const restoreTime = video?.currentTime ?? currentTime;
+				if (wasPlaying && video) {
 					videoPlaybackRef.current?.pause();
 				}
 
@@ -6251,6 +6247,11 @@ export default function VideoEditor() {
 
 				if (settings.format === "gif" && settings.gifConfig) {
 					// GIF Export
+					if (!videoPath) {
+						toast.error("GIF export is not supported for motion slides");
+						setIsExporting(false);
+						return;
+					}
 					const gifExporter = new GifExporter({
 						videoUrl: videoPath,
 						width: settings.gifConfig.width,
@@ -6424,8 +6425,15 @@ export default function VideoEditor() {
 							? audio.selectedClipSourceAudioTrackSettings
 							: audio.activeSourceAudioTrackSettings;
 
+					const effectiveVideoUrl =
+						videoPath ||
+						(clips.length > 0
+							? clips.find((c) => !isMotionSlide(c) && c.videoPath)?.videoPath
+							: "") ||
+						"";
+
 					const exporterConfig = {
-						videoUrl: videoPath,
+						videoUrl: effectiveVideoUrl,
 						width: exportWidth,
 						height: exportHeight,
 						frameRate: selectedMp4FrameRate,
@@ -6638,11 +6646,21 @@ export default function VideoEditor() {
 								}
 
 								renderedClipPaths.push(motionResult.tempPath);
+								setExportProgress((prev) => ({
+									currentFrame: prev?.currentFrame ?? 1,
+									totalFrames: prev?.totalFrames ?? 1,
+									percentage: Math.round(((i + 1) / totalClips) * 100),
+									estimatedTimeRemaining: prev?.estimatedTimeRemaining ?? 0,
+									phase: "extracting",
+								}));
 								continue;
 							}
 
 							const isRecorded = isRecordSlide(clip);
 							const scene = resolveSceneEditingState(clip);
+							if (!clip.videoPath) {
+								throw new Error(`Slide ${i + 1} is missing video file path`);
+							}
 							const clipVideoUrl = await resolveVideoUrl(clip.videoPath);
 
 							// Isolated webcam handling
@@ -6687,78 +6705,93 @@ export default function VideoEditor() {
 								}
 							}
 
-							const clipExporterConfig = {
-								...exporterConfig,
-								...(clip.id === activeSceneId
-									? sceneSettings
-									: scene.sceneSettings),
-								videoUrl: clipVideoUrl,
-								annotationRegions:
-									clip.id === activeSceneId
-										? annotationRegions
-										: (clip.annotationRegions ?? []),
-								audioRegions:
-									clip.id === activeSceneId
-										? mixedAudioRegions
-										: [
-												...(clip.audioRegions ?? []),
-												...buildVideoLayerAudioRegions(
-													clip.annotationRegions ?? [],
-												),
-											],
-								sourceAudioFallbackPaths: [
-									clip.systemAudioPath,
-									clip.microphoneAudioPath,
-								].filter((path): path is string => Boolean(path)),
-								sourceAudioFallbackStartDelayMsByPath: {},
-								sourceAudioTrackSettings:
-									sourceAudioTrackSettingsByClip[clip.id] ??
-									defaultSourceAudioTrackSettings,
-								trimRegions: [
-									...(clip.trimStartMs
-										? [
-												{
-													id: "scene-head",
-													startMs: 0,
-													endMs: clip.trimStartMs,
-												},
-											]
-										: []),
-									...(clip.trimEndMs && clip.trimEndMs < clip.durationMs
-										? [
-												{
-													id: "scene-tail",
-													startMs: clip.trimEndMs,
-													endMs: clip.durationMs,
-												},
-											]
-										: []),
-								],
-								speedRegions: [
-									{
-										id: `scene-speed-${clip.id}`,
-										startMs: 0,
-										endMs: clip.durationMs,
-										speed: (clip.speed ??
-											clipRegions.find((region) => region.id === clip.id)
-												?.speed ??
-											1) as SpeedRegion["speed"],
-									},
-								],
-								clipRegions: [
-									{
-										id: clip.id,
-										startMs: clip.trimStartMs ?? 0,
-										endMs: clip.trimEndMs ?? clip.durationMs,
-										speed:
-											clip.speed ??
-											clipRegions.find((region) => region.id === clip.id)
-												?.speed ??
-											1,
-										transitionIn: clip.transitionIn?.type,
-										transitionInDurationMs: clip.transitionIn?.durationMs,
-									},
-								],
+								const matchingRegion = clipRegions.find(
+									(region) => region.id === clip.id,
+								);
+								const clipStartOffset = clip.startMsOffset || 0;
+								const effectiveTrimStart =
+									clip.trimStartMs !== undefined
+										? clip.trimStartMs
+										: matchingRegion
+											? Math.max(0, matchingRegion.startMs - clipStartOffset)
+											: 0;
+								const effectiveTrimEnd =
+									clip.trimEndMs !== undefined
+										? clip.trimEndMs
+										: matchingRegion
+											? Math.min(clip.durationMs, matchingRegion.endMs - clipStartOffset)
+											: clip.durationMs;
+
+								const clipExporterConfig = {
+									...exporterConfig,
+									...(clip.id === activeSceneId
+										? sceneSettings
+										: scene.sceneSettings),
+									videoUrl: clipVideoUrl,
+									annotationRegions:
+										clip.id === activeSceneId
+											? annotationRegions
+											: (clip.annotationRegions ?? []),
+									audioRegions:
+										clip.id === activeSceneId
+											? mixedAudioRegions
+											: [
+													...(clip.audioRegions ?? []),
+													...buildVideoLayerAudioRegions(
+														clip.annotationRegions ?? [],
+													),
+												],
+									sourceAudioFallbackPaths: [
+										clip.systemAudioPath,
+										clip.microphoneAudioPath,
+									].filter((path): path is string => Boolean(path)),
+									sourceAudioFallbackStartDelayMsByPath: {},
+									sourceAudioTrackSettings:
+										sourceAudioTrackSettingsByClip[clip.id] ??
+										defaultSourceAudioTrackSettings,
+									trimRegions: [
+										...(effectiveTrimStart > 0
+											? [
+													{
+														id: "scene-head",
+														startMs: 0,
+														endMs: effectiveTrimStart,
+													},
+												]
+											: []),
+										...(effectiveTrimEnd < clip.durationMs
+											? [
+													{
+														id: "scene-tail",
+														startMs: effectiveTrimEnd,
+														endMs: clip.durationMs,
+													},
+												]
+											: []),
+									],
+									speedRegions: [
+										{
+											id: `scene-speed-${clip.id}`,
+											startMs: 0,
+											endMs: clip.durationMs,
+											speed: (clip.speed ??
+												matchingRegion?.speed ??
+												1) as SpeedRegion["speed"],
+										},
+									],
+									clipRegions: [
+										{
+											id: clip.id,
+											startMs: effectiveTrimStart,
+											endMs: effectiveTrimEnd,
+											speed:
+												clip.speed ??
+												matchingRegion?.speed ??
+												1,
+											transitionIn: clip.transitionIn?.type,
+											transitionInDurationMs: clip.transitionIn?.durationMs,
+										},
+									],
 								wallpaper: clip.id === activeSceneId ? wallpaper : scene.wallpaper,
 								cropRegion:
 									clip.id === activeSceneId ? cropRegion : scene.cropRegion,
@@ -7013,7 +7046,7 @@ export default function VideoEditor() {
 
 				if (wasPlaying) {
 					videoPlaybackRef.current?.play();
-				} else {
+				} else if (video) {
 					video.currentTime = restoreTime;
 				}
 			} catch (error) {
@@ -7048,6 +7081,8 @@ export default function VideoEditor() {
 		[
 			clearPendingExportSave,
 			videoPath,
+			clips,
+			currentTime,
 			wallpaper,
 			trimRegions,
 			shadowIntensity,
@@ -7231,8 +7266,9 @@ export default function VideoEditor() {
 	]);
 
 	const handleOpenExportDropdown = useCallback(() => {
-		if (!videoPath) {
-			toast.error("No video loaded");
+		const hasContentToExport = clips.length > 0 || Boolean(videoPath);
+		if (!hasContentToExport) {
+			toast.error("No video or slides loaded");
 			return;
 		}
 
@@ -7244,21 +7280,18 @@ export default function VideoEditor() {
 		setShowExportDropdown(true);
 		setExportProgress(null);
 		setExportError(null);
-	}, [videoPath, hasPendingExportSave]);
+	}, [videoPath, clips.length, hasPendingExportSave]);
 
 	const handleStartExportFromDropdown = useCallback(() => {
-		const video = videoPlaybackRef.current?.video;
-		if (!videoPath) {
-			toast.error("No video loaded");
-			return;
-		}
-		if (!video) {
-			toast.error("Video not ready");
+		const hasContentToExport = clips.length > 0 || Boolean(videoPath);
+		if (!hasContentToExport) {
+			toast.error("No video or slides loaded");
 			return;
 		}
 
-		const sourceWidth = video.videoWidth || 1920;
-		const sourceHeight = video.videoHeight || 1080;
+		const video = videoPlaybackRef.current?.video;
+		const sourceWidth = video?.videoWidth || 1920;
+		const sourceHeight = video?.videoHeight || 1080;
 		const settings = resolveExportStartSettings({
 			sourceWidth,
 			sourceHeight,
@@ -7279,6 +7312,7 @@ export default function VideoEditor() {
 		handleExport(settings);
 	}, [
 		videoPath,
+		clips.length,
 		exportFormat,
 		exportEncodingMode,
 		exportQuality,
@@ -7631,7 +7665,7 @@ export default function VideoEditor() {
 						onSaveProject={() => void saveProject(false)}
 						onSaveAsProject={() => void saveProject(true)}
 						onImportMedia={() => void handleImportVideoClip()}
-						onExportVideo={() => setShowExportDropdown(true)}
+						onExportVideo={handleOpenExportDropdown}
 						onNavigateToWelcome={() => void handleNavigateToWelcome()}
 						canUndo={canUndo}
 						canRedo={canRedo}

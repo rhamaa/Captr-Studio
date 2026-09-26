@@ -1045,9 +1045,9 @@ export function registerExportHandlers() {
 			},
 		) => {
 			const { htmlDocument, durationMs } = options;
-			const width = options.width || 1920;
-			const height = options.height || 1080;
-			const fps = options.fps || 30;
+			const width = Math.floor((options.width || 1920) / 2) * 2;
+			const height = Math.floor((options.height || 1080) / 2) * 2;
+			const fps = Math.min(60, Math.max(15, options.fps || 30));
 			const durationSec = Math.max(0.5, (durationMs || 5000) / 1000);
 			const totalFrames = Math.max(1, Math.round(durationSec * fps));
 
@@ -1076,11 +1076,15 @@ export function registerExportHandlers() {
 				await new Promise<void>((resolve) => {
 					if (!renderWin.webContents.isLoading()) {
 						resolve();
-					} else {
-						renderWin.webContents.once("did-finish-load", () => resolve());
+						return;
 					}
+					const timeout = setTimeout(() => resolve(), 3000);
+					renderWin.webContents.once("did-finish-load", () => {
+						clearTimeout(timeout);
+						resolve();
+					});
 				});
-				await new Promise((r) => setTimeout(r, 250));
+				await new Promise((r) => setTimeout(r, 100));
 
 				const ffmpegPath = getFfmpegBinaryPath();
 				const ffmpeg = spawn(ffmpegPath, [
@@ -1095,8 +1099,10 @@ export function registerExportHandlers() {
 					"-",
 					"-f",
 					"lavfi",
+					"-t",
+					String(durationSec),
 					"-i",
-					"anullsrc=channel_layout=stereo:sample_rate=44100",
+					"anullsrc=channel_layout=stereo:sample_rate=48000",
 					"-c:v",
 					"libx264",
 					"-preset",
@@ -1105,7 +1111,12 @@ export function registerExportHandlers() {
 					"yuv420p",
 					"-c:a",
 					"aac",
-					"-shortest",
+					"-ar",
+					"48000",
+					"-b:a",
+					"192k",
+					"-t",
+					String(durationSec),
 					"-movflags",
 					"+faststart",
 					tempPath,
@@ -1116,23 +1127,43 @@ export function registerExportHandlers() {
 					ffmpegError += data.toString();
 				});
 
+				ffmpeg.stdin.on("error", (err) => {
+					console.warn("[render-motion-slide] FFmpeg stdin error:", err);
+				});
+
+				let ffmpegExited = false;
 				const ffmpegExitPromise = new Promise<{ code: number | null }>((resolve) => {
-					ffmpeg.on("close", (code) => resolve({ code }));
+					ffmpeg.on("close", (code) => {
+						ffmpegExited = true;
+						resolve({ code });
+					});
 				});
 
 				for (let i = 0; i < totalFrames; i++) {
+					if (ffmpegExited) {
+						throw new Error(`FFmpeg exited prematurely (${ffmpegError.slice(-200)})`);
+					}
+
 					const timeMs = (i / fps) * 1000;
 					try {
 						await renderWin.webContents.executeJavaScript(`
-							if (typeof window.setSeekTime === "function") {
-								try { window.setSeekTime(${timeMs}, ${durationMs}); } catch(e) {}
-							}
+							new Promise((resolve) => {
+								if (typeof window.setSeekTime === "function") {
+									try { window.setSeekTime(${timeMs}, ${durationMs}); } catch(e) {}
+								}
+								try {
+									const anims = document.getAnimations();
+									for (const a of anims) {
+										a.pause();
+										a.currentTime = ${timeMs};
+									}
+								} catch(e) {}
+								requestAnimationFrame(() => resolve(true));
+							})
 						`);
 					} catch {
 						// Ignore JS error
 					}
-
-					await new Promise((r) => setTimeout(r, 12));
 
 					const image = await renderWin.webContents.capturePage({
 						x: 0,
@@ -1142,9 +1173,26 @@ export function registerExportHandlers() {
 					});
 					const jpegBuffer = image.toJPEG(85);
 
-					const canWrite = ffmpeg.stdin.write(jpegBuffer);
-					if (!canWrite) {
-						await new Promise((resolve) => ffmpeg.stdin.once("drain", resolve));
+					if (!ffmpeg.stdin.destroyed && !ffmpegExited) {
+						const canWrite = ffmpeg.stdin.write(jpegBuffer);
+						if (!canWrite) {
+							await new Promise((resolve) => {
+								const onDrain = () => {
+									cleanup();
+									resolve(true);
+								};
+								const onClose = () => {
+									cleanup();
+									resolve(true);
+								};
+								const cleanup = () => {
+									ffmpeg.stdin.removeListener("drain", onDrain);
+									ffmpeg.removeListener("close", onClose);
+								};
+								ffmpeg.stdin.once("drain", onDrain);
+								ffmpeg.once("close", onClose);
+							});
+						}
 					}
 
 					const percent = Math.round(((i + 1) / totalFrames) * 95);
@@ -1156,7 +1204,15 @@ export function registerExportHandlers() {
 				}
 
 				ffmpeg.stdin.end();
-				const { code } = await ffmpegExitPromise;
+				const { code } = await Promise.race([
+					ffmpegExitPromise,
+					new Promise<{ code: number | null }>((_, reject) =>
+						setTimeout(
+							() => reject(new Error("FFmpeg motion rendering timed out")),
+							10000,
+						),
+					),
+				]);
 				renderWin.destroy();
 
 				if (code !== 0) {

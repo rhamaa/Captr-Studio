@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import { getFfmpegBinaryPath } from "../ffmpeg/binary";
+import { probeNativeVideoMetadata } from "./native-video";
 
 export interface SlideStitchInput {
 	filePath: string;
@@ -16,6 +17,14 @@ export interface GlobalAudioConfig {
 	path: string;
 	volume?: number;
 	loop?: boolean;
+}
+
+export interface BuildStitchFiltergraphOptions {
+	normalize?: boolean;
+	targetWidth?: number;
+	targetHeight?: number;
+	targetFps?: number;
+	hasAudioPerSlide?: boolean[];
 }
 
 export interface StitchProjectOptions {
@@ -54,6 +63,7 @@ export function mapToFfmpegXfadeType(type: TransitionStitchConfig["type"]): stri
 export function buildStitchFiltergraph(
 	slides: SlideStitchInput[],
 	transitions: TransitionStitchConfig[],
+	options?: BuildStitchFiltergraphOptions,
 ): { filtergraph: string; lastVideoLabel: string; lastAudioLabel: string } {
 	if (slides.length <= 1) {
 		return {
@@ -64,13 +74,37 @@ export function buildStitchFiltergraph(
 	}
 
 	const filterParts: string[] = [];
-	let currentVideoLabel = "0:v";
-	let currentAudioLabel = "0:a";
+	const normalize = options?.normalize ?? false;
+	const targetWidth = options?.targetWidth ?? 1920;
+	const targetHeight = options?.targetHeight ?? 1080;
+	const targetFps = options?.targetFps ?? 60;
+	const hasAudioPerSlide = options?.hasAudioPerSlide ?? [];
+
+	if (normalize) {
+		for (let i = 0; i < slides.length; i++) {
+			filterParts.push(
+				`[${i}:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${targetFps}[nv_${i}]`,
+			);
+			if (hasAudioPerSlide[i] !== false) {
+				filterParts.push(
+					`[${i}:a]aformat=sample_rates=48000:channel_layouts=stereo[na_${i}]`,
+				);
+			} else {
+				const dur = slides[i].durationSec || 5;
+				filterParts.push(
+					`aevalsrc=0:d=${dur.toFixed(3)}:s=48000:c=stereo[na_${i}]`,
+				);
+			}
+		}
+	}
+
+	let currentVideoLabel = normalize ? "nv_0" : "0:v";
+	let currentAudioLabel = normalize ? "na_0" : "0:a";
 	let currentTotalDurationSec = slides[0].durationSec;
 
 	for (let i = 1; i < slides.length; i++) {
-		const nextVideoInput = `${i}:v`;
-		const nextAudioInput = `${i}:a`;
+		const nextVideoInput = normalize ? `nv_${i}` : `${i}:v`;
+		const nextAudioInput = normalize ? `na_${i}` : `${i}:a`;
 		const nextVideoLabel = `v_out_${i}`;
 		const nextAudioLabel = `a_out_${i}`;
 
@@ -135,6 +169,17 @@ export async function stitchSlidesWithTransitions(
 	}
 
 	const ffmpegPath = getFfmpegBinaryPath();
+
+	// Probe all slide inputs to check audio presence and dimensions
+	const probes = await Promise.all(
+		slides.map((s) => probeNativeVideoMetadata(ffmpegPath, s.filePath).catch(() => null)),
+	);
+	const firstValid = probes.find(Boolean);
+	const targetWidth = firstValid?.width ?? 1920;
+	const targetHeight = firstValid?.height ?? 1080;
+	const targetFps = firstValid?.frameRate ?? 60;
+	const hasAudioPerSlide = probes.map((p) => p?.hasAudio ?? true);
+
 	const args: string[] = ["-y"];
 
 	// 1. Add all slide inputs
@@ -153,6 +198,13 @@ export async function stitchSlidesWithTransitions(
 	const { filtergraph, lastVideoLabel, lastAudioLabel } = buildStitchFiltergraph(
 		slides,
 		transitions,
+		{
+			normalize: true,
+			targetWidth,
+			targetHeight,
+			targetFps,
+			hasAudioPerSlide,
+		},
 	);
 
 	let finalVideo = lastVideoLabel;
@@ -188,6 +240,8 @@ export async function stitchSlidesWithTransitions(
 		"aac",
 		"-b:a",
 		"192k",
+		"-ar",
+		"48000",
 		"-movflags",
 		"+faststart",
 		outputPath,
