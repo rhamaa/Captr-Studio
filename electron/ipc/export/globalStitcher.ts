@@ -16,7 +16,8 @@ export interface TransitionStitchConfig {
 		| "wipe-left"
 		| "wipe-right"
 		| "slide-left"
-		| "slide-right";
+		| "slide-right"
+		| "zoom-in";
 	durationSec: number;
 }
 

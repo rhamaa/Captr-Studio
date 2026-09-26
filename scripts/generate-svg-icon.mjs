@@ -1,4 +1,8 @@
-<svg width="64" height="64" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+import fs from "node:fs";
+
+export function generateCaptrSvg(size = 512, darkMode = false) {
+  const inkColor = darkMode ? "#E2E8F0" : "#344054";
+  return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <!-- Smooth curved split for play symbol -->
     <clipPath id="play-clip">
@@ -7,10 +11,10 @@
   </defs>
 
   <!-- Viewfinder Frame Brackets -->
-  <path d="M 17 35 L 17 24 C 17 18.5 20.5 15 26 15 L 37 15" stroke="#344054" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
-  <path d="M 63 15 L 74 15 C 79.5 15 83 18.5 83 24 L 83 35" stroke="#344054" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
-  <path d="M 17 65 L 17 76 C 17 81.5 20.5 85 26 85 L 37 85" stroke="#344054" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
-  <path d="M 63 85 L 74 85 C 79.5 85 83 81.5 83 76 L 83 65" stroke="#344054" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 17 35 L 17 24 C 17 18.5 20.5 15 26 15 L 37 15" stroke="${inkColor}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 63 15 L 74 15 C 79.5 15 83 18.5 83 24 L 83 35" stroke="${inkColor}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 17 65 L 17 76 C 17 81.5 20.5 85 26 85 L 37 85" stroke="${inkColor}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 63 85 L 74 85 C 79.5 85 83 81.5 83 76 L 83 65" stroke="${inkColor}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
 
   <!-- Play Symbol: Dual-Tone Waveform Hybrid -->
   <g clip-path="url(#play-clip)">
@@ -27,4 +31,8 @@
   <rect x="65" y="42" width="5" height="16" rx="2.5" fill="#A879F5" />
   <rect x="72.5" y="44.5" width="4.5" height="11" rx="2.25" fill="#A879F5" />
   <rect x="79.5" y="46.5" width="4" height="7" rx="2" fill="#A879F5" />
-</svg>
+</svg>`;
+}
+
+fs.writeFileSync("public/favicon.svg", generateCaptrSvg(64, false));
+console.log("Updated public/favicon.svg");
