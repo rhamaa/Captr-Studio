@@ -2,9 +2,9 @@ import { VideoCamera } from "@phosphor-icons/react";
 import { slideRegistry } from "@/core/slides/registry";
 import type { SlideModule } from "@/core/slides/types";
 import { RecordSlideWorkspace } from "./components/RecordSlideWorkspace";
-import { createDefaultRecordMeta, type RecordSlideMeta } from "./schema";
+import { createDefaultRecordMeta } from "./schema";
 
-export const recordSlideModule: SlideModule<RecordSlideMeta> = {
+export const recordSlideModule: SlideModule<"record"> = {
 	type: "record",
 	displayName: "Record Slide",
 	description: "Screen studio mode dengan auto-zoom, cursor smoothing, dan wallpaper backdrop.",
@@ -36,4 +36,3 @@ slideRegistry.register(recordSlideModule);
 
 export * from "./components/RecordSlideTimeline";
 export * from "./schema";
-

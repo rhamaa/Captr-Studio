@@ -2,9 +2,9 @@ import { FilmSlate } from "@phosphor-icons/react";
 import { slideRegistry } from "@/core/slides/registry";
 import type { SlideModule } from "@/core/slides/types";
 import { VideoSlideWorkspace } from "./components/VideoSlideWorkspace";
-import { createDefaultVideoMeta, type VideoSlideMeta } from "./schema";
+import { createDefaultVideoMeta } from "./schema";
 
-export const videoSlideModule: SlideModule<VideoSlideMeta> = {
+export const videoSlideModule: SlideModule<"video"> = {
 	type: "video",
 	displayName: "Video Slide",
 	description:
@@ -71,4 +71,3 @@ export const videoSlideModule: SlideModule<VideoSlideMeta> = {
 slideRegistry.register(videoSlideModule);
 
 export { VideoSlideTimeline } from "./components/VideoSlideTimeline";
-

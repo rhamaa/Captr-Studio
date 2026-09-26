@@ -2,7 +2,6 @@ import { ArrowsClockwise, Lightning, UploadSimple } from "@phosphor-icons/react"
 import React from "react";
 import type { SlideWorkspaceProps } from "@/core/slides/types";
 import { useMotionSlideWorkspace } from "../hooks/useMotionSlideWorkspace";
-import type { MotionSlideMeta } from "../schema";
 import { MotionCodeEditor } from "./MotionCodeEditor";
 import { MotionModeModal } from "./MotionModeModal";
 import { MotionPreviewMonitor } from "./MotionPreviewMonitor";
@@ -10,7 +9,7 @@ import { MotionTimelineBar } from "./MotionTimelineBar";
 
 export { parseHtmlFileContent } from "../motionDocument";
 
-export const MotionSlideWorkspace: React.FC<SlideWorkspaceProps<MotionSlideMeta>> = (props) => {
+export const MotionSlideWorkspace: React.FC<SlideWorkspaceProps<"motion">> = (props) => {
 	const workspace = useMotionSlideWorkspace(props);
 	const {
 		meta,

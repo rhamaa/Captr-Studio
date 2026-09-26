@@ -20,6 +20,12 @@ import {
 } from "@/lib/exporter/temporalMotionBlur";
 import { DEFAULT_WALLPAPER_PATH } from "@/lib/wallpapers";
 import { ASPECT_RATIOS, type AspectRatio, isCustomAspectRatio } from "@/utils/aspectRatioUtils";
+import {
+	isObjectRecord as isSchemaObjectRecord,
+} from "@/core/slides/validation";
+import { isValidMotionSlideMeta } from "@/slides/motion/schema";
+import { recordMetadataGuards } from "@/slides/record/schema";
+import { isValidVideoSlideMeta } from "@/slides/video/schema";
 import { normalizePropertyKeyframes } from "./annotationKeyframes";
 import { CURSOR_MOTION_PRESETS, resolveCursorMotionPresetId } from "./cursorMotionPresets";
 import { normalizeLayoutRegion } from "./layoutScenes";
@@ -68,8 +74,8 @@ import {
 	DEFAULT_ZOOM_OUT_EASING,
 	DEFAULT_ZOOM_SMOOTHNESS,
 	type LayoutRegion,
-	type LayoutScenePreset,
 	type Padding,
+	type SlideAssetFile,
 	type SpeedRegion,
 	type TrimRegion,
 	type WebcamOverlaySettings,
@@ -149,16 +155,112 @@ export interface ProjectEditorState {
 	gifSizePreset: GifSizePreset;
 }
 
-export interface EditorProjectData {
+export interface LegacyEditorProjectData {
 	version: number;
 	projectId?: string;
 	videoPath: string;
-	clips?: ClipEntry[];
+	clips?: import("./types").LegacyClipEntry[];
 	editor: Partial<ProjectEditorState>;
 }
 
+/** Backward-compatible name for the persisted V1 project format. */
+export type EditorProjectData = LegacyEditorProjectData;
+
 function isFiniteNumber(value: unknown): value is number {
 	return typeof value === "number" && Number.isFinite(value);
+}
+
+function isBoolean(value: unknown): value is boolean {
+	return typeof value === "boolean";
+}
+
+function isAudioDuckingSettings(value: unknown): value is AudioDuckingSettings {
+	return (
+		isSchemaObjectRecord(value) &&
+		isBoolean(value.enabled) &&
+		isFiniteNumber(value.duckingAmountDb) &&
+		isFiniteNumber(value.attackMs) &&
+		isFiniteNumber(value.releaseMs) &&
+		isFiniteNumber(value.holdMs)
+	);
+}
+
+function normalizeLegacySceneSettings(value: unknown): import("./types").SceneVisualSettings | undefined {
+	if (!isSchemaObjectRecord(value)) return undefined;
+	const partial: Partial<ProjectEditorState> = {};
+	if (recordMetadataGuards.padding(value.padding)) partial.padding = value.padding;
+	if (isFiniteNumber(value.borderRadius)) partial.borderRadius = value.borderRadius;
+	if (isFiniteNumber(value.shadowIntensity)) partial.shadowIntensity = value.shadowIntensity;
+	if (isFiniteNumber(value.backgroundBlur)) partial.backgroundBlur = value.backgroundBlur;
+	if (value.frame === null || typeof value.frame === "string") partial.frame = value.frame;
+	if (isAudioDuckingSettings(value.audioDuckingSettings)) {
+		partial.audioDuckingSettings = value.audioDuckingSettings;
+	}
+	return normalizeSceneVisualSettings(partial);
+}
+
+function parseLegacyAssetFiles(value: unknown, clipIndex: number): SlideAssetFile[] | undefined {
+	if (!Array.isArray(value)) return undefined;
+	return value.flatMap((candidate, assetIndex) => {
+		if (!isSchemaObjectRecord(candidate) || typeof candidate.path !== "string") return [];
+		const assetType =
+			candidate.type === "audio" || candidate.type === "image" || candidate.type === "video"
+				? candidate.type
+				: "video";
+		const category: SlideAssetFile["category"] =
+			candidate.category === "main" ||
+			candidate.category === "layer" ||
+			candidate.category === "audio" ||
+			candidate.category === "graphic" ||
+			candidate.category === "imported"
+				? candidate.category
+				: "imported";
+		return [
+			{
+				id:
+				typeof candidate.id === "string" && candidate.id
+					? candidate.id
+					: `asset-${clipIndex + 1}-${assetIndex + 1}`,
+				name:
+				typeof candidate.name === "string" && candidate.name ? candidate.name : "Asset",
+				path: candidate.path,
+				size: isFiniteNumber(candidate.size)
+					? Math.max(0, Math.round(candidate.size))
+					: 0,
+				mtimeMs: isFiniteNumber(candidate.mtimeMs) ? candidate.mtimeMs : Date.now(),
+				type: assetType,
+				subfolder:
+					typeof candidate.subfolder === "string" && candidate.subfolder
+						? candidate.subfolder
+						: "Imported",
+				category,
+			},
+		];
+	});
+}
+
+function normalizeLegacyAudioTracks(value: unknown): AudioRegion[] | undefined {
+	if (!Array.isArray(value)) return undefined;
+	const regions = value
+		.filter(isSchemaObjectRecord)
+		.flatMap((track, trackIndex) => {
+			if (typeof track.sourcePath !== "string" || !track.sourcePath) return [];
+			const startMs = isFiniteNumber(track.startOffsetMs) ? track.startOffsetMs : 0;
+			const durationMs = isFiniteNumber(track.durationMs) ? track.durationMs : 1000;
+			return [
+				{
+					id:
+						typeof track.id === "string" && track.id
+							? track.id
+							: `audio-track-${trackIndex + 1}`,
+					startMs,
+					endMs: startMs + durationMs,
+					audioPath: track.sourcePath,
+					volume: isFiniteNumber(track.volume) ? track.volume : 1,
+				},
+			];
+		});
+	return normalizeProjectEditor({ audioRegions: regions }).audioRegions;
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -333,9 +435,7 @@ export function normalizeSceneVisualSettings(
 export function normalizeClipEntries(candidateClips: unknown): ClipEntry[] {
 	if (!Array.isArray(candidateClips)) return [];
 	return candidateClips
-		.filter((item): item is Record<string, unknown> =>
-			Boolean(item && typeof item === "object"),
-		)
+		.filter(isSchemaObjectRecord)
 		.map((raw, index) => {
 			const id = typeof raw.id === "string" && raw.id ? raw.id : `clip-${index + 1}`;
 			const videoPath = typeof raw.videoPath === "string" ? raw.videoPath : "";
@@ -359,18 +459,31 @@ export function normalizeClipEntries(candidateClips: unknown): ClipEntry[] {
 				raw.slideMode === "video" || raw.slideMode === "record" || raw.slideMode === "motion"
 					? raw.slideMode
 					: origin === "uploaded"
-						? "video"
-						: "record";
+					? "video"
+					: "record";
 			const isRecord = slideMode === "record";
+			const normalizedAnnotations = Array.isArray(raw.annotationRegions)
+				? normalizeProjectEditor({
+						annotationRegions: raw.annotationRegions.filter(
+							recordMetadataGuards.annotationRegion,
+						),
+					}).annotationRegions
+				: Array.isArray(raw.mediaTrackLayers)
+					? normalizeProjectEditor({
+							annotationRegions: migrateMediaTrackLayers(
+								raw.mediaTrackLayers.filter(recordMetadataGuards.mediaTrackLayer),
+							),
+						}).annotationRegions
+					: undefined;
+			const normalizedAudioRegions = Array.isArray(raw.audioRegions)
+				? normalizeProjectEditor({
+						audioRegions: raw.audioRegions.filter(recordMetadataGuards.audioRegion),
+					}).audioRegions
+				: normalizeLegacyAudioTracks(raw.audioTracks);
 
 			return {
 				id,
-				sceneSettings:
-					raw.sceneSettings && typeof raw.sceneSettings === "object"
-						? normalizeSceneVisualSettings(
-								raw.sceneSettings as Partial<ProjectEditorState>,
-							)
-						: undefined,
+				sceneSettings: normalizeLegacySceneSettings(raw.sceneSettings),
 				origin,
 				videoPath,
 				webcamPath: isRecord ? webcamPath : null,
@@ -386,21 +499,23 @@ export function normalizeClipEntries(candidateClips: unknown): ClipEntry[] {
 				durationMs,
 				label,
 				wallpaper: typeof raw.wallpaper === "string" ? raw.wallpaper : undefined,
-				cropRegion: raw.cropRegion as CropRegion | undefined,
-				layoutPreset: isRecord
-					? (raw.layoutPreset as LayoutScenePreset | undefined)
+				cropRegion: recordMetadataGuards.cropRegion(raw.cropRegion)
+					? raw.cropRegion
+					: undefined,
+				layoutPreset: isRecord && recordMetadataGuards.layoutPreset(raw.layoutPreset)
+					? raw.layoutPreset
 					: undefined,
 				layoutRegions:
 					isRecord && Array.isArray(raw.layoutRegions)
-						? (raw.layoutRegions as LayoutRegion[])
+						? raw.layoutRegions.filter(recordMetadataGuards.layoutRegion)
 						: [],
 				webcam:
-					isRecord && raw.webcam
-						? (raw.webcam as WebcamOverlaySettings)
+					isRecord && recordMetadataGuards.webcam(raw.webcam)
+						? raw.webcam
 						: { ...DEFAULT_WEBCAM_OVERLAY, enabled: false, sourcePath: null },
 				zoomRegions:
 					isRecord && Array.isArray(raw.zoomRegions)
-						? (raw.zoomRegions as ZoomRegion[])
+						? raw.zoomRegions.filter(recordMetadataGuards.zoomRegion)
 						: [],
 				trimStartMs: isFiniteNumber(raw.trimStartMs) ? raw.trimStartMs : undefined,
 				trimEndMs: isFiniteNumber(raw.trimEndMs) ? raw.trimEndMs : undefined,
@@ -408,95 +523,39 @@ export function normalizeClipEntries(candidateClips: unknown): ClipEntry[] {
 				showCursor:
 					isRecord && (typeof raw.showCursor === "boolean" ? raw.showCursor : true),
 				slideMode,
-				annotationRegions:
-					Array.isArray(raw.annotationRegions) || Array.isArray(raw.mediaTrackLayers)
-						? normalizeProjectEditor({
-								annotationRegions: Array.isArray(raw.annotationRegions)
-									? (raw.annotationRegions as AnnotationRegion[])
-									: migrateMediaTrackLayers(
-											raw.mediaTrackLayers as import("./types").MediaTrackLayer[],
-										),
-							}).annotationRegions
-						: undefined,
-				audioRegions: Array.isArray(raw.audioRegions)
-					? normalizeProjectEditor({ audioRegions: raw.audioRegions as AudioRegion[] })
-							.audioRegions
-					: Array.isArray((raw as Record<string, unknown>).audioTracks)
-						? normalizeProjectEditor({
-								audioRegions: (
-									(raw as Record<string, unknown>).audioTracks as Array<{
-										id?: string;
-										sourcePath?: string;
-										startOffsetMs?: number;
-										durationMs?: number;
-										volume?: number;
-									}>
-								)
-									.filter((t) => Boolean(t && typeof t.sourcePath === "string"))
-									.map((t, tIdx) => ({
-										id: t.id || `audio-track-${tIdx + 1}`,
-										startMs: Number(t.startOffsetMs) || 0,
-										endMs:
-											(Number(t.startOffsetMs) || 0) +
-											(Number(t.durationMs) || 1000),
-										audioPath: t.sourcePath!,
-										volume: typeof t.volume === "number" ? t.volume : 1,
-									})),
-							}).audioRegions
-						: undefined,
+				cursorTelemetry:
+					isRecord && raw.cursorTelemetry === null
+						? null
+						: isRecord && Array.isArray(raw.cursorTelemetry)
+							? raw.cursorTelemetry.filter(recordMetadataGuards.cursorTelemetryPoint)
+							: undefined,
+				annotationRegions: normalizedAnnotations,
+				audioRegions: normalizedAudioRegions,
 				keyframes: normalizePropertyKeyframes(raw.keyframes),
 				transitionIn: normalizeClipTransition(raw.transitionIn ?? raw.transitionToNext),
-				assetFiles: Array.isArray(raw.assetFiles)
-					? (raw.assetFiles
-							.filter((f): f is Record<string, unknown> =>
-								Boolean(
-									f &&
-										typeof f === "object" &&
-										typeof (f as Record<string, unknown>).path === "string",
-								),
-							)
-							.map((f, fIdx) => ({
-								id:
-									typeof f.id === "string" && f.id
-										? f.id
-										: `asset-${index + 1}-${fIdx + 1}`,
-								name: typeof f.name === "string" && f.name ? f.name : "Asset",
-								path: String(f.path),
-								size: isFiniteNumber(f.size)
-									? Math.max(0, Math.round(Number(f.size)))
-									: 0,
-								mtimeMs: isFiniteNumber(f.mtimeMs) ? Number(f.mtimeMs) : Date.now(),
-								type:
-									f.type === "video" || f.type === "audio" || f.type === "image"
-										? (f.type as "video" | "audio" | "image")
-										: "video",
-								subfolder:
-									typeof f.subfolder === "string" && f.subfolder
-										? f.subfolder
-										: "Imported",
-								category:
-									typeof f.category === "string"
-										? (f.category as import("./types").SlideAssetFile["category"])
-										: "imported",
-							})) as import("./types").SlideAssetFile[])
-					: undefined,
+				assetFiles: parseLegacyAssetFiles(raw.assetFiles, index),
+				videoMeta:
+					slideMode === "video" && isValidVideoSlideMeta(raw.videoMeta)
+						? raw.videoMeta
+						: undefined,
 				motionMeta:
-					raw.motionMeta && typeof raw.motionMeta === "object"
-						? (raw.motionMeta as import("@/slides/motion/schema").MotionSlideMeta)
+					slideMode === "motion" && isValidMotionSlideMeta(raw.motionMeta)
+						? raw.motionMeta
 						: undefined,
 			};
 		});
 }
 
 export function validateProjectData(candidate: unknown): candidate is EditorProjectData {
-	if (!candidate || typeof candidate !== "object") return false;
-	const project = candidate as Partial<EditorProjectData>;
-	if (typeof project.version !== "number") return false;
+	if (!isSchemaObjectRecord(candidate)) return false;
+	const project = candidate;
+	if (!isFiniteNumber(project.version) || !Number.isInteger(project.version)) return false;
 	if (project.projectId !== undefined && typeof project.projectId !== "string") return false;
 	const hasValidVideoPath = typeof project.videoPath === "string";
-	const hasValidClips = Array.isArray(project.clips);
+	const hasValidClips =
+		Array.isArray(project.clips) && project.clips.every(isSchemaObjectRecord);
 	if (!hasValidVideoPath && !hasValidClips) return false;
-	if (!project.editor || typeof project.editor !== "object") return false;
+	if (!isSchemaObjectRecord(project.editor)) return false;
 	return true;
 }
 

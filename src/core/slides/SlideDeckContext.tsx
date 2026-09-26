@@ -4,6 +4,7 @@ import type {
 	CanvasDimensions,
 	ProjectV2Data,
 	SlideData,
+	SlideMetaByType,
 	SlideTransition,
 	SlideType,
 	TransitionType,
@@ -17,9 +18,10 @@ interface SlideDeckContextValue {
 	addSlide: (type: SlideType, title?: string) => string;
 	removeSlide: (id: string) => void;
 	reorderSlides: (sourceIndex: number, destinationIndex: number) => void;
-	updateSlideMeta: <TMeta = Record<string, unknown>>(
+	updateSlideMeta: <TType extends SlideType>(
 		slideId: string,
-		updater: (prev: TMeta) => TMeta,
+		type: TType,
+		updater: (prev: SlideMetaByType[TType]) => SlideMetaByType[TType],
 	) => void;
 	updateSlideTitle: (slideId: string, title: string) => void;
 	updateSlideDuration: (slideId: string, durationMs: number) => void;
@@ -58,17 +60,13 @@ export function SlideDeckProvider({ initialProject, children }: SlideDeckProvide
 			title: "Untitled Project",
 			canvas: DEFAULT_CANVAS,
 			slides: [
-				{
+				slideRegistry.createSlide("record", {
 					id: defaultId,
-					type: "record",
 					title: "Slide 1",
 					durationMs: 5000,
 					order: 0,
 					dirName: "slide_01_record",
-					meta: slideRegistry.has("record")
-						? slideRegistry.get("record").createDefaultMeta()
-						: {},
-				},
+				}),
 			],
 			transitions: [],
 			globalAudioTracks: [],
@@ -87,28 +85,16 @@ export function SlideDeckProvider({ initialProject, children }: SlideDeckProvide
 
 	const addSlide = useCallback((type: SlideType, title?: string) => {
 		const newId = `slide-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-		let defaultMeta: Record<string, unknown> = {};
-
-		if (slideRegistry.has(type)) {
-			try {
-				defaultMeta = slideRegistry.get(type).createDefaultMeta();
-			} catch (e) {
-				console.warn(`[SlideDeckContext] Failed to get defaultMeta for ${type}:`, e);
-			}
-		}
-
 		setProject((prev) => {
 			const order = prev.slides.length;
 			const slideTitle = title || `Slide ${order + 1}`;
-			const newSlide: SlideData = {
+			const newSlide = slideRegistry.createSlide(type, {
 				id: newId,
-				type,
 				title: slideTitle,
 				durationMs: 5000,
 				order,
 				dirName: `slide_${String(order + 1).padStart(2, "0")}_${type}`,
-				meta: defaultMeta,
-			};
+			});
 
 			const newSlides = [...prev.slides, newSlide];
 
@@ -199,14 +185,18 @@ export function SlideDeckProvider({ initialProject, children }: SlideDeckProvide
 	}, []);
 
 	const updateSlideMeta = useCallback(
-		<TMeta = Record<string, unknown>>(slideId: string, updater: (prev: TMeta) => TMeta) => {
+		<TType extends SlideType>(
+			slideId: string,
+			type: TType,
+			updater: (prev: SlideMetaByType[TType]) => SlideMetaByType[TType],
+		) => {
 			setProject((prev) => {
 				const updated = prev.slides.map((slide) => {
-					if (slide.id !== slideId) return slide;
+					if (slide.id !== slideId || slide.type !== type) return slide;
 					return {
 						...slide,
-						meta: updater(slide.meta as TMeta) as Record<string, unknown>,
-					};
+						meta: updater(slide.meta as SlideMetaByType[TType]),
+					} as SlideData;
 				});
 				return {
 					...prev,

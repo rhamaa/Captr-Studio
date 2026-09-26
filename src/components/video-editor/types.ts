@@ -256,7 +256,7 @@ export interface SlideAssetFile {
 	category?: "main" | "layer" | "audio" | "graphic" | "imported";
 }
 
-export interface ClipEntry {
+export interface LegacyClipEntry {
 	sceneSettings?: SceneVisualSettings;
 	id: string;
 	origin?: ClipOrigin; // "recorded" (internal screen/cam capture) vs "uploaded" (external media)
@@ -297,6 +297,9 @@ export interface ClipEntry {
 	/** Video slide multi-track NLE metadata */
 	videoMeta?: import("@/slides/video/schema").VideoSlideMeta;
 }
+
+/** Backward-compatible name for the editor's pre-V2 clip model. */
+export type ClipEntry = LegacyClipEntry;
 
 export function getClipSourceEndMs(clip: ClipRegion): number {
 	const displayDurationMs = Math.max(0, clip.endMs - clip.startMs);

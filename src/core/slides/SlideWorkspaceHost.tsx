@@ -1,4 +1,5 @@
 import React from "react";
+import type { SlideData, SlideType } from "./types";
 import { slideRegistry } from "./registry";
 import { useSlideDeck } from "./SlideDeckContext";
 
@@ -43,19 +44,39 @@ export const SlideWorkspaceHost: React.FC<SlideWorkspaceHostProps> = ({ classNam
 		);
 	}
 
-	const module = slideRegistry.get(activeSlide.type);
-	const WorkspaceComponent = module.WorkspaceComponent;
+	const renderWorkspace = <TType extends SlideType,>(slide: SlideData<TType>) => {
+		const WorkspaceComponent = slideRegistry.get(slide.type).WorkspaceComponent;
+		return (
+			<WorkspaceComponent
+				key={slide.id}
+				slide={slide}
+				onUpdateMeta={(updater) => updateSlideMeta(slide.id, slide.type, updater)}
+				onUpdateTitle={(title) => updateSlideTitle(slide.id, title)}
+				onUpdateDuration={(durationMs) => updateSlideDuration(slide.id, durationMs)}
+				canvasDimensions={project.canvas}
+			/>
+		);
+	};
+
+	let workspace: React.ReactNode;
+	switch (activeSlide.type) {
+		case "record":
+			workspace = renderWorkspace(activeSlide);
+			break;
+		case "video":
+			workspace = renderWorkspace(activeSlide);
+			break;
+		case "motion":
+			workspace = renderWorkspace(activeSlide);
+			break;
+		case "keyframe":
+			workspace = renderWorkspace(activeSlide);
+			break;
+	}
 
 	return (
 		<div className={`relative h-full w-full overflow-hidden ${className || ""}`}>
-			<WorkspaceComponent
-				key={activeSlide.id}
-				slide={activeSlide}
-				onUpdateMeta={(updater) => updateSlideMeta(activeSlide.id, updater)}
-				onUpdateTitle={(title) => updateSlideTitle(activeSlide.id, title)}
-				onUpdateDuration={(durationMs) => updateSlideDuration(activeSlide.id, durationMs)}
-				canvasDimensions={project.canvas}
-			/>
+			{workspace}
 		</div>
 	);
 };

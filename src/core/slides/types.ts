@@ -1,16 +1,35 @@
 import type React from "react";
 
-export type SlideType = "record" | "video" | "keyframe" | "motion";
+import type { MotionSlideMeta } from "@/slides/motion/schema";
+import type { RecordSlideMeta } from "@/slides/record/schema";
+import type { VideoSlideMeta } from "@/slides/video/schema";
 
-export interface SlideData<TMeta = Record<string, unknown>> {
+export interface SlideMetaByType {
+	record: RecordSlideMeta;
+	video: VideoSlideMeta;
+	/** Compatibility slot for externally registered keyframe modules. */
+	keyframe: Record<string, unknown>;
+	motion: MotionSlideMeta;
+}
+
+export type SlideType = keyof SlideMetaByType;
+
+interface SlideDataFields {
 	id: string;
-	type: SlideType;
 	title: string;
 	durationMs: number;
 	order: number;
 	dirName?: string;
-	meta: TMeta;
 }
+
+export type SlideData<TType extends SlideType = SlideType> = {
+	[Type in TType]: SlideDataFields & {
+		type: Type;
+		meta: SlideMetaByType[Type];
+	};
+}[TType];
+
+export type ProjectSlideData = SlideData;
 
 export type TransitionType =
 	| "none"
@@ -56,16 +75,16 @@ export interface ProjectV2Data {
 	projectId: string;
 	title: string;
 	canvas: CanvasDimensions;
-	slides: SlideData[];
+	slides: ProjectSlideData[];
 	transitions: SlideTransition[];
 	globalAudioTracks: GlobalAudioTrack[];
 	createdAt?: number;
 	updatedAt?: number;
 }
 
-export interface SlideWorkspaceProps<TMeta = Record<string, unknown>> {
-	slide: SlideData<TMeta>;
-	onUpdateMeta: (updater: (prev: TMeta) => TMeta) => void;
+export interface SlideWorkspaceProps<TType extends SlideType = SlideType> {
+	slide: SlideData<TType>;
+	onUpdateMeta: (updater: (prev: SlideMetaByType[TType]) => SlideMetaByType[TType]) => void;
 	onUpdateTitle?: (title: string) => void;
 	onUpdateDuration?: (durationMs: number) => void;
 	canvasDimensions: CanvasDimensions;
@@ -79,38 +98,37 @@ export interface SlideChunkExportOptions {
 	onProgress?: (progressPercent: number) => void;
 }
 
-export interface SlideModule<TMeta = Record<string, unknown>> {
-	type: SlideType;
+export interface SlideModule<TType extends SlideType = SlideType> {
+	type: TType;
 	displayName: string;
 	description: string;
 	icon: React.ComponentType<{ className?: string }>;
 
 	// Workspace component mounted when slide is active
-	WorkspaceComponent: React.ComponentType<SlideWorkspaceProps<TMeta>>;
+	WorkspaceComponent: React.ComponentType<SlideWorkspaceProps<TType>>;
 
 	// Thumbnail generator for Slide Deck Bar
-	generateThumbnail?: (slide: SlideData<TMeta>, timeMs: number) => Promise<string | null>;
+	generateThumbnail?: (slide: SlideData<TType>, timeMs: number) => Promise<string | null>;
 
 	// Frame renderer for export pipeline
 	renderFrame?: (
-		slide: SlideData<TMeta>,
+		slide: SlideData<TType>,
 		timeMs: number,
 		targetCanvas: HTMLCanvasElement | OffscreenCanvas,
 	) => Promise<void>;
 
 	// Audio renderer for export pipeline
 	renderAudioTrack?: (
-		slide: SlideData<TMeta>,
+		slide: SlideData<TType>,
 		offlineAudioContext: OfflineAudioContext,
 	) => Promise<AudioBuffer | null>;
 
 	// Direct chunk exporter if the module produces an MP4 chunk directly
 	exportChunk?: (
-		slide: SlideData<TMeta>,
+		slide: SlideData<TType>,
 		options: SlideChunkExportOptions,
 	) => Promise<{ filePath: string; durationSec: number }>;
 
 	// Create default metadata for a newly added slide
-	createDefaultMeta: () => TMeta;
+	createDefaultMeta: () => SlideMetaByType[TType];
 }
-

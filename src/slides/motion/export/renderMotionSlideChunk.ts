@@ -58,7 +58,7 @@ export async function renderMotionSlideChunk({
 }
 
 export async function exportMotionSlideChunk(
-	slide: SlideData<MotionSlideMeta>,
+	slide: SlideData<"motion">,
 	options: SlideChunkExportOptions,
 ): Promise<{ filePath: string; durationSec: number }> {
 	const durationMs = Math.max(500, slide.durationMs || slide.meta.durationMs || 5000);

@@ -2,14 +2,13 @@ import React from "react";
 import type { SlideWorkspaceProps } from "@/core/slides/types";
 import { useVideoSlideAudioRecorder } from "../hooks/useVideoSlideAudioRecorder";
 import { useVideoSlideTimeline } from "../hooks/useVideoSlideTimeline";
-import type { VideoSlideMeta } from "../schema";
 import { VideoClipInspector } from "./VideoClipInspector";
 import { VideoMediaPool } from "./VideoMediaPool";
 import { VideoPreviewMonitor } from "./VideoPreviewMonitor";
 import { VideoSlideTimeline } from "./VideoSlideTimeline";
 import { VideoSlideVoiceoverBar } from "./VideoSlideVoiceoverBar";
 
-export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<VideoSlideMeta>> = ({
+export const VideoSlideWorkspace: React.FC<SlideWorkspaceProps<"video">> = ({
 	slide,
 	onUpdateMeta,
 	onUpdateTitle,

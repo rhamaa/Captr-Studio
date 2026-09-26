@@ -89,13 +89,12 @@ export async function exportSlideChunk(
 	}
 
 	// 3. Metadata video source fallback
-	const meta = (slide.meta || {}) as Record<string, unknown>;
-	let sourcePath = (meta.videoPath as string) || "";
-
-	if (!sourcePath && Array.isArray(meta.videoTracks)) {
-		const tracks = meta.videoTracks as Array<{ clips?: Array<{ sourcePath: string }> }>;
-		sourcePath = tracks[0]?.clips?.[0]?.sourcePath || "";
-	}
+	const sourcePath =
+		slide.type === "record"
+			? slide.meta.videoPath || ""
+			: slide.type === "video"
+				? slide.meta.videoTracks[0]?.clips[0]?.sourcePath || ""
+				: "";
 
 	// Same fail-fast contract as the module path above: an empty path would
 	// silently reach FFmpeg and let another slide's output stand in for this one.

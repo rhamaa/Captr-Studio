@@ -3,9 +3,9 @@ import { slideRegistry } from "@/core/slides/registry";
 import type { SlideModule } from "@/core/slides/types";
 import { MotionSlideWorkspace } from "./components/MotionSlideWorkspace";
 import { exportMotionSlideChunk } from "./export/renderMotionSlideChunk";
-import { createDefaultMotionMeta, type MotionSlideMeta } from "./schema";
+import { createDefaultMotionMeta } from "./schema";
 
-export const motionSlideModule: SlideModule<MotionSlideMeta> = {
+export const motionSlideModule: SlideModule<"motion"> = {
 	type: "motion",
 	displayName: "Motion Slide",
 	description:

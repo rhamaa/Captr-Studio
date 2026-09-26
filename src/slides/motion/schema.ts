@@ -1,3 +1,10 @@
+import {
+	isFiniteNumber,
+	isObjectRecord,
+	isOptional,
+	isString,
+} from "@/core/slides/validation";
+
 export interface MotionSlideMeta {
 	document?: string;
 	html: string;
@@ -9,6 +16,23 @@ export interface MotionSlideMeta {
 	templateId?: string;
 	modeSelected?: boolean;
 	sourceFileName?: string;
+}
+
+/** Runtime schema check used when loading serialized project data. */
+export function isValidMotionSlideMeta(value: unknown): value is MotionSlideMeta {
+	if (!isObjectRecord(value)) return false;
+	return (
+		isString(value.html) &&
+		isString(value.css) &&
+		isString(value.js) &&
+		isFiniteNumber(value.durationMs) &&
+		isOptional(value.document, isString) &&
+		isOptional(value.autoReload, (candidate): candidate is boolean => typeof candidate === "boolean") &&
+		isOptional(value.backgroundColor, isString) &&
+		isOptional(value.templateId, isString) &&
+		isOptional(value.modeSelected, (candidate): candidate is boolean => typeof candidate === "boolean") &&
+		isOptional(value.sourceFileName, isString)
+	);
 }
 
 export const STARTER_HTML = `<div class="motion-canvas">

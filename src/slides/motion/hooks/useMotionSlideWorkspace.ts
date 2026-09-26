@@ -7,7 +7,6 @@ import {
 	STARTER_CSS,
 	STARTER_HTML,
 	STARTER_JS,
-	type MotionSlideMeta,
 } from "../schema";
 import type { MotionEditorTab } from "../components/MotionCodeEditor";
 
@@ -16,7 +15,7 @@ export function useMotionSlideWorkspace({
 	onUpdateMeta,
 	onUpdateDuration,
 	canvasDimensions,
-}: SlideWorkspaceProps<MotionSlideMeta>) {
+}: SlideWorkspaceProps<"motion">) {
 	const meta = useMemo(() => slide.meta || createDefaultMotionMeta(), [slide.meta]);
 	const [showModeModal, setShowModeModal] = useState(false);
 	const [sourceFileName, setSourceFileName] = useState(() => meta.sourceFileName || "");

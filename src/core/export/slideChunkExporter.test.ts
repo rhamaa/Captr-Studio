@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { createDefaultMotionMeta } from "@/slides/motion/schema";
+import { createDefaultRecordMeta } from "@/slides/record/schema";
+import { createDefaultVideoMeta } from "@/slides/video/schema";
 import { slideRegistry } from "../slides/registry";
 import type { SlideData, SlideModule } from "../slides/types";
 import { exportSlideChunk, isWebCodecsSupported } from "./slideChunkExporter";
@@ -10,7 +13,7 @@ describe("slideChunkExporter", () => {
 	});
 
 	it("delegates to module.exportChunk when defined", async () => {
-		const customModule: SlideModule = {
+		const customModule: SlideModule<"keyframe"> = {
 			type: "keyframe",
 			displayName: "Keyframe",
 			description: "",
@@ -28,7 +31,7 @@ describe("slideChunkExporter", () => {
 
 		slideRegistry.register(customModule);
 
-		const slide: SlideData = {
+		const slide: SlideData<"keyframe"> = {
 			id: "s1",
 			type: "keyframe",
 			title: "Custom Keyframe",
@@ -52,15 +55,13 @@ describe("slideChunkExporter", () => {
 	});
 
 	it("falls back to slide.meta.videoPath if exportChunk is not defined", async () => {
-		const slide: SlideData = {
+		const slide: SlideData<"record"> = {
 			id: "s2",
 			type: "record",
 			title: "Recording",
 			durationMs: 12000,
 			order: 0,
-			meta: {
-				videoPath: "C:/recordings/screen.mp4",
-			},
+			meta: { ...createDefaultRecordMeta(), videoPath: "C:/recordings/screen.mp4" },
 		};
 
 		const result = await exportSlideChunk({
@@ -73,25 +74,25 @@ describe("slideChunkExporter", () => {
 	});
 
 	it("fails loudly when a module returns an empty chunk path", async () => {
-		const brokenModule: SlideModule = {
+		const brokenModule: SlideModule<"motion"> = {
 			type: "motion",
 			displayName: "Motion",
 			description: "",
 			icon: () => null,
 			WorkspaceComponent: () => null,
-			createDefaultMeta: () => ({}),
+			createDefaultMeta: createDefaultMotionMeta,
 			exportChunk: async () => ({ filePath: "", durationSec: 5 }),
 		};
 
 		slideRegistry.register(brokenModule);
 
-		const slide: SlideData = {
+		const slide: SlideData<"motion"> = {
 			id: "m1",
 			type: "motion",
 			title: "Motion Slide",
 			durationMs: 5000,
 			order: 0,
-			meta: {},
+			meta: createDefaultMotionMeta(),
 		};
 
 		await expect(
@@ -103,13 +104,13 @@ describe("slideChunkExporter", () => {
 	});
 
 	it("fails loudly when the slide has no media to fall back to", async () => {
-		const slide: SlideData = {
+		const slide: SlideData<"video"> = {
 			id: "m2",
 			type: "video",
 			title: "Empty Video Slide",
 			durationMs: 3000,
 			order: 0,
-			meta: { videoTracks: [] },
+			meta: { ...createDefaultVideoMeta(), videoTracks: [] },
 		};
 
 		await expect(
@@ -121,24 +122,32 @@ describe("slideChunkExporter", () => {
 	});
 
 	it("falls back to video track clip for video slides", async () => {
-		const slide: SlideData = {
+		const slide: SlideData<"video"> = {
 			id: "s3",
 			type: "video",
 			title: "Video NLE",
 			durationMs: 8500,
 			order: 1,
 			meta: {
-				videoTracks: [
-					{
-						id: "track-1",
-						clips: [
-							{
-								id: "clip-1",
-								sourcePath: "D:/media/b-roll.mp4",
-							},
-						],
-					},
-				],
+				...createDefaultVideoMeta(),
+				videoTracks: createDefaultVideoMeta().videoTracks.map((track, index) =>
+					index === 0
+						? {
+								...track,
+								clips: [
+									{
+										id: "clip-1",
+										title: "B-roll",
+										sourcePath: "D:/media/b-roll.mp4",
+										startOffsetMs: 0,
+										durationMs: 8500,
+										speedMultiplier: 1,
+										volume: 1,
+									},
+								],
+							}
+						: track,
+				),
 			},
 		};
 

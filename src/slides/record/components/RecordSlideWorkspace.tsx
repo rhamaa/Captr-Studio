@@ -21,13 +21,12 @@ import type { VideoPlaybackRef } from "@/components/video-editor/VideoPlayback";
 import type { SlideWorkspaceProps } from "@/core/slides/types";
 import { resolveMediaElementSource } from "@/lib/exporter/localMediaSource";
 import type { AspectRatio } from "@/utils/aspectRatioUtils";
-import type { RecordSlideMeta } from "../schema";
 import { RecordInspectorPanel, type RecordInspectorTab } from "./RecordInspectorPanel";
 import { RecordPreviewMonitor } from "./RecordPreviewMonitor";
 import { RecordSilenceModal } from "./RecordSilenceModal";
 import { RecordTimelineBar } from "./RecordTimelineBar";
 
-export const RecordSlideWorkspace: React.FC<SlideWorkspaceProps<RecordSlideMeta>> = ({
+export const RecordSlideWorkspace: React.FC<SlideWorkspaceProps<"record">> = ({
 	slide,
 	onUpdateMeta,
 	onUpdateTitle,
