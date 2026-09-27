@@ -483,7 +483,7 @@ export function resolveLayoutSceneAtTime(params: {
 		getLayoutPresetTransform({
 			...params,
 			preset: region?.preset ?? DEFAULT_LAYOUT_SCENE_PRESET,
-			cameraSettings: region?.cameraSettings,
+			cameraSettings: region ? getLayoutCameraSettings(region, params.webcam) : undefined,
 		});
 
 	if (!active) {

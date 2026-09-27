@@ -247,9 +247,10 @@ export function WebcamCropControl({
 
 		const normalizedCrop = normalizeWebcamCropRegion(cropRegion);
 		const nextAspectRatio = getCropAspectRatio(normalizedCrop, previewAspectRatio);
+		const currentAspectRatio = cropAspectRatio ?? Number.NaN;
 		if (
-			!Number.isFinite(cropAspectRatio) ||
-			Math.abs(cropAspectRatio - nextAspectRatio) > 0.001
+			!Number.isFinite(currentAspectRatio) ||
+			Math.abs(currentAspectRatio - nextAspectRatio) > 0.001
 		) {
 			onCropChange(normalizedCrop, nextAspectRatio);
 		}
