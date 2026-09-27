@@ -10,7 +10,7 @@ import {
 	rememberRecentProject,
 	saveRecentProjectPaths,
 } from "../../project/manager";
-import { packProjectWorkspace } from "../../project/projectBundle";
+import { inspectProjectBundle, packProjectWorkspace } from "../../project/projectBundle";
 import {
 	assignRecordingToSlide,
 	convertProjectToBundleRelative,
@@ -473,16 +473,37 @@ export function registerProjectSaveHandlers() {
 				const trustedExistingProjectPath = isTrustedProjectPath(existingProjectPath)
 					? existingProjectPath
 					: null;
+				let targetProjectPath = trustedExistingProjectPath;
+				if (
+					!targetProjectPath &&
+					typeof existingProjectPath === "string" &&
+					existingProjectPath.trim() &&
+					preparedProject.projectId
+				) {
+					const inspection = await inspectProjectBundle(existingProjectPath);
+					if (
+						inspection.success &&
+						inspection.isBundle &&
+						inspection.projectData?.projectId === preparedProject.projectId
+					) {
+						targetProjectPath = existingProjectPath;
+					}
+				}
 
-				if (trustedExistingProjectPath) {
+				if (targetProjectPath) {
+					if (!trustedExistingProjectPath) {
+						console.warn(
+							"[save-project-file] Restoring active project path after matching the saved project ID.",
+						);
+					}
 					await saveAndBundleProject(
-						trustedExistingProjectPath,
+						targetProjectPath,
 						preparedProject,
 						thumbnailDataUrl,
 					);
 					return {
 						success: true,
-						path: trustedExistingProjectPath,
+						path: targetProjectPath,
 						projectId: preparedProject.projectId,
 						message: "Project saved successfully",
 					};

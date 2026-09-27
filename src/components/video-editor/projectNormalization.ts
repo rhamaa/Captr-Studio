@@ -1,4 +1,5 @@
 import type { SourceAudioTrackSettings } from "@/components/video-editor/audio/audioTypes";
+import { isObjectRecord as isSchemaObjectRecord } from "@/core/slides/validation";
 import type {
 	ExportBackendPreference,
 	ExportEncodingMode,
@@ -19,13 +20,10 @@ import {
 	TEMPORAL_MOTION_BLUR_MIN_SHUTTER_FRACTION,
 } from "@/lib/exporter/temporalMotionBlur";
 import { DEFAULT_WALLPAPER_PATH } from "@/lib/wallpapers";
-import { ASPECT_RATIOS, type AspectRatio, isCustomAspectRatio } from "@/utils/aspectRatioUtils";
-import {
-	isObjectRecord as isSchemaObjectRecord,
-} from "@/core/slides/validation";
 import { isValidMotionSlideMeta } from "@/slides/motion/schema";
 import { recordMetadataGuards } from "@/slides/record/schema";
 import { isValidVideoSlideMeta } from "@/slides/video/schema";
+import { ASPECT_RATIOS, type AspectRatio, isCustomAspectRatio } from "@/utils/aspectRatioUtils";
 import { normalizePropertyKeyframes } from "./annotationKeyframes";
 import { CURSOR_MOTION_PRESETS, resolveCursorMotionPresetId } from "./cursorMotionPresets";
 import { normalizeLayoutRegion } from "./layoutScenes";
@@ -74,6 +72,7 @@ import {
 	DEFAULT_ZOOM_SMOOTHNESS,
 	type LayoutRegion,
 	type Padding,
+	type RecordClipSettings,
 	type SlideAssetFile,
 	type SpeedRegion,
 	type TrimRegion,
@@ -183,16 +182,23 @@ function isAudioDuckingSettings(value: unknown): value is AudioDuckingSettings {
 	);
 }
 
-function normalizeLegacySceneSettings(value: unknown): import("./types").SceneVisualSettings | undefined {
-	if (!isSchemaObjectRecord(value)) return undefined;
-	const partial: Partial<ProjectEditorState> = {};
-	if (recordMetadataGuards.padding(value.padding)) partial.padding = value.padding;
-	if (isFiniteNumber(value.borderRadius)) partial.borderRadius = value.borderRadius;
-	if (isFiniteNumber(value.shadowIntensity)) partial.shadowIntensity = value.shadowIntensity;
-	if (isFiniteNumber(value.backgroundBlur)) partial.backgroundBlur = value.backgroundBlur;
-	if (value.frame === null || typeof value.frame === "string") partial.frame = value.frame;
-	if (isAudioDuckingSettings(value.audioDuckingSettings)) {
-		partial.audioDuckingSettings = value.audioDuckingSettings;
+function normalizeLegacySceneSettings(
+	value: unknown,
+	fallback?: Partial<ProjectEditorState>,
+): import("./types").SceneVisualSettings | undefined {
+	if (!isSchemaObjectRecord(value) && !fallback) return undefined;
+	const candidate = isSchemaObjectRecord(value) ? value : {};
+	const partial: Partial<ProjectEditorState> = { ...fallback };
+	if (recordMetadataGuards.padding(candidate.padding)) partial.padding = candidate.padding;
+	if (isFiniteNumber(candidate.borderRadius)) partial.borderRadius = candidate.borderRadius;
+	if (isFiniteNumber(candidate.shadowIntensity))
+		partial.shadowIntensity = candidate.shadowIntensity;
+	if (isFiniteNumber(candidate.backgroundBlur)) partial.backgroundBlur = candidate.backgroundBlur;
+	if (candidate.frame === null || typeof candidate.frame === "string") {
+		partial.frame = candidate.frame;
+	}
+	if (isAudioDuckingSettings(candidate.audioDuckingSettings)) {
+		partial.audioDuckingSettings = candidate.audioDuckingSettings;
 	}
 	return normalizeSceneVisualSettings(partial);
 }
@@ -216,15 +222,13 @@ function parseLegacyAssetFiles(value: unknown, clipIndex: number): SlideAssetFil
 		return [
 			{
 				id:
-				typeof candidate.id === "string" && candidate.id
-					? candidate.id
-					: `asset-${clipIndex + 1}-${assetIndex + 1}`,
+					typeof candidate.id === "string" && candidate.id
+						? candidate.id
+						: `asset-${clipIndex + 1}-${assetIndex + 1}`,
 				name:
-				typeof candidate.name === "string" && candidate.name ? candidate.name : "Asset",
+					typeof candidate.name === "string" && candidate.name ? candidate.name : "Asset",
 				path: candidate.path,
-				size: isFiniteNumber(candidate.size)
-					? Math.max(0, Math.round(candidate.size))
-					: 0,
+				size: isFiniteNumber(candidate.size) ? Math.max(0, Math.round(candidate.size)) : 0,
 				mtimeMs: isFiniteNumber(candidate.mtimeMs) ? candidate.mtimeMs : Date.now(),
 				type: assetType,
 				subfolder:
@@ -239,25 +243,23 @@ function parseLegacyAssetFiles(value: unknown, clipIndex: number): SlideAssetFil
 
 function normalizeLegacyAudioTracks(value: unknown): AudioRegion[] | undefined {
 	if (!Array.isArray(value)) return undefined;
-	const regions = value
-		.filter(isSchemaObjectRecord)
-		.flatMap((track, trackIndex) => {
-			if (typeof track.sourcePath !== "string" || !track.sourcePath) return [];
-			const startMs = isFiniteNumber(track.startOffsetMs) ? track.startOffsetMs : 0;
-			const durationMs = isFiniteNumber(track.durationMs) ? track.durationMs : 1000;
-			return [
-				{
-					id:
-						typeof track.id === "string" && track.id
-							? track.id
-							: `audio-track-${trackIndex + 1}`,
-					startMs,
-					endMs: startMs + durationMs,
-					audioPath: track.sourcePath,
-					volume: isFiniteNumber(track.volume) ? track.volume : 1,
-				},
-			];
-		});
+	const regions = value.filter(isSchemaObjectRecord).flatMap((track, trackIndex) => {
+		if (typeof track.sourcePath !== "string" || !track.sourcePath) return [];
+		const startMs = isFiniteNumber(track.startOffsetMs) ? track.startOffsetMs : 0;
+		const durationMs = isFiniteNumber(track.durationMs) ? track.durationMs : 1000;
+		return [
+			{
+				id:
+					typeof track.id === "string" && track.id
+						? track.id
+						: `audio-track-${trackIndex + 1}`,
+				startMs,
+				endMs: startMs + durationMs,
+				audioPath: track.sourcePath,
+				volume: isFiniteNumber(track.volume) ? track.volume : 1,
+			},
+		];
+	});
 	return normalizeProjectEditor({ audioRegions: regions }).audioRegions;
 }
 
@@ -340,118 +342,165 @@ export function normalizeSceneVisualSettings(
 	};
 }
 
-export function normalizeClipEntries(candidateClips: unknown): ClipEntry[] {
+export function normalizeClipEntries(
+	candidateClips: unknown,
+	legacyEditorSettings?: Partial<ProjectEditorState>,
+): ClipEntry[] {
 	if (!Array.isArray(candidateClips)) return [];
-	return candidateClips
+	const legacyRecordCount = candidateClips
 		.filter(isSchemaObjectRecord)
-		.map((raw, index) => {
-			const id = typeof raw.id === "string" && raw.id ? raw.id : `clip-${index + 1}`;
-			const videoPath = typeof raw.videoPath === "string" ? raw.videoPath : "";
-			const webcamPath =
-				typeof raw.webcamPath === "string" && raw.webcamPath ? raw.webcamPath : null;
-			const origin = raw.origin === "uploaded" ? "uploaded" : "recorded";
-			const startMsOffset = isFiniteNumber(raw.startMsOffset)
-				? Math.max(0, Math.round(raw.startMsOffset))
-				: 0;
-			const durationMs = isFiniteNumber(raw.durationMs)
-				? Math.max(100, Math.round(raw.durationMs))
-				: 5000;
-			const label =
-				typeof raw.label === "string"
-					? raw.label
-					: origin === "uploaded"
-						? `Video ${index + 1}`
-						: `Take ${index + 1}`;
+		.filter(
+			(clip) =>
+				clip.slideMode === "record" ||
+				(clip.slideMode !== "video" &&
+					clip.slideMode !== "motion" &&
+					clip.origin !== "uploaded"),
+		).length;
+	const legacyWebcamPath =
+		legacyRecordCount === 1 ? (legacyEditorSettings?.webcam?.sourcePath ?? null) : null;
+	return candidateClips.filter(isSchemaObjectRecord).map((raw, index) => {
+		const id = typeof raw.id === "string" && raw.id ? raw.id : `clip-${index + 1}`;
+		const videoPath = typeof raw.videoPath === "string" ? raw.videoPath : "";
+		const hasRawWebcamPath = Object.hasOwn(raw, "webcamPath");
+		const rawWebcamPath =
+			typeof raw.webcamPath === "string" && raw.webcamPath ? raw.webcamPath : null;
+		const rawWebcamSettings = recordMetadataGuards.webcam(raw.webcam) ? raw.webcam : null;
+		const origin = raw.origin === "uploaded" ? "uploaded" : "recorded";
+		const startMsOffset = isFiniteNumber(raw.startMsOffset)
+			? Math.max(0, Math.round(raw.startMsOffset))
+			: 0;
+		const durationMs = isFiniteNumber(raw.durationMs)
+			? Math.max(100, Math.round(raw.durationMs))
+			: 5000;
+		const label =
+			typeof raw.label === "string"
+				? raw.label
+				: origin === "uploaded"
+					? `Video ${index + 1}`
+					: `Take ${index + 1}`;
 
-			const slideMode: import("./types").SlideMode =
-				raw.slideMode === "video" || raw.slideMode === "record" || raw.slideMode === "motion"
-					? raw.slideMode
-					: origin === "uploaded"
+		const slideMode: import("./types").SlideMode =
+			raw.slideMode === "video" || raw.slideMode === "record" || raw.slideMode === "motion"
+				? raw.slideMode
+				: origin === "uploaded"
 					? "video"
 					: "record";
-			const isRecord = slideMode === "record";
-			const normalizedAnnotations = Array.isArray(raw.annotationRegions)
+		const isRecord = slideMode === "record";
+		const webcamPath = isRecord
+			? hasRawWebcamPath
+				? rawWebcamPath
+				: (rawWebcamSettings?.sourcePath ?? legacyWebcamPath)
+			: null;
+		const normalizedAnnotations = Array.isArray(raw.annotationRegions)
+			? normalizeProjectEditor({
+					annotationRegions: raw.annotationRegions.filter(
+						recordMetadataGuards.annotationRegion,
+					),
+				}).annotationRegions
+			: Array.isArray(raw.mediaTrackLayers)
 				? normalizeProjectEditor({
-						annotationRegions: raw.annotationRegions.filter(
-							recordMetadataGuards.annotationRegion,
+						annotationRegions: migrateMediaTrackLayers(
+							raw.mediaTrackLayers.filter(recordMetadataGuards.mediaTrackLayer),
 						),
 					}).annotationRegions
-				: Array.isArray(raw.mediaTrackLayers)
-					? normalizeProjectEditor({
-							annotationRegions: migrateMediaTrackLayers(
-								raw.mediaTrackLayers.filter(recordMetadataGuards.mediaTrackLayer),
-							),
-						}).annotationRegions
-					: undefined;
-			const normalizedAudioRegions = Array.isArray(raw.audioRegions)
-				? normalizeProjectEditor({
-						audioRegions: raw.audioRegions.filter(recordMetadataGuards.audioRegion),
-					}).audioRegions
-				: normalizeLegacyAudioTracks(raw.audioTracks);
+				: undefined;
+		const normalizedAudioRegions = Array.isArray(raw.audioRegions)
+			? normalizeProjectEditor({
+					audioRegions: raw.audioRegions.filter(recordMetadataGuards.audioRegion),
+				}).audioRegions
+			: normalizeLegacyAudioTracks(raw.audioTracks);
 
-			return {
-				id,
-				sceneSettings: normalizeLegacySceneSettings(raw.sceneSettings),
-				origin,
-				videoPath,
-				webcamPath: isRecord ? webcamPath : null,
-				microphoneAudioPath:
-					typeof raw.microphoneAudioPath === "string" ? raw.microphoneAudioPath : null,
-				systemAudioPath:
-					typeof raw.systemAudioPath === "string" ? raw.systemAudioPath : null,
-				cursorTelemetryPath:
-					isRecord && typeof raw.cursorTelemetryPath === "string"
-						? raw.cursorTelemetryPath
-						: null,
-				startMsOffset,
-				durationMs,
-				label,
-				wallpaper: typeof raw.wallpaper === "string" ? raw.wallpaper : undefined,
-				cropRegion: recordMetadataGuards.cropRegion(raw.cropRegion)
-					? raw.cropRegion
+		return {
+			id,
+			sceneSettings: normalizeLegacySceneSettings(
+				raw.sceneSettings,
+				isRecord ? legacyEditorSettings : undefined,
+			),
+			origin,
+			videoPath,
+			webcamPath: isRecord ? webcamPath : null,
+			microphoneAudioPath:
+				typeof raw.microphoneAudioPath === "string" ? raw.microphoneAudioPath : null,
+			systemAudioPath: typeof raw.systemAudioPath === "string" ? raw.systemAudioPath : null,
+			cursorTelemetryPath:
+				isRecord && typeof raw.cursorTelemetryPath === "string"
+					? raw.cursorTelemetryPath
+					: null,
+			startMsOffset,
+			durationMs,
+			label,
+			wallpaper:
+				typeof raw.wallpaper === "string"
+					? raw.wallpaper
+					: isRecord
+						? legacyEditorSettings?.wallpaper
+						: undefined,
+			cropRegion: recordMetadataGuards.cropRegion(raw.cropRegion)
+				? raw.cropRegion
+				: isRecord
+					? legacyEditorSettings?.cropRegion
 					: undefined,
-				layoutPreset: isRecord && recordMetadataGuards.layoutPreset(raw.layoutPreset)
+			layoutPreset:
+				isRecord && recordMetadataGuards.layoutPreset(raw.layoutPreset)
 					? raw.layoutPreset
 					: undefined,
-				layoutRegions:
-					isRecord && Array.isArray(raw.layoutRegions)
-						? raw.layoutRegions.filter(recordMetadataGuards.layoutRegion)
+			layoutRegions:
+				isRecord && Array.isArray(raw.layoutRegions)
+					? raw.layoutRegions.filter(recordMetadataGuards.layoutRegion)
+					: isRecord
+						? (legacyEditorSettings?.layoutRegions ?? [])
 						: [],
-				webcam:
-					isRecord && recordMetadataGuards.webcam(raw.webcam)
-						? raw.webcam
+			webcam:
+				isRecord && rawWebcamSettings
+					? { ...rawWebcamSettings, sourcePath: webcamPath }
+					: isRecord && legacyEditorSettings?.webcam
+						? { ...legacyEditorSettings.webcam, sourcePath: webcamPath }
 						: { ...DEFAULT_WEBCAM_OVERLAY, enabled: false, sourcePath: null },
-				zoomRegions:
-					isRecord && Array.isArray(raw.zoomRegions)
-						? raw.zoomRegions.filter(recordMetadataGuards.zoomRegion)
+			zoomRegions:
+				isRecord && Array.isArray(raw.zoomRegions)
+					? raw.zoomRegions.filter(recordMetadataGuards.zoomRegion)
+					: isRecord
+						? (legacyEditorSettings?.zoomRegions ?? [])
 						: [],
-				trimStartMs: isFiniteNumber(raw.trimStartMs) ? raw.trimStartMs : undefined,
-				trimEndMs: isFiniteNumber(raw.trimEndMs) ? raw.trimEndMs : undefined,
-				speed: isFiniteNumber(raw.speed) ? raw.speed : undefined,
-				showCursor:
-					isRecord && (typeof raw.showCursor === "boolean" ? raw.showCursor : true),
-				slideMode,
-				cursorTelemetry:
-					isRecord && raw.cursorTelemetry === null
-						? null
-						: isRecord && Array.isArray(raw.cursorTelemetry)
-							? raw.cursorTelemetry.filter(recordMetadataGuards.cursorTelemetryPoint)
-							: undefined,
-				annotationRegions: normalizedAnnotations,
-				audioRegions: normalizedAudioRegions,
-				keyframes: normalizePropertyKeyframes(raw.keyframes),
-				transitionIn: normalizeClipTransition(raw.transitionIn ?? raw.transitionToNext),
-				assetFiles: parseLegacyAssetFiles(raw.assetFiles, index),
-				videoMeta:
-					slideMode === "video" && isValidVideoSlideMeta(raw.videoMeta)
-						? raw.videoMeta
+			trimStartMs: isFiniteNumber(raw.trimStartMs) ? raw.trimStartMs : undefined,
+			trimEndMs: isFiniteNumber(raw.trimEndMs) ? raw.trimEndMs : undefined,
+			speed: isFiniteNumber(raw.speed) ? raw.speed : undefined,
+			showCursor:
+				isRecord && typeof raw.showCursor === "boolean"
+					? raw.showCursor
+					: isRecord
+						? (legacyEditorSettings?.showCursor ?? true)
+						: false,
+			slideMode,
+			cursorTelemetry:
+				isRecord && raw.cursorTelemetry === null
+					? null
+					: isRecord && Array.isArray(raw.cursorTelemetry)
+						? raw.cursorTelemetry.filter(recordMetadataGuards.cursorTelemetryPoint)
 						: undefined,
-				motionMeta:
-					slideMode === "motion" && isValidMotionSlideMeta(raw.motionMeta)
-						? raw.motionMeta
-						: undefined,
-			};
-		});
+			annotationRegions: normalizedAnnotations,
+			audioRegions: normalizedAudioRegions,
+			keyframes: normalizePropertyKeyframes(raw.keyframes),
+			transitionIn: normalizeClipTransition(raw.transitionIn ?? raw.transitionToNext),
+			assetFiles: parseLegacyAssetFiles(raw.assetFiles, index),
+			videoMeta:
+				slideMode === "video" && isValidVideoSlideMeta(raw.videoMeta)
+					? raw.videoMeta
+					: undefined,
+			motionMeta:
+				slideMode === "motion" && isValidMotionSlideMeta(raw.motionMeta)
+					? raw.motionMeta
+					: undefined,
+			...(isRecord && (isSchemaObjectRecord(raw.recordSettings) || legacyEditorSettings)
+				? {
+						recordSettings: normalizeRecordClipSettings(
+							raw.recordSettings,
+							legacyEditorSettings,
+						),
+					}
+				: {}),
+		};
+	});
 }
 
 export function validateProjectData(candidate: unknown): candidate is EditorProjectData {
@@ -460,8 +509,7 @@ export function validateProjectData(candidate: unknown): candidate is EditorProj
 	if (!isFiniteNumber(project.version) || !Number.isInteger(project.version)) return false;
 	if (project.projectId !== undefined && typeof project.projectId !== "string") return false;
 	const hasValidVideoPath = typeof project.videoPath === "string";
-	const hasValidClips =
-		Array.isArray(project.clips) && project.clips.every(isSchemaObjectRecord);
+	const hasValidClips = Array.isArray(project.clips) && project.clips.every(isSchemaObjectRecord);
 	if (!hasValidVideoPath && !hasValidClips) return false;
 	if (!isSchemaObjectRecord(project.editor)) return false;
 	return true;
@@ -1194,6 +1242,49 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 	};
 }
 
+export function normalizeRecordClipSettings(
+	candidate: unknown,
+	fallback?: Partial<ProjectEditorState>,
+): RecordClipSettings {
+	const candidateSettings = isSchemaObjectRecord(candidate)
+		? (candidate as Partial<ProjectEditorState>)
+		: {};
+	const settings = normalizeProjectEditor({ ...fallback, ...candidateSettings });
+
+	return {
+		zoomMotionBlur: settings.zoomMotionBlur,
+		zoomMotionBlurTuning: settings.zoomMotionBlurTuning,
+		zoomTemporalMotionBlur: settings.zoomTemporalMotionBlur,
+		zoomMotionBlurSampleCount: settings.zoomMotionBlurSampleCount,
+		zoomMotionBlurShutterFraction: settings.zoomMotionBlurShutterFraction,
+		connectZooms: settings.connectZooms,
+		zoomInDurationMs: settings.zoomInDurationMs,
+		zoomInOverlapMs: settings.zoomInOverlapMs,
+		zoomOutDurationMs: settings.zoomOutDurationMs,
+		connectedZoomGapMs: settings.connectedZoomGapMs,
+		connectedZoomDurationMs: settings.connectedZoomDurationMs,
+		zoomInEasing: settings.zoomInEasing,
+		zoomOutEasing: settings.zoomOutEasing,
+		connectedZoomEasing: settings.connectedZoomEasing,
+		loopCursor: settings.loopCursor,
+		cursorStyle: settings.cursorStyle,
+		cursorSize: settings.cursorSize,
+		cursorSmoothing: settings.cursorSmoothing,
+		cursorSpringStiffnessMultiplier: settings.cursorSpringStiffnessMultiplier,
+		cursorSpringDampingMultiplier: settings.cursorSpringDampingMultiplier,
+		cursorSpringMassMultiplier: settings.cursorSpringMassMultiplier,
+		cameraSpringStiffnessMultiplier: settings.cameraSpringStiffnessMultiplier,
+		cameraSpringDampingMultiplier: settings.cameraSpringDampingMultiplier,
+		cameraSpringMassMultiplier: settings.cameraSpringMassMultiplier,
+		zoomSmoothness: settings.zoomSmoothness,
+		zoomClassicMode: settings.zoomClassicMode,
+		cursorMotionBlur: settings.cursorMotionBlur,
+		cursorClickBounce: settings.cursorClickBounce,
+		cursorClickBounceDuration: settings.cursorClickBounceDuration,
+		cursorSway: settings.cursorSway,
+	};
+}
+
 export function createProjectData(
 	videoPath: string,
 	editor: Partial<ProjectEditorState>,
@@ -1215,7 +1306,8 @@ export function createProjectData(
 		});
 	}
 
-	const normalizedClips = clips && clips.length > 0 ? normalizeClipEntries(clips) : undefined;
+	const normalizedClips =
+		clips && clips.length > 0 ? normalizeClipEntries(clips, safeEditor) : undefined;
 	const resolvedVideoPath = videoPath || (normalizedClips && normalizedClips[0]?.videoPath) || "";
 
 	return {

@@ -1,4 +1,9 @@
-import { normalizeProjectEditor, normalizeSceneVisualSettings } from "./projectPersistence";
+import { normalizeRecordClipSettings } from "./projectNormalization";
+import {
+	normalizeProjectEditor,
+	normalizeSceneVisualSettings,
+	type ProjectEditorState,
+} from "./projectPersistence";
 import { type ClipEntry, DEFAULT_CROP_REGION, DEFAULT_WEBCAM_OVERLAY } from "./types";
 
 export const VALID_RECORD_SECTIONS = [
@@ -42,23 +47,37 @@ export function sanitizeSectionForSlideMode(
 }
 
 /** A scene is restored from its own values or neutral defaults, never the previous scene. */
-export function resolveSceneEditingState(clip: ClipEntry) {
+export function resolveSceneEditingState(
+	clip: ClipEntry,
+	fallbackSettings?: Partial<ProjectEditorState>,
+) {
 	const record = isRecordSlide(clip);
-	const defaults = normalizeProjectEditor({});
+	const legacy = normalizeProjectEditor(fallbackSettings ?? {});
 	return {
-		wallpaper: clip.wallpaper ?? defaults.wallpaper,
-		cropRegion: clip.cropRegion ?? DEFAULT_CROP_REGION,
-		layoutRegions: record ? (clip.layoutRegions ?? []) : [],
-		zoomRegions: record ? (clip.zoomRegions ?? []) : [],
-		webcam:
-			record && clip.webcamPath
-				? { ...DEFAULT_WEBCAM_OVERLAY, ...clip.webcam, sourcePath: clip.webcamPath }
-				: { ...DEFAULT_WEBCAM_OVERLAY, enabled: false, sourcePath: null },
-		showCursor: record && (clip.showCursor ?? true),
+		wallpaper: clip.wallpaper ?? legacy.wallpaper,
+		cropRegion: clip.cropRegion ?? (record ? legacy.cropRegion : DEFAULT_CROP_REGION),
+		layoutRegions: record ? (clip.layoutRegions ?? legacy.layoutRegions) : [],
+		zoomRegions: record ? (clip.zoomRegions ?? legacy.zoomRegions) : [],
+		webcam: record
+			? {
+					...DEFAULT_WEBCAM_OVERLAY,
+					...legacy.webcam,
+					...clip.webcam,
+					sourcePath:
+						clip.webcamPath ??
+						clip.webcam?.sourcePath ??
+						legacy.webcam.sourcePath ??
+						null,
+				}
+			: { ...DEFAULT_WEBCAM_OVERLAY, enabled: false, sourcePath: null },
+		showCursor: record ? (clip.showCursor ?? legacy.showCursor) : false,
+		recordSettings: record
+			? normalizeRecordClipSettings(clip.recordSettings, fallbackSettings)
+			: undefined,
 		sceneSettings: normalizeSceneVisualSettings(
 			clip.sceneSettings ??
 				(record
-					? {}
+					? legacy
 					: {
 							padding: { top: 0, right: 0, bottom: 0, left: 0 },
 							borderRadius: 0,

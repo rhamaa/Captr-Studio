@@ -262,6 +262,41 @@ export type SceneVisualSettings = Pick<
 	| "audioDuckingSettings"
 >;
 
+/** Record-only controls stored with their owning clip/slide. */
+export type RecordClipSettings = Pick<
+	import("./projectPersistence").ProjectEditorState,
+	| "zoomMotionBlur"
+	| "zoomMotionBlurTuning"
+	| "zoomTemporalMotionBlur"
+	| "zoomMotionBlurSampleCount"
+	| "zoomMotionBlurShutterFraction"
+	| "connectZooms"
+	| "zoomInDurationMs"
+	| "zoomInOverlapMs"
+	| "zoomOutDurationMs"
+	| "connectedZoomGapMs"
+	| "connectedZoomDurationMs"
+	| "zoomInEasing"
+	| "zoomOutEasing"
+	| "connectedZoomEasing"
+	| "loopCursor"
+	| "cursorStyle"
+	| "cursorSize"
+	| "cursorSmoothing"
+	| "cursorSpringStiffnessMultiplier"
+	| "cursorSpringDampingMultiplier"
+	| "cursorSpringMassMultiplier"
+	| "cameraSpringStiffnessMultiplier"
+	| "cameraSpringDampingMultiplier"
+	| "cameraSpringMassMultiplier"
+	| "zoomSmoothness"
+	| "zoomClassicMode"
+	| "cursorMotionBlur"
+	| "cursorClickBounce"
+	| "cursorClickBounceDuration"
+	| "cursorSway"
+>;
+
 export interface SlideAssetFile {
 	id: string;
 	name: string;
@@ -275,6 +310,7 @@ export interface SlideAssetFile {
 
 export interface LegacyClipEntry {
 	sceneSettings?: SceneVisualSettings;
+	recordSettings?: Partial<RecordClipSettings>;
 	id: string;
 	origin?: ClipOrigin; // "recorded" (internal screen/cam capture) vs "uploaded" (external media)
 	slideMode?: SlideMode; // "record" (screen/cam/telemetry) vs "video" (standard video editor mode)
