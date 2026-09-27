@@ -137,7 +137,6 @@ interface VideoExporterConfig extends ExportConfig {
 	cursorClickBounce?: number;
 	cursorClickBounceDuration?: number;
 	cursorSway?: number;
-	cameraPerspectiveTilt?: number;
 	zoomSmoothness?: number;
 	zoomClassicMode?: boolean;
 	frame?: string | null;
@@ -624,7 +623,6 @@ export class ModernVideoExporter {
 					cursorClickBounce: this.config.cursorClickBounce,
 					cursorClickBounceDuration: this.config.cursorClickBounceDuration,
 					cursorSway: this.config.cursorSway,
-					cameraPerspectiveTilt: this.config.cameraPerspectiveTilt,
 					zoomSmoothness: this.config.zoomSmoothness,
 					zoomClassicMode: this.config.zoomClassicMode,
 					frame: this.config.frame,

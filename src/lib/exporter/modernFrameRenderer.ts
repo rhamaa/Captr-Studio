@@ -41,13 +41,6 @@ import {
 	type SpringState,
 	stepSpringValue,
 } from "@/components/video-editor/videoPlayback/motionSmoothing";
-import {
-	applyPerspectiveTilt,
-	computePerspectiveTilt,
-	createPerspectiveTiltState,
-	type PerspectiveTiltState,
-	resetPerspectiveTiltState,
-} from "@/components/video-editor/videoPlayback/perspectiveTilt";
 import { getWebcamMediaTargetTimeSeconds } from "@/components/video-editor/videoPlayback/webcamSync";
 import { findDominantRegion } from "@/components/video-editor/videoPlayback/zoomRegionUtils";
 import {
@@ -77,7 +70,12 @@ import {
 	notifyCursorInteraction,
 } from "@/lib/extensions/renderHooks";
 import { applyCanvasSceneTransform } from "@/lib/extensions/sceneTransform";
-import { drawSquircleOnCanvas, drawSquircleOnGraphics, drawWebcamMaskOnCanvas, drawWebcamMaskOnGraphics } from "@/lib/geometry/squircle";
+import {
+	drawSquircleOnCanvas,
+	drawSquircleOnGraphics,
+	drawWebcamMaskOnCanvas,
+	drawWebcamMaskOnGraphics,
+} from "@/lib/geometry/squircle";
 import {
 	clampMediaTimeToDuration,
 	getEffectiveVideoStreamDurationSeconds,
@@ -153,7 +151,6 @@ interface FrameRenderConfig {
 	cursorClickBounce?: number;
 	cursorClickBounceDuration?: number;
 	cursorSway?: number;
-	cameraPerspectiveTilt?: number;
 	zoomSmoothness?: number;
 	zoomClassicMode?: boolean;
 	frame?: string | null;
@@ -484,13 +481,10 @@ export class FrameRenderer {
 	private transitionOverlayGraphics: Graphics | null = null;
 	private layoutScreenMask: Graphics | null = null;
 	private clipRegions: ClipRegion[] = [];
-	private cameraPerspectiveTilt = 0;
-	private perspectiveTiltState: PerspectiveTiltState = createPerspectiveTiltState();
 
 	constructor(config: FrameRenderConfig) {
 		this.config = config;
 		this.clipRegions = config.clipRegions ?? [];
-		this.cameraPerspectiveTilt = config.cameraPerspectiveTilt ?? 0;
 		this.animationState = createAnimationState();
 		this.motionBlurState = createMotionBlurState();
 		this.springScale = createSpringState(1);
@@ -3110,28 +3104,6 @@ export class FrameRenderer {
 			bounds: layoutCache.maskRect,
 		});
 
-		if (this.cameraContainer && this.cameraPerspectiveTilt > 0) {
-			const cursorSnapshot = this.cursorOverlay?.getSmoothedCursorSnapshot();
-			const frameDeltaMs =
-				typeof frameDurationUs === "number" && frameDurationUs > 0
-					? frameDurationUs / 1000
-					: 16.67;
-			const tilt = computePerspectiveTilt(this.perspectiveTiltState, {
-				cursor: cursorSnapshot ? { cx: cursorSnapshot.cx, cy: cursorSnapshot.cy } : null,
-				intensity: this.cameraPerspectiveTilt,
-				deltaMs: Math.min(80, Math.max(1, frameDeltaMs)),
-				stageSize: layoutCache.stageSize,
-				baseMask: layoutCache.maskRect,
-			});
-			applyPerspectiveTilt(this.cameraContainer, tilt);
-		} else if (
-			this.cameraContainer &&
-			(this.cameraContainer.skew.x !== 0 || this.cameraContainer.skew.y !== 0)
-		) {
-			resetPerspectiveTiltState(this.perspectiveTiltState);
-			this.cameraContainer.skew.set(0, 0);
-		}
-
 		this.updateAnnotationLayer(timeMs);
 		this.updateWebcamOverlay();
 
@@ -3826,7 +3798,6 @@ export class FrameRenderer {
 			this.transitionOverlayGraphics.destroy();
 			this.transitionOverlayGraphics = null;
 		}
-		resetPerspectiveTiltState(this.perspectiveTiltState);
 		this.zoomBlurFilter = null;
 		this.motionBlurFilter = null;
 		this.backgroundBlurFilter = null;

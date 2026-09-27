@@ -49,6 +49,21 @@ export function registerProjectSaveHandlers() {
 				// located even after the video is staged into the workspace.
 				const originalVideoPath =
 					typeof clip.videoPath === "string" ? clip.videoPath : null;
+				if (
+					!clip.cursorTelemetryPath &&
+					originalVideoPath &&
+					(clip.origin === "recorded" || clip.slideMode === "record")
+				) {
+					const companionTelemetryPath = `${originalVideoPath}.cursor.json`;
+					if (
+						await fs
+							.access(companionTelemetryPath)
+							.then(() => true)
+							.catch(() => false)
+					) {
+						clip.cursorTelemetryPath = companionTelemetryPath;
+					}
+				}
 				originalMediaPathsByClip.set(clip, {
 					videoPath: originalVideoPath,
 					webcamPath: typeof clip.webcamPath === "string" ? clip.webcamPath : null,

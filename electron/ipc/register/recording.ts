@@ -41,7 +41,7 @@ import {
 	getSystemCursorHelperSourcePath,
 	getWindowsCaptureExePath,
 } from "../paths/binaries";
-import { rememberApprovedLocalReadPath } from "../project/manager";
+import { isAllowedLocalMediaPath, rememberApprovedLocalReadPath } from "../project/manager";
 import {
 	getBrowserMicSidecarFilters,
 	shouldKeepRecordingAudioSidecars,
@@ -1904,33 +1904,48 @@ export function registerRecordingHandlers(
 		return { success: true };
 	});
 
-	ipcMain.handle("get-cursor-telemetry", async (_, videoPath?: string) => {
-		const targetVideoPath = normalizeVideoSourcePath(videoPath ?? currentVideoPath);
-		if (!targetVideoPath) {
-			return { success: true, samples: [] };
-		}
-
-		const telemetryPath = getTelemetryPathForVideo(targetVideoPath);
-		try {
-			const content = await fs.readFile(telemetryPath, "utf-8");
-			const parsed = parseJsonWithByteOrderMark<unknown>(content);
-			const samples = normalizeCursorTelemetrySamples(parsed);
-
-			return { success: true, samples };
-		} catch (error) {
-			const nodeError = error as NodeJS.ErrnoException;
-			if (nodeError.code === "ENOENT") {
+	ipcMain.handle(
+		"get-cursor-telemetry",
+		async (_, videoPath?: string, explicitTelemetryPath?: string) => {
+			const targetVideoPath = normalizeVideoSourcePath(videoPath ?? currentVideoPath);
+			if (!targetVideoPath) {
 				return { success: true, samples: [] };
 			}
-			console.error("Failed to load cursor telemetry:", error);
-			return {
-				success: false,
-				message: "Failed to load cursor telemetry",
-				error: String(error),
-				samples: [],
-			};
-		}
-	});
+
+			const telemetryPath = explicitTelemetryPath
+				? normalizeVideoSourcePath(explicitTelemetryPath)
+				: getTelemetryPathForVideo(targetVideoPath);
+			if (
+				!telemetryPath ||
+				(explicitTelemetryPath && !(await isAllowedLocalMediaPath(telemetryPath)))
+			) {
+				return {
+					success: false,
+					samples: [],
+					message: "Cursor telemetry path is not approved",
+				};
+			}
+			try {
+				const content = await fs.readFile(telemetryPath, "utf-8");
+				const parsed = parseJsonWithByteOrderMark<unknown>(content);
+				const samples = normalizeCursorTelemetrySamples(parsed);
+
+				return { success: true, samples };
+			} catch (error) {
+				const nodeError = error as NodeJS.ErrnoException;
+				if (nodeError.code === "ENOENT") {
+					return { success: true, samples: [] };
+				}
+				console.error("Failed to load cursor telemetry:", error);
+				return {
+					success: false,
+					message: "Failed to load cursor telemetry",
+					error: String(error),
+					samples: [],
+				};
+			}
+		},
+	);
 
 	ipcMain.handle(
 		"set-cursor-telemetry",

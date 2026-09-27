@@ -76,8 +76,9 @@ export const RecordSlideWorkspace: React.FC<SlideWorkspaceProps<"record">> = ({
 
 	// Load Cursor Telemetry from file / Electron IPC
 	useEffect(() => {
+		let cancelled = false;
+		setRawTelemetry([]);
 		if (!meta.videoPath) {
-			setRawTelemetry([]);
 			return;
 		}
 		if (meta.cursorTelemetry && meta.cursorTelemetry.length > 0) {
@@ -86,17 +87,22 @@ export const RecordSlideWorkspace: React.FC<SlideWorkspaceProps<"record">> = ({
 		}
 		if (window.electronAPI?.getCursorTelemetry) {
 			window.electronAPI
-				.getCursorTelemetry(meta.videoPath)
+				.getCursorTelemetry(meta.videoPath, meta.cursorTelemetryPath ?? undefined)
 				.then((res) => {
+					if (cancelled) return;
 					if (res.success && res.samples && res.samples.length > 0) {
 						setRawTelemetry(res.samples);
 					}
 				})
 				.catch((err) => {
+					if (cancelled) return;
 					console.warn("[RecordSlide] Unable to load cursor telemetry:", err);
 				});
 		}
-	}, [meta.videoPath, meta.cursorTelemetry]);
+		return () => {
+			cancelled = true;
+		};
+	}, [meta.videoPath, meta.cursorTelemetryPath, meta.cursorTelemetry]);
 
 	// Normalize telemetry
 	const normalizedTelemetry = useMemo(() => {

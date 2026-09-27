@@ -6,6 +6,8 @@ interface UseRecordSlideTelemetryOptions {
 	enabled: boolean;
 	videoPath: string | null;
 	videoSourcePath: string | null;
+	telemetryPath?: string | null;
+	storedTelemetry?: CursorTelemetryPoint[] | null;
 	duration: number;
 	loading: boolean;
 	isPreviewReady: boolean;
@@ -18,6 +20,8 @@ export function useRecordSlideTelemetry({
 	enabled,
 	videoPath,
 	videoSourcePath,
+	telemetryPath,
+	storedTelemetry,
 	duration,
 	loading,
 	isPreviewReady,
@@ -68,8 +72,17 @@ export function useRecordSlideTelemetry({
 				return;
 			}
 
+			if (storedTelemetry?.length) {
+				setCursorTelemetry(storedTelemetry);
+				setCursorTelemetrySourcePath(videoSourcePath);
+				return;
+			}
+
 			try {
-				const result = await window.electronAPI.getCursorTelemetry(videoSourcePath);
+				const result = await window.electronAPI.getCursorTelemetry(
+					videoSourcePath,
+					telemetryPath ?? undefined,
+				);
 				if (!mounted) return;
 
 				setCursorTelemetry(result.success ? result.samples : []);
@@ -121,7 +134,7 @@ export function useRecordSlideTelemetry({
 				pendingTelemetryRetryTimeoutRef.current = null;
 			}
 		};
-	}, [enabled, videoPath, videoSourcePath, clearCursorTelemetry]);
+	}, [enabled, videoPath, videoSourcePath, telemetryPath, storedTelemetry, clearCursorTelemetry]);
 
 	const normalizedCursorTelemetry = useMemo(() => {
 		if (cursorTelemetry.length === 0) return [];

@@ -32,7 +32,6 @@ import {
 	type AudioRegion,
 	type ClipRegion,
 	type CursorStyle,
-	DEFAULT_CAMERA_PERSPECTIVE_TILT,
 	type LayoutRegion,
 	type Padding,
 	type SpeedRegion,
@@ -160,12 +159,6 @@ import {
 import { clampFocusToStage as clampFocusToStageUtil } from "./videoPlayback/focusUtils";
 import { layoutVideoContent as layoutVideoContentUtil } from "./videoPlayback/layoutUtils";
 import { updateOverlayIndicator } from "./videoPlayback/overlayUtils";
-import {
-	applyPerspectiveTilt,
-	computePerspectiveTilt,
-	createPerspectiveTiltState,
-	resetPerspectiveTiltState,
-} from "./videoPlayback/perspectiveTilt";
 import { createVideoEventHandlers } from "./videoPlayback/videoEventHandlers";
 import { getWebcamMediaTargetTimeSeconds } from "./videoPlayback/webcamSync";
 import { findDominantRegion } from "./videoPlayback/zoomRegionUtils";
@@ -384,7 +377,6 @@ interface VideoPlaybackProps {
 	cursorClickBounce?: number;
 	cursorClickBounceDuration?: number;
 	cursorSway?: number;
-	cameraPerspectiveTilt?: number;
 	volume?: number;
 	suspendRendering?: boolean;
 }
@@ -466,7 +458,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cursorClickBounce = DEFAULT_CURSOR_CLICK_BOUNCE,
 			cursorClickBounceDuration = DEFAULT_CURSOR_CLICK_BOUNCE_DURATION,
 			cursorSway = DEFAULT_CURSOR_SWAY,
-			cameraPerspectiveTilt = DEFAULT_CAMERA_PERSPECTIVE_TILT,
 			volume = 1,
 			suspendRendering = false,
 		},
@@ -591,8 +582,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const cursorClickBounceRef = useRef(cursorClickBounce);
 		const cursorClickBounceDurationRef = useRef(cursorClickBounceDuration);
 		const cursorSwayRef = useRef(cursorSway);
-		const cameraPerspectiveTiltRef = useRef(cameraPerspectiveTilt);
-		const perspectiveTiltStateRef = useRef(createPerspectiveTiltState());
 		const zoomMotionBlurRef = useRef(zoomMotionBlur);
 		const zoomMotionBlurTuningRef = useRef(zoomMotionBlurTuning);
 		const lastEmittedClickTimeMsRef = useRef(-1);
@@ -891,7 +880,13 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				bubbleInner.style.borderRadius = "0px";
 				bubbleInner.style.overflow = "hidden";
 				bubbleInner.style.contain = "paint";
-				const mask = isFullyRoundedWebcam({ x: 0, y: 0, width: scaledSize, height: scaledHeight, radius })
+				const mask = isFullyRoundedWebcam({
+					x: 0,
+					y: 0,
+					width: scaledSize,
+					height: scaledHeight,
+					radius,
+				})
 					? "ellipse(50% 50% at 50% 50%)"
 					: `path('${squirclePath}')`;
 				bubbleInner.style.clipPath = mask;
@@ -1098,6 +1093,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 				// Reset camera container to identity
 				cameraContainer.scale.set(1);
+				cameraContainer.skew.set(0, 0);
 				cameraContainer.position.set(0, 0);
 
 				const selectedId = selectedZoomIdRef.current;
@@ -1249,7 +1245,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			containerRef,
 			play: async () => {
 				const vid = videoRef.current;
-				if (!vid) return;
+				if (!vid || !videoPath) return;
 				try {
 					allowPlaybackRef.current = true;
 					await vid.play();
@@ -1680,10 +1676,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		}, [cursorSway]);
 
 		useEffect(() => {
-			cameraPerspectiveTiltRef.current = cameraPerspectiveTilt;
-		}, [cameraPerspectiveTilt]);
-
-		useEffect(() => {
 			const timeMs = currentTime * 1000;
 			currentTimeRef.current = timeMs;
 			const videoInfo = extensionHost.getVideoInfoSnapshot();
@@ -1715,7 +1707,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 			animationStateRef.current = createPlaybackAnimationState();
 			cursorOverlayRef.current?.reset();
-			resetPerspectiveTiltState(perspectiveTiltStateRef.current);
 			motionBlurStateRef.current = createMotionBlurState();
 
 			requestAnimationFrame(() => {
@@ -2521,28 +2512,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					extensionHost.setSmoothedCursor(null);
 				}
 
-				const cameraContainer = cameraContainerRef.current;
-				const perspectiveTiltIntensity = cameraPerspectiveTiltRef.current;
-				if (cameraContainer && perspectiveTiltIntensity > 0) {
-					const cursorSnapshot = cursorOverlay?.getSmoothedCursorSnapshot();
-					const tilt = computePerspectiveTilt(perspectiveTiltStateRef.current, {
-						cursor: cursorSnapshot
-							? { cx: cursorSnapshot.cx, cy: cursorSnapshot.cy }
-							: null,
-						intensity: perspectiveTiltIntensity,
-						deltaMs: Math.min(80, Math.max(1, app.ticker?.deltaMS ?? 16.6)),
-						stageSize: stageSizeRef.current,
-						baseMask: baseMaskRef.current,
-					});
-					applyPerspectiveTilt(cameraContainer, tilt);
-				} else if (
-					cameraContainer &&
-					(cameraContainer.skew.x !== 0 || cameraContainer.skew.y !== 0)
-				) {
-					resetPerspectiveTiltState(perspectiveTiltStateRef.current);
-					cameraContainer.skew.set(0, 0);
-				}
-
 				if (effectsCanvas && effectsCanvas.width > 0 && effectsCanvas.height > 0) {
 					const ctx2d = effectsCanvas.getContext("2d");
 					if (ctx2d) {
@@ -3094,7 +3063,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				<video
 					crossOrigin="anonymous"
 					ref={videoRef}
-					src={videoPath}
+					src={videoPath || undefined}
 					className={fallbackVideoClassName}
 					preload="metadata"
 					playsInline
@@ -3104,6 +3073,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						onDurationChange(e.currentTarget.duration);
 					}}
 					onError={(e) => {
+						if (!videoPath) return;
 						const mediaError = e.currentTarget.error;
 						const code = mediaError?.code;
 						const msg = mediaError?.message;

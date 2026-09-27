@@ -71,7 +71,6 @@ import type {
 	ZoomTransitionEasing,
 } from "./types";
 import {
-	DEFAULT_CAMERA_PERSPECTIVE_TILT,
 	DEFAULT_CURSOR_CLICK_BOUNCE_DURATION,
 	DEFAULT_CURSOR_MOTION_BLUR,
 	DEFAULT_CURSOR_STYLE,
@@ -218,8 +217,6 @@ interface SettingsPanelProps {
 	onCursorClickBounceDurationChange?: (duration: number) => void;
 	cursorSway?: number;
 	onCursorSwayChange?: (amount: number) => void;
-	cameraPerspectiveTilt?: number;
-	onCameraPerspectiveTiltChange?: (tilt: number) => void;
 	borderRadius?: number;
 	onBorderRadiusChange?: (radius: number) => void;
 	webcam?: WebcamOverlaySettings;
@@ -364,8 +361,6 @@ export function SettingsPanel({
 	onCursorClickBounceDurationChange,
 	cursorSway = DEFAULT_CURSOR_SWAY,
 	onCursorSwayChange,
-	cameraPerspectiveTilt = DEFAULT_CAMERA_PERSPECTIVE_TILT,
-	onCameraPerspectiveTiltChange,
 	borderRadius = 12.5,
 	onBorderRadiusChange,
 	webcam,
@@ -665,9 +660,6 @@ export function SettingsPanel({
 		onCursorClickBounceChange?.(initialEditorPreferences.cursorClickBounce);
 		onCursorClickBounceDurationChange?.(DEFAULT_CURSOR_CLICK_BOUNCE_DURATION);
 		onCursorSwayChange?.(initialEditorPreferences.cursorSway);
-		onCameraPerspectiveTiltChange?.(
-			initialEditorPreferences.cameraPerspectiveTilt ?? DEFAULT_CAMERA_PERSPECTIVE_TILT,
-		);
 	};
 
 	const activeMotionPresetId = useMemo(() => {
@@ -1093,8 +1085,6 @@ export function SettingsPanel({
 						onCursorClickBounceDurationChange={onCursorClickBounceDurationChange}
 						cursorSway={cursorSway}
 						onCursorSwayChange={onCursorSwayChange}
-						cameraPerspectiveTilt={cameraPerspectiveTilt}
-						onCameraPerspectiveTiltChange={onCameraPerspectiveTiltChange}
 						initialEditorPreferences={initialEditorPreferences}
 						resetCursorSection={resetCursorSection}
 						renderExtensionPanelsForSections={renderExtensionPanelsForSections}

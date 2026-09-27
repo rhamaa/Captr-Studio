@@ -70,7 +70,11 @@ import {
 	notifyCursorInteraction,
 } from "@/lib/extensions/renderHooks";
 import { applyCanvasSceneTransform } from "@/lib/extensions/sceneTransform";
-import { drawSquircleOnCanvas, drawSquircleOnGraphics, drawWebcamMaskOnCanvas } from "@/lib/geometry/squircle";
+import {
+	drawSquircleOnCanvas,
+	drawSquircleOnGraphics,
+	drawWebcamMaskOnCanvas,
+} from "@/lib/geometry/squircle";
 import {
 	clampMediaTimeToDuration,
 	getEffectiveVideoStreamDurationSeconds,
@@ -140,7 +144,6 @@ interface FrameRenderConfig {
 	cursorClickBounce?: number;
 	cursorClickBounceDuration?: number;
 	cursorSway?: number;
-	cameraPerspectiveTilt?: number;
 	clipRegions?: ClipRegion[];
 	frame?: string | null;
 }
@@ -468,7 +471,11 @@ export class FrameRenderer {
 
 		if ((this.config.zoomMotionBlur ?? 0) > 0) {
 			this.zoomBlurFilter = new ZoomBlurFilter({ strength: 0, maxKernelSize: 13 });
-			this.motionBlurFilter = new MotionBlurFilter({ velocity: [0, 0], kernelSize: 5, offset: 0 });
+			this.motionBlurFilter = new MotionBlurFilter({
+				velocity: [0, 0],
+				kernelSize: 5,
+				offset: 0,
+			});
 			this.videoContainer.filterArea = new Rectangle(
 				0,
 				0,
@@ -2567,7 +2574,13 @@ export class FrameRenderer {
 		const drawY = (webcamHeight - drawHeight) / 2;
 
 		bubbleCtx.save();
-		drawWebcamMaskOnCanvas(bubbleCtx, { x: 0, y: 0, width: size, height: webcamHeight, radius });
+		drawWebcamMaskOnCanvas(bubbleCtx, {
+			x: 0,
+			y: 0,
+			width: size,
+			height: webcamHeight,
+			radius,
+		});
 		bubbleCtx.clip();
 		if (webcam.mirror) {
 			bubbleCtx.save();

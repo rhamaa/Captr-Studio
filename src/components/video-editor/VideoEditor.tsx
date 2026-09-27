@@ -136,10 +136,7 @@ import { extensionHost } from "@/lib/extensions";
 import { MotionSlideCodeEditorPanel } from "@/slides/motion/components/MotionSlideCodeEditorPanel";
 import { renderMotionSlideChunk } from "@/slides/motion/export/renderMotionSlideChunk";
 import { useMotionSlidePreview } from "@/slides/motion/hooks/useMotionSlidePreview";
-import {
-	createDefaultMotionMeta,
-	type MotionSlideMeta,
-} from "@/slides/motion/schema";
+import { createDefaultMotionMeta, type MotionSlideMeta } from "@/slides/motion/schema";
 import { type RecordSlideTimelineHandle } from "@/slides/record/components/RecordSlideTimeline";
 import { RecordSilenceAnalysisDialog } from "@/slides/record/components/RecordSilenceAnalysisDialog";
 import { useRecordSlideAutoReframe } from "@/slides/record/hooks/useRecordSlideAutoReframe";
@@ -508,9 +505,6 @@ export default function VideoEditor() {
 	const [cameraSpringMassMultiplier, setCameraSpringMassMultiplier] = useState(
 		initialEditorPreferences.cameraSpringMassMultiplier,
 	);
-	const [sessionShowCursorOverride, setSessionShowCursorOverride] = useState<boolean | null>(
-		null,
-	);
 	const [sessionNativeCaptureUnavailable, setSessionNativeCaptureUnavailable] = useState(false);
 	const [nativeCaptureUnavailableModalOpen, setNativeCaptureUnavailableModalOpen] =
 		useState(false);
@@ -526,9 +520,6 @@ export default function VideoEditor() {
 		initialEditorPreferences.cursorClickBounceDuration,
 	);
 	const [cursorSway, setCursorSway] = useState(initialEditorPreferences.cursorSway);
-	const [cameraPerspectiveTilt, setCameraPerspectiveTilt] = useState(
-		initialEditorPreferences.cameraPerspectiveTilt,
-	);
 	const [borderRadius, setBorderRadius] = useState(initialEditorPreferences.borderRadius);
 	const [padding, setPadding] = useState(initialEditorPreferences.padding);
 	const [frame, setFrame] = useState<string | null>(initialEditorPreferences.frame);
@@ -610,18 +601,16 @@ export default function VideoEditor() {
 				| null
 				| undefined,
 		) => {
-			setSessionShowCursorOverride(session?.hideOverlayCursorByDefault ? false : null);
 			setSessionNativeCaptureUnavailable(Boolean(session?.nativeCaptureUnavailable));
 			setNativeCaptureUnavailableModalOpen(Boolean(session?.nativeCaptureUnavailable));
 		},
 		[],
 	);
-	const recordToolsEnabled = isRecordSlide(
-		clips.find((clip) => clip.id === activeSceneId) ?? clips[0],
-	);
+	const activeRecordClip = clips.find((clip) => clip.id === activeSceneId) ?? clips[0];
+	const recordToolsEnabled = isRecordSlide(activeRecordClip);
 	const recordToolsEnabledRef = useRef(recordToolsEnabled);
 	recordToolsEnabledRef.current = recordToolsEnabled;
-	const effectiveShowCursor = recordToolsEnabled && (sessionShowCursorOverride ?? showCursor);
+	const effectiveShowCursor = recordToolsEnabled && showCursor;
 	const [aspectRatio, setAspectRatio] = useState<AspectRatio>(
 		initialEditorPreferences.aspectRatio,
 	);
@@ -708,6 +697,8 @@ export default function VideoEditor() {
 		enabled: recordToolsEnabled,
 		videoPath,
 		videoSourcePath,
+		telemetryPath: recordToolsEnabled ? activeRecordClip?.cursorTelemetryPath : null,
+		storedTelemetry: recordToolsEnabled ? activeRecordClip?.cursorTelemetry : null,
 		duration,
 		loading,
 		isPreviewReady,
@@ -903,7 +894,6 @@ export default function VideoEditor() {
 			cursorClickBounce,
 			cursorClickBounceDuration,
 			cursorSway,
-			cameraPerspectiveTilt,
 			borderRadius,
 			padding: { ...padding },
 			frame,
@@ -952,7 +942,6 @@ export default function VideoEditor() {
 			cursorClickBounce,
 			cursorClickBounceDuration,
 			cursorSway,
-			cameraPerspectiveTilt,
 			borderRadius,
 			padding,
 			frame,
@@ -1042,7 +1031,6 @@ export default function VideoEditor() {
 		setCursorClickBounce(snapshot.cursorClickBounce);
 		setCursorClickBounceDuration(snapshot.cursorClickBounceDuration);
 		setCursorSway(snapshot.cursorSway);
-		setCameraPerspectiveTilt(snapshot.cameraPerspectiveTilt ?? 0);
 		setBorderRadius(snapshot.borderRadius);
 		setPadding({ ...snapshot.padding });
 		setFrame(snapshot.frame);
@@ -1299,7 +1287,6 @@ export default function VideoEditor() {
 					cursorClickBounce,
 					cursorClickBounceDuration,
 					cursorSway,
-					cameraPerspectiveTilt,
 					clipRegions,
 				});
 				await frameRenderer.initialize();
@@ -1377,7 +1364,6 @@ export default function VideoEditor() {
 		zoomSmoothness,
 		cursorStyle,
 		cursorSway,
-		cameraPerspectiveTilt,
 		cursorTelemetry,
 		clipRegions,
 		padding,
@@ -1406,7 +1392,6 @@ export default function VideoEditor() {
 	}, []);
 
 	const handleShowCursorChange = useCallback((nextShowCursor: boolean) => {
-		setSessionShowCursorOverride(null);
 		setShowCursor(nextShowCursor);
 	}, []);
 
@@ -1742,7 +1727,6 @@ export default function VideoEditor() {
 				cursorClickBounce: number;
 				cursorClickBounceDuration: number;
 				cursorSway: number;
-				cameraPerspectiveTilt: number;
 				borderRadius: number;
 				padding: Padding;
 				frame: string | null;
@@ -1848,7 +1832,6 @@ export default function VideoEditor() {
 				cursorClickBounce,
 				cursorClickBounceDuration,
 				cursorSway,
-				cameraPerspectiveTilt,
 				borderRadius,
 				padding,
 				frame,
@@ -1911,7 +1894,6 @@ export default function VideoEditor() {
 			cursorClickBounce,
 			cursorClickBounceDuration,
 			cursorSway,
-			cameraPerspectiveTilt,
 			borderRadius,
 			padding,
 			cropRegion,
@@ -2206,7 +2188,6 @@ export default function VideoEditor() {
 			setCursorClickBounce(normalizedEditor.cursorClickBounce);
 			setCursorClickBounceDuration(normalizedEditor.cursorClickBounceDuration);
 			setCursorSway(normalizedEditor.cursorSway);
-			setCameraPerspectiveTilt(normalizedEditor.cameraPerspectiveTilt);
 			setBorderRadius(normalizedEditor.borderRadius);
 			setPadding(normalizedEditor.padding);
 			setFrame(normalizedEditor.frame);
@@ -2501,9 +2482,7 @@ export default function VideoEditor() {
 		setBorderRadius(initialEditorPreferences.borderRadius);
 		setAspectRatio(initialEditorPreferences.aspectRatio);
 		setExportFormat(initialEditorPreferences.exportFormat);
-		setMp4FrameRate(
-			initialEditorPreferences.mp4FrameRate ?? DEFAULT_MP4_EXPORT_FRAME_RATE,
-		);
+		setMp4FrameRate(initialEditorPreferences.mp4FrameRate ?? DEFAULT_MP4_EXPORT_FRAME_RATE);
 		setExportQuality(initialEditorPreferences.exportQuality);
 		setExportEncodingMode(initialEditorPreferences.exportEncodingMode);
 		setExportBackendPreference(initialEditorPreferences.exportBackendPreference);
@@ -2825,7 +2804,6 @@ export default function VideoEditor() {
 			cursorClickBounce,
 			cursorClickBounceDuration,
 			cursorSway,
-			cameraPerspectiveTilt,
 			borderRadius,
 			padding,
 			frame,
@@ -2875,7 +2853,6 @@ export default function VideoEditor() {
 		cursorClickBounce,
 		cursorClickBounceDuration,
 		cursorSway,
-		cameraPerspectiveTilt,
 		borderRadius,
 		padding,
 		frame,
@@ -6043,7 +6020,6 @@ export default function VideoEditor() {
 						cursorClickBounce,
 						cursorClickBounceDuration,
 						cursorSway,
-						cameraPerspectiveTilt,
 						frame,
 						previewWidth,
 						previewHeight,
@@ -6230,7 +6206,6 @@ export default function VideoEditor() {
 						cursorClickBounce,
 						cursorClickBounceDuration,
 						cursorSway,
-						cameraPerspectiveTilt,
 						frame,
 						audioRegions: mixedAudioRegions,
 						audioDuckingSettings,
@@ -6314,7 +6289,8 @@ export default function VideoEditor() {
 										const aggregateProgress: ExportProgress = {
 											...progress,
 											percentage: Math.round(
-												((i + progress.percentage / 100) / totalClips) * 100,
+												((i + progress.percentage / 100) / totalClips) *
+													100,
 											),
 											estimatedTimeRemaining: Math.max(
 												0,
@@ -6797,7 +6773,6 @@ export default function VideoEditor() {
 			cursorClickBounce,
 			cursorClickBounceDuration,
 			cursorSway,
-			cameraPerspectiveTilt,
 			activeSceneId,
 			sourceAudioTrackSettingsByClip,
 			defaultSourceAudioTrackSettings,
@@ -8086,26 +8061,28 @@ export default function VideoEditor() {
 												)?.transitionMs ?? null)
 											: null
 									}
-					selectedLayoutEasing={
-						selectedLayoutId
-							? (layoutRegions.find(
-									(region) => region.id === selectedLayoutId,
-								)?.easing ?? null)
-							: null
-					}
-					selectedLayoutCameraSettings={
-						selectedLayoutId
-							? getLayoutCameraSettings(
-									layoutRegions.find((region) => region.id === selectedLayoutId) ?? {
-										preset: DEFAULT_LAYOUT_SCENE_PRESET,
-									},
-									webcam,
-								)
-							: null
-					}
-					onLayoutPresetChange={handleLayoutPresetChange}
-					onLayoutCameraSettingsChange={handleLayoutCameraSettingsChange}
-					onLayoutTransitionChange={handleLayoutTransitionChange}
+									selectedLayoutEasing={
+										selectedLayoutId
+											? (layoutRegions.find(
+													(region) => region.id === selectedLayoutId,
+												)?.easing ?? null)
+											: null
+									}
+									selectedLayoutCameraSettings={
+										selectedLayoutId
+											? getLayoutCameraSettings(
+													layoutRegions.find(
+														(region) => region.id === selectedLayoutId,
+													) ?? {
+														preset: DEFAULT_LAYOUT_SCENE_PRESET,
+													},
+													webcam,
+												)
+											: null
+									}
+									onLayoutPresetChange={handleLayoutPresetChange}
+									onLayoutCameraSettingsChange={handleLayoutCameraSettingsChange}
+									onLayoutTransitionChange={handleLayoutTransitionChange}
 									onLayoutEasingChange={handleLayoutEasingChange}
 									onLayoutDelete={handleLayoutDelete}
 									hasClipSourceAudio={hasClipSourceAudio}
@@ -8230,10 +8207,6 @@ export default function VideoEditor() {
 									onCursorClickBounceDurationChange={setCursorClickBounceDuration}
 									cursorSway={cursorSway}
 									onCursorSwayChange={setCursorSway}
-									cameraPerspectiveTilt={
-										recordToolsEnabled ? cameraPerspectiveTilt : 0
-									}
-									onCameraPerspectiveTiltChange={setCameraPerspectiveTilt}
 									borderRadius={borderRadius}
 									onBorderRadiusChange={setBorderRadius}
 									webcam={
@@ -8361,8 +8334,12 @@ export default function VideoEditor() {
 											size="sm"
 											onClick={() =>
 												handleAutoReframe({
-													width: videoPlaybackRef.current?.video?.videoWidth ?? 1920,
-													height: videoPlaybackRef.current?.video?.videoHeight ?? 1080,
+													width:
+														videoPlaybackRef.current?.video
+															?.videoWidth ?? 1920,
+													height:
+														videoPlaybackRef.current?.video
+															?.videoHeight ?? 1080,
 												})
 											}
 											disabled={
@@ -8595,11 +8572,6 @@ export default function VideoEditor() {
 														cursorClickBounceDuration
 													}
 													cursorSway={cursorSway}
-													cameraPerspectiveTilt={
-														recordToolsEnabled
-															? cameraPerspectiveTilt
-															: 0
-													}
 													volume={
 														audio.shouldMutePreviewVideo ||
 														audio.isCurrentClipMuted
@@ -8731,10 +8703,10 @@ export default function VideoEditor() {
 										size="icon"
 										disabled={isAnalyzingSilence || !videoPath}
 										className="h-7 w-7 rounded-full text-muted-foreground transition-all hover:bg-emerald-500/10 hover:text-emerald-500"
-						title={t(
-							"editor.toolbar.cleanPauses",
-							"Clean Pauses / Auto Cut Dead-Air (Hapus Jeda Diam)",
-						)}
+										title={t(
+											"editor.toolbar.cleanPauses",
+											"Clean Pauses / Auto Cut Dead-Air (Hapus Jeda Diam)",
+										)}
 									>
 										{isAnalyzingSilence ? (
 											<Redo2 className="w-4 h-4 animate-spin" />

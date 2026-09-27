@@ -314,7 +314,11 @@ interface Window {
 			error?: string;
 		}>;
 		onRenderMotionSlideProgress: (
-			callback: (progress: { currentFrame: number; totalFrames: number; percentage: number }) => void,
+			callback: (progress: {
+				currentFrame: number;
+				totalFrames: number;
+				percentage: number;
+			}) => void,
 		) => () => void;
 		recordAdditionalClip: () => Promise<{
 			success: boolean;
@@ -636,7 +640,10 @@ interface Window {
 			error?: string;
 		}>;
 		setRecordingState: (recording: boolean) => Promise<void>;
-		getCursorTelemetry: (videoPath?: string) => Promise<{
+		getCursorTelemetry: (
+			videoPath?: string,
+			telemetryPath?: string,
+		) => Promise<{
 			success: boolean;
 			samples: CursorTelemetryPoint[];
 			message?: string;

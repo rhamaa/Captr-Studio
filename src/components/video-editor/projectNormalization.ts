@@ -43,7 +43,6 @@ import {
 	DEFAULT_ANNOTATION_SIZE,
 	DEFAULT_ANNOTATION_STYLE,
 	DEFAULT_AUDIO_DUCKING_SETTINGS,
-	DEFAULT_CAMERA_PERSPECTIVE_TILT,
 	DEFAULT_CONNECTED_ZOOM_DURATION_MS,
 	DEFAULT_CONNECTED_ZOOM_EASING,
 	DEFAULT_CONNECTED_ZOOM_GAP_MS,
@@ -124,7 +123,6 @@ export interface ProjectEditorState {
 	cursorClickBounce: number;
 	cursorClickBounceDuration: number;
 	cursorSway: number;
-	cameraPerspectiveTilt: number;
 	borderRadius: number;
 	padding: Padding;
 	/** Selected frame ID (e.g. "recordly.frames/browser-dark"), or null for none */
@@ -1043,11 +1041,6 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 		cursorSway: isFiniteNumber((editor as Partial<ProjectEditorState>).cursorSway)
 			? clamp((editor as Partial<ProjectEditorState>).cursorSway as number, 0, 2)
 			: DEFAULT_CURSOR_SWAY,
-		cameraPerspectiveTilt: isFiniteNumber(
-			(editor as Partial<ProjectEditorState>).cameraPerspectiveTilt,
-		)
-			? clamp((editor as Partial<ProjectEditorState>).cameraPerspectiveTilt as number, 0, 1)
-			: DEFAULT_CAMERA_PERSPECTIVE_TILT,
 		borderRadius: typeof editor.borderRadius === "number" ? editor.borderRadius : 12.5,
 		padding: (() => {
 			const p = editor.padding;

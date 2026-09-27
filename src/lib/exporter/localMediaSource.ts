@@ -98,10 +98,6 @@ export async function resolveMediaResourceUrl(resource: string): Promise<string>
 		return resource;
 	}
 
-	if (isLocalMediaServerUrl(resource)) {
-		return resource;
-	}
-
 	if (typeof window !== "undefined" && window.electronAPI?.getLocalMediaUrl) {
 		try {
 			const result = await window.electronAPI.getLocalMediaUrl(localFilePath);
@@ -111,6 +107,12 @@ export async function resolveMediaResourceUrl(resource: string): Promise<string>
 		} catch {
 			// Fall through to a file URL when the local media server is unavailable.
 		}
+	}
+
+	// Keep an existing media-server URL on the server if approval cannot be
+	// refreshed. The server still enforces its allowlist on every request.
+	if (isLocalMediaServerUrl(resource)) {
+		return resource;
 	}
 
 	return /^file:\/\//i.test(resource) ? resource : toFileUrl(localFilePath);
@@ -172,7 +174,7 @@ export async function resolveMediaElementSource(resource: string): Promise<{
 	src: string;
 	revoke: () => void;
 }> {
-	if (!resource || isRemoteMediaResource(resource)) {
+	if (!resource || isRemoteMediaResource(resource) || isLocalMediaServerUrl(resource)) {
 		return { src: resource, revoke: NOOP };
 	}
 

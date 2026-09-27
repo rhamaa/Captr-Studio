@@ -42,7 +42,6 @@ type PersistedEditorControls = Pick<
 	| "cursorClickBounce"
 	| "cursorClickBounceDuration"
 	| "cursorSway"
-	| "cameraPerspectiveTilt"
 	| "borderRadius"
 	| "padding"
 	| "frame"
@@ -116,7 +115,6 @@ export const DEFAULT_EDITOR_PREFERENCES: EditorPreferences = {
 	cursorClickBounce: DEFAULT_EDITOR_CONTROLS.cursorClickBounce,
 	cursorClickBounceDuration: DEFAULT_EDITOR_CONTROLS.cursorClickBounceDuration,
 	cursorSway: DEFAULT_EDITOR_CONTROLS.cursorSway,
-	cameraPerspectiveTilt: DEFAULT_EDITOR_CONTROLS.cameraPerspectiveTilt,
 	borderRadius: DEFAULT_EDITOR_CONTROLS.borderRadius,
 	padding: DEFAULT_EDITOR_CONTROLS.padding,
 	frame: DEFAULT_EDITOR_CONTROLS.frame,
@@ -274,7 +272,6 @@ function normalizeEditorControls(
 		cursorClickBounceDuration:
 			sanitizedRaw.cursorClickBounceDuration ?? fallback.cursorClickBounceDuration,
 		cursorSway: sanitizedRaw.cursorSway ?? fallback.cursorSway,
-		cameraPerspectiveTilt: sanitizedRaw.cameraPerspectiveTilt ?? fallback.cameraPerspectiveTilt,
 		borderRadius: sanitizedRaw.borderRadius ?? fallback.borderRadius,
 		padding: sanitizedRaw.padding ?? fallback.padding,
 		frame: sanitizedRaw.frame !== undefined ? sanitizedRaw.frame : fallback.frame,
@@ -335,7 +332,6 @@ function normalizeEditorControls(
 		cursorClickBounce: normalized.cursorClickBounce,
 		cursorClickBounceDuration: normalized.cursorClickBounceDuration,
 		cursorSway: normalized.cursorSway,
-		cameraPerspectiveTilt: normalized.cameraPerspectiveTilt,
 		borderRadius: normalized.borderRadius,
 		padding: normalized.padding,
 		frame: normalized.frame,

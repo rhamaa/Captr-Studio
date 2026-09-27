@@ -81,7 +81,6 @@ interface GifExporterConfig {
 	cursorClickBounce?: number;
 	cursorClickBounceDuration?: number;
 	cursorSway?: number;
-	cameraPerspectiveTilt?: number;
 	clipRegions?: ClipRegion[];
 	frame?: string | null;
 	previewWidth?: number;
@@ -212,7 +211,6 @@ export class GifExporter {
 				cursorClickBounce: this.config.cursorClickBounce,
 				cursorClickBounceDuration: this.config.cursorClickBounceDuration,
 				cursorSway: this.config.cursorSway,
-				cameraPerspectiveTilt: this.config.cameraPerspectiveTilt,
 				clipRegions: this.config.clipRegions,
 				frame: this.config.frame,
 			});
