@@ -565,8 +565,17 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	recordAdditionalClip: () => {
 		return ipcRenderer.invoke("record-additional-clip");
 	},
-	openRecorderHud: () => {
-		return ipcRenderer.invoke("open-recorder-hud");
+	openRecorderHud: (options?: { preserveProjectPath?: boolean }) => {
+		return ipcRenderer.invoke("open-recorder-hud", options);
+	},
+	onRecorderProjectContextChanged: (callback: (preserveProjectPath: boolean) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, preserveProjectPath: boolean) => {
+			callback(Boolean(preserveProjectPath));
+		};
+		ipcRenderer.on("recorder-project-context-changed", listener);
+		return () => {
+			ipcRenderer.removeListener("recorder-project-context-changed", listener);
+		};
 	},
 	getLastNativeCaptureDiagnostics: () => {
 		return ipcRenderer.invoke("get-last-native-capture-diagnostics");

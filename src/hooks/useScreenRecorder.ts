@@ -319,6 +319,16 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	);
 	const requestedBrowserMicrophoneProfile = useRef<string | null>(null);
 	const hideEditorOverlayCursorByDefault = useRef(false);
+	const preserveProjectPathForRecording = useRef(false);
+
+	useEffect(() => {
+		preserveProjectPathForRecording.current =
+			new URLSearchParams(window.location.search).get("preserveProjectPath") === "1";
+
+		return window.electronAPI?.onRecorderProjectContextChanged?.((preserveProjectPath) => {
+			preserveProjectPathForRecording.current = preserveProjectPath;
+		});
+	}, []);
 
 	const notifyRecordingFinalizationFailure = useCallback(async (message: string) => {
 		setFinalizing(false);
@@ -632,16 +642,21 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			console.log("[PERF:RENDERER] Finalize Session & Switch to Editor: STARTED");
 			const shouldHideOverlayCursor = hideEditorOverlayCursorByDefault.current;
 			try {
+				const preserveProjectPath = preserveProjectPathForRecording.current;
 				if (webcamPath) {
-					await window.electronAPI.setCurrentRecordingSession({
-						videoPath,
-						webcamPath,
-						timeOffsetMs: webcamTimeOffsetMs.current,
-						hideOverlayCursorByDefault: shouldHideOverlayCursor,
-					});
+					await window.electronAPI.setCurrentRecordingSession(
+						{
+							videoPath,
+							webcamPath,
+							timeOffsetMs: webcamTimeOffsetMs.current,
+							hideOverlayCursorByDefault: shouldHideOverlayCursor,
+						},
+						{ preserveProjectPath },
+					);
 				} else {
 					await window.electronAPI.setCurrentVideoPath(videoPath, {
 						hideOverlayCursorByDefault: shouldHideOverlayCursor,
+						preserveProjectPath,
 					});
 				}
 			} catch (error) {
@@ -650,6 +665,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				try {
 					await window.electronAPI.setCurrentVideoPath(videoPath, {
 						hideOverlayCursorByDefault: shouldHideOverlayCursor,
+						preserveProjectPath: preserveProjectPathForRecording.current,
 					});
 				} catch (fallbackError) {
 					console.error("Failed to persist fallback video path:", fallbackError);

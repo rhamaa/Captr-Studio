@@ -27,6 +27,7 @@ import {
 	registerIpcHandlers,
 } from "./ipc/handlers";
 import { loadProjectFromPath, rememberApprovedLocalReadPath } from "./ipc/project/manager";
+import { setPreserveProjectPathForNextNativeRecording } from "./ipc/state";
 import { getScreen } from "./ipc/utils";
 import { ensureMediaServer } from "./mediaServer";
 import { ensurePackagedRendererServer } from "./rendererServer";
@@ -279,14 +280,16 @@ function createWindow() {
 	isCreatingMainWindow = false;
 }
 
-function openHudRecorder(): BrowserWindow {
+function openHudRecorder(preserveProjectPath = false): BrowserWindow {
+	setPreserveProjectPathForNextNativeRecording(preserveProjectPath);
 	const existingHud = getHudOverlayWindow();
 	if (existingHud && !existingHud.isDestroyed()) {
+		existingHud.webContents.send("recorder-project-context-changed", preserveProjectPath);
 		restoreWindowSafely(existingHud);
 		return existingHud;
 	}
 
-	return createHudOverlayWindow();
+	return createHudOverlayWindow({ preserveProjectPath });
 }
 
 function focusOrCreateMainWindow() {
@@ -733,9 +736,9 @@ ipcMain.handle("read-file-as-data-url", async (_event, filePath: string) => {
 	}
 });
 
-ipcMain.handle("open-recorder-hud", async () => {
+ipcMain.handle("open-recorder-hud", async (_event, options?: { preserveProjectPath?: boolean }) => {
 	console.log("[main] IPC: open-recorder-hud invoked");
-	const hud = openHudRecorder();
+	const hud = openHudRecorder(Boolean(options?.preserveProjectPath));
 	return { success: Boolean(hud) };
 });
 

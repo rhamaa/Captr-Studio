@@ -17,6 +17,7 @@ export let selectedSource: SelectedSource | null = null;
 export let currentProjectPath: string | null = null;
 export let currentVideoPath: string | null = null;
 export let currentRecordingSession: RecordingSessionData | null = null;
+let preserveProjectPathForNextNativeRecording = false;
 
 // ── Security: approved read paths ─────────────────────────────────────────────
 export const approvedLocalReadPaths = new Set<string>();
@@ -120,6 +121,14 @@ export function setCurrentVideoPath(v: string | null) {
 }
 export function setCurrentRecordingSession(v: RecordingSessionData | null) {
 	currentRecordingSession = v;
+}
+export function setPreserveProjectPathForNextNativeRecording(v: boolean) {
+	preserveProjectPathForNextNativeRecording = v;
+}
+export function consumePreserveProjectPathForNextNativeRecording() {
+	const preserveProjectPath = preserveProjectPathForNextNativeRecording;
+	preserveProjectPathForNextNativeRecording = false;
+	return preserveProjectPath;
 }
 
 export function setNativeScreenRecordingActive(v: boolean) {

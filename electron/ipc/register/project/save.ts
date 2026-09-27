@@ -414,6 +414,32 @@ export function registerProjectSaveHandlers() {
 
 		// Write project.json with bundle-relative paths for serialization
 		const bundleRelativeData = convertProjectToBundleRelative(stagedProjectData, workspaceDir);
+		if (Array.isArray(bundleRelativeData.clips)) {
+			for (const [index, clip] of bundleRelativeData.clips.entries()) {
+				if (!clip || typeof clip !== "object" || Array.isArray(clip)) {
+					continue;
+				}
+				const slide = clip as Record<string, unknown>;
+				const slideId = typeof slide.id === "string" && slide.id ? slide.id : "slide-1";
+				const slideDir = path.join(workspaceDir, "slides", slideId);
+				await fs.mkdir(slideDir, { recursive: true });
+				await fs.writeFile(
+					path.join(slideDir, "slide.json"),
+					JSON.stringify(
+						{
+							schemaVersion: 1,
+							projectId,
+							slideId,
+							order: index + 1,
+							metadata: slide,
+						},
+						null,
+						2,
+					),
+					"utf-8",
+				);
+			}
+		}
 		await fs.writeFile(
 			path.join(workspaceDir, "project.json"),
 			JSON.stringify(bundleRelativeData, null, 2),

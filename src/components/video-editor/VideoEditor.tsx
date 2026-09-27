@@ -2614,7 +2614,7 @@ export default function VideoEditor() {
 					const latestClips = clipsRef.current;
 					const latestClipRegions = clipRegionsRef.current;
 
-					if (!videoSourcePathRef.current || latestClips.length === 0) {
+					if (latestClips.length === 0) {
 						const newClipId = deriveUniqueClipId(latestClips, latestClipRegions);
 						const newClip = createRecordedClip({
 							id: newClipId,
@@ -2872,7 +2872,18 @@ export default function VideoEditor() {
 	const handleOpenRecorderHud = useCallback(async () => {
 		try {
 			if (window.electronAPI && typeof window.electronAPI.openRecorderHud === "function") {
-				await window.electronAPI.openRecorderHud();
+				let preserveProjectPath = Boolean(currentProjectPath);
+				if (!preserveProjectPath) {
+					try {
+						const activeProject = await window.electronAPI.loadCurrentProjectFile();
+						preserveProjectPath = Boolean(activeProject.success && activeProject.path);
+					} catch {
+						// Opening the recorder should still work if active-project lookup fails.
+					}
+				}
+				await window.electronAPI.openRecorderHud({
+					preserveProjectPath,
+				});
 				toast.info("Recorder HUD opened. Complete your recording to add a take.");
 			} else {
 				toast.error("Recorder HUD is not supported on this platform.");
@@ -2881,7 +2892,7 @@ export default function VideoEditor() {
 			console.error("Failed to open recorder HUD:", err);
 			toast.error("Failed to open recorder HUD");
 		}
-	}, []);
+	}, [currentProjectPath]);
 
 	const handleSelectClip = useCallback(
 		(id: string | null) => {

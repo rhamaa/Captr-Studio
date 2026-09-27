@@ -324,9 +324,12 @@ interface Window {
 			success: boolean;
 			path?: string;
 		}>;
-		openRecorderHud: () => Promise<{
+		openRecorderHud: (options?: { preserveProjectPath?: boolean }) => Promise<{
 			success: boolean;
 		}>;
+		onRecorderProjectContextChanged: (
+			callback: (preserveProjectPath: boolean) => void,
+		) => () => void;
 		getLastNativeCaptureDiagnostics: () => Promise<{
 			success: boolean;
 			diagnostics?: NativeCaptureDiagnostics | null;

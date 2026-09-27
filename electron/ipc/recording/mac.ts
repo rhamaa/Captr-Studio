@@ -6,6 +6,7 @@ import {
 	snapshotCursorTelemetryForPersistence,
 } from "../cursor/telemetry";
 import {
+	consumePreserveProjectPathForNextNativeRecording,
 	lastNativeCaptureDiagnostics,
 	nativeCaptureMicrophonePath,
 	nativeCaptureOutputBuffer,
@@ -221,8 +222,11 @@ export async function finalizeStoredVideo(videoPath: string) {
 	}
 
 	snapshotCursorTelemetryForPersistence();
+	const preserveProjectPath = consumePreserveProjectPathForNextNativeRecording();
 	setCurrentVideoPath(videoPath);
-	setCurrentProjectPath(null);
+	if (!preserveProjectPath) {
+		setCurrentProjectPath(null);
+	}
 	try {
 		await persistPendingCursorTelemetry(videoPath);
 	} catch (error) {

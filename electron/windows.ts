@@ -356,8 +356,9 @@ ipcMain.handle("set-hud-overlay-capture-protection", (_event, enabled: boolean) 
 	};
 });
 
-export function createHudOverlayWindow(): BrowserWindow {
+export function createHudOverlayWindow(options?: { preserveProjectPath?: boolean }): BrowserWindow {
 	loadHudOverlayCaptureProtectionSetting();
+	const preserveProjectPath = Boolean(options?.preserveProjectPath);
 	const initialBounds = getHudOverlayBounds();
 	let hasShownHudWindow = false;
 
@@ -501,10 +502,17 @@ export function createHudOverlayWindow(): BrowserWindow {
 	});
 
 	if (VITE_DEV_SERVER_URL) {
-		win.loadURL(VITE_DEV_SERVER_URL + "?windowType=hud-overlay");
+		const query = new URLSearchParams({ windowType: "hud-overlay" });
+		if (preserveProjectPath) {
+			query.set("preserveProjectPath", "1");
+		}
+		win.loadURL(`${VITE_DEV_SERVER_URL}?${query.toString()}`);
 	} else {
 		win.loadFile(path.join(RENDERER_DIST, "index.html"), {
-			query: { windowType: "hud-overlay" },
+			query: {
+				windowType: "hud-overlay",
+				...(preserveProjectPath ? { preserveProjectPath: "1" } : {}),
+			},
 		});
 	}
 
