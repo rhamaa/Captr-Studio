@@ -76,7 +76,6 @@ export interface RecordSlideMeta {
 	cursorSize?: number;
 	cursorClickBounce?: number;
 	cursorSway?: number;
-	cameraPerspectiveTilt?: number;
 	zoomMotionBlur?: number;
 	connectZooms?: boolean;
 	zoomInDurationMs?: number;
@@ -201,7 +200,7 @@ function isLayoutCameraSettings(value: unknown): value is Partial<LayoutCameraSe
 	return (
 		(value.shape === undefined || isOneOf(value.shape, ["circle", "rectangle"])) &&
 		(value.position === undefined ||
-			isOneOf(value.position, ["top-left", "top-right", "bottom-left", "bottom-right"])) &&
+			isOneOf(value.position, ["top-left", "top-center", "top-right", "center-left", "center", "center-right", "bottom-left", "bottom-center", "bottom-right"])) &&
 		(value.size === undefined || isFiniteNumber(value.size)) &&
 		(value.shape !== undefined || value.position !== undefined || value.size !== undefined)
 	);
@@ -228,6 +227,14 @@ function isWebcamOverlaySettings(value: unknown): value is WebcamOverlaySettings
 		isFiniteNumber(value.timeOffsetMs) &&
 		isBoolean(value.mirror) &&
 		isCropRegion(value.cropRegion) &&
+		(value.cropAspectRatio === undefined ||
+			(isFiniteNumber(value.cropAspectRatio) &&
+				value.cropAspectRatio >= 0.05 &&
+				value.cropAspectRatio <= 20)) &&
+		(value.cornerRadiusPercent === undefined ||
+			(isFiniteNumber(value.cornerRadiusPercent) &&
+				value.cornerRadiusPercent >= 0 &&
+				value.cornerRadiusPercent <= 1)) &&
 		isOneOf(value.corner, ["top-left", "top-right", "bottom-left", "bottom-right"]) &&
 		isOneOf(value.positionPreset, [
 			"top-left",
@@ -471,7 +478,6 @@ export function isValidRecordSlideMeta(value: unknown): value is RecordSlideMeta
 		isOptional(value.cursorSize, isFiniteNumber) &&
 		isOptional(value.cursorClickBounce, isFiniteNumber) &&
 		isOptional(value.cursorSway, isFiniteNumber) &&
-		isOptional(value.cameraPerspectiveTilt, isFiniteNumber) &&
 		isOptional(value.zoomMotionBlur, isFiniteNumber) &&
 		isOptional(value.connectZooms, isBoolean) &&
 		isOptional(value.zoomInDurationMs, isFiniteNumber) &&
@@ -516,7 +522,6 @@ export function createDefaultRecordMeta(): RecordSlideMeta {
 		cursorSize: 2.5,
 		cursorClickBounce: 2.5,
 		cursorSway: 0.4,
-		cameraPerspectiveTilt: 0,
 		zoomMotionBlur: 0.35,
 		connectZooms: true,
 		zoomInDurationMs: 200,

@@ -85,6 +85,7 @@ export type WebcamPositionPreset =
 	| "center-right"
 	| "bottom-center"
 	| "custom";
+export type LayoutCameraPosition = Exclude<WebcamPositionPreset, "custom">;
 
 export interface WebcamOverlaySettings {
 	enabled: boolean;
@@ -92,6 +93,8 @@ export interface WebcamOverlaySettings {
 	timeOffsetMs: number;
 	mirror: boolean;
 	cropRegion: CropRegion;
+	/** Physical width/height ratio of the selected webcam crop. */
+	cropAspectRatio?: number;
 	corner: WebcamCorner;
 	positionPreset: WebcamPositionPreset;
 	positionX: number;
@@ -99,6 +102,8 @@ export interface WebcamOverlaySettings {
 	size: number;
 	reactToZoom: boolean;
 	cornerRadius: number;
+	/** Roundness as a fraction of half the webcam's shorter side. */
+	cornerRadiusPercent?: number;
 	shadow: number;
 	margin: number;
 }
@@ -113,6 +118,7 @@ export type LayoutScenePreset =
 	| "bubble-bottom-left"
 	| "bubble-top-right"
 	| "bubble-bottom-right-landscape"
+	/** Kept for reading older projects; these layouts normalize to Camera Bubble. */
 	| "presenter"
 	| "side-by-side"
 	| "split-right"
@@ -127,8 +133,9 @@ export type LayoutSceneEasing = "smooth" | "snappy" | "linear";
 export type LayoutBubbleShape = "circle" | "rectangle";
 
 export interface LayoutCameraSettings {
-	shape: LayoutBubbleShape;
-	position: WebcamCorner;
+	/** Legacy persisted field; current Record layouts use webcam roundness instead. */
+	shape?: LayoutBubbleShape;
+	position: LayoutCameraPosition;
 	/** Bubble width as a percentage of the canvas' shorter side. */
 	size: number;
 }
@@ -200,6 +207,7 @@ export const DEFAULT_WEBCAM_OVERLAY: WebcamOverlaySettings = {
 	timeOffsetMs: DEFAULT_WEBCAM_TIME_OFFSET_MS,
 	mirror: true,
 	cropRegion: { x: 0, y: 0, width: 1, height: 1 },
+	cropAspectRatio: 1,
 	corner: "bottom-right",
 	positionPreset: DEFAULT_WEBCAM_POSITION_PRESET,
 	positionX: DEFAULT_WEBCAM_POSITION_X,

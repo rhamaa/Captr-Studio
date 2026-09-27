@@ -10,7 +10,7 @@ import { DEFAULT_WEBCAM_OVERLAY, type LayoutRegion } from "./types";
 const webcam = { ...DEFAULT_WEBCAM_OVERLAY, enabled: true, sourcePath: "webcam.mp4" };
 
 describe("layoutScenes", () => {
-	it("resolves preset layer transforms inside the stage", () => {
+	it("converts removed side-by-side scenes to camera bubble", () => {
 		const scene = getLayoutPresetTransform({
 			preset: "side-by-side",
 			stageWidth: 1920,
@@ -21,13 +21,14 @@ describe("layoutScenes", () => {
 
 		expect(scene.screen.opacity).toBe(1);
 		expect(scene.webcam.opacity).toBe(1);
-		expect(scene.screen.width + scene.webcam.width).toBeLessThanOrEqual(1920);
+		expect(scene.preset).toBe("bubble");
+		expect(scene.screen.width).toBe(1920);
+		expect(scene.webcam.width).toBeLessThan(1920);
 	});
 
-	it("groups layout presets into four main categories", () => {
+	it("groups layout presets into three main categories", () => {
 		expect(LAYOUT_SCENE_CATEGORIES.map((category) => category.label)).toEqual([
 			"Camera Bubble",
-			"Side-by-side",
 			"Camera Only",
 			"Screen Only",
 		]);

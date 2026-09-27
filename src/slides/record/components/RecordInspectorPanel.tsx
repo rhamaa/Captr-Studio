@@ -7,13 +7,13 @@ import type {
 	ZoomDepth,
 	ZoomRegion,
 } from "@/components/video-editor/types";
-import { RecordCameraTab } from "./RecordCameraTab";
+import { RecordMotionTab } from "./RecordMotionTab";
 import { RecordCanvasTab } from "./RecordCanvasTab";
 import { RecordCursorTab } from "./RecordCursorTab";
 import { RecordWebcamTab } from "./RecordWebcamTab";
 import { RecordZoomTab } from "./RecordZoomTab";
 
-export type RecordInspectorTab = "zoom" | "cursor" | "camera" | "canvas" | "webcam";
+export type RecordInspectorTab = "zoom" | "cursor" | "motion" | "canvas" | "webcam";
 
 export interface RecordInspectorPanelProps {
 	title: string;
@@ -45,10 +45,8 @@ export interface RecordInspectorPanelProps {
 	onUpdateCursorSize: (val: number) => void;
 	onUpdateCursorClickBounce: (val: number) => void;
 
-	// Camera Tab Props
-	cameraPerspectiveTilt: number;
+	// Motion Tab Props
 	zoomMotionBlur: number;
-	onUpdateCameraPerspectiveTilt: (val: number) => void;
 	onUpdateZoomMotionBlur: (val: number) => void;
 
 	// Canvas Tab Props
@@ -105,10 +103,8 @@ export const RecordInspectorPanel: React.FC<RecordInspectorPanelProps> = ({
 	onUpdateCursorSize,
 	onUpdateCursorClickBounce,
 
-	// Camera
-	cameraPerspectiveTilt,
+	// Motion
 	zoomMotionBlur,
-	onUpdateCameraPerspectiveTilt,
 	onUpdateZoomMotionBlur,
 
 	// Canvas
@@ -152,15 +148,15 @@ export const RecordInspectorPanel: React.FC<RecordInspectorPanelProps> = ({
 
 			{/* Tab Navigation */}
 			<div className="grid grid-cols-5 gap-1 p-1 bg-slate-800/70 rounded-xl border border-slate-700/60 text-xs font-medium">
-				{(["zoom", "cursor", "camera", "canvas", "webcam"] as RecordInspectorTab[]).map(
+				{(["zoom", "cursor", "motion", "canvas", "webcam"] as RecordInspectorTab[]).map(
 					(tab) => {
 						const label =
 							tab === "zoom"
 								? "Zoom"
 								: tab === "cursor"
 									? "Cursor"
-									: tab === "camera"
-										? "3D"
+									: tab === "motion"
+										? "Motion"
 										: tab === "canvas"
 											? "Canvas"
 											: "Webcam";
@@ -214,11 +210,9 @@ export const RecordInspectorPanel: React.FC<RecordInspectorPanelProps> = ({
 				/>
 			)}
 
-			{activeTab === "camera" && (
-				<RecordCameraTab
-					cameraPerspectiveTilt={cameraPerspectiveTilt}
+			{activeTab === "motion" && (
+				<RecordMotionTab
 					zoomMotionBlur={zoomMotionBlur}
-					onUpdateCameraPerspectiveTilt={onUpdateCameraPerspectiveTilt}
 					onUpdateZoomMotionBlur={onUpdateZoomMotionBlur}
 				/>
 			)}

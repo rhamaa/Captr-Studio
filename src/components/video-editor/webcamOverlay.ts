@@ -78,10 +78,32 @@ export function getWebcamOverlaySizePx({
 	return Math.min(maxSize, Math.max(MIN_WEBCAM_OVERLAY_SIZE_PX, scaledSize));
 }
 
+export function getWebcamOverlayDimensions({
+	containerWidth,
+	containerHeight,
+	size,
+	aspectRatio,
+	margin,
+}: {
+	containerWidth: number;
+	containerHeight: number;
+	size: number;
+	aspectRatio: number;
+	margin: number;
+}): { width: number; height: number } {
+	const ratio = Number.isFinite(aspectRatio) ? clamp(aspectRatio, 0.05, 20) : 1;
+	const safeMargin = Math.max(0, margin);
+	const maxWidth = Math.max(1, containerWidth - safeMargin * 2);
+	const maxHeight = Math.max(1, containerHeight - safeMargin * 2);
+	const width = Math.min(Math.max(1, size), maxWidth, maxHeight * ratio);
+	return { width, height: width / ratio };
+}
+
 export function getWebcamOverlayPosition({
 	containerWidth,
 	containerHeight,
 	size,
+	height = size,
 	margin,
 	positionPreset,
 	positionX,
@@ -91,6 +113,7 @@ export function getWebcamOverlayPosition({
 	containerWidth: number;
 	containerHeight: number;
 	size: number;
+	height?: number;
 	margin: number;
 	positionPreset: WebcamPositionPreset;
 	positionX: number;
@@ -99,7 +122,7 @@ export function getWebcamOverlayPosition({
 }): { x: number; y: number } {
 	const safeMargin = Math.max(0, margin);
 	const availableWidth = Math.max(0, containerWidth - size - safeMargin * 2);
-	const availableHeight = Math.max(0, containerHeight - size - safeMargin * 2);
+	const availableHeight = Math.max(0, containerHeight - height - safeMargin * 2);
 	const presetPosition =
 		positionPreset === "custom"
 			? { x: clamp(positionX, 0, 1), y: clamp(positionY, 0, 1) }
@@ -109,6 +132,27 @@ export function getWebcamOverlayPosition({
 		x: safeMargin + availableWidth * presetPosition.x,
 		y: safeMargin + availableHeight * presetPosition.y,
 	};
+}
+
+export function getWebcamCornerRadiusPx({
+	width,
+	height,
+	cornerRadius,
+	cornerRadiusPercent,
+	fallback = 18,
+}: {
+	width: number;
+	height: number;
+	cornerRadius?: number;
+	cornerRadiusPercent?: number;
+	fallback?: number;
+}): number {
+	const maxRadius = Math.max(0, Math.min(width, height) / 2);
+	if (Number.isFinite(cornerRadiusPercent)) {
+		return maxRadius * clamp(cornerRadiusPercent as number, 0, 1);
+	}
+	const legacyRadius = Number.isFinite(cornerRadius) ? (cornerRadius as number) : fallback;
+	return clamp(legacyRadius, 0, maxRadius);
 }
 
 export function normalizeWebcamCropRegion(cropRegion?: Partial<CropRegion> | null): CropRegion {

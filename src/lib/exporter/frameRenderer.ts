@@ -52,7 +52,9 @@ import {
 	type MotionBlurState,
 } from "@/components/video-editor/videoPlayback/zoomTransform";
 import {
+	getWebcamCornerRadiusPx,
 	getWebcamCropSourceRect,
+	getWebcamOverlayDimensions,
 	getWebcamOverlayPosition,
 	getWebcamOverlaySizePx,
 } from "@/components/video-editor/webcamOverlay";
@@ -68,7 +70,7 @@ import {
 	notifyCursorInteraction,
 } from "@/lib/extensions/renderHooks";
 import { applyCanvasSceneTransform } from "@/lib/extensions/sceneTransform";
-import { drawSquircleOnCanvas, drawSquircleOnGraphics } from "@/lib/geometry/squircle";
+import { drawSquircleOnCanvas, drawSquircleOnGraphics, drawWebcamMaskOnCanvas } from "@/lib/geometry/squircle";
 import {
 	clampMediaTimeToDuration,
 	getEffectiveVideoStreamDurationSeconds,
@@ -2422,7 +2424,7 @@ export class FrameRenderer {
 				: null;
 
 		const margin = webcam.margin ?? 24;
-		const size = layoutScene
+		const requestedSize = layoutScene
 			? layoutScene.webcam.width
 			: getWebcamOverlaySizePx({
 					containerWidth: width,
@@ -2432,13 +2434,25 @@ export class FrameRenderer {
 					zoomScale: this.animationState.appliedScale || 1,
 					reactToZoom: webcam.reactToZoom ?? true,
 				});
-		const webcamHeight = layoutScene ? layoutScene.webcam.height : size;
+		const webcamAspectRatio = Math.max(0.05, Math.min(20, webcam.cropAspectRatio ?? 1));
+		const webcamDimensions = layoutScene
+			? { width: layoutScene.webcam.width, height: layoutScene.webcam.height }
+			: getWebcamOverlayDimensions({
+					containerWidth: width,
+					containerHeight: height,
+					size: requestedSize,
+					aspectRatio: webcamAspectRatio,
+					margin,
+				});
+		const size = webcamDimensions.width;
+		const webcamHeight = webcamDimensions.height;
 		const { x, y } = layoutScene
 			? { x: layoutScene.webcam.x, y: layoutScene.webcam.y }
 			: getWebcamOverlayPosition({
 					containerWidth: width,
 					containerHeight: height,
 					size,
+					height: webcamHeight,
 					margin,
 					positionPreset: webcam.positionPreset ?? webcam.corner,
 					positionX: webcam.positionX ?? 1,
@@ -2449,7 +2463,14 @@ export class FrameRenderer {
 		if (opacity <= 0.001) {
 			return;
 		}
-		const radius = Math.max(0, layoutScene?.webcam.borderRadius ?? webcam.cornerRadius ?? 18);
+		const radius = layoutScene
+			? layoutScene.webcam.borderRadius
+			: getWebcamCornerRadiusPx({
+					width: size,
+					height: webcamHeight,
+					cornerRadius: webcam.cornerRadius,
+					cornerRadiusPercent: webcam.cornerRadiusPercent,
+				});
 
 		const bubbleCanvas = this.webcamBubbleCanvas ?? document.createElement("canvas");
 		const bubbleWidth = Math.max(1, Math.ceil(size));
@@ -2546,7 +2567,7 @@ export class FrameRenderer {
 		const drawY = (webcamHeight - drawHeight) / 2;
 
 		bubbleCtx.save();
-		drawSquircleOnCanvas(bubbleCtx, { x: 0, y: 0, width: size, height: webcamHeight, radius });
+		drawWebcamMaskOnCanvas(bubbleCtx, { x: 0, y: 0, width: size, height: webcamHeight, radius });
 		bubbleCtx.clip();
 		if (webcam.mirror) {
 			bubbleCtx.save();

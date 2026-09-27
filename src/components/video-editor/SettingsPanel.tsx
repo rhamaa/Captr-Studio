@@ -302,7 +302,9 @@ export function SettingsPanel({
 	selectedLayoutPreset,
 	selectedLayoutTransitionMs,
 	selectedLayoutEasing,
+	selectedLayoutCameraSettings,
 	onLayoutPresetChange,
+	onLayoutCameraSettingsChange,
 	onLayoutTransitionChange,
 	onLayoutEasingChange,
 	onLayoutDelete,
@@ -556,7 +558,9 @@ export function SettingsPanel({
 
 	const defaultWebcam = initialEditorPreferences.webcam;
 	const [internalActiveEffectSection] = useState<EditorEffectSection>("scene");
-	const rawActiveEffectSection = activeEffectSectionProp ?? internalActiveEffectSection;
+	const requestedEffectSection = activeEffectSectionProp ?? internalActiveEffectSection;
+	const rawActiveEffectSection =
+		requestedEffectSection === "webcam" ? "layout" : requestedEffectSection;
 	const activeEffectSection: EditorEffectSection =
 		!recordToolsEnabled &&
 		["scene", "layout", "zoom", "cursor", "webcam", "frame", "crop"].includes(
@@ -1020,8 +1024,28 @@ export function SettingsPanel({
 						onLayoutTransitionChange={onLayoutTransitionChange}
 						onLayoutEasingChange={onLayoutEasingChange}
 						webcam={webcam}
-						onUploadWebcam={onUploadWebcam}
-						onClearWebcam={onClearWebcam}
+						bubbleWebcamSettings={
+							<WebcamSection
+								webcam={webcam}
+								webcamPreviewSrc={webcamPreviewSrc}
+								webcamPreviewCurrentTime={webcamPreviewCurrentTime}
+								webcamPreviewPlaying={webcamPreviewPlaying}
+								onUploadWebcam={onUploadWebcam}
+								onClearWebcam={onClearWebcam}
+								resetWebcamSection={resetWebcamSection}
+								updateWebcam={updateWebcam}
+								applyWebcamPositionPreset={applyWebcamPositionPreset}
+								webcamCrop={webcamCrop}
+								webcamPositionPreset={webcamPositionPreset}
+								webcamPositionX={webcamPositionX}
+								webcamPositionY={webcamPositionY}
+								webcamFileName={webcamFileName}
+								renderExtensionPanelsForSections={renderExtensionPanelsForSections}
+								tSettings={tSettings}
+								t={t}
+								embeddedInCameraBubble
+							/>
+						}
 						tSettings={tSettings}
 						t={t}
 					/>
@@ -1073,28 +1097,6 @@ export function SettingsPanel({
 						onCameraPerspectiveTiltChange={onCameraPerspectiveTiltChange}
 						initialEditorPreferences={initialEditorPreferences}
 						resetCursorSection={resetCursorSection}
-						renderExtensionPanelsForSections={renderExtensionPanelsForSections}
-						tSettings={tSettings}
-						t={t}
-					/>
-				);
-			case "webcam":
-				return (
-					<WebcamSection
-						webcam={webcam}
-						webcamPreviewSrc={webcamPreviewSrc}
-						webcamPreviewCurrentTime={webcamPreviewCurrentTime}
-						webcamPreviewPlaying={webcamPreviewPlaying}
-						onUploadWebcam={onUploadWebcam}
-						onClearWebcam={onClearWebcam}
-						resetWebcamSection={resetWebcamSection}
-						updateWebcam={updateWebcam}
-						applyWebcamPositionPreset={applyWebcamPositionPreset}
-						webcamCrop={webcamCrop}
-						webcamPositionPreset={webcamPositionPreset}
-						webcamPositionX={webcamPositionX}
-						webcamPositionY={webcamPositionY}
-						webcamFileName={webcamFileName}
 						renderExtensionPanelsForSections={renderExtensionPanelsForSections}
 						tSettings={tSettings}
 						t={t}

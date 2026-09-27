@@ -49,6 +49,7 @@ export interface WebcamSectionProps {
 	webcamPositionX: number;
 	webcamPositionY: number;
 	webcamFileName?: string | null;
+	embeddedInCameraBubble?: boolean;
 	renderExtensionPanelsForSections?: (...sections: string[]) => React.ReactNode;
 	tSettings: (key: string, fallback?: string) => string;
 	t: (key: string, fallback?: string) => string;
@@ -69,6 +70,7 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 	webcamPositionX,
 	webcamPositionY,
 	webcamFileName,
+	embeddedInCameraBubble = false,
 	renderExtensionPanelsForSections,
 	tSettings,
 	t,
@@ -116,17 +118,19 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 						className="data-[state=checked]:bg-[#2563EB] scale-75"
 					/>
 				</div>
-				<SliderControl
-					label={tSettings("effects.webcamSize")}
-					value={webcam?.size ?? DEFAULT_WEBCAM_SIZE}
-					defaultValue={DEFAULT_WEBCAM_SIZE}
-					min={10}
-					max={100}
-					step={1}
-					onChange={(v: number) => updateWebcam({ size: v })}
-					formatValue={(v: number) => `${Math.round(v)}%`}
-					parseInput={(text: string) => parseFloat(text.replace(/%$/, ""))}
-				/>
+				{!embeddedInCameraBubble && (
+					<SliderControl
+						label={tSettings("effects.webcamSize")}
+						value={webcam?.size ?? DEFAULT_WEBCAM_SIZE}
+						defaultValue={DEFAULT_WEBCAM_SIZE}
+						min={10}
+						max={100}
+						step={1}
+						onChange={(v: number) => updateWebcam({ size: v })}
+						formatValue={(v: number) => `${Math.round(v)}%`}
+						parseInput={(text: string) => parseFloat(text.replace(/%$/, ""))}
+					/>
+				)}
 				<div className="rounded-lg bg-foreground/[0.03] px-2.5 py-2">
 					<div className="mb-2 flex items-center justify-between gap-2">
 						<div className="text-[10px] text-muted-foreground">
@@ -142,23 +146,27 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 					</div>
 					<WebcamCropControl
 						cropRegion={webcamCrop}
+						cropAspectRatio={webcam?.cropAspectRatio}
 						mirrored={webcam?.mirror ?? true}
 						previewSrc={webcamPreviewSrc}
 						previewCurrentTime={webcamPreviewCurrentTime}
 						previewPlaying={webcamPreviewPlaying}
 						previewTimeOffsetMs={webcam?.timeOffsetMs}
-						onCropChange={(cropRegion: CropRegion) => updateWebcam({ cropRegion })}
+						onCropChange={(cropRegion: CropRegion, cropAspectRatio: number) =>
+							updateWebcam({ cropRegion, cropAspectRatio })
+						}
 					/>
 				</div>
-				<div className="rounded-lg bg-foreground/[0.03] px-2.5 py-2">
-					<div className="mb-2 text-[10px] text-muted-foreground">
-						{tSettings("effects.webcamPosition", "Position")}
-					</div>
-					<div className="grid grid-cols-3 gap-1.5">
-						{WEBCAM_POSITION_PRESETS.map((option) => {
-							const isActive = webcamPositionPreset === option.preset;
-							return (
-								<Button
+				{!embeddedInCameraBubble && (
+					<div className="rounded-lg bg-foreground/[0.03] px-2.5 py-2">
+						<div className="mb-2 text-[10px] text-muted-foreground">
+							{tSettings("effects.webcamPosition", "Position")}
+						</div>
+						<div className="grid grid-cols-3 gap-1.5">
+							{WEBCAM_POSITION_PRESETS.map((option) => {
+								const isActive = webcamPositionPreset === option.preset;
+								return (
+									<Button
 									key={option.preset}
 									type="button"
 									onClick={() => applyWebcamPositionPreset(option.preset)}
@@ -171,25 +179,26 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 								>
 									{option.label}
 								</Button>
-							);
-						})}
+								);
+							})}
+						</div>
+						<div className="mt-2 flex items-center justify-between rounded-lg bg-black/10 px-2.5 py-1.5">
+							<span className="text-[10px] text-muted-foreground">
+								{tSettings("effects.webcamCustomPosition", "Custom position")}
+							</span>
+							<Switch
+								checked={webcamPositionPreset === "custom"}
+								onCheckedChange={(checked) =>
+									applyWebcamPositionPreset(
+										checked ? "custom" : DEFAULT_WEBCAM_POSITION_PRESET,
+									)
+								}
+								className="data-[state=checked]:bg-[#2563EB] scale-75"
+							/>
+						</div>
 					</div>
-					<div className="mt-2 flex items-center justify-between rounded-lg bg-black/10 px-2.5 py-1.5">
-						<span className="text-[10px] text-muted-foreground">
-							{tSettings("effects.webcamCustomPosition", "Custom position")}
-						</span>
-						<Switch
-							checked={webcamPositionPreset === "custom"}
-							onCheckedChange={(checked) =>
-								applyWebcamPositionPreset(
-									checked ? "custom" : DEFAULT_WEBCAM_POSITION_PRESET,
-								)
-							}
-							className="data-[state=checked]:bg-[#2563EB] scale-75"
-						/>
-					</div>
-				</div>
-				{webcamPositionPreset === "custom" ? (
+				)}
+				{!embeddedInCameraBubble && webcamPositionPreset === "custom" ? (
 					<>
 						<SliderControl
 							label={tSettings("effects.webcamHorizontal", "Horizontal")}
@@ -238,14 +247,24 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 				/>
 				<SliderControl
 					label={tSettings("effects.webcamRoundness")}
-					value={webcam?.cornerRadius ?? DEFAULT_WEBCAM_CORNER_RADIUS}
-					defaultValue={DEFAULT_WEBCAM_CORNER_RADIUS}
+					value={
+						(webcam?.cornerRadiusPercent ??
+							Math.min(
+								1,
+								Math.max(
+									0,
+									(webcam?.cornerRadius ?? DEFAULT_WEBCAM_CORNER_RADIUS) / 160,
+								),
+							)) *
+						100
+					}
+					defaultValue={(DEFAULT_WEBCAM_CORNER_RADIUS / 160) * 100}
 					min={0}
-					max={160}
+					max={100}
 					step={1}
-					onChange={(v: number) => updateWebcam({ cornerRadius: v })}
-					formatValue={(v: number) => `${Math.round(v)}px`}
-					parseInput={(text: string) => parseFloat(text.replace(/px$/, ""))}
+					onChange={(v: number) => updateWebcam({ cornerRadiusPercent: v / 100 })}
+					formatValue={(v: number) => `${Math.round(v)}%`}
+					parseInput={(text: string) => parseFloat(text.replace(/%$/, ""))}
 				/>
 				<SliderControl
 					label={tSettings("effects.webcamShadow")}

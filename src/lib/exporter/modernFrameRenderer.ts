@@ -58,7 +58,9 @@ import {
 	type MotionBlurState,
 } from "@/components/video-editor/videoPlayback/zoomTransform";
 import {
+	getWebcamCornerRadiusPx,
 	getWebcamCropSourceRect,
+	getWebcamOverlayDimensions,
 	getWebcamOverlayPosition,
 	getWebcamOverlaySizePx,
 	isWebcamCropRegionDefault,
@@ -75,7 +77,7 @@ import {
 	notifyCursorInteraction,
 } from "@/lib/extensions/renderHooks";
 import { applyCanvasSceneTransform } from "@/lib/extensions/sceneTransform";
-import { drawSquircleOnCanvas, drawSquircleOnGraphics } from "@/lib/geometry/squircle";
+import { drawSquircleOnCanvas, drawSquircleOnGraphics, drawWebcamMaskOnCanvas, drawWebcamMaskOnGraphics } from "@/lib/geometry/squircle";
 import {
 	clampMediaTimeToDuration,
 	getEffectiveVideoStreamDurationSeconds,
@@ -806,6 +808,7 @@ export class FrameRenderer {
 			offsetY: number;
 			alpha: number;
 			blur: number;
+			webcamMask?: boolean;
 		},
 	): void {
 		if (options.alpha <= 0 || options.width <= 0 || options.height <= 0) {
@@ -829,7 +832,8 @@ export class FrameRenderer {
 		layer.context.save();
 		layer.context.filter = options.blur > 0 ? `blur(${options.blur}px)` : "none";
 		layer.context.fillStyle = `rgba(0, 0, 0, ${options.alpha})`;
-		drawSquircleOnCanvas(layer.context, {
+		const drawMask = options.webcamMask ? drawWebcamMaskOnCanvas : drawSquircleOnCanvas;
+		drawMask(layer.context, {
 			x: padding,
 			y: padding + options.offsetY,
 			width: options.width,
@@ -2349,7 +2353,7 @@ export class FrameRenderer {
 		);
 
 		this.webcamMaskGraphics.clear();
-		drawSquircleOnGraphics(this.webcamMaskGraphics, {
+		drawWebcamMaskOnGraphics(this.webcamMaskGraphics, {
 			x: 0,
 			y: 0,
 			width: targetWidth,
@@ -2374,6 +2378,7 @@ export class FrameRenderer {
 				offsetY,
 				alpha: layer.alphaScale * nextLayout.shadowStrength,
 				blur: Math.max(0, targetHeight * layer.blurScale * nextLayout.shadowStrength),
+				webcamMask: true,
 			});
 		}
 
@@ -2634,7 +2639,7 @@ export class FrameRenderer {
 					})
 				: null;
 		const margin = webcam.margin ?? 24;
-		const size = layoutScene
+		const requestedSize = layoutScene
 			? layoutScene.webcam.width
 			: getWebcamOverlaySizePx({
 					containerWidth: this.config.width,
@@ -2644,22 +2649,40 @@ export class FrameRenderer {
 					zoomScale: this.animationState.appliedScale || 1,
 					reactToZoom: webcam.reactToZoom ?? true,
 				});
+		const webcamAspectRatio = Math.max(0.05, Math.min(20, webcam.cropAspectRatio ?? 1));
+		const dimensions = layoutScene
+			? { width: layoutScene.webcam.width, height: layoutScene.webcam.height }
+			: getWebcamOverlayDimensions({
+					containerWidth: this.config.width,
+					containerHeight: this.config.height,
+					size: requestedSize,
+					aspectRatio: webcamAspectRatio,
+					margin,
+				});
+		const size = dimensions.width;
+		const height = dimensions.height;
 		const position = layoutScene
 			? { x: layoutScene.webcam.x, y: layoutScene.webcam.y }
 			: getWebcamOverlayPosition({
 					containerWidth: this.config.width,
 					containerHeight: this.config.height,
 					size,
+					height,
 					margin,
 					positionPreset: webcam.positionPreset ?? webcam.corner,
 					positionX: webcam.positionX ?? 1,
 					positionY: webcam.positionY ?? 1,
 					legacyCorner: webcam.corner,
 				});
-		const radius = Math.max(0, layoutScene?.webcam.borderRadius ?? webcam.cornerRadius ?? 18);
+		const radius = layoutScene
+			? layoutScene.webcam.borderRadius
+			: getWebcamCornerRadiusPx({
+					width: size,
+					height,
+					cornerRadius: webcam.cornerRadius,
+					cornerRadiusPercent: webcam.cornerRadiusPercent,
+				});
 		const shadowStrength = clampUnitInterval(layoutScene?.webcam.shadow ?? webcam.shadow ?? 0);
-		const height = layoutScene ? layoutScene.webcam.height : size;
-
 		this.webcamRootContainer.visible = (layoutScene?.webcam.opacity ?? 1) > 0.001;
 		this.webcamRootContainer.alpha = layoutScene?.webcam.opacity ?? 1;
 

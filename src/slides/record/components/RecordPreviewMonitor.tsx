@@ -1,4 +1,4 @@
-import { ArrowsClockwise, Trash, UploadSimple, VideoCamera } from "@phosphor-icons/react";
+import { VideoCamera } from "@phosphor-icons/react";
 import React from "react";
 import type {
 	CursorTelemetryPoint,
@@ -26,8 +26,6 @@ export interface RecordPreviewMonitorProps {
 	selectedZoomId: string | null;
 	onSelectZoom: (id: string | null) => void;
 	onZoomFocusChange: (id: string, focus: ZoomFocus) => void;
-	onImportVideoPicker: () => void;
-	onClearVideo: () => void;
 	onOpenRecorderHud: () => void;
 }
 
@@ -48,8 +46,6 @@ export const RecordPreviewMonitor: React.FC<RecordPreviewMonitorProps> = ({
 	selectedZoomId,
 	onSelectZoom,
 	onZoomFocusChange,
-	onImportVideoPicker,
-	onClearVideo,
 	onOpenRecorderHud,
 }) => {
 	return (
@@ -67,27 +63,6 @@ export const RecordPreviewMonitor: React.FC<RecordPreviewMonitorProps> = ({
 						</span>
 					)}
 				</div>
-				{videoPath && (
-					<div className="flex items-center gap-2">
-						<button
-							type="button"
-							onClick={onImportVideoPicker}
-							className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2.5 py-1 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition-colors cursor-pointer"
-							title="Change Video Source"
-						>
-							<ArrowsClockwise size={13} />
-							<span>Ganti Video</span>
-						</button>
-						<button
-							type="button"
-							onClick={onClearVideo}
-							className="flex items-center gap-1 rounded-lg border border-red-500/20 bg-red-500/10 px-2 py-1 text-xs font-medium text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer"
-							title="Hapus Video"
-						>
-							<Trash size={13} />
-						</button>
-					</div>
-				)}
 			</div>
 
 			{/* Tahap 1: PixiJS WebGL Canvas Compositor via VideoPlayback */}
@@ -133,7 +108,6 @@ export const RecordPreviewMonitor: React.FC<RecordPreviewMonitorProps> = ({
 							cursorSmoothing={meta.cursorSmoothing ?? 0.67}
 							cursorClickBounce={meta.cursorClickBounce ?? 2.5}
 							cursorSway={meta.cursorSway ?? 0.4}
-							cameraPerspectiveTilt={meta.cameraPerspectiveTilt ?? 0}
 							zoomMotionBlur={meta.zoomMotionBlur ?? 0.35}
 							connectZooms={meta.connectZooms ?? true}
 							zoomInDurationMs={meta.zoomInDurationMs ?? 200}
@@ -144,7 +118,7 @@ export const RecordPreviewMonitor: React.FC<RecordPreviewMonitorProps> = ({
 						/>
 					</div>
 				) : (
-					/* Empty State with Direct Ingest Triggers */
+					/* Empty recording state */
 					<div className="flex flex-col items-center justify-center gap-4 rounded-3xl border-2 border-dashed border-slate-700/60 bg-slate-900/60 p-10 text-center backdrop-blur-md max-w-md mx-auto">
 						<div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-inner">
 							<VideoCamera size={36} weight="duotone" />
@@ -154,7 +128,7 @@ export const RecordPreviewMonitor: React.FC<RecordPreviewMonitorProps> = ({
 								Screen Studio Slide Mode
 							</h4>
 							<p className="text-xs text-slate-400 mt-1 max-w-xs leading-relaxed">
-								Rekam layar langsung ke slide ini atau import rekaman untuk
+								Rekam layar langsung ke slide ini untuk
 								mengaktifkan PixiJS WebGL canvas, spring camera auto-zoom, dan
 								cursor smoothing.
 							</p>
@@ -167,14 +141,6 @@ export const RecordPreviewMonitor: React.FC<RecordPreviewMonitorProps> = ({
 							>
 								<VideoCamera size={16} weight="fill" />
 								<span>Rekam Layar (HUD)</span>
-							</button>
-							<button
-								type="button"
-								onClick={onImportVideoPicker}
-								className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2.5 text-xs font-semibold transition-all cursor-pointer"
-							>
-								<UploadSimple size={16} weight="bold" />
-								<span>Pilih File Video</span>
 							</button>
 						</div>
 					</div>

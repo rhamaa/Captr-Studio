@@ -35,7 +35,6 @@ export const RecordSlideWorkspace: React.FC<SlideWorkspaceProps<"record">> = ({
 }) => {
 	const meta = slide.meta;
 	const videoPlaybackRef = useRef<VideoPlaybackRef>(null);
-	const fileInputRef = useRef<HTMLInputElement | null>(null);
 	const webcamFileInputRef = useRef<HTMLInputElement | null>(null);
 
 	const [resolvedVideoSrc, setResolvedVideoSrc] = useState<string>("");
@@ -203,35 +202,6 @@ export const RecordSlideWorkspace: React.FC<SlideWorkspaceProps<"record">> = ({
 		}
 	};
 
-	const handleImportVideoPicker = async () => {
-		try {
-			if (window.electronAPI?.openVideoFilePicker) {
-				const res = await window.electronAPI.openVideoFilePicker();
-				if (res.success && res.path) {
-					onUpdateMeta((prev) => ({
-						...prev,
-						videoPath: res.path,
-					}));
-				}
-			} else {
-				fileInputRef.current?.click();
-			}
-		} catch (err) {
-			console.error("Failed to pick video:", err);
-		}
-	};
-
-	const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const file = e.target.files?.[0];
-		if (file) {
-			const blobUrl = URL.createObjectURL(file);
-			onUpdateMeta((prev) => ({
-				...prev,
-				videoPath: blobUrl,
-			}));
-		}
-	};
-
 	const handleWebcamPicker = async () => {
 		try {
 			if (window.electronAPI?.openVideoFilePicker) {
@@ -269,21 +239,6 @@ export const RecordSlideWorkspace: React.FC<SlideWorkspaceProps<"record">> = ({
 				webcamPath: blobUrl,
 			}));
 		}
-	};
-
-	const handleClearVideo = () => {
-		if (isPlaying) {
-			videoPlaybackRef.current?.pause();
-			setIsPlaying(false);
-		}
-		onUpdateMeta((prev) => ({
-			...prev,
-			videoPath: undefined,
-			zoomRegions: [],
-		}));
-		setResolvedVideoSrc("");
-		setCurrentTimeMs(0);
-		setSelectedZoomId(null);
 	};
 
 	// Tahap 2: Auto-Suggest Zooms via Telemetry Click Analysis
@@ -465,13 +420,6 @@ export const RecordSlideWorkspace: React.FC<SlideWorkspaceProps<"record">> = ({
 		<div className="flex h-full w-full bg-slate-950 text-slate-200 select-none">
 			<input
 				type="file"
-				ref={fileInputRef}
-				accept="video/*"
-				className="hidden"
-				onChange={handleFileInputChange}
-			/>
-			<input
-				type="file"
 				ref={webcamFileInputRef}
 				accept="video/*"
 				className="hidden"
@@ -504,8 +452,6 @@ export const RecordSlideWorkspace: React.FC<SlideWorkspaceProps<"record">> = ({
 					selectedZoomId={selectedZoomId}
 					onSelectZoom={setSelectedZoomId}
 					onZoomFocusChange={handleZoomFocusChange}
-					onImportVideoPicker={handleImportVideoPicker}
-					onClearVideo={handleClearVideo}
 					onOpenRecorderHud={handleOpenRecorderHud}
 				/>
 
@@ -610,14 +556,7 @@ export const RecordSlideWorkspace: React.FC<SlideWorkspaceProps<"record">> = ({
 						cursorClickBounce: val,
 					}))
 				}
-				cameraPerspectiveTilt={meta.cameraPerspectiveTilt ?? 0}
 				zoomMotionBlur={meta.zoomMotionBlur ?? 0.35}
-				onUpdateCameraPerspectiveTilt={(val) =>
-					onUpdateMeta((prev) => ({
-						...prev,
-						cameraPerspectiveTilt: val,
-					}))
-				}
 				onUpdateZoomMotionBlur={(val) =>
 					onUpdateMeta((prev) => ({
 						...prev,

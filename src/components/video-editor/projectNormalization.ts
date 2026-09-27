@@ -1099,6 +1099,9 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			mirror:
 				typeof webcam.mirror === "boolean" ? webcam.mirror : DEFAULT_WEBCAM_OVERLAY.mirror,
 			cropRegion: normalizeWebcamCropRegion(webcam.cropRegion),
+			cropAspectRatio: isFiniteNumber(webcam.cropAspectRatio)
+				? clamp(webcam.cropAspectRatio, 0.05, 20)
+				: (DEFAULT_WEBCAM_OVERLAY.cropAspectRatio ?? 1),
 			positionPreset:
 				webcam.positionPreset === "top-left" ||
 				webcam.positionPreset === "top-center" ||
@@ -1140,6 +1143,9 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 			cornerRadius: isFiniteNumber(webcam.cornerRadius)
 				? clamp(webcam.cornerRadius, 0, 160)
 				: DEFAULT_WEBCAM_CORNER_RADIUS,
+			cornerRadiusPercent: isFiniteNumber(webcam.cornerRadiusPercent)
+				? clamp(webcam.cornerRadiusPercent, 0, 1)
+				: undefined,
 			shadow: isFiniteNumber(webcam.shadow)
 				? clamp(webcam.shadow, 0, 1)
 				: DEFAULT_WEBCAM_SHADOW,

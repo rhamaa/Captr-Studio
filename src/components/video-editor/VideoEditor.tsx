@@ -12,7 +12,6 @@ import {
 	SquaresFour as LayoutIcon,
 	Microphone,
 	Pause,
-	Camera as PhCameraRegular,
 	Code as PhCodeRegular,
 	Play,
 	Plus,
@@ -111,9 +110,6 @@ import { buildVideoLayerAudioRegions } from "./videoLayerAudio";
 
 const PhCursorFill = (props: { className?: string; weight?: "fill" | "regular" }) => (
 	<Cursor weight="fill" className={props.className} />
-);
-const PhCamera = (props: { className?: string; weight?: "fill" | "regular" }) => (
-	<PhCameraRegular weight={props.weight ?? "regular"} className={props.className} />
 );
 
 const PhSparkle = (props: { className?: string; weight?: "fill" | "regular" }) => (
@@ -1692,11 +1688,6 @@ export default function VideoEditor() {
 				icon: PhCursorFill,
 			},
 			{
-				id: "webcam" as const,
-				label: t("settings.sections.webcam", "Webcam"),
-				icon: PhCamera,
-			},
-			{
 				id: "layout" as const,
 				label: t("settings.sections.layout", "Layout"),
 				icon: PhLayout,
@@ -1705,7 +1696,10 @@ export default function VideoEditor() {
 	}, [activeSlideMode, t]);
 
 	useEffect(() => {
-		const targetSection = sanitizeSectionForSlideMode(activeSlideMode, activeEffectSection);
+		const targetSection =
+			activeSlideMode === "record" && activeEffectSection === "webcam"
+				? "layout"
+				: sanitizeSectionForSlideMode(activeSlideMode, activeEffectSection);
 		if (targetSection !== activeEffectSection) {
 			setActiveEffectSection(targetSection as EditorEffectSection);
 		}

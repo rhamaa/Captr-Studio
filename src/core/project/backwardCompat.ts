@@ -88,8 +88,6 @@ function migrateRecordMeta(
 		cursorSize: editorSettings?.cursorSize ?? defaults.cursorSize,
 		cursorClickBounce: editorSettings?.cursorClickBounce ?? defaults.cursorClickBounce,
 		cursorSway: editorSettings?.cursorSway ?? defaults.cursorSway,
-		cameraPerspectiveTilt:
-			editorSettings?.cameraPerspectiveTilt ?? defaults.cameraPerspectiveTilt,
 		zoomMotionBlur: editorSettings?.zoomMotionBlur ?? defaults.zoomMotionBlur,
 		connectZooms: editorSettings?.connectZooms ?? defaults.connectZooms,
 		zoomInDurationMs: editorSettings?.zoomInDurationMs ?? defaults.zoomInDurationMs,
