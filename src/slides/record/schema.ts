@@ -6,6 +6,7 @@ import type {
 	ClipTransitionType,
 	CursorStyle,
 	CursorTelemetryPoint,
+	LayoutCameraSettings,
 	LayoutRegion,
 	LayoutScenePreset,
 	MediaTrackLayer,
@@ -37,6 +38,7 @@ export type {
 	ClipRegion,
 	CursorStyle,
 	CursorTelemetryPoint,
+	LayoutCameraSettings,
 	LayoutRegion,
 	Padding,
 	WebcamOverlaySettings,
@@ -194,6 +196,17 @@ function isLayoutScenePreset(value: unknown): value is LayoutScenePreset {
 	return isOneOf(value, layoutPresets);
 }
 
+function isLayoutCameraSettings(value: unknown): value is Partial<LayoutCameraSettings> {
+	if (!isObjectRecord(value)) return false;
+	return (
+		(value.shape === undefined || isOneOf(value.shape, ["circle", "rectangle"])) &&
+		(value.position === undefined ||
+			isOneOf(value.position, ["top-left", "top-right", "bottom-left", "bottom-right"])) &&
+		(value.size === undefined || isFiniteNumber(value.size)) &&
+		(value.shape !== undefined || value.position !== undefined || value.size !== undefined)
+	);
+}
+
 function isLayoutRegion(value: unknown): value is LayoutRegion {
 	if (!isObjectRecord(value)) return false;
 	return (
@@ -201,6 +214,7 @@ function isLayoutRegion(value: unknown): value is LayoutRegion {
 		isFiniteNumber(value.startMs) &&
 		isFiniteNumber(value.endMs) &&
 		isLayoutScenePreset(value.preset) &&
+		(value.cameraSettings === undefined || isLayoutCameraSettings(value.cameraSettings)) &&
 		isFiniteNumber(value.transitionMs) &&
 		isOneOf(value.easing, ["smooth", "snappy", "linear"])
 	);

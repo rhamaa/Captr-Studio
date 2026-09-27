@@ -894,6 +894,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 							startMs: region.startMs,
 							endMs: region.endMs,
 							preset: region.preset ?? DEFAULT_LAYOUT_SCENE_PRESET,
+							cameraSettings: region.cameraSettings,
 							transitionMs: region.transitionMs ?? DEFAULT_LAYOUT_SCENE_TRANSITION_MS,
 							easing: region.easing ?? DEFAULT_LAYOUT_SCENE_EASING,
 						},

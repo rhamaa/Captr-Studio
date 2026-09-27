@@ -35,7 +35,7 @@ import { AudioTrackSection } from "./settings/sections/AudioTrackSection";
 import { ClipItemSection } from "./settings/sections/ClipItemSection";
 import { CursorSection } from "./settings/sections/CursorSection";
 import { GeneralPreferencesSection } from "./settings/sections/GeneralPreferencesSection";
-import { LayoutItemSection } from "./settings/sections/LayoutItemSection";
+import { RecordLayoutSection } from "@/slides/record/components/RecordLayoutSection";
 import { MediaSection } from "./settings/sections/MediaSection";
 import { SceneSection } from "./settings/sections/SceneSection";
 import { TransitionsSection } from "./settings/sections/TransitionsSection";
@@ -59,6 +59,7 @@ import type {
 	CursorStyle,
 	EditorEffectSection,
 	FigureData,
+	LayoutCameraSettings,
 	LayoutSceneEasing,
 	LayoutScenePreset,
 	Padding,
@@ -136,7 +137,9 @@ interface SettingsPanelProps {
 	selectedLayoutPreset?: LayoutScenePreset | null;
 	selectedLayoutTransitionMs?: number | null;
 	selectedLayoutEasing?: LayoutSceneEasing | null;
+	selectedLayoutCameraSettings?: LayoutCameraSettings | null;
 	onLayoutPresetChange?: (preset: LayoutScenePreset) => void;
+	onLayoutCameraSettingsChange?: (settings: Partial<LayoutCameraSettings>) => void;
 	onLayoutTransitionChange?: (transitionMs: number) => void;
 	onLayoutEasingChange?: (easing: LayoutSceneEasing) => void;
 	onLayoutDelete?: (id: string) => void;
@@ -1006,14 +1009,19 @@ export function SettingsPanel({
 				);
 			case "layout":
 				return (
-					<LayoutItemSection
+					<RecordLayoutSection
 						selectedLayoutId={selectedLayoutId}
 						selectedLayoutPreset={selectedLayoutPreset}
 						selectedLayoutTransitionMs={selectedLayoutTransitionMs}
 						selectedLayoutEasing={selectedLayoutEasing}
+						selectedLayoutCameraSettings={selectedLayoutCameraSettings}
 						onLayoutPresetChange={onLayoutPresetChange}
+						onLayoutCameraSettingsChange={onLayoutCameraSettingsChange}
 						onLayoutTransitionChange={onLayoutTransitionChange}
 						onLayoutEasingChange={onLayoutEasingChange}
+						webcam={webcam}
+						onUploadWebcam={onUploadWebcam}
+						onClearWebcam={onClearWebcam}
 						tSettings={tSettings}
 						t={t}
 					/>

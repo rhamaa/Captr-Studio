@@ -124,11 +124,21 @@ export type LayoutScenePreset =
 
 export type LayoutSceneEasing = "smooth" | "snappy" | "linear";
 
+export type LayoutBubbleShape = "circle" | "rectangle";
+
+export interface LayoutCameraSettings {
+	shape: LayoutBubbleShape;
+	position: WebcamCorner;
+	/** Bubble width as a percentage of the canvas' shorter side. */
+	size: number;
+}
+
 export interface LayoutRegion {
 	id: string;
 	startMs: number;
 	endMs: number;
 	preset: LayoutScenePreset;
+	cameraSettings?: Partial<LayoutCameraSettings>;
 	transitionMs: number;
 	easing: LayoutSceneEasing;
 }

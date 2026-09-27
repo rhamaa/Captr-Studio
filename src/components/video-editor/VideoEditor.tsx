@@ -98,6 +98,7 @@ import { resolveExportStartSettings } from "./exportStartSettings";
 import { resolveExportStatusModel } from "./exportStatusModel";
 import { resolveMp4ExportRouting } from "./mp4ExportRouting";
 import { resolveMp4ExportSettings } from "./mp4ExportSettings";
+import { getLayoutCameraSettings } from "./layoutScenes";
 import {
 	isMotionSlide,
 	isRecordSlide,
@@ -249,6 +250,7 @@ import {
 	type FigureData,
 	getClipSourceEndMs,
 	getTimelineDurationMs,
+	type LayoutCameraSettings,
 	type LayoutRegion,
 	type LayoutSceneEasing,
 	type LayoutScenePreset,
@@ -4897,6 +4899,10 @@ export default function VideoEditor() {
 				startMs: clampedStartMs,
 				endMs: Math.min(totalMs, clampedStartMs + durationMs),
 				preset: DEFAULT_LAYOUT_SCENE_PRESET,
+				cameraSettings: getLayoutCameraSettings(
+					{ preset: DEFAULT_LAYOUT_SCENE_PRESET },
+					webcam,
+				),
 				transitionMs: DEFAULT_LAYOUT_SCENE_TRANSITION_MS,
 				easing: DEFAULT_LAYOUT_SCENE_EASING,
 			};
@@ -4910,7 +4916,7 @@ export default function VideoEditor() {
 			setSelectedAudioId(null);
 			setActiveEffectSection("layout");
 		},
-		[duration, layoutRegions],
+		[duration, layoutRegions, webcam],
 	);
 
 	const handleLayoutSpanChange = useCallback((id: string, span: Span) => {
@@ -4935,6 +4941,26 @@ export default function VideoEditor() {
 			setLayoutRegions((prev) =>
 				prev.map((region) =>
 					region.id === selectedLayoutId ? { ...region, preset } : region,
+				),
+			);
+		},
+		[selectedLayoutId],
+	);
+
+	const handleLayoutCameraSettingsChange = useCallback(
+		(settings: Partial<LayoutCameraSettings>) => {
+			if (!selectedLayoutId) return;
+			setLayoutRegions((prev) =>
+				prev.map((region) =>
+					region.id === selectedLayoutId
+						? {
+								...region,
+								cameraSettings: {
+									...region.cameraSettings,
+									...settings,
+								},
+							}
+						: region,
 				),
 			);
 		},
@@ -8066,15 +8092,26 @@ export default function VideoEditor() {
 												)?.transitionMs ?? null)
 											: null
 									}
-									selectedLayoutEasing={
-										selectedLayoutId
-											? (layoutRegions.find(
-													(region) => region.id === selectedLayoutId,
-												)?.easing ?? null)
-											: null
-									}
-									onLayoutPresetChange={handleLayoutPresetChange}
-									onLayoutTransitionChange={handleLayoutTransitionChange}
+					selectedLayoutEasing={
+						selectedLayoutId
+							? (layoutRegions.find(
+									(region) => region.id === selectedLayoutId,
+								)?.easing ?? null)
+							: null
+					}
+					selectedLayoutCameraSettings={
+						selectedLayoutId
+							? getLayoutCameraSettings(
+									layoutRegions.find((region) => region.id === selectedLayoutId) ?? {
+										preset: DEFAULT_LAYOUT_SCENE_PRESET,
+									},
+									webcam,
+								)
+							: null
+					}
+					onLayoutPresetChange={handleLayoutPresetChange}
+					onLayoutCameraSettingsChange={handleLayoutCameraSettingsChange}
+					onLayoutTransitionChange={handleLayoutTransitionChange}
 									onLayoutEasingChange={handleLayoutEasingChange}
 									onLayoutDelete={handleLayoutDelete}
 									hasClipSourceAudio={hasClipSourceAudio}
