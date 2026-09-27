@@ -8,6 +8,7 @@ import {
 } from "../../project/manager";
 import { persistRecordingSessionManifest, resolveRecordingSession } from "../../project/session";
 import {
+	consumePreserveProjectPathForNextNativeRecording,
 	currentRecordingSession,
 	currentVideoPath,
 	setCurrentProjectPath,
@@ -31,6 +32,10 @@ export function registerProjectSessionHandlers() {
 			path: string,
 			options?: { preserveProjectPath?: boolean; hideOverlayCursorByDefault?: boolean },
 		) => {
+			const pendingProjectPathPreservation =
+				consumePreserveProjectPathForNextNativeRecording();
+			const preserveProjectPath =
+				Boolean(options?.preserveProjectPath) || pendingProjectPathPreservation;
 			setCurrentVideoPath(normalizeVideoSourcePath(path) ?? path);
 			approveUserPath(currentVideoPath);
 			const resolvedSession = (await resolveRecordingSession(currentVideoPath)) ?? {
@@ -49,14 +54,14 @@ export function registerProjectSessionHandlers() {
 			setCurrentRecordingSession(nextSession);
 			await replaceApprovedSessionLocalReadPaths(
 				[resolvedSession.videoPath, resolvedSession.webcamPath],
-				options?.preserveProjectPath,
+				preserveProjectPath,
 			);
 
 			if (nextSession.webcamPath) {
 				await persistRecordingSessionManifest(nextSession);
 			}
 
-			if (!options?.preserveProjectPath) {
+			if (!preserveProjectPath) {
 				setCurrentProjectPath(null);
 			}
 
@@ -82,6 +87,10 @@ export function registerProjectSessionHandlers() {
 			},
 			options?: { preserveProjectPath?: boolean },
 		) => {
+			const pendingProjectPathPreservation =
+				consumePreserveProjectPathForNextNativeRecording();
+			const preserveProjectPath =
+				Boolean(options?.preserveProjectPath) || pendingProjectPathPreservation;
 			const normalizedVideoPath =
 				normalizeVideoSourcePath(session.videoPath) ?? session.videoPath;
 			setCurrentVideoPath(normalizedVideoPath);
@@ -93,7 +102,7 @@ export function registerProjectSessionHandlers() {
 			});
 			await rememberApprovedLocalReadPath(currentRecordingSession!.videoPath);
 			await rememberApprovedLocalReadPath(currentRecordingSession!.webcamPath);
-			if (!options?.preserveProjectPath) {
+			if (!preserveProjectPath) {
 				setCurrentProjectPath(null);
 			}
 			await persistRecordingSessionManifest(currentRecordingSession!);

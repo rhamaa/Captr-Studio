@@ -46,6 +46,6 @@ Sebelum mengubah pembuatan slide Record, Recorder HUD, finalisasi rekaman, proje
 
 1. Baca issue log dan checklist **“Menambahkan Record slide meminta project baru”** di `ISSUE.md`.
 2. Pastikan rekaman tambahan masuk ke deck yang sudah ada, termasuk saat `videoSourcePath` kosong tetapi slide sudah tersedia.
-3. Pastikan `currentProjectPath` tetap terjaga sepanjang Recorder HUD dan finalisasi native/browser bila rekaman berasal dari project aktif. Alur project baru harus tetap dapat meminta lokasi save baru.
+3. Pastikan `currentProjectPath` tetap terjaga sepanjang Recorder HUD dan finalisasi native/browser bila rekaman berasal dari project aktif. Jangan mengasumsikan jalur Windows melewati finalizer macOS: handler sesi harus mengonsumsi konteks `preserveProjectPath` tertunda sebelum memutuskan reset path. Alur project baru harus tetap dapat meminta lokasi save baru.
 4. Pertahankan satu file `.captr` untuk satu project, dengan metadata dan aset di folder masing-masing `slides/<slideId>/`; `project.json` tetap menjadi indeks project.
 5. Saat mengubah kontrak tersebut, perbarui checklist di `ISSUE.md` dan verifikasi alur simpan-buka ulang agar regresi tidak terulang.

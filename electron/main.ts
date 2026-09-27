@@ -27,7 +27,7 @@ import {
 	registerIpcHandlers,
 } from "./ipc/handlers";
 import { loadProjectFromPath, rememberApprovedLocalReadPath } from "./ipc/project/manager";
-import { setPreserveProjectPathForNextNativeRecording } from "./ipc/state";
+import { currentProjectPath, setPreserveProjectPathForNextNativeRecording } from "./ipc/state";
 import { getScreen } from "./ipc/utils";
 import { ensureMediaServer } from "./mediaServer";
 import { ensurePackagedRendererServer } from "./rendererServer";
@@ -281,15 +281,19 @@ function createWindow() {
 }
 
 function openHudRecorder(preserveProjectPath = false): BrowserWindow {
-	setPreserveProjectPathForNextNativeRecording(preserveProjectPath);
+	// The editor can open the recorder through more than one UI path. Preserve
+	// the active project whenever main-process state knows one is open, even if
+	// the caller did not pass the context flag.
+	const shouldPreserveProjectPath = preserveProjectPath || Boolean(currentProjectPath);
+	setPreserveProjectPathForNextNativeRecording(shouldPreserveProjectPath);
 	const existingHud = getHudOverlayWindow();
 	if (existingHud && !existingHud.isDestroyed()) {
-		existingHud.webContents.send("recorder-project-context-changed", preserveProjectPath);
+		existingHud.webContents.send("recorder-project-context-changed", shouldPreserveProjectPath);
 		restoreWindowSafely(existingHud);
 		return existingHud;
 	}
 
-	return createHudOverlayWindow({ preserveProjectPath });
+	return createHudOverlayWindow({ preserveProjectPath: shouldPreserveProjectPath });
 }
 
 function focusOrCreateMainWindow() {
@@ -1157,7 +1161,7 @@ app.whenReady().then(async () => {
 	}
 
 	registerIpcHandlers(
-		createEditorWindowWrapper,
+		focusOrCreateMainWindow,
 		createSourceSelectorWindowWrapper,
 		() => mainWindow,
 		() => sourceSelectorWindow,

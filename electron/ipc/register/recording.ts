@@ -1171,7 +1171,9 @@ export function registerRecordingHandlers(
 					console.log("[stop-native] No separate audio tracks to mux");
 				}
 
-				return await finalizeStoredVideo(finalVideoPath);
+				return await finalizeStoredVideo(finalVideoPath, {
+					deferProjectPathReset: true,
+				});
 			} catch (error) {
 				console.error("Failed to stop native ScreenCaptureKit recording:", error);
 				const fallbackPath = nativeCaptureTargetPath;

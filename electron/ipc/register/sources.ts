@@ -36,11 +36,11 @@ function broadcastSelectedSourceChange() {
 }
 
 export function registerSourceHandlers({
-	createEditorWindow,
+	focusOrCreateEditorWindow,
 	createSourceSelectorWindow,
 	getSourceSelectorWindow,
 }: {
-	createEditorWindow: () => void;
+	focusOrCreateEditorWindow: () => void;
 	createSourceSelectorWindow: () => BrowserWindow;
 	getSourceSelectorWindow: () => BrowserWindow | null;
 }) {
@@ -534,6 +534,6 @@ body{background:transparent;overflow:hidden;width:100vw;height:100vh}
 		if (sourceSelectorWin && !sourceSelectorWin.isDestroyed()) {
 			sourceSelectorWin.close();
 		}
-		createEditorWindow();
+		focusOrCreateEditorWindow();
 	});
 }

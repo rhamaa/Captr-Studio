@@ -50,14 +50,14 @@ export function killWindowsCaptureProcess() {
 }
 
 export function registerIpcHandlers(
-	createEditorWindow: () => void,
+	focusOrCreateEditorWindow: () => void,
 	createSourceSelectorWindow: () => BrowserWindow,
 	_getMainWindow: () => BrowserWindow | null,
 	getSourceSelectorWindow: () => BrowserWindow | null,
 	onRecordingStateChange?: (recording: boolean, sourceName: string) => void,
 ) {
 	registerSourceHandlers({
-		createEditorWindow,
+		focusOrCreateEditorWindow,
 		createSourceSelectorWindow,
 		getSourceSelectorWindow,
 	});
