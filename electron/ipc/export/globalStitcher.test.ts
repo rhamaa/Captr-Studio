@@ -70,9 +70,9 @@ describe("globalStitcher filtergraph builder", () => {
 			hasAudioPerSlide: [true, false],
 		});
 
-		expect(result.filtergraph).toContain("[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=60[nv_0]");
-		expect(result.filtergraph).toContain("[0:a]aformat=sample_rates=48000:channel_layouts=stereo[na_0]");
-		expect(result.filtergraph).toContain("aevalsrc=0:d=6.000:s=48000:c=stereo[na_1]");
+		expect(result.filtergraph).toContain("[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=60,settb=AVTB,setpts=PTS-STARTPTS,format=yuv420p[nv_0]");
+		expect(result.filtergraph).toContain("[0:a]aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,asetpts=PTS-STARTPTS[na_0]");
+		expect(result.filtergraph).toContain("aevalsrc=0:d=6.000:s=48000:c=stereo,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,asetpts=PTS-STARTPTS[na_1]");
 		expect(result.filtergraph).toContain("[nv_0][nv_1]xfade=transition=fade");
 		expect(result.filtergraph).toContain("[na_0][na_1]acrossfade=d=1.000");
 		expect(result.lastVideoLabel).toBe("v_out_1");

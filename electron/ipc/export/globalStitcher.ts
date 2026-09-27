@@ -93,15 +93,17 @@ export function buildStitchFiltergraph(
 	if (normalize) {
 		for (let i = 0; i < slides.length; i++) {
 			filterParts.push(
-				`[${i}:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${targetFps}[nv_${i}]`,
+				`[${i}:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${targetFps},settb=AVTB,setpts=PTS-STARTPTS,format=yuv420p[nv_${i}]`,
 			);
 			if (hasAudioPerSlide[i] !== false) {
 				filterParts.push(
-					`[${i}:a]aformat=sample_rates=48000:channel_layouts=stereo[na_${i}]`,
+					`[${i}:a]aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,asetpts=PTS-STARTPTS[na_${i}]`,
 				);
 			} else {
 				const dur = slides[i].durationSec || 5;
-				filterParts.push(`aevalsrc=0:d=${dur.toFixed(3)}:s=48000:c=stereo[na_${i}]`);
+				filterParts.push(
+					`aevalsrc=0:d=${dur.toFixed(3)}:s=48000:c=stereo,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,asetpts=PTS-STARTPTS[na_${i}]`,
+				);
 			}
 		}
 	}
