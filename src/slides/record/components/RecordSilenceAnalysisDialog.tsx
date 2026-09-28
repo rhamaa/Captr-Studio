@@ -45,7 +45,7 @@ export function RecordSilenceAnalysisDialog({
 			<DialogContent className="sm:max-w-[480px] border-foreground/10 bg-editor-surface text-foreground shadow-2xl">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2 text-base font-semibold">
-						<VolumeX className="w-5 h-5 text-emerald-500" />
+						<VolumeX className="w-5 h-5 text-[#8DDB9B]" />
 						{t("editor.silence.modalTitle", "Clean Pauses & Dead-Air (1-Click Cut)")}
 					</DialogTitle>
 					<DialogDescription className="text-xs text-muted-foreground">
@@ -70,7 +70,7 @@ export function RecordSilenceAnalysisDialog({
 							<div className="text-[10px] uppercase font-semibold text-muted-foreground">
 								{t("editor.silence.timeSaved", "Time Saved")}
 							</div>
-							<div className="text-2xl font-bold text-emerald-500 mt-0.5">
+							<div className="text-2xl font-bold text-[#8DDB9B] mt-0.5">
 								-{(silenceTotalSavedMs / 1000).toFixed(1)}s
 							</div>
 						</div>
@@ -93,7 +93,7 @@ export function RecordSilenceAnalysisDialog({
 							value={silenceMinDurationMs}
 							onChange={(event) => onSilenceMinDurationChange(Number(event.target.value))}
 							onMouseUp={() => onAnalyze(silenceMinDurationMs, silenceThresholdDb)}
-							className="w-full h-1.5 bg-foreground/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+							className="w-full h-1.5 bg-foreground/10 rounded-lg appearance-none cursor-pointer accent-[#8DDB9B]"
 						/>
 						<div className="flex justify-between text-[10px] text-muted-foreground/60">
 							<span>Aggressive (0.6s)</span>
@@ -119,7 +119,7 @@ export function RecordSilenceAnalysisDialog({
 							value={silenceThresholdDb}
 							onChange={(event) => onSilenceThresholdChange(Number(event.target.value))}
 							onMouseUp={() => onAnalyze(silenceMinDurationMs, silenceThresholdDb)}
-							className="w-full h-1.5 bg-foreground/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+							className="w-full h-1.5 bg-foreground/10 rounded-lg appearance-none cursor-pointer accent-[#8DDB9B]"
 						/>
 						<div className="flex justify-between text-[10px] text-muted-foreground/60">
 							<span>Sensitive (-50dB)</span>
@@ -142,7 +142,7 @@ export function RecordSilenceAnalysisDialog({
 										<span>
 											{formatTime(silence.startMs / 1000)} → {formatTime(silence.endMs / 1000)}
 										</span>
-										<span className="text-emerald-500 font-semibold">
+										<span className="text-[#8DDB9B] font-semibold">
 											-{(silence.durationMs / 1000).toFixed(1)}s
 										</span>
 									</div>
@@ -172,7 +172,7 @@ export function RecordSilenceAnalysisDialog({
 					<Button
 						disabled={detectedSilences.length === 0}
 						onClick={onApply}
-						className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium gap-1.5"
+						className="bg-[#8DDB9B] hover:bg-[#a3e4af] text-[#172033] text-xs font-semibold gap-1.5"
 					>
 						<Scissors className="w-3.5 h-3.5" />
 						{t("editor.silence.cutAllButton", "Cut All Pauses & Ripple Timeline")}

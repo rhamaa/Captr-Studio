@@ -14,10 +14,14 @@ export const recordSlideModule: SlideModule<"record"> = {
 	exportChunk: async (slide, options) => {
 		const meta = slide.meta;
 		const durationSec = Math.max(0.5, slide.durationMs / 1000);
+		const audioPaths = [meta.systemAudioPath, meta.microphoneAudioPath].filter(
+			(path): path is string => typeof path === "string" && path.trim().length > 0,
+		);
 		options.onProgress?.(100);
 		return {
 			filePath: meta.videoPath || "",
 			durationSec,
+			audioPaths,
 		};
 	},
 	renderFrame: async (slide, _timeMs, targetCanvas) => {

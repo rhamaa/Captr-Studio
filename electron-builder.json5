@@ -55,7 +55,7 @@
       "description": "Captr Studio Project File",
       "role": "Editor",
       "mimeType": "application/x-captr-project",
-      "icon": "icons/icons/win/icon.ico"
+      "icon": "icons/icons/win/captr-project.ico"
     }
   ],
   "mac": {
@@ -112,7 +112,7 @@
         "name": "Captr Studio Project",
         "description": "Captr Studio Project File",
         "role": "Editor",
-        "icon": "icons/icons/win/icon.ico"
+        "icon": "icons/icons/win/captr-project.ico"
       }
     ]
   }

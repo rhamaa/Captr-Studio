@@ -497,11 +497,11 @@ export function AssetExplorer({
 											className={cn(
 												"relative w-full h-16 rounded flex items-center justify-center overflow-hidden mb-1.5 border border-foreground/[0.05]",
 												asset.type === "video" &&
-													"bg-gradient-to-br from-blue-950/40 to-blue-900/20 text-blue-400",
+													"bg-gradient-to-br from-[#A879F5]/20 to-[#A879F5]/5 text-[#A879F5]",
 												asset.type === "audio" &&
-													"bg-gradient-to-br from-emerald-950/40 to-emerald-900/20 text-emerald-400",
+													"bg-gradient-to-br from-[#8DDB9B]/20 to-[#8DDB9B]/5 text-[#8DDB9B]",
 												asset.type === "image" &&
-													"bg-gradient-to-br from-violet-950/40 to-violet-900/20 text-violet-400",
+													"bg-gradient-to-br from-[#6FA8FF]/20 to-[#6FA8FF]/5 text-[#6FA8FF]",
 											)}
 										>
 											{asset.type === "video" && (
@@ -660,11 +660,11 @@ export function AssetExplorer({
 													className={cn(
 														"p-1 rounded shrink-0",
 														asset.type === "video" &&
-															"bg-blue-500/20 text-blue-400",
+															"bg-[#A879F5]/15 text-[#A879F5]",
 														asset.type === "audio" &&
-															"bg-emerald-500/20 text-emerald-400",
+															"bg-[#8DDB9B]/15 text-[#8DDB9B]",
 														asset.type === "image" &&
-															"bg-violet-500/20 text-violet-400",
+															"bg-[#6FA8FF]/15 text-[#6FA8FF]",
 													)}
 												>
 													{asset.type === "video" && (

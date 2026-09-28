@@ -4,6 +4,7 @@ import type { CanvasDimensions, SlideData } from "../slides/types";
 export interface SlideChunkResult {
 	filePath: string;
 	durationSec: number;
+	audioPaths?: string[];
 	isTemp?: boolean;
 }
 
@@ -65,6 +66,7 @@ export async function exportSlideChunk(
 		return {
 			filePath: chunk.filePath,
 			durationSec: chunk.durationSec || durationSec,
+			audioPaths: chunk.audioPaths,
 		};
 	}
 

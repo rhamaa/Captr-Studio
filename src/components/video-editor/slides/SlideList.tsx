@@ -204,7 +204,7 @@ export function SlideList({
 								onClick={handleAddVideo}
 								className="w-full flex items-start gap-2.5 p-2 rounded-lg text-left hover:bg-foreground/10 transition-colors cursor-pointer group"
 							>
-								<div className="p-1.5 rounded-md bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20 group-hover:text-cyan-300 mt-0.5">
+								<div className="p-1.5 rounded-md bg-[#6FA8FF]/15 text-[#6FA8FF] group-hover:bg-[#6FA8FF]/25 mt-0.5">
 									<FilmSlate className="w-4 h-4" weight="fill" />
 								</div>
 								<div className="min-w-0 flex-1">
@@ -212,7 +212,7 @@ export function SlideList({
 										<span className="text-xs font-semibold text-foreground">
 											Video Slide
 										</span>
-										<span className="text-[9px] px-1 py-0.2 rounded bg-cyan-500/15 text-cyan-400 font-bold font-mono">
+										<span className="text-[9px] px-1 py-0.2 rounded bg-[#6FA8FF]/15 text-[#6FA8FF] font-bold font-mono">
 											VID
 										</span>
 									</div>
@@ -282,7 +282,7 @@ export function SlideList({
 											className={cn(
 												"group relative flex items-center justify-center h-6 w-6 rounded-md border transition-all cursor-pointer",
 												transitionIn !== "none"
-													? "border-primary/50 bg-primary/20 text-primary shadow-[0_0_8px_rgba(37,99,235,0.3)]"
+													? "border-primary/50 bg-primary/20 text-primary shadow-[0_0_8px_rgba(111,168,255,0.3)]"
 													: "border-foreground/10 bg-foreground/[0.03] text-muted-foreground/50 hover:text-foreground hover:border-foreground/25 hover:bg-foreground/10",
 											)}
 											title={
@@ -427,7 +427,7 @@ export function SlideList({
 								className={cn(
 									"group relative flex flex-col justify-between w-32 h-14 rounded-lg border p-1.5 cursor-pointer transition-all select-none overflow-hidden",
 									isSelected
-										? "border-primary bg-primary/[0.10] shadow-[0_0_12px_rgba(37,99,235,0.22)] ring-1 ring-primary/40"
+										? "border-primary bg-primary/[0.10] shadow-[0_0_12px_rgba(111,168,255,0.22)] ring-1 ring-primary/40"
 										: "border-foreground/10 bg-foreground/[0.02] hover:bg-foreground/[0.05] hover:border-foreground/20",
 								)}
 							>
@@ -438,7 +438,7 @@ export function SlideList({
 											className={cn(
 												"text-[9px] px-1 py-0.2 rounded font-bold font-mono tracking-tight",
 												isSelected
-													? "bg-primary text-white"
+													? "bg-primary text-[#172033]"
 													: "bg-foreground/10 text-muted-foreground",
 											)}
 										>
@@ -459,7 +459,7 @@ export function SlideList({
 												isMotionMode
 													? "text-amber-400 bg-amber-500/15"
 													: isVideoMode
-														? "text-cyan-400 bg-cyan-500/15"
+														? "text-[#6FA8FF] bg-[#6FA8FF]/15"
 														: "text-muted-foreground",
 											)}
 										>
@@ -532,7 +532,7 @@ export function SlideList({
 										"absolute inset-0 pointer-events-none opacity-20",
 										isSelected
 											? isVideoMode
-												? "bg-gradient-to-br from-cyan-500/20 to-blue-600/10"
+												? "bg-gradient-to-br from-[#6FA8FF]/20 to-[#A879F5]/10"
 												: "bg-gradient-to-br from-primary/30 to-rose-600/10"
 											: "bg-gradient-to-br from-transparent to-foreground/[0.02]",
 									)}

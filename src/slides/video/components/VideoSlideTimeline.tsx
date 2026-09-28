@@ -136,7 +136,7 @@ export const VideoSlideTimeline: React.FC<VideoSlideTimelineProps> = ({
 					<button
 						type="button"
 						onClick={onTogglePlay}
-						className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white shadow-md hover:bg-blue-500 transition cursor-pointer"
+						className="flex h-7 w-7 items-center justify-center rounded-full bg-[#A879F5] text-white shadow-md hover:bg-[#b88ff8] transition cursor-pointer"
 						title={isPlaying ? "Pause" : "Play"}
 					>
 						{isPlaying ? (
@@ -153,7 +153,7 @@ export const VideoSlideTimeline: React.FC<VideoSlideTimelineProps> = ({
 							title={isAudioMuted ? "Unmute Audio" : "Mute Audio"}
 							className={`rounded p-1 cursor-pointer transition ${
 								isAudioMuted
-									? "text-rose-400 bg-rose-950/40"
+									? "text-[#FF6B81] bg-[#FF6B81]/15"
 									: "text-slate-400 hover:bg-slate-800 hover:text-white"
 							}`}
 						>
@@ -218,7 +218,7 @@ export const VideoSlideTimeline: React.FC<VideoSlideTimelineProps> = ({
 											}
 											className={`px-1.5 py-0.5 rounded text-[10px] font-mono transition cursor-pointer ${
 												(selectedInfo.clip.speedMultiplier || 1) === s
-													? "bg-blue-600 text-white font-semibold"
+													? "bg-[#A879F5] text-white font-semibold"
 													: "text-slate-400 hover:text-white"
 											}`}
 										>
@@ -232,7 +232,7 @@ export const VideoSlideTimeline: React.FC<VideoSlideTimelineProps> = ({
 							<button
 								type="button"
 								onClick={handleDeleteSelected}
-								className="flex items-center gap-1 px-2 py-1 rounded text-xs text-red-400 bg-red-950/30 border border-red-900/40 hover:bg-red-900/50 hover:text-red-300 transition cursor-pointer"
+								className="flex items-center gap-1 px-2 py-1 rounded text-xs text-[#FF6B81] bg-[#FF6B81]/15 border border-[#FF6B81]/30 hover:bg-[#FF6B81]/25 hover:text-[#FF6B81] transition cursor-pointer"
 								title={`Delete "${selectedInfo.clip.title}"`}
 							>
 								<Trash size={12} />
@@ -246,7 +246,7 @@ export const VideoSlideTimeline: React.FC<VideoSlideTimelineProps> = ({
 						<button
 							type="button"
 							onClick={() => onAddClip("track-v1")}
-							className="flex items-center gap-1 rounded bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-500 shadow-sm transition cursor-pointer"
+							className="flex items-center gap-1 rounded bg-[#A879F5] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[#b88ff8] shadow-sm transition cursor-pointer"
 						>
 							<Plus size={13} weight="bold" />
 							<span>+ Clip</span>
@@ -257,7 +257,7 @@ export const VideoSlideTimeline: React.FC<VideoSlideTimelineProps> = ({
 				{/* Right Stats */}
 				<div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium">
 					<span className="flex items-center gap-1">
-						<FilmSlate size={12} className="text-blue-400" />
+						<FilmSlate size={12} className="text-[#A879F5]" />
 						{videoTracks.length} Track Video
 					</span>
 					<span>•</span>

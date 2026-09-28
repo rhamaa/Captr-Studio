@@ -181,9 +181,9 @@ export const VideoTimelineTracks: React.FC<VideoTimelineTracksProps> = ({
 					<div className="flex w-36 items-center justify-between rounded bg-slate-900 px-2 py-2 text-xs font-medium text-slate-300 border border-slate-800 shrink-0 shadow-sm">
 						<div className="flex items-center gap-1.5 truncate">
 							{track.type === "overlay" ? (
-								<TextT size={13} className="text-purple-400 shrink-0" />
+								<TextT size={13} className="text-[#A879F5] shrink-0" />
 							) : (
-								<FilmSlate size={13} className="text-blue-400 shrink-0" />
+								<FilmSlate size={13} className="text-[#A879F5] shrink-0" />
 							)}
 							<span className="truncate text-[11px] font-semibold">{track.name}</span>
 						</div>
@@ -227,8 +227,8 @@ export const VideoTimelineTracks: React.FC<VideoTimelineTracksProps> = ({
 										}}
 										className={`group absolute top-1 bottom-1 flex items-center justify-between rounded px-1.5 text-xs transition cursor-pointer select-none shadow-sm ${
 											isSelected
-												? "bg-blue-600 text-white ring-2 ring-blue-300 z-20 shadow-blue-500/20"
-												: "bg-blue-950/90 text-blue-200 border border-blue-800/60 hover:bg-blue-900/80 z-10"
+												? "bg-[#A879F5] text-white ring-2 ring-[#A879F5]/40 z-20 shadow-[#A879F5]/20"
+												: "bg-[#A879F5]/20 text-[#A879F5] border border-[#A879F5]/30 hover:bg-[#A879F5]/30 z-10"
 										}`}
 										style={{
 											left: `${leftPct}%`,
@@ -252,7 +252,7 @@ export const VideoTimelineTracks: React.FC<VideoTimelineTracksProps> = ({
 
 										<div className="flex items-center gap-1">
 											{clip.speedMultiplier && clip.speedMultiplier !== 1 && (
-												<span className="text-[8px] bg-black/40 px-1 rounded font-mono text-blue-200">
+												<span className="text-[8px] bg-black/40 px-1 rounded font-mono text-[#A879F5]">
 													{clip.speedMultiplier}x
 												</span>
 											)}
@@ -298,9 +298,9 @@ export const VideoTimelineTracks: React.FC<VideoTimelineTracksProps> = ({
 				return (
 					<div key={audio.id} className="flex items-center gap-2">
 						{/* Track Header */}
-						<div className="flex w-36 items-center justify-between rounded bg-emerald-950/50 border border-emerald-800/40 px-2 py-1.5 text-xs text-emerald-300 shrink-0">
+						<div className="flex w-36 items-center justify-between rounded bg-[#8DDB9B]/10 border border-[#8DDB9B]/20 px-2 py-1.5 text-xs text-[#8DDB9B] shrink-0">
 							<div className="flex items-center gap-1.5 truncate">
-								<Waveform size={13} className="text-emerald-400 shrink-0" />
+								<Waveform size={13} className="text-[#8DDB9B] shrink-0" />
 								<span className="truncate text-[10px] font-medium">
 									{audio.name}
 								</span>
@@ -309,7 +309,7 @@ export const VideoTimelineTracks: React.FC<VideoTimelineTracksProps> = ({
 								<button
 									type="button"
 									onClick={() => onDeleteAudioTrack(audio.id)}
-									className="text-slate-500 hover:text-red-400 cursor-pointer rounded p-0.5 hover:bg-emerald-900/40"
+									className="text-slate-500 hover:text-red-400 cursor-pointer rounded p-0.5 hover:bg-[#8DDB9B]/20"
 									title="Delete audio track"
 								>
 									<Trash size={11} />
@@ -323,7 +323,7 @@ export const VideoTimelineTracks: React.FC<VideoTimelineTracksProps> = ({
 							className="relative flex flex-1 items-center h-8 rounded bg-slate-950/80 px-1 border border-slate-800/60 overflow-hidden cursor-pointer"
 						>
 							<div
-								className="absolute top-1 bottom-1 flex items-center justify-between rounded bg-emerald-900/70 border border-emerald-500/50 px-2 text-emerald-200 shadow-sm"
+								className="absolute top-1 bottom-1 flex items-center justify-between rounded bg-[#8DDB9B]/20 border border-[#8DDB9B]/40 px-2 text-[#8DDB9B] shadow-sm"
 								style={{
 									left: `${leftPct}%`,
 									width: `${widthPct}%`,
@@ -333,7 +333,7 @@ export const VideoTimelineTracks: React.FC<VideoTimelineTracksProps> = ({
 									<MusicNote size={10} />
 									<span className="truncate">{audio.name}</span>
 								</div>
-								<span className="text-[9px] font-mono text-emerald-400 shrink-0">
+								<span className="text-[9px] font-mono text-[#8DDB9B] shrink-0">
 									{(audio.durationMs / 1000).toFixed(1)}s
 								</span>
 							</div>

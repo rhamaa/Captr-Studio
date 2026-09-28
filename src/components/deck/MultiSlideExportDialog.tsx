@@ -256,7 +256,7 @@ export const MultiSlideExportDialog: React.FC<MultiSlideExportDialogProps> = ({
 							{/* Progress Bar */}
 							<div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
 								<div
-									className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-sky-500 transition-all duration-300"
+									className="h-full rounded-full bg-gradient-to-r from-[#6FA8FF] to-[#A879F5] transition-all duration-300"
 									style={{ width: `${progress.percentage}%` }}
 								/>
 							</div>
@@ -266,7 +266,7 @@ export const MultiSlideExportDialog: React.FC<MultiSlideExportDialogProps> = ({
 								<div
 									className={`rounded py-1.5 px-2 border ${
 										progress.stage === "rendering-slide"
-											? "border-emerald-500/40 bg-emerald-950/40 text-emerald-400 font-semibold"
+											? "border-[#6FA8FF]/40 bg-[#6FA8FF]/10 text-[#6FA8FF] font-semibold"
 											: "border-slate-800 bg-slate-900/40 text-slate-500"
 									}`}
 								>
@@ -275,7 +275,7 @@ export const MultiSlideExportDialog: React.FC<MultiSlideExportDialogProps> = ({
 								<div
 									className={`rounded py-1.5 px-2 border ${
 										progress.stage === "stitching"
-											? "border-sky-500/40 bg-sky-950/40 text-sky-400 font-semibold"
+											? "border-[#A879F5]/40 bg-[#A879F5]/10 text-[#A879F5] font-semibold"
 											: "border-slate-800 bg-slate-900/40 text-slate-500"
 									}`}
 								>
@@ -284,7 +284,7 @@ export const MultiSlideExportDialog: React.FC<MultiSlideExportDialogProps> = ({
 								<div
 									className={`rounded py-1.5 px-2 border ${
 										progress.stage === "completed"
-											? "border-emerald-500/40 bg-emerald-950/40 text-emerald-400 font-semibold"
+											? "border-[#8DDB9B]/40 bg-[#8DDB9B]/10 text-[#8DDB9B] font-semibold"
 											: "border-slate-800 bg-slate-900/40 text-slate-500"
 									}`}
 								>
@@ -297,7 +297,7 @@ export const MultiSlideExportDialog: React.FC<MultiSlideExportDialogProps> = ({
 					{/* Status: Success */}
 					{exportSuccessPath && (
 						<div className="flex flex-col items-center gap-3 py-3 text-center">
-							<div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
+							<div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#8DDB9B]/20 text-[#8DDB9B]">
 								<CheckCircle size={32} weight="fill" />
 							</div>
 							<div>
@@ -336,7 +336,7 @@ export const MultiSlideExportDialog: React.FC<MultiSlideExportDialogProps> = ({
 							<button
 								type="button"
 								onClick={onClose}
-								className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500"
+								className="rounded-lg bg-[#6FA8FF] px-4 py-2 text-xs font-semibold text-[#172033] hover:bg-[#8bbaff]"
 							>
 								Tutup
 							</button>
@@ -355,7 +355,7 @@ export const MultiSlideExportDialog: React.FC<MultiSlideExportDialogProps> = ({
 								type="button"
 								onClick={handleStartExport}
 								disabled={isExporting || slidesToExport.length === 0}
-								className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+								className="flex items-center gap-1.5 rounded-lg bg-[#A879F5] px-4 py-2 text-xs font-semibold text-white hover:bg-[#b88ff8] disabled:opacity-50"
 							>
 								{isExporting ? (
 									<>

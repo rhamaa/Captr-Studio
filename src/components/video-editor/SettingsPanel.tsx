@@ -512,7 +512,7 @@ export function SettingsPanel({
 		"#FF5722",
 		"#8BC34A",
 		"#FFC107",
-		"#2563EB",
+		"#6FA8FF",
 		"#000000",
 		"#607D8B",
 		"#795548",
@@ -829,7 +829,7 @@ export function SettingsPanel({
 					style={{ scrollbarGutter: "stable" }}
 				>
 					<div className="mb-4 flex items-center gap-2">
-						<Palette className="w-4 h-4 text-[#2563EB]" />
+						<Palette className="w-4 h-4 text-[#6FA8FF]" />
 						<span className="text-sm font-medium text-foreground">
 							{tSettings("background.title")}
 						</span>

@@ -48,7 +48,7 @@ export function AnnotationBlurTab({
 						className={cn(
 							"w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center p-0.5",
 							!annotation.blurColor || annotation.blurColor === "transparent"
-								? "border-[#2563EB] scale-110"
+								? "border-[#6FA8FF] scale-110"
 								: "border-transparent hover:border-foreground/20",
 						)}
 						title={t("annotations.none", "None")}
@@ -62,7 +62,7 @@ export function AnnotationBlurTab({
 						className={cn(
 							"w-8 h-8 rounded-full border-2 transition-all bg-black",
 							annotation.blurColor === "#000000"
-								? "border-[#2563EB] scale-110"
+								? "border-[#6FA8FF] scale-110"
 								: "border-transparent hover:border-foreground/20",
 						)}
 						title="Black"
@@ -72,7 +72,7 @@ export function AnnotationBlurTab({
 						className={cn(
 							"w-8 h-8 rounded-full border-2 transition-all bg-white",
 							annotation.blurColor === "#FFFFFF"
-								? "border-[#2563EB] scale-110"
+								? "border-[#6FA8FF] scale-110"
 								: "border-transparent hover:border-foreground/20",
 						)}
 						title="White"
@@ -87,7 +87,7 @@ export function AnnotationBlurTab({
 										!["#000000", "#FFFFFF", "transparent", ""].includes(
 											annotation.blurColor,
 										)
-										? "border-[#2563EB] scale-110"
+										? "border-[#6FA8FF] scale-110"
 										: "border-transparent hover:border-foreground/20",
 								)}
 								style={{
@@ -113,7 +113,7 @@ export function AnnotationBlurTab({
 						</PopoverTrigger>
 						<PopoverContent className="w-[260px] p-3 bg-editor-surface-alt border border-foreground/10 rounded-xl shadow-xl">
 							<Block
-								color={annotation.blurColor || "#2563EB"}
+								color={annotation.blurColor || "#6FA8FF"}
 								colors={colorPalette}
 								onChange={(color) => {
 									onBlurColorChange?.(color.hex);

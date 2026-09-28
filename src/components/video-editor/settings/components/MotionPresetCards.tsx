@@ -34,7 +34,7 @@ export function MotionPresetCards({
 								"rounded-xl border px-3 py-3 text-left transition-all",
 								"border-foreground/10 bg-foreground/[0.03] hover:border-foreground/20 hover:bg-foreground/[0.06]",
 								isActive &&
-									"border-[#2563EB]/70 bg-[#2563EB]/12 shadow-[inset_0_0_0_1px_rgba(37,99,235,0.15)]",
+									"border-[#6FA8FF]/70 bg-[#6FA8FF]/12 shadow-[inset_0_0_0_1px_rgba(111,168,255,0.2)]",
 							)}
 						>
 							<div className="flex items-start gap-3">
@@ -42,7 +42,7 @@ export function MotionPresetCards({
 									className={cn(
 										"mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-foreground/10 bg-black/10 text-muted-foreground",
 										isActive &&
-											"border-[#2563EB]/30 bg-[#2563EB]/10 text-[#75A6FF]",
+											"border-[#6FA8FF]/30 bg-[#6FA8FF]/10 text-[#6FA8FF]",
 									)}
 								>
 									<Icon className="h-4 w-4" />

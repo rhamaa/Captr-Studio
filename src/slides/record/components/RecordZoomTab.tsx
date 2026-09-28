@@ -32,14 +32,14 @@ export const RecordZoomTab: React.FC<RecordZoomTabProps> = ({
 		<div className="flex flex-col gap-3">
 			<div className="flex items-center justify-between">
 				<span className="text-xs font-semibold text-white flex items-center gap-1.5">
-					<MagnifyingGlassPlus size={16} className="text-emerald-400" />
+					<MagnifyingGlassPlus size={16} className="text-[#6FA8FF]" />
 					<span>Zoom Regions ({zoomRegions.length})</span>
 				</span>
 				<button
 					type="button"
 					onClick={onAutoSuggestZooms}
 					disabled={!hasVideo}
-					className="text-[11px] font-semibold text-purple-400 hover:underline disabled:opacity-40 cursor-pointer"
+					className="text-[11px] font-semibold text-[#A879F5] hover:underline disabled:opacity-40 cursor-pointer"
 					title="Scan telemetry untuk buat zoom otomatis"
 				>
 					Auto-Detect
@@ -57,7 +57,7 @@ export const RecordZoomTab: React.FC<RecordZoomTabProps> = ({
 					onClick={onToggleConnectZooms}
 					className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer ${
 						connectZooms
-							? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+							? "bg-[#6FA8FF]/15 text-[#6FA8FF] border border-[#6FA8FF]/30"
 							: "bg-slate-800 text-slate-500"
 					}`}
 				>
@@ -79,7 +79,7 @@ export const RecordZoomTab: React.FC<RecordZoomTabProps> = ({
 								onClick={() => onSelectZoom(zoom.id)}
 								className={`rounded-xl border p-2.5 flex flex-col gap-2 transition-all cursor-pointer ${
 									isSelected
-										? "border-emerald-500/70 bg-emerald-500/10 shadow-sm"
+										? "border-[#6FA8FF]/70 bg-[#6FA8FF]/10 shadow-sm"
 										: "border-slate-800 bg-slate-800/50 hover:border-slate-700"
 								}`}
 							>
@@ -90,7 +90,7 @@ export const RecordZoomTab: React.FC<RecordZoomTabProps> = ({
 											e.stopPropagation();
 											onSeekToZoom(zoom.startMs, zoom.id);
 										}}
-										className="font-mono text-emerald-400 hover:underline text-[11px]"
+										className="font-mono text-[#6FA8FF] hover:underline text-[11px]"
 										title="Lompat ke Zoom"
 									>
 										#{idx + 1} {formatTime(zoom.startMs)} →{" "}
@@ -134,7 +134,7 @@ export const RecordZoomTab: React.FC<RecordZoomTabProps> = ({
 													}}
 													className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
 														zoom.depth === depth
-															? "bg-emerald-500 text-slate-950 font-bold"
+															? "bg-[#6FA8FF] text-[#172033] font-bold"
 															: "bg-slate-700/60 text-slate-300 hover:bg-slate-700"
 													}`}
 												>

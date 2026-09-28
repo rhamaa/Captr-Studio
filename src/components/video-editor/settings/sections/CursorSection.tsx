@@ -86,7 +86,7 @@ export function CursorSection({
 					<button
 						type="button"
 						onClick={resetCursorSection}
-						className="text-[10px] text-[#2563EB] transition-opacity hover:opacity-80"
+						className="text-[10px] text-[#6FA8FF] transition-opacity hover:opacity-80"
 					>
 						{t("common.actions.reset", "Reset")}
 					</button>
@@ -97,7 +97,7 @@ export function CursorSection({
 						<Switch
 							checked={showCursor}
 							onCheckedChange={onShowCursorChange}
-							className="data-[state=checked]:bg-[#2563EB] scale-75"
+							className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 						/>
 					</label>
 					<label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
@@ -105,7 +105,7 @@ export function CursorSection({
 						<Switch
 							checked={loopCursor}
 							onCheckedChange={onLoopCursorChange}
-							className="data-[state=checked]:bg-[#2563EB] scale-75"
+							className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 						/>
 					</label>
 				</div>
@@ -131,7 +131,7 @@ export function CursorSection({
 								aria-label={option.label}
 								className={cn(
 									"group aspect-square h-auto min-w-0 rounded-[10px] border border-foreground/10 bg-foreground/[0.03] p-3 text-left text-foreground shadow-none transition-all hover:border-foreground/20 hover:bg-foreground/[0.06]",
-									"data-[state=on]:border-[#2563EB]/70 data-[state=on]:bg-[#2563EB]/12 data-[state=on]:text-foreground",
+									"data-[state=on]:border-[#6FA8FF]/70 data-[state=on]:bg-[#6FA8FF]/12 data-[state=on]:text-foreground",
 								)}
 							>
 								<div className="flex h-full flex-col items-center justify-between gap-3">

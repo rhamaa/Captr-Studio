@@ -45,7 +45,7 @@ export function AudioTrackSection({
 						onAudioNormalizeChange?.(false);
 						onAudioDuckingChange?.(true);
 					}}
-					className="text-[10px] text-[#2563EB] transition-opacity hover:opacity-80"
+					className="text-[10px] text-[#6FA8FF] transition-opacity hover:opacity-80"
 				>
 					{t("common.actions.reset", "Reset")}
 				</button>
@@ -68,7 +68,7 @@ export function AudioTrackSection({
 				<Switch
 					checked={Boolean(selectedAudioNormalize)}
 					onCheckedChange={(v: boolean) => onAudioNormalizeChange?.(v)}
-					className="data-[state=checked]:bg-[#2563EB] scale-75"
+					className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 				/>
 			</div>
 			<div className="flex items-center justify-between rounded-lg bg-foreground/[0.03] px-2.5 py-1.5">
@@ -83,7 +83,7 @@ export function AudioTrackSection({
 				<Switch
 					checked={Boolean(selectedAudioDucking ?? true)}
 					onCheckedChange={(v) => onAudioDuckingChange?.(v)}
-					className="data-[state=checked]:bg-[#2563EB] scale-75"
+					className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 				/>
 			</div>
 			{audioDuckingSettings && onAudioDuckingSettingsChange && (

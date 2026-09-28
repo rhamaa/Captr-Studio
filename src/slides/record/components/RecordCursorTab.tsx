@@ -33,7 +33,7 @@ export const RecordCursorTab: React.FC<RecordCursorTabProps> = ({
 			{/* Cursor toggle */}
 			<div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-800/40 p-3">
 				<div className="flex items-center gap-2 text-xs font-semibold text-white">
-					<CursorClick size={16} className="text-blue-400" />
+					<CursorClick size={16} className="text-[#6FA8FF]" />
 					<span>Tampilkan Kursor</span>
 				</div>
 				<button
@@ -41,7 +41,7 @@ export const RecordCursorTab: React.FC<RecordCursorTabProps> = ({
 					onClick={onToggleShowCursor}
 					className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
 						showCursor
-							? "bg-blue-600 text-white"
+							? "bg-[#6FA8FF] text-[#172033]"
 							: "bg-slate-800 text-slate-400 border border-slate-700"
 					}`}
 				>
@@ -60,7 +60,7 @@ export const RecordCursorTab: React.FC<RecordCursorTabProps> = ({
 							onClick={() => onUpdateCursorStyle(st.id)}
 							className={`py-1.5 px-2 rounded-lg border text-xs font-medium transition-all ${
 								cursorStyle === st.id
-									? "border-blue-500 bg-blue-500/10 text-white"
+									? "border-[#6FA8FF] bg-[#6FA8FF]/15 text-white"
 									: "border-slate-800 bg-slate-800/40 text-slate-400 hover:border-slate-700"
 							}`}
 						>
@@ -85,7 +85,7 @@ export const RecordCursorTab: React.FC<RecordCursorTabProps> = ({
 					step="0.05"
 					value={cursorSmoothing}
 					onChange={(e) => onUpdateCursorSmoothing(Number(e.target.value))}
-					className="w-full accent-blue-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+					className="w-full accent-[#6FA8FF] h-1.5 bg-slate-800 rounded-lg cursor-pointer"
 				/>
 			</div>
 
@@ -102,7 +102,7 @@ export const RecordCursorTab: React.FC<RecordCursorTabProps> = ({
 					step="0.2"
 					value={cursorSize}
 					onChange={(e) => onUpdateCursorSize(Number(e.target.value))}
-					className="w-full accent-blue-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+					className="w-full accent-[#6FA8FF] h-1.5 bg-slate-800 rounded-lg cursor-pointer"
 				/>
 			</div>
 
@@ -119,7 +119,7 @@ export const RecordCursorTab: React.FC<RecordCursorTabProps> = ({
 					step="0.5"
 					value={cursorClickBounce}
 					onChange={(e) => onUpdateCursorClickBounce(Number(e.target.value))}
-					className="w-full accent-blue-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+					className="w-full accent-[#6FA8FF] h-1.5 bg-slate-800 rounded-lg cursor-pointer"
 				/>
 			</div>
 		</div>

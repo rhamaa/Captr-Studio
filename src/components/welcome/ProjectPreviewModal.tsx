@@ -1,5 +1,4 @@
 import {
-	Archive as ArchiveIcon,
 	Check as CheckIcon,
 	Copy as CopyIcon,
 	Cursor as CursorIcon,
@@ -16,6 +15,7 @@ import {
 	X as XIcon,
 } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
+import { CaptrLogo } from "@/components/brand/CaptrLogo";
 import { Button } from "@/components/ui/button";
 
 interface ProjectInspectionEntry {
@@ -210,9 +210,9 @@ export function ProjectPreviewModal({
 									{fileName || "Project Preview"}
 								</h3>
 								{isBundle ? (
-									<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 text-[10px] font-semibold tracking-wide">
-										<ArchiveIcon className="w-3 h-3" />
-										ZIP BUNDLE
+									<span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-primary/10 border border-primary/25 text-primary text-[10px] font-semibold tracking-wide">
+										<CaptrLogo variant="mark" size={12} />
+										CAPTR BUNDLE
 									</span>
 								) : (
 									<span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-500/15 text-red-400 text-[10px] font-semibold tracking-wide">
@@ -408,8 +408,8 @@ export function ProjectPreviewModal({
 													<div
 														className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold ${
 															isRecord
-																? "bg-red-500/20 text-red-400"
-																: "bg-blue-500/20 text-blue-400"
+																? "bg-[#FF6B81]/20 text-[#FF6B81]"
+																: "bg-[#A879F5]/20 text-[#A879F5]"
 														}`}
 													>
 														{idx + 1}
@@ -420,8 +420,8 @@ export function ProjectPreviewModal({
 															<span
 																className={`text-[9px] px-1.5 py-0.2 rounded font-semibold uppercase ${
 																	isRecord
-																		? "bg-red-500/15 text-red-400"
-																		: "bg-blue-500/15 text-blue-400"
+																		? "bg-[#FF6B81]/15 text-[#FF6B81]"
+																		: "bg-[#A879F5]/15 text-[#A879F5]"
 																}`}
 															>
 																{isRecord ? "Record" : "Video"}

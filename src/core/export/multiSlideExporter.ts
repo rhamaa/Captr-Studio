@@ -51,7 +51,11 @@ export async function exportMultiSlideProject(
 	}
 
 	const totalSlides = slides.length;
-	const slideStitchInputs: Array<{ filePath: string; durationSec: number }> = [];
+	const slideStitchInputs: Array<{
+		filePath: string;
+		durationSec: number;
+		audioPaths?: string[];
+	}> = [];
 
 	// Stage 1: Render each slide chunk
 	for (let i = 0; i < totalSlides; i++) {
@@ -105,6 +109,7 @@ export async function exportMultiSlideProject(
 		slideStitchInputs.push({
 			filePath: chunk.filePath,
 			durationSec: chunk.durationSec,
+			audioPaths: chunk.audioPaths,
 		});
 
 		// Small tick delay to allow UI to breathe

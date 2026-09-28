@@ -294,7 +294,7 @@ export function WelcomeScreen({
 						variant="ghost"
 						size="sm"
 						onClick={handleClose}
-						className="h-7 w-7 p-0 text-muted-foreground hover:text-white hover:bg-red-500 rounded-lg transition-colors"
+						className="h-7 w-7 p-0 text-muted-foreground hover:text-white hover:bg-[#FF6B81] rounded-lg transition-colors"
 						title="Close"
 						aria-label="Close"
 					>
@@ -307,9 +307,9 @@ export function WelcomeScreen({
 			<div className="p-5 border-b border-foreground/10 bg-foreground/[0.01]">
 				<div className="grid grid-cols-3 gap-3">
 					{/* Action 1: New Project */}
-					<div className="flex flex-col justify-between p-3.5 rounded-xl border border-primary/25 bg-primary/[0.06] hover:bg-primary/[0.1] hover:border-primary/40 transition-all group">
+					<div className="flex flex-col justify-between p-3.5 rounded-xl border border-[#6FA8FF]/30 bg-[#6FA8FF]/[0.06] hover:bg-[#6FA8FF]/[0.1] hover:border-[#6FA8FF]/50 transition-all group">
 						<div>
-							<div className="w-8 h-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center mb-2.5">
+							<div className="w-8 h-8 rounded-lg bg-[#6FA8FF]/20 text-[#6FA8FF] flex items-center justify-center mb-2.5">
 								<PlusIcon className="w-4 h-4" weight="bold" />
 							</div>
 							<h3 className="text-xs font-bold text-foreground">New Project</h3>
@@ -327,7 +327,7 @@ export function WelcomeScreen({
 										onClick={() => setSelectedAspectRatio(ratio.id)}
 										className={`flex-1 py-1 rounded-md text-[10px] font-semibold transition-all ${
 											selectedAspectRatio === ratio.id
-												? "bg-primary text-white shadow-sm"
+												? "bg-[#6FA8FF] text-[#172033] shadow-sm font-semibold"
 												: "bg-foreground/5 text-muted-foreground hover:bg-foreground/10"
 										}`}
 									>
@@ -339,7 +339,7 @@ export function WelcomeScreen({
 								type="button"
 								size="sm"
 								onClick={() => onNewProject(selectedAspectRatio)}
-								className="w-full h-7 rounded-lg bg-primary text-white text-[11px] font-semibold"
+								className="w-full h-7 rounded-lg bg-[#6FA8FF] hover:bg-[#8bbaff] text-[#172033] text-[11px] font-semibold transition-colors"
 							>
 								Start ({selectedAspectRatio})
 							</Button>
@@ -376,7 +376,7 @@ export function WelcomeScreen({
 								variant="outline"
 								onClick={handlePickAndPreviewProject}
 								disabled={isInspecting}
-								className="w-full h-7 rounded-md text-[11px] font-semibold flex items-center justify-center gap-1.5 px-2.5 bg-primary/10 text-primary hover:bg-primary/20 border-primary/25"
+								className="w-full h-7 rounded-md text-[11px] font-semibold flex items-center justify-center gap-1.5 px-2.5 bg-[#6FA8FF]/10 text-[#6FA8FF] hover:bg-[#6FA8FF]/20 border border-[#6FA8FF]/25"
 							>
 								<EyeIcon className="w-3.5 h-3.5" weight="bold" />
 								<span>{isInspecting ? "Inspecting..." : "Preview .captr"}</span>
@@ -388,20 +388,20 @@ export function WelcomeScreen({
 					<button
 						type="button"
 						onClick={onOpenRecorderHud}
-						className="flex flex-col justify-between p-3.5 rounded-xl border border-red-500/20 bg-red-500/[0.04] hover:bg-red-500/[0.08] hover:border-red-500/30 transition-all text-left group"
+						className="flex flex-col justify-between p-3.5 rounded-xl border border-[#FF6B81]/25 bg-[#FF6B81]/[0.05] hover:bg-[#FF6B81]/[0.1] hover:border-[#FF6B81]/40 transition-all text-left group cursor-pointer"
 					>
 						<div>
-							<div className="w-8 h-8 rounded-lg bg-red-500/20 text-red-500 flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
+							<div className="w-8 h-8 rounded-lg bg-[#FF6B81]/20 text-[#FF6B81] flex items-center justify-center mb-2.5 group-hover:scale-105 transition-transform">
 								<RecordIcon className="w-4 h-4 fill-current animate-pulse" />
 							</div>
-							<h3 className="text-xs font-bold text-foreground group-hover:text-red-400 transition-colors">
+							<h3 className="text-xs font-bold text-foreground group-hover:text-[#FF6B81] transition-colors">
 								Record Screen
 							</h3>
 							<p className="text-[10px] text-muted-foreground mt-0.5">
 								Screen & camera take
 							</p>
 						</div>
-						<div className="text-[10px] text-red-400 font-semibold mt-4">
+						<div className="text-[10px] text-[#FF6B81] font-semibold mt-4">
 							Launch HUD
 						</div>
 					</button>
@@ -427,7 +427,7 @@ export function WelcomeScreen({
 								placeholder="Search..."
 								value={searchQuery}
 								onChange={(e) => setSearchQuery(e.target.value)}
-								className="w-full h-7 pl-7 pr-2 rounded-lg border border-foreground/10 bg-foreground/[0.03] text-foreground text-[11px] placeholder:text-muted-foreground/60 outline-none focus:border-primary"
+								className="w-full h-7 pl-7 pr-2 rounded-lg border border-foreground/10 bg-foreground/[0.03] text-foreground text-[11px] placeholder:text-muted-foreground/60 outline-none focus:border-[#6FA8FF]"
 							/>
 						</div>
 					)}
@@ -444,7 +444,7 @@ export function WelcomeScreen({
 								<div
 									key={proj.path}
 									onClick={() => onOpenRecentProject(proj.path)}
-									className="group flex items-center justify-between px-3 py-2 rounded-xl border border-foreground/5 bg-foreground/[0.02] hover:bg-foreground/[0.06] hover:border-primary/30 transition-all cursor-pointer select-none"
+									className="group flex items-center justify-between px-3 py-2 rounded-xl border border-foreground/5 bg-foreground/[0.02] hover:bg-foreground/[0.06] hover:border-[#6FA8FF]/40 transition-all cursor-pointer select-none"
 								>
 									<div className="flex items-center gap-3 min-w-0">
 										<div className="w-10 h-7 rounded-md overflow-hidden bg-foreground/10 border border-foreground/10 flex-shrink-0 flex items-center justify-center relative">

@@ -123,7 +123,7 @@ export function ExportSettingsMenu({
 							className={cn(
 								"group flex flex-col items-start rounded-xl border p-2 text-left transition-all",
 								isActive
-									? "border-[#2563EB]/60 bg-[#2563EB]/10 text-foreground ring-1 ring-[#2563EB]/40"
+									? "border-[#6FA8FF]/60 bg-[#6FA8FF]/10 text-foreground ring-1 ring-[#6FA8FF]/40"
 									: "border-foreground/10 bg-foreground/5 text-muted-foreground hover:border-foreground/20 hover:bg-foreground/10 hover:text-foreground",
 							)}
 						>
@@ -133,7 +133,7 @@ export function ExportSettingsMenu({
 										className={cn(
 											"h-3.5 w-3.5 shrink-0",
 											isActive
-												? "text-[#2563EB] dark:text-[#60A5FA]"
+												? "text-[#6FA8FF] dark:text-[#6FA8FF]"
 												: "text-muted-foreground group-hover:text-foreground",
 										)}
 										weight={isActive ? "fill" : "regular"}
@@ -146,7 +146,7 @@ export function ExportSettingsMenu({
 									className={cn(
 										"shrink-0 rounded-[4px] px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wider",
 										isActive
-											? "bg-[#2563EB] text-white"
+											? "bg-[#6FA8FF] text-[#172033]"
 											: "bg-foreground/10 text-muted-foreground",
 									)}
 								>
@@ -186,14 +186,14 @@ export function ExportSettingsMenu({
 								className={cn(
 									"relative flex-1 overflow-hidden rounded-xl border py-2 text-xs font-medium transition-colors",
 									isActive
-										? "border-[#2563EB]/50 text-[#2563EB] dark:text-white"
+										? "border-[#6FA8FF]/50 text-[#6FA8FF] dark:text-white"
 										: "border-foreground/10 bg-foreground/5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground",
 								)}
 							>
 								{isActive ? (
 									<motion.span
 										layoutId="header-export-format-pill"
-										className="absolute inset-0 rounded-xl bg-[#2563EB]/10"
+										className="absolute inset-0 rounded-xl bg-[#6FA8FF]/10"
 										transition={{ type: "spring", stiffness: 380, damping: 32 }}
 									/>
 								) : null}
@@ -417,13 +417,13 @@ export function ExportSettingsMenu({
 						</div>
 					) : null}
 					{nvidiaCudaExportAvailable ? (
-						<div className="mb-3 flex min-h-12 items-center justify-between gap-3 rounded-lg border border-[#2563EB]/20 bg-[#2563EB]/5 px-3 py-2">
+						<div className="mb-3 flex min-h-12 items-center justify-between gap-3 rounded-lg border border-[#6FA8FF]/20 bg-[#6FA8FF]/5 px-3 py-2">
 							<div className="min-w-0">
 								<div className="flex items-center gap-1.5">
 									<span className="text-[11px] font-semibold text-foreground">
 										{tSettings("export.nvidiaCuda.title", "NVIDIA CUDA")}
 									</span>
-									<span className="rounded bg-[#2563EB]/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-[#2563EB]">
+									<span className="rounded bg-[#6FA8FF]/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-[#6FA8FF]">
 										{tSettings("export.nvidiaCuda.badge", "Experimental")}
 									</span>
 								</div>
@@ -441,7 +441,7 @@ export function ExportSettingsMenu({
 									"export.nvidiaCuda.toggle",
 									"Enable experimental NVIDIA CUDA export",
 								)}
-								className="shrink-0 scale-75 data-[state=checked]:bg-[#2563EB]"
+								className="shrink-0 scale-75 data-[state=checked]:bg-[#6FA8FF]"
 							/>
 						</div>
 					) : null}
@@ -552,7 +552,7 @@ export function ExportSettingsMenu({
 							<Switch
 								checked={gifLoop}
 								onCheckedChange={onGifLoopChange}
-								className="scale-75 data-[state=checked]:bg-[#2563EB]"
+								className="scale-75 data-[state=checked]:bg-[#6FA8FF]"
 							/>
 						</div>
 					</div>
@@ -563,7 +563,7 @@ export function ExportSettingsMenu({
 				type="button"
 				size="lg"
 				onClick={onExport}
-				className="h-11 w-full gap-2 rounded-lg bg-[#2563EB] text-sm font-semibold text-white transition-colors duration-200 hover:bg-[#2563EB]/90"
+				className="h-11 w-full gap-2 rounded-lg bg-[#A879F5] text-sm font-semibold text-white transition-colors duration-200 hover:bg-[#b88ff8]"
 			>
 				<Download className="h-4 w-4" />
 				{tSettings("export.exportVideo", undefined, {

@@ -127,7 +127,7 @@ export interface SlideModule<TType extends SlideType = SlideType> {
 	exportChunk?: (
 		slide: SlideData<TType>,
 		options: SlideChunkExportOptions,
-	) => Promise<{ filePath: string; durationSec: number }>;
+	) => Promise<{ filePath: string; durationSec: number; audioPaths?: string[] }>;
 
 	// Create default metadata for a newly added slide
 	createDefaultMeta: () => SlideMetaByType[TType];

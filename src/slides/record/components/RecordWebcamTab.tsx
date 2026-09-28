@@ -40,7 +40,7 @@ export const RecordWebcamTab: React.FC<RecordWebcamTabProps> = ({
 			{/* Master PiP Toggle */}
 			<div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-800/40 p-3">
 				<div className="flex items-center gap-2 text-xs font-semibold text-white">
-					<UserSquare size={16} className="text-emerald-400" />
+					<UserSquare size={16} className="text-[#6FA8FF]" />
 					<span>Webcam PiP</span>
 				</div>
 				<button
@@ -48,7 +48,7 @@ export const RecordWebcamTab: React.FC<RecordWebcamTabProps> = ({
 					onClick={onToggleWebcam}
 					className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
 						isEnabled
-							? "bg-emerald-600 text-white"
+							? "bg-[#6FA8FF] text-[#172033]"
 							: "bg-slate-800 text-slate-400 border border-slate-700"
 					}`}
 				>
@@ -80,7 +80,7 @@ export const RecordWebcamTab: React.FC<RecordWebcamTabProps> = ({
 										onClick={() => onSelectCorner(corner.id as WebcamCorner)}
 										className={`py-1.5 px-2 rounded-lg border text-xs font-semibold text-center transition-all cursor-pointer ${
 											isSelected
-												? "border-emerald-500 bg-emerald-500/15 text-white shadow-sm"
+												? "border-[#6FA8FF] bg-[#6FA8FF]/15 text-white shadow-sm"
 												: "border-slate-800 bg-slate-800/40 text-slate-400 hover:text-white hover:border-slate-700"
 										}`}
 									>
@@ -107,7 +107,7 @@ export const RecordWebcamTab: React.FC<RecordWebcamTabProps> = ({
 								onClick={onToggleAutoDodge}
 								className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
 									webcam?.reactToZoom !== false
-										? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+										? "bg-[#6FA8FF]/15 text-[#6FA8FF] border border-[#6FA8FF]/30"
 										: "bg-slate-800 text-slate-500 border border-slate-700"
 								}`}
 							>
@@ -154,7 +154,7 @@ export const RecordWebcamTab: React.FC<RecordWebcamTabProps> = ({
 										onClick={() => onSelectShapeRadius(shape.radius)}
 										className={`py-1 rounded-lg border text-xs font-semibold text-center transition-all cursor-pointer ${
 											isSelected
-												? "border-emerald-500 bg-emerald-500/15 text-white"
+												? "border-[#6FA8FF] bg-[#6FA8FF]/15 text-white"
 												: "border-slate-800 bg-slate-800/40 text-slate-400 hover:text-white"
 										}`}
 									>
@@ -180,7 +180,7 @@ export const RecordWebcamTab: React.FC<RecordWebcamTabProps> = ({
 							step="2"
 							value={webcam?.size ?? 25}
 							onChange={(e) => onUpdateSize(Number(e.target.value))}
-							className="w-full accent-emerald-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+							className="w-full accent-[#6FA8FF] h-1.5 bg-slate-800 rounded-lg cursor-pointer"
 						/>
 					</div>
 
@@ -192,7 +192,7 @@ export const RecordWebcamTab: React.FC<RecordWebcamTabProps> = ({
 							onClick={onToggleMirror}
 							className={`px-2 py-0.5 rounded text-[11px] font-semibold transition-all cursor-pointer ${
 								webcam?.mirror !== false
-									? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+									? "bg-[#6FA8FF]/15 text-[#6FA8FF] border border-[#6FA8FF]/30"
 									: "bg-slate-800 text-slate-500"
 							}`}
 						>

@@ -56,7 +56,7 @@ export function AnnotationTextTab({
 					onChange={(e) => onContentChange(e.target.value)}
 					placeholder={t("annotations.textPlaceholder")}
 					rows={5}
-					className="w-full px-3 py-2 bg-foreground/5 border border-foreground/10 rounded-lg text-foreground text-sm placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent resize-none"
+					className="w-full px-3 py-2 bg-foreground/5 border border-foreground/10 rounded-lg text-foreground text-sm placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-[#6FA8FF] focus:border-transparent resize-none"
 				/>
 			</div>
 
@@ -152,7 +152,7 @@ export function AnnotationTextTab({
 										annotation.style.fontWeight === "bold" ? "normal" : "bold",
 								})
 							}
-							className="h-8 w-8 data-[state=on]:bg-[#2563EB] data-[state=on]:text-white text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+							className="h-8 w-8 data-[state=on]:bg-[#6FA8FF] data-[state=on]:text-[#172033] font-semibold text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
 						>
 							<Bold className="h-4 w-4" />
 						</ToggleGroupItem>
@@ -168,7 +168,7 @@ export function AnnotationTextTab({
 											: "italic",
 								})
 							}
-							className="h-8 w-8 data-[state=on]:bg-[#2563EB] data-[state=on]:text-white text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+							className="h-8 w-8 data-[state=on]:bg-[#6FA8FF] data-[state=on]:text-[#172033] font-semibold text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
 						>
 							<Italic className="h-4 w-4" />
 						</ToggleGroupItem>
@@ -186,7 +186,7 @@ export function AnnotationTextTab({
 											: "underline",
 								})
 							}
-							className="h-8 w-8 data-[state=on]:bg-[#2563EB] data-[state=on]:text-white text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+							className="h-8 w-8 data-[state=on]:bg-[#6FA8FF] data-[state=on]:text-[#172033] font-semibold text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
 						>
 							<Underline className="h-4 w-4" />
 						</ToggleGroupItem>
@@ -201,7 +201,7 @@ export function AnnotationTextTab({
 							value="left"
 							aria-label={t("annotations.alignLeft")}
 							onClick={() => onStyleChange({ textAlign: "left" })}
-							className="h-8 w-8 data-[state=on]:bg-[#2563EB] data-[state=on]:text-white text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+							className="h-8 w-8 data-[state=on]:bg-[#6FA8FF] data-[state=on]:text-[#172033] font-semibold text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
 						>
 							<AlignLeft className="h-4 w-4" />
 						</ToggleGroupItem>
@@ -209,7 +209,7 @@ export function AnnotationTextTab({
 							value="center"
 							aria-label={t("annotations.alignCenter")}
 							onClick={() => onStyleChange({ textAlign: "center" })}
-							className="h-8 w-8 data-[state=on]:bg-[#2563EB] data-[state=on]:text-white text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+							className="h-8 w-8 data-[state=on]:bg-[#6FA8FF] data-[state=on]:text-[#172033] font-semibold text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
 						>
 							<AlignCenter className="h-4 w-4" />
 						</ToggleGroupItem>
@@ -217,7 +217,7 @@ export function AnnotationTextTab({
 							value="right"
 							aria-label={t("annotations.alignRight")}
 							onClick={() => onStyleChange({ textAlign: "right" })}
-							className="h-8 w-8 data-[state=on]:bg-[#2563EB] data-[state=on]:text-white text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+							className="h-8 w-8 data-[state=on]:bg-[#6FA8FF] data-[state=on]:text-[#172033] font-semibold text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
 						>
 							<AlignRight className="h-4 w-4" />
 						</ToggleGroupItem>

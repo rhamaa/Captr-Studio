@@ -49,31 +49,31 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 				return {
 					label: "Record",
 					icon: VideoCamera,
-					colorClass: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+					colorClass: "bg-[#6FA8FF]/15 text-[#6FA8FF] border border-[#6FA8FF]/30",
 				};
 			case "video":
 				return {
 					label: "Video NLE",
 					icon: FilmSlate,
-					colorClass: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+					colorClass: "bg-[#A879F5]/15 text-[#A879F5] border border-[#A879F5]/30",
 				};
 			case "keyframe":
 				return {
 					label: "Keyframe",
 					icon: Sparkle,
-					colorClass: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+					colorClass: "bg-[#A879F5]/15 text-[#A879F5] border border-[#A879F5]/30",
 				};
 			case "motion":
 				return {
 					label: "Motion",
 					icon: Lightning,
-					colorClass: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+					colorClass: "bg-[#F6C768]/15 text-[#F6C768] border border-[#F6C768]/30",
 				};
 			default:
 				return {
 					label: type,
 					icon: FilmSlate,
-					colorClass: "bg-slate-500/20 text-slate-400 border-slate-500/30",
+					colorClass: "bg-slate-500/20 text-slate-400 border border-slate-500/30",
 				};
 		}
 	};
@@ -103,7 +103,7 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 								onClick={() => setActiveSlideId(slide.id)}
 								className={`group relative flex h-20 w-36 cursor-pointer flex-col justify-between rounded-lg border p-2 transition-all duration-150 ${
 									isActive
-										? "border-emerald-500 bg-slate-900 shadow-md shadow-emerald-950/30 ring-1 ring-emerald-500/50"
+										? "border-[#6FA8FF] bg-slate-900 shadow-md shadow-[#6FA8FF]/15 ring-1 ring-[#6FA8FF]/40"
 										: "border-slate-800 bg-slate-900/50 hover:border-slate-700 hover:bg-slate-900/80"
 								}`}
 							>
@@ -112,7 +112,7 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 									<span
 										className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${
 											isActive
-												? "bg-emerald-500 text-slate-950"
+												? "bg-[#6FA8FF] text-[#172033]"
 												: "bg-slate-800 text-slate-400"
 										}`}
 									>
@@ -268,7 +268,7 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 								onClick={() => handleAddSlide("record")}
 								className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-slate-800"
 							>
-								<div className="flex h-7 w-7 items-center justify-center rounded bg-emerald-500/20 text-emerald-400">
+								<div className="flex h-7 w-7 items-center justify-center rounded bg-[#6FA8FF]/15 text-[#6FA8FF]">
 									<VideoCamera size={16} weight="bold" />
 								</div>
 								<div>
@@ -286,7 +286,7 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 								onClick={() => handleAddSlide("video")}
 								className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-slate-800"
 							>
-								<div className="flex h-7 w-7 items-center justify-center rounded bg-blue-500/20 text-blue-400">
+								<div className="flex h-7 w-7 items-center justify-center rounded bg-[#A879F5]/15 text-[#A879F5]">
 									<FilmSlate size={16} weight="bold" />
 								</div>
 								<div>
@@ -303,7 +303,7 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 
 							<div className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 opacity-50 cursor-not-allowed">
 								<div className="flex items-center gap-2">
-									<Sparkle size={14} className="text-purple-400" />
+									<Sparkle size={14} className="text-[#A879F5]" />
 									<span className="text-xs text-slate-300">Keyframe Slide</span>
 								</div>
 								<span className="text-[9px] text-slate-500">Soon</span>
@@ -314,7 +314,7 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 								onClick={() => handleAddSlide("motion")}
 								className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-slate-800"
 							>
-								<div className="flex h-7 w-7 items-center justify-center rounded bg-amber-500/20 text-amber-400">
+								<div className="flex h-7 w-7 items-center justify-center rounded bg-[#F6C768]/15 text-[#F6C768]">
 									<Lightning size={16} weight="bold" />
 								</div>
 								<div>
@@ -336,7 +336,7 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 				<button
 					type="button"
 					onClick={() => setIsExportDialogOpen(true)}
-					className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-500 transition-colors"
+					className="flex items-center gap-1.5 rounded-lg bg-[#A879F5] px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#b88ff8] transition-colors"
 				>
 					<DownloadSimple size={15} weight="bold" />
 					<span>Export Video</span>

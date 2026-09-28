@@ -82,7 +82,7 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 				<button
 					type="button"
 					onClick={resetWebcamSection}
-					className="text-[10px] text-[#2563EB] transition-opacity hover:opacity-80"
+					className="text-[10px] text-[#6FA8FF] transition-opacity hover:opacity-80"
 				>
 					{t("common.actions.reset", "Reset")}
 				</button>
@@ -95,7 +95,7 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 					<Switch
 						checked={webcam?.enabled ?? false}
 						onCheckedChange={(enabled) => updateWebcam({ enabled })}
-						className="data-[state=checked]:bg-[#2563EB] scale-75"
+						className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 					/>
 				</div>
 				<div className="flex items-center justify-between rounded-lg bg-foreground/[0.03] px-2.5 py-1.5">
@@ -105,7 +105,7 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 					<Switch
 						checked={webcam?.reactToZoom ?? DEFAULT_WEBCAM_REACT_TO_ZOOM}
 						onCheckedChange={(reactToZoom) => updateWebcam({ reactToZoom })}
-						className="data-[state=checked]:bg-[#2563EB] scale-75"
+						className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 					/>
 				</div>
 				<div className="flex items-center justify-between rounded-lg bg-foreground/[0.03] px-2.5 py-1.5">
@@ -115,7 +115,7 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 					<Switch
 						checked={webcam?.mirror ?? true}
 						onCheckedChange={(mirror) => updateWebcam({ mirror })}
-						className="data-[state=checked]:bg-[#2563EB] scale-75"
+						className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 					/>
 				</div>
 				{!embeddedInCameraBubble && (
@@ -139,7 +139,7 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 						<button
 							type="button"
 							onClick={() => updateWebcam({ cropRegion: DEFAULT_CROP_REGION })}
-							className="text-[10px] text-[#2563EB] transition-opacity hover:opacity-80"
+							className="text-[10px] text-[#6FA8FF] transition-opacity hover:opacity-80"
 						>
 							{t("common.actions.reset", "Reset")}
 						</button>
@@ -173,7 +173,7 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 									className={cn(
 										"h-8 rounded-lg border px-0 text-sm font-semibold transition-all",
 										isActive
-											? "border-[#2563EB] bg-[#2563EB] text-white"
+											? "border-[#6FA8FF] bg-[#6FA8FF] text-[#172033]"
 											: "border-foreground/10 bg-foreground/5 text-muted-foreground hover:border-foreground/20 hover:bg-foreground/10",
 									)}
 								>
@@ -193,7 +193,7 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 										checked ? "custom" : DEFAULT_WEBCAM_POSITION_PRESET,
 									)
 								}
-								className="data-[state=checked]:bg-[#2563EB] scale-75"
+								className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 							/>
 						</div>
 					</div>

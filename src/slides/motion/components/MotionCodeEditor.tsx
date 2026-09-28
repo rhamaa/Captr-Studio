@@ -125,7 +125,7 @@ export const MotionCodeEditor: React.FC<MotionCodeEditorProps> = ({
 					<button
 						type="button"
 						onClick={() => fileInputRef.current?.click()}
-						className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium bg-[#2563EB]/10 hover:bg-[#2563EB]/20 text-[#2563EB] border border-[#2563EB]/20 transition cursor-pointer"
+						className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium bg-[#6FA8FF]/10 hover:bg-[#6FA8FF]/20 text-[#6FA8FF] border border-[#6FA8FF]/20 transition cursor-pointer"
 						title="Import file HTML dari komputer"
 					>
 						<UploadSimple size={12} weight="bold" />
@@ -148,7 +148,7 @@ export const MotionCodeEditor: React.FC<MotionCodeEditorProps> = ({
 						<select
 							value={durationMs}
 							onChange={(e) => onChangeDuration(Number(e.target.value))}
-							className="rounded-md border border-foreground/10 bg-editor-surface px-2 py-0.5 text-[11px] text-foreground font-medium outline-none focus:border-[#2563EB] cursor-pointer"
+							className="rounded-md border border-foreground/10 bg-editor-surface px-2 py-0.5 text-[11px] text-foreground font-medium outline-none focus:border-[#6FA8FF] cursor-pointer"
 						>
 							<option value={3000}>3 Detik</option>
 							<option value={5000}>5 Detik</option>
@@ -170,7 +170,7 @@ export const MotionCodeEditor: React.FC<MotionCodeEditorProps> = ({
 						onClick={() => onChangeTab("document")}
 						className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition cursor-pointer whitespace-nowrap ${
 							activeTab === "document"
-								? "bg-[#2563EB] text-white shadow-sm font-semibold"
+								? "bg-[#6FA8FF] text-[#172033] shadow-sm font-semibold"
 								: "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
 						}`}
 						title="File HTML Utuh (HTML + CSS + JS dalam 1 codebase)"
@@ -184,7 +184,7 @@ export const MotionCodeEditor: React.FC<MotionCodeEditorProps> = ({
 						onClick={() => onChangeTab("html")}
 						className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition cursor-pointer whitespace-nowrap ${
 							activeTab === "html"
-								? "bg-[#2563EB] text-white shadow-sm font-semibold"
+								? "bg-[#6FA8FF] text-[#172033] shadow-sm font-semibold"
 								: "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
 						}`}
 						title="Body HTML saja"
@@ -198,7 +198,7 @@ export const MotionCodeEditor: React.FC<MotionCodeEditorProps> = ({
 						onClick={() => onChangeTab("css")}
 						className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition cursor-pointer whitespace-nowrap ${
 							activeTab === "css"
-								? "bg-[#2563EB] text-white shadow-sm font-semibold"
+								? "bg-[#6FA8FF] text-[#172033] shadow-sm font-semibold"
 								: "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
 						}`}
 						title="CSS Stylesheet saja"
@@ -212,7 +212,7 @@ export const MotionCodeEditor: React.FC<MotionCodeEditorProps> = ({
 						onClick={() => onChangeTab("js")}
 						className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition cursor-pointer whitespace-nowrap ${
 							activeTab === "js"
-								? "bg-[#2563EB] text-white shadow-sm font-semibold"
+								? "bg-[#6FA8FF] text-[#172033] shadow-sm font-semibold"
 								: "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
 						}`}
 						title="JavaScript Timeline Hook saja"

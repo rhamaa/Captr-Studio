@@ -477,7 +477,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		return ipcRenderer.invoke("discard-exported-temp", tempPath);
 	},
 	stitchProjectSlides: (options: {
-		slides: Array<{ filePath: string; durationSec: number }>;
+		slides: Array<{ filePath: string; durationSec: number; audioPaths?: string[] }>;
 		transitions?: Array<{ type: string; durationSec: number }>;
 		globalAudio?: { path: string; volume?: number; loop?: boolean };
 		outputPath: string;

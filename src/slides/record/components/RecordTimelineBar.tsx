@@ -91,8 +91,8 @@ export const RecordTimelineBar: React.FC<RecordTimelineBarProps> = ({
 							style={{ left: `${startPct}%`, width: `${widthPct}%` }}
 							className={`absolute top-1 bottom-1 rounded border z-10 pointer-events-none transition-all ${
 								isSelected
-									? "bg-emerald-500/50 border-emerald-400 shadow-sm"
-									: "bg-emerald-500/25 border-emerald-500/50"
+									? "bg-[#6FA8FF]/45 border-[#6FA8FF] shadow-sm"
+									: "bg-[#6FA8FF]/20 border-[#6FA8FF]/40"
 							}`}
 							title={`Zoom ${zoom.depth}x`}
 						/>
@@ -104,7 +104,7 @@ export const RecordTimelineBar: React.FC<RecordTimelineBarProps> = ({
 					style={{
 						width: durationMs > 0 ? `${(currentTimeMs / durationMs) * 100}%` : "0%",
 					}}
-					className="h-full bg-blue-600/40 pointer-events-none"
+					className="h-full bg-[#6FA8FF]/30 pointer-events-none"
 				/>
 
 				{/* Playhead Pin */}
@@ -118,7 +118,7 @@ export const RecordTimelineBar: React.FC<RecordTimelineBarProps> = ({
 
 			{/* Success Message Banner */}
 			{silenceSuccessMessage && (
-				<div className="flex items-center justify-center gap-1.5 py-1 px-3 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-medium animate-fadeIn">
+				<div className="flex items-center justify-center gap-1.5 py-1 px-3 rounded-lg bg-[#8DDB9B]/15 border border-[#8DDB9B]/30 text-[#8DDB9B] text-xs font-medium animate-fadeIn">
 					<Check size={14} weight="bold" />
 					<span>{silenceSuccessMessage}</span>
 				</div>
@@ -138,7 +138,7 @@ export const RecordTimelineBar: React.FC<RecordTimelineBarProps> = ({
 					<button
 						type="button"
 						onClick={onTogglePlayPause}
-						className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition-colors cursor-pointer"
+						className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#6FA8FF] hover:bg-[#8bbaff] text-[#172033] font-semibold shadow-md transition-colors cursor-pointer"
 						title={isPlaying ? "Pause" : "Play"}
 					>
 						{isPlaying ? (
@@ -201,7 +201,7 @@ export const RecordTimelineBar: React.FC<RecordTimelineBarProps> = ({
 					<button
 						type="button"
 						onClick={onAddZoomAtPlayhead}
-						className="flex items-center gap-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 text-xs font-semibold transition-all shadow-sm cursor-pointer"
+						className="flex items-center gap-1.5 rounded-lg bg-[#6FA8FF]/15 hover:bg-[#6FA8FF]/25 text-[#6FA8FF] border border-[#6FA8FF]/30 px-3 py-1.5 text-xs font-semibold transition-all shadow-sm cursor-pointer"
 					>
 						<Plus size={14} weight="bold" />
 						<span>Add Zoom</span>

@@ -36,7 +36,7 @@ export function ClipsTray({
 			className={`flex items-center gap-2 overflow-x-auto px-4 py-2 bg-editor-panel/70 border-b border-foreground/10 select-none scrollbar-thin scrollbar-thumb-foreground/10 ${className}`}
 		>
 			<div className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pr-2 border-r border-foreground/10 shrink-0">
-				<Film className="w-3.5 h-3.5 text-[#2563EB]" />
+				<Film className="w-3.5 h-3.5 text-[#6FA8FF]" />
 				<span>Takes ({clips.length})</span>
 			</div>
 
@@ -53,7 +53,7 @@ export function ClipsTray({
 							onClick={() => onSelectClip(clip.id)}
 							className={`group relative flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all cursor-pointer shrink-0 ${
 								isSelected
-									? "bg-[#2563EB]/15 border-[#2563EB] shadow-[0_0_12px_rgba(37,99,235,0.25)] text-foreground"
+									? "bg-[#6FA8FF]/15 border-[#6FA8FF] shadow-[0_0_12px_rgba(111,168,255,0.25)] text-foreground"
 									: "bg-foreground/[0.03] border-foreground/10 text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"
 							}`}
 						>
@@ -72,8 +72,8 @@ export function ClipsTray({
 									<span
 										className={`text-[8px] leading-tight px-1 py-0.5 rounded font-mono font-bold tracking-wider ${
 											isRecorded
-												? "bg-red-500/20 text-red-400 border border-red-500/30"
-												: "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+												? "bg-[#FF6B81]/15 text-[#FF6B81] border border-[#FF6B81]/30"
+												: "bg-[#6FA8FF]/15 text-[#6FA8FF] border border-[#6FA8FF]/30"
 										}`}
 									>
 										{isRecorded ? "REC" : "FILE"}

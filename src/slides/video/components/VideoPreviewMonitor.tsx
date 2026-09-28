@@ -50,7 +50,7 @@ export const VideoPreviewMonitor: React.FC<VideoPreviewMonitorProps> = ({
 					/>
 				) : (
 					<div className="flex flex-col items-center justify-center gap-2 p-8 text-center">
-						<FilmSlate size={36} className="text-blue-400 opacity-60" />
+						<FilmSlate size={36} className="text-[#A879F5] opacity-60" />
 						<span className="text-xs text-slate-400">
 							Preview Video NLE ({canvasDimensions.width}x{canvasDimensions.height} @{" "}
 							{canvasDimensions.fps}fps)

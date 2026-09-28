@@ -70,7 +70,7 @@ export function ClipTimelineItem({
 				<div className="flex items-center justify-between gap-1 w-full min-h-[20px]">
 					{/* Left: Badges */}
 					<div className="flex items-center gap-1.5 overflow-hidden">
-						<span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono tracking-tight bg-blue-600/40 border border-blue-400/40 text-blue-200 shrink-0">
+						<span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono tracking-tight bg-[#6FA8FF]/20 border border-[#6FA8FF]/40 text-[#6FA8FF] shrink-0">
 							{children || "Slide"}
 						</span>
 
@@ -148,10 +148,10 @@ export function ClipTimelineItem({
 						{/* Transition In Badge if set */}
 						{transitionIn && transitionIn !== "none" && (
 							<div
-								className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-400/30 text-[8.5px] font-semibold text-cyan-300 shrink-0"
+								className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#6FA8FF]/15 border border-[#6FA8FF]/30 text-[8.5px] font-semibold text-[#6FA8FF] shrink-0"
 								title={`Transition In: ${transitionIn}`}
 							>
-								<span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+								<span className="w-1.5 h-1.5 rounded-full bg-[#6FA8FF]" />
 								<span className="capitalize">{transitionIn.replace("-", " ")}</span>
 							</div>
 						)}

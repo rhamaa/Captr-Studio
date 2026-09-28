@@ -134,14 +134,14 @@ export const RecordInspectorPanel: React.FC<RecordInspectorPanelProps> = ({
 		<div className="w-80 border-l border-slate-800 bg-slate-900/60 p-4 flex flex-col gap-4 overflow-y-auto backdrop-blur-md">
 			{/* Slide Title Section */}
 			<div>
-				<div className="text-[10px] font-bold tracking-wider text-emerald-400 uppercase">
+				<div className="text-[10px] font-bold tracking-wider text-[#6FA8FF] uppercase">
 					Screen Studio Inspector
 				</div>
 				<input
 					type="text"
 					value={title}
 					onChange={(e) => onUpdateTitle?.(e.target.value)}
-					className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800/80 px-2.5 py-1.5 text-xs font-semibold text-white focus:border-emerald-500 focus:outline-none transition-colors"
+					className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800/80 px-2.5 py-1.5 text-xs font-semibold text-white focus:border-[#6FA8FF] focus:outline-none transition-colors"
 					placeholder="Judul Slide"
 				/>
 			</div>
@@ -168,7 +168,7 @@ export const RecordInspectorPanel: React.FC<RecordInspectorPanelProps> = ({
 								onClick={() => onSelectTab(tab)}
 								className={`py-1 rounded-lg text-center transition-all cursor-pointer ${
 									isActive
-										? "bg-emerald-600 text-white shadow-sm font-semibold"
+										? "bg-[#6FA8FF] text-[#172033] shadow-sm font-semibold"
 										: "text-slate-400 hover:text-white"
 								}`}
 							>

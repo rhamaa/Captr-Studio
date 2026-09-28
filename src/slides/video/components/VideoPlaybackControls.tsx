@@ -48,7 +48,7 @@ export const VideoPlaybackControls: React.FC<VideoPlaybackControlsProps> = ({
 					type="button"
 					onClick={onTogglePlay}
 					disabled={isRecording}
-					className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm hover:bg-blue-500 disabled:opacity-50 transition cursor-pointer"
+					className="flex h-7 w-7 items-center justify-center rounded-full bg-[#A879F5] text-white shadow-sm hover:bg-[#b88ff8] disabled:opacity-50 transition cursor-pointer"
 				>
 					{isPlaying ? (
 						<Pause size={13} weight="fill" />
@@ -62,7 +62,7 @@ export const VideoPlaybackControls: React.FC<VideoPlaybackControlsProps> = ({
 					title={isAudioMuted ? "Unmute Audio" : "Mute Audio"}
 					className={`rounded p-1 cursor-pointer transition ${
 						isAudioMuted
-							? "text-rose-400 bg-rose-950/40"
+							? "text-[#FF6B81] bg-[#FF6B81]/15"
 							: "text-slate-400 hover:bg-slate-800 hover:text-white"
 					}`}
 				>
@@ -81,7 +81,7 @@ export const VideoPlaybackControls: React.FC<VideoPlaybackControlsProps> = ({
 				<button
 					type="button"
 					onClick={onAddClip}
-					className="flex items-center gap-1 rounded bg-blue-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-blue-500 transition cursor-pointer"
+					className="flex items-center gap-1 rounded bg-[#A879F5] px-2 py-1 text-[11px] font-semibold text-white hover:bg-[#b88ff8] transition cursor-pointer"
 				>
 					<Plus size={13} weight="bold" />
 					<span>+ Clip</span>

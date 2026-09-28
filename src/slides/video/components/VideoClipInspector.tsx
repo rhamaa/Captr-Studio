@@ -15,14 +15,14 @@ export const VideoClipInspector: React.FC<VideoClipInspectorProps> = ({
 }) => {
 	return (
 		<div className="w-72 border-l border-slate-800 bg-slate-900/60 p-3 backdrop-blur select-none">
-			<div className="text-[10px] font-bold tracking-wider text-blue-400 uppercase mb-2">
+			<div className="text-[10px] font-bold tracking-wider text-[#A879F5] uppercase mb-2">
 				Slide & Clip Inspector
 			</div>
 			<input
 				type="text"
 				value={title}
 				onChange={(e) => onUpdateTitle?.(e.target.value)}
-				className="w-full rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs font-semibold text-white focus:border-blue-500 focus:outline-none mb-4"
+				className="w-full rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs font-semibold text-white focus:border-[#A879F5] focus:outline-none mb-4"
 			/>
 
 			<div className="space-y-3">

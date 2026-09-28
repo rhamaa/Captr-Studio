@@ -53,7 +53,7 @@ export const RecordPreviewMonitor: React.FC<RecordPreviewMonitorProps> = ({
 			{/* Top Canvas Header Bar */}
 			<div className="w-full flex items-center justify-between pb-3 px-2">
 				<div className="flex items-center gap-2">
-					<span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
+					<span className="inline-flex items-center gap-1.5 rounded-full bg-[#6FA8FF]/15 px-3 py-1 text-xs font-semibold text-[#6FA8FF] border border-[#6FA8FF]/30">
 						<VideoCamera size={14} weight="bold" />
 						<span>Screen Studio Canvas</span>
 					</span>
@@ -120,7 +120,7 @@ export const RecordPreviewMonitor: React.FC<RecordPreviewMonitorProps> = ({
 				) : (
 					/* Empty recording state */
 					<div className="flex flex-col items-center justify-center gap-4 rounded-3xl border-2 border-dashed border-slate-700/60 bg-slate-900/60 p-10 text-center backdrop-blur-md max-w-md mx-auto">
-						<div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-inner">
+						<div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#6FA8FF]/15 text-[#6FA8FF] border border-[#6FA8FF]/30 shadow-inner">
 							<VideoCamera size={36} weight="duotone" />
 						</div>
 						<div>

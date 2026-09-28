@@ -7459,7 +7459,7 @@ export default function VideoEditor() {
 	if (viewMode === "welcome" && !loading && !error) {
 		const hasActiveProject = Boolean(videoPath || clips.length > 0 || currentProjectPath);
 		return (
-			<div className="relative flex h-screen w-screen flex-col bg-editor-bg text-foreground overflow-hidden selection:bg-[#2563EB]/30">
+			<div className="relative flex h-screen w-screen flex-col bg-editor-bg text-foreground overflow-hidden selection:bg-[#6FA8FF]/30">
 				<WelcomeScreen
 					onNewProject={(aspectRatio) => void handleNewProject(aspectRatio)}
 					onOpenProjectFile={() => void handleLoadProjectFile()}
@@ -7485,7 +7485,7 @@ export default function VideoEditor() {
 	}
 
 	return (
-		<div className="flex flex-col h-screen bg-editor-bg text-foreground overflow-hidden selection:bg-[#2563EB]/30">
+		<div className="flex flex-col h-screen bg-editor-bg text-foreground overflow-hidden selection:bg-[#6FA8FF]/30">
 			<div
 				className="relative flex h-11 flex-shrink-0 items-center justify-between bg-editor-header/88 px-5 backdrop-blur-md border-b border-foreground/10 z-50"
 				style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
@@ -7596,7 +7596,7 @@ export default function VideoEditor() {
 							className="flex max-w-[min(52vw,460px)] items-baseline gap-1 rounded-[7px] border border-foreground/10 bg-editor-panel/[0.88] px-2.5 py-1 shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
 						>
 							{hasUnsavedChanges ? (
-								<span className="mt-[1px] size-2 shrink-0 rounded-full bg-[#2563EB]" />
+								<span className="mt-[1px] size-2 shrink-0 rounded-full bg-[#6FA8FF]" />
 							) : null}
 							<input
 								ref={projectNameInputRef}
@@ -7632,7 +7632,7 @@ export default function VideoEditor() {
 							aria-label={t("editor.project.renameTitle", "Rename project")}
 						>
 							{hasUnsavedChanges ? (
-								<span className="mt-[1px] size-2 shrink-0 rounded-full bg-[#2563EB]" />
+								<span className="mt-[1px] size-2 shrink-0 rounded-full bg-[#6FA8FF]" />
 							) : null}
 							<span className="truncate text-sm font-semibold tracking-tight text-foreground/90">
 								{projectDisplayName}
@@ -7703,7 +7703,7 @@ export default function VideoEditor() {
 										<Button
 											type="submit"
 											size="sm"
-											className="h-9 rounded-xl bg-[#2563EB] px-3 text-white hover:bg-[#1d4ed8]"
+											className="h-9 rounded-xl bg-[#6FA8FF] px-3 text-[#172033] font-semibold hover:bg-[#8bbaff]"
 										>
 											{t("common.actions.save", "Save")}
 										</Button>
@@ -7729,24 +7729,24 @@ export default function VideoEditor() {
 														className={cn(
 															"flex items-center gap-2 rounded-xl border px-2 py-2 text-sm transition-colors",
 															isActive
-																? "border-[#2563EB]/20 bg-[#2563EB]/10 text-foreground"
+																? "border-[#6FA8FF]/20 bg-[#6FA8FF]/10 text-foreground"
 																: "border-foreground/8 bg-foreground/[0.03] text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
 														)}
 													>
-														<button
-															type="button"
-															onClick={() =>
-																handleApplyEditorPreset(preset.id)
-															}
-															className="flex min-w-0 flex-1 items-center justify-between text-left"
-														>
-															<span className="truncate pr-3">
-																{preset.name}
-															</span>
-															{isActive ? (
-																<Check className="h-3.5 w-3.5 shrink-0 text-[#2563EB]" />
-															) : null}
-														</button>
+ 														<button
+ 															type="button"
+ 															onClick={() =>
+ 																handleApplyEditorPreset(preset.id)
+ 															}
+ 															className="flex min-w-0 flex-1 items-center justify-between text-left"
+ 														>
+ 															<span className="truncate pr-3">
+ 																{preset.name}
+ 															</span>
+ 															{isActive ? (
+																<Check className="h-3.5 w-3.5 shrink-0 text-[#6FA8FF]" />
+ 															) : null}
+ 														</button>
 														<button
 															type="button"
 															onClick={() =>
@@ -7786,7 +7786,7 @@ export default function VideoEditor() {
 							<Button
 								type="button"
 								onClick={handleOpenExportDropdown}
-								className="inline-flex h-8 min-w-[112px] items-center justify-center gap-2 rounded-[5px] bg-[#2563EB] px-4.5 text-white transition-colors hover:bg-[#2563EB]/92"
+								className="inline-flex h-8 min-w-[112px] items-center justify-center gap-2 rounded-lg bg-[#A879F5] px-4 text-white font-semibold transition-colors hover:bg-[#b88ff8]"
 							>
 								<Download className="h-4 w-4" />
 								<span className="text-sm font-semibold tracking-tight">
@@ -7807,54 +7807,54 @@ export default function VideoEditor() {
 												{t("editor.exportStatus.exporting", "Exporting")}
 											</p>
 											<p className="text-xs text-muted-foreground">
-												{t(
-													"editor.exportStatus.renderingFile",
-													"Rendering your file.",
-												)}
-											</p>
-											{isLightningExportInProgress ? (
-												<p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground/70">
-													PLEASE
-													<button
-														type="button"
-														onClick={() => void openLightningIssues()}
-														className="underline decoration-slate-500/70 underline-offset-2 transition-colors hover:text-foreground"
-													>
-														report bugs
-													</button>
-													with Lightning export
-													<span aria-hidden="true">{"\u{1F64F}"}</span>
-												</p>
-											) : null}
-											{isLegacyExportInProgress ? (
-												<p className="mt-1 text-[11px] text-muted-foreground/70">
-													Export too slow? Cancel and try Lightning
-													export!
-												</p>
-											) : null}
-										</div>
-										<Button
-											type="button"
-											variant="outline"
-											onClick={handleCancelExport}
-											className="h-8 border-red-500/20 bg-red-500/10 px-3 text-xs text-red-400 hover:bg-red-500/20"
-										>
-											{t("common.actions.cancel")}
-										</Button>
-									</div>
-									<div className="h-2 overflow-hidden rounded-full border border-foreground/5 bg-foreground/5">
-										{isExportPreparing ||
-										isExportSaving ||
-										isExportFinalSaveIndeterminate ? (
-											<div className="indeterminate-progress h-full rounded-full bg-transparent" />
-										) : (
-											<div
-												className="h-full bg-[#2563EB] transition-all duration-300 ease-out"
-												style={{
-													width: `${Math.min(isRenderingAudio ? (exportProgress?.audioProgress ?? 0) * 100 : (exportFinalizingProgress ?? exportProgress?.percentage ?? 8), 100)}%`,
-												}}
-											/>
-										)}
+ 												{t(
+ 													"editor.exportStatus.renderingFile",
+ 													"Rendering your file.",
+ 												)}
+ 											</p>
+ 											{isLightningExportInProgress ? (
+ 												<p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground/70">
+ 													PLEASE
+ 													<button
+ 														type="button"
+ 														onClick={() => void openLightningIssues()}
+ 														className="underline decoration-slate-500/70 underline-offset-2 transition-colors hover:text-foreground"
+ 													>
+ 														report bugs
+ 													</button>
+ 													with Lightning export
+ 													<span aria-hidden="true">{"\u{1F64F}"}</span>
+ 												</p>
+ 											) : null}
+ 											{isLegacyExportInProgress ? (
+ 												<p className="mt-1 text-[11px] text-muted-foreground/70">
+ 													Export too slow? Cancel and try Lightning
+ 													export!
+ 												</p>
+ 											) : null}
+ 										</div>
+ 										<Button
+ 											type="button"
+ 											variant="outline"
+ 											onClick={handleCancelExport}
+ 											className="h-8 border-red-500/20 bg-red-500/10 px-3 text-xs text-red-400 hover:bg-red-500/20"
+ 										>
+ 											{t("common.actions.cancel")}
+ 										</Button>
+ 									</div>
+ 									<div className="h-2 overflow-hidden rounded-full border border-foreground/5 bg-foreground/5">
+ 										{isExportPreparing ||
+ 										isExportSaving ||
+ 										isExportFinalSaveIndeterminate ? (
+ 											<div className="indeterminate-progress h-full rounded-full bg-transparent" />
+ 										) : (
+ 											<div
+												className="h-full bg-[#A879F5] transition-all duration-300 ease-out"
+ 												style={{
+ 													width: `${Math.min(isRenderingAudio ? (exportProgress?.audioProgress ?? 0) * 100 : (exportFinalizingProgress ?? exportProgress?.percentage ?? 8), 100)}%`,
+ 												}}
+ 											/>
+ 										)}
 									</div>
 									<p className="mt-2 text-xs text-muted-foreground">
 										{exportPercentLabel}
@@ -7900,7 +7900,7 @@ export default function VideoEditor() {
 											<Button
 												type="button"
 												onClick={handleRetrySaveExport}
-												className="h-8 flex-1 rounded-[5px] bg-[#2563EB] text-xs font-semibold text-white hover:bg-[#2563EB]/92"
+												className="h-8 flex-1 rounded-lg bg-[#6FA8FF] text-xs font-semibold text-[#172033] hover:bg-[#8bbaff]"
 											>
 												{t("editor.actions.saveAgain", "Save Again")}
 											</Button>
@@ -7938,7 +7938,7 @@ export default function VideoEditor() {
 										<Button
 											type="button"
 											onClick={handleOpenExportedVideo}
-											className="h-8 rounded-[5px] bg-[#2563EB] text-xs font-semibold text-white hover:bg-[#2563EB]/92"
+											className="h-8 rounded-lg bg-[#6FA8FF] text-xs font-semibold text-[#172033] hover:bg-[#8bbaff]"
 										>
 											<Play className="mr-1.5 h-3.5 w-3.5" weight="bold" />
 											{t("editor.actions.openVideo", "Open Video")}
@@ -8118,7 +8118,7 @@ export default function VideoEditor() {
 										className={cn(
 											"flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap",
 											isActive
-												? "bg-[#2563EB] text-white shadow-sm font-semibold"
+												? "bg-[#6FA8FF] text-[#172033] shadow-sm font-semibold"
 												: "text-muted-foreground hover:text-foreground hover:bg-foreground/5",
 										)}
 									>
@@ -8464,8 +8464,8 @@ export default function VideoEditor() {
 							className={cn(
 								"h-full w-[2px] rounded-full transition-all duration-150",
 								isDraggingSidebar
-									? "bg-[#2563EB] w-[3px] shadow-[0_0_8px_rgba(37,99,235,0.6)]"
-									: "bg-foreground/[0.06] group-hover:bg-[#2563EB]/80 group-hover:w-[3px]",
+									? "bg-[#6FA8FF] w-[3px] shadow-[0_0_8px_rgba(111,168,255,0.5)]"
+									: "bg-foreground/[0.06] group-hover:bg-[#6FA8FF]/80 group-hover:w-[3px]",
 							)}
 						/>
 					</div>
@@ -8513,7 +8513,7 @@ export default function VideoEditor() {
 															{preset.ratioLabel}
 														</span>
 														{aspectRatio === preset.id && (
-															<Check className="w-3 h-3 text-[#2563EB]" />
+															<Check className="w-3 h-3 text-[#6FA8FF]" />
 														)}
 													</div>
 												</DropdownMenuItem>
@@ -8552,7 +8552,7 @@ export default function VideoEditor() {
 										className={cn(
 											"h-7 px-2 text-xs transition-all gap-1.5",
 											showSocialSafeZone
-												? "text-[#2563EB] bg-[#2563EB]/10 hover:bg-[#2563EB]/20"
+												? "text-[#6FA8FF] bg-[#6FA8FF]/10 hover:bg-[#6FA8FF]/20"
 												: "text-muted-foreground hover:text-foreground hover:bg-foreground/10",
 										)}
 										title="Toggle safe zone overlay for the selected social platform"
@@ -8572,7 +8572,7 @@ export default function VideoEditor() {
 											{t("settings.crop.title")}
 										</span>
 										{isCropped ? (
-											<span className="h-1.5 w-1.5 rounded-full bg-[#2563EB]" />
+											<span className="h-1.5 w-1.5 rounded-full bg-[#6FA8FF]" />
 										) : null}
 									</Button>
 								</div>
@@ -8641,7 +8641,7 @@ export default function VideoEditor() {
 														<Button
 															type="button"
 															onClick={handleOpenRecorderHud}
-															className="w-full sm:w-auto h-9 px-5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold gap-2 shadow-lg shadow-red-600/25 transition-all cursor-pointer"
+															className="w-full sm:w-auto h-9 px-5 rounded-lg bg-[#6FA8FF] hover:bg-[#8bbaff] text-[#172033] text-xs font-semibold gap-2 shadow-lg shadow-[#6FA8FF]/20 transition-all cursor-pointer"
 														>
 															<VideoCamera
 																className="w-3.5 h-3.5"
@@ -8864,7 +8864,7 @@ export default function VideoEditor() {
 											onClick={() => timelineRef.current?.addZoom()}
 											variant="ghost"
 											size="icon"
-											className="h-7 w-7 rounded-full text-muted-foreground transition-all hover:bg-[#2563EB]/10 hover:text-[#2563EB]"
+											className="h-7 w-7 rounded-full text-muted-foreground transition-all hover:bg-[#6FA8FF]/10 hover:text-[#6FA8FF]"
 											title={t("timeline.zoom.addZoom")}
 										>
 											<ZoomIn className="w-4 h-4" />
@@ -8873,7 +8873,7 @@ export default function VideoEditor() {
 											onClick={() => timelineRef.current?.suggestZooms()}
 											variant="ghost"
 											size="icon"
-											className="h-7 w-7 rounded-full text-muted-foreground transition-all hover:bg-[#2563EB]/10 hover:text-[#2563EB]"
+											className="h-7 w-7 rounded-full text-muted-foreground transition-all hover:bg-[#6FA8FF]/10 hover:text-[#6FA8FF]"
 											title={t("timeline.zoom.suggestZooms")}
 										>
 											<WandSparkles className="w-4 h-4" />
@@ -9084,8 +9084,8 @@ export default function VideoEditor() {
 						className={cn(
 							"w-full h-[2px] rounded-full transition-all duration-150",
 							isDraggingTimeline
-								? "bg-[#2563EB] h-[3px] shadow-[0_0_8px_rgba(37,99,235,0.6)]"
-								: "bg-foreground/[0.08] group-hover:bg-[#2563EB]/80 group-hover:h-[3px]",
+								? "bg-[#6FA8FF] h-[3px] shadow-[0_0_8px_rgba(111,168,255,0.5)]"
+								: "bg-foreground/[0.08] group-hover:bg-[#6FA8FF]/80 group-hover:h-[3px]",
 						)}
 					/>
 					{/* Center Grab Handle Pill */}
@@ -9093,8 +9093,8 @@ export default function VideoEditor() {
 						className={cn(
 							"absolute flex items-center justify-center px-3 py-0.5 rounded-full border text-[10px] font-medium transition-all duration-150 shadow-sm",
 							isDraggingTimeline
-								? "border-[#2563EB]/50 bg-editor-surface text-[#2563EB] shadow-md shadow-[#2563EB]/20"
-								: "border-foreground/10 bg-editor-surface/90 text-muted-foreground/80 group-hover:border-[#2563EB]/30 group-hover:text-foreground",
+								? "border-[#6FA8FF]/50 bg-editor-surface text-[#6FA8FF] shadow-md shadow-[#6FA8FF]/20"
+								: "border-foreground/10 bg-editor-surface/90 text-muted-foreground/80 group-hover:border-[#6FA8FF]/30 group-hover:text-foreground",
 						)}
 					>
 						<div className="flex items-center gap-1.5">
@@ -9320,7 +9320,7 @@ export default function VideoEditor() {
 							<Button
 								onClick={handleCloseCropEditor}
 								size="lg"
-								className="bg-[#2563EB] text-white hover:bg-[#2563EB]/90"
+								className="bg-[#6FA8FF] text-[#172033] font-semibold hover:bg-[#8bbaff]"
 							>
 								{t("common.actions.done")}
 							</Button>

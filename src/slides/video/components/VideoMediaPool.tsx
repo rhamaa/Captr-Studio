@@ -12,13 +12,13 @@ export const VideoMediaPool: React.FC<VideoMediaPoolProps> = ({ mediaPool, onImp
 		<div className="flex w-72 flex-col border-r border-slate-800 bg-slate-900/60 p-3 backdrop-blur select-none">
 			<div className="flex items-center justify-between pb-2 border-b border-slate-800">
 				<div className="flex items-center gap-1.5 text-xs font-semibold text-white">
-					<FilmSlate size={16} className="text-blue-400" />
+					<FilmSlate size={16} className="text-[#A879F5]" />
 					<span>Media Pool</span>
 				</div>
 				<button
 					type="button"
 					onClick={onImportClick}
-					className="flex items-center gap-1 rounded bg-blue-500/20 px-2 py-0.5 text-[10px] font-medium text-blue-400 hover:bg-blue-500/30 transition cursor-pointer"
+					className="flex items-center gap-1 rounded bg-[#A879F5]/15 px-2 py-0.5 text-[10px] font-medium text-[#A879F5] hover:bg-[#A879F5]/25 transition cursor-pointer"
 				>
 					<UploadSimple size={12} />
 					<span>Import</span>

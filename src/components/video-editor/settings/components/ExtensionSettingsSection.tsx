@@ -60,7 +60,7 @@ export function ExtensionSettingsSection({
 									);
 									forceUpdate((n) => n + 1);
 								}}
-								className="data-[state=checked]:bg-[#2563EB] scale-75"
+								className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 							/>
 						</div>
 					);

@@ -627,7 +627,7 @@ interface Window {
 		}>;
 		discardExportedTemp: (tempPath: string) => Promise<{ success: boolean; error?: string }>;
 		stitchProjectSlides: (options: {
-			slides: Array<{ filePath: string; durationSec: number }>;
+			slides: Array<{ filePath: string; durationSec: number; audioPaths?: string[] }>;
 			transitions?: Array<{ type: string; durationSec: number }>;
 			globalAudio?: { path: string; volume?: number; loop?: boolean };
 			outputPath: string;
@@ -985,7 +985,7 @@ interface Window {
 		onWindowMaximizedChange: (callback: (isMaximized: boolean) => void) => () => void;
 		approveLocalMediaPath?: (filePath: string) => Promise<{ success: boolean }>;
 		stitchProjectSlides?: (options: {
-			slides: Array<{ filePath: string; durationSec: number }>;
+			slides: Array<{ filePath: string; durationSec: number; audioPaths?: string[] }>;
 			transitions?: Array<{ type: string; durationSec: number }>;
 			globalAudio?: { path: string; volume?: number; loop?: boolean };
 			outputPath: string;

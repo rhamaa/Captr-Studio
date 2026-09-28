@@ -176,7 +176,7 @@ export const RecordLayoutSection: React.FC<RecordLayoutSectionProps> = ({
 													"group flex flex-col justify-between rounded-xl border p-2.5 text-left transition-all overflow-hidden min-h-[64px]",
 													"border-foreground/10 bg-foreground/[0.03] hover:border-foreground/20 hover:bg-foreground/[0.06]",
 													isActive &&
-														"border-[#2563EB]/70 bg-[#2563EB]/12 shadow-[inset_0_0_0_1px_rgba(37,99,235,0.15)]",
+														"border-[#6FA8FF]/70 bg-[#6FA8FF]/12 shadow-[inset_0_0_0_1px_rgba(111,168,255,0.2)]",
 												)}
 											>
 												<div className="flex items-center gap-2 w-full">
@@ -254,7 +254,7 @@ export const RecordLayoutSection: React.FC<RecordLayoutSectionProps> = ({
 															className={cn(
 																"h-8 border text-sm",
 																active
-																	? "border-[#2563EB] bg-[#2563EB] text-white"
+																	? "border-[#6FA8FF] bg-[#6FA8FF] text-[#172033] font-semibold"
 																	: "border-foreground/10 bg-foreground/5 text-muted-foreground hover:bg-foreground/10",
 															)}
 														>

@@ -18,10 +18,10 @@ interface KeyframeMarkersProps {
 }
 
 const PROPERTY_COLORS: Record<string, string> = {
-	position: "#06b6d4", // Cyan
-	scale: "#eab308", // Yellow
-	rotation: "#a855f7", // Purple
-	opacity: "#10b981", // Emerald
+	position: "#6FA8FF", // Captr Blue
+	scale: "#F6C768", // Captr Yellow
+	rotation: "#A879F5", // Captr Purple
+	opacity: "#8DDB9B", // Captr Green
 };
 
 const KeyframeMarkers: React.FC<KeyframeMarkersProps> = ({

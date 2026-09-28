@@ -65,13 +65,13 @@ export const RecordCanvasTab: React.FC<RecordCanvasTabProps> = ({
 								onClick={() => onUpdateWallpaper(wp.value)}
 								className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-[11px] font-medium transition-all cursor-pointer ${
 									isSelected
-										? "border-emerald-500 bg-emerald-500/10 text-white"
+										? "border-[#6FA8FF] bg-[#6FA8FF]/15 text-white"
 										: "border-slate-800 bg-slate-800/40 text-slate-400 hover:border-slate-700"
 								}`}
 							>
 								<span className="truncate">{wp.label}</span>
 								{isSelected && (
-									<Check size={12} className="text-emerald-400 shrink-0" />
+									<Check size={12} className="text-[#6FA8FF] shrink-0" />
 								)}
 							</button>
 						);
@@ -92,7 +92,7 @@ export const RecordCanvasTab: React.FC<RecordCanvasTabProps> = ({
 						max="32"
 						value={borderRadius}
 						onChange={(e) => onUpdateBorderRadius(Number(e.target.value))}
-						className="w-full accent-emerald-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+						className="w-full accent-[#6FA8FF] h-1.5 bg-slate-800 rounded-lg cursor-pointer"
 					/>
 				</div>
 
@@ -110,7 +110,7 @@ export const RecordCanvasTab: React.FC<RecordCanvasTabProps> = ({
 						step="0.05"
 						value={shadowIntensity}
 						onChange={(e) => onUpdateShadowIntensity(Number(e.target.value))}
-						className="w-full accent-emerald-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+						className="w-full accent-[#6FA8FF] h-1.5 bg-slate-800 rounded-lg cursor-pointer"
 					/>
 				</div>
 			</div>

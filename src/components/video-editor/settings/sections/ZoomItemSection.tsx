@@ -57,7 +57,7 @@ export const ZoomItemSection: React.FC<ZoomItemSectionProps> = ({
 					<div className="flex items-center justify-between gap-3">
 						<SectionLabel>{tSettings("sections.zoom", "Zoom")}</SectionLabel>
 						{selectedZoomDepth && (
-							<span className="rounded-full bg-[#2563EB]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[#2563EB]">
+							<span className="rounded-full bg-[#A879F5]/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[#A879F5]">
 								{
 									ZOOM_DEPTH_OPTIONS.find((o) => o.depth === selectedZoomDepth)
 										?.label
@@ -73,7 +73,7 @@ export const ZoomItemSection: React.FC<ZoomItemSectionProps> = ({
 								className={cn(
 									"flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all",
 									selectedZoomMode === "auto"
-										? "bg-[#2563EB] text-white shadow-sm"
+										? "bg-[#A879F5] text-[#172033] font-semibold shadow-sm"
 										: "text-muted-foreground hover:text-foreground",
 								)}
 							>
@@ -85,7 +85,7 @@ export const ZoomItemSection: React.FC<ZoomItemSectionProps> = ({
 								className={cn(
 									"flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all",
 									selectedZoomMode === "manual"
-										? "bg-[#2563EB] text-white shadow-sm"
+										? "bg-[#A879F5] text-[#172033] font-semibold shadow-sm"
 										: "text-muted-foreground hover:text-foreground",
 								)}
 							>
@@ -115,7 +115,7 @@ export const ZoomItemSection: React.FC<ZoomItemSectionProps> = ({
 									className={cn(
 										"h-auto w-full rounded-lg border px-1 py-2 text-center shadow-sm transition-all duration-200 ease-out cursor-pointer",
 										isActive
-											? "border-[#2563EB] bg-[#2563EB] text-white"
+											? "border-[#A879F5] bg-[#A879F5] text-[#172033]"
 											: "border-foreground/5 bg-foreground/5 text-muted-foreground hover:bg-foreground/10 hover:border-foreground/10 hover:text-foreground",
 									)}
 								>
@@ -132,7 +132,7 @@ export const ZoomItemSection: React.FC<ZoomItemSectionProps> = ({
 				<button
 					type="button"
 					onClick={resetZoomSection}
-					className="text-[10px] text-[#2563EB] transition-opacity hover:opacity-80"
+					className="text-[10px] text-[#A879F5] transition-opacity hover:opacity-80"
 				>
 					{t("common.actions.reset", "Reset")}
 				</button>
@@ -144,7 +144,7 @@ export const ZoomItemSection: React.FC<ZoomItemSectionProps> = ({
 				<Switch
 					checked={zoomClassicMode}
 					onCheckedChange={(v) => onZoomClassicModeChange?.(v)}
-					className="data-[state=checked]:bg-[#2563EB] scale-75"
+					className="data-[state=checked]:bg-[#A879F5] scale-75"
 				/>
 			</div>
 			{!zoomClassicMode && (

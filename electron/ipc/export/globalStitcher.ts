@@ -6,6 +6,7 @@ import { probeNativeVideoMetadata } from "./native-video";
 export interface SlideStitchInput {
 	filePath: string;
 	durationSec: number;
+	audioPaths?: string[];
 }
 
 export interface TransitionStitchConfig {
@@ -33,6 +34,8 @@ export interface BuildStitchFiltergraphOptions {
 	targetHeight?: number;
 	targetFps?: number;
 	hasAudioPerSlide?: boolean[];
+	audioInputIndicesPerSlide?: number[][];
+	audioStartDelayMsPerSlide?: number[][];
 }
 
 export interface StitchProjectOptions {
@@ -75,7 +78,7 @@ export function buildStitchFiltergraph(
 	transitions: TransitionStitchConfig[],
 	options?: BuildStitchFiltergraphOptions,
 ): { filtergraph: string; lastVideoLabel: string; lastAudioLabel: string } {
-	if (slides.length <= 1) {
+	if (slides.length === 0 || (slides.length === 1 && !options?.normalize)) {
 		return {
 			filtergraph: "",
 			lastVideoLabel: "0:v",
@@ -89,20 +92,51 @@ export function buildStitchFiltergraph(
 	const targetHeight = options?.targetHeight ?? 1080;
 	const targetFps = options?.targetFps ?? 60;
 	const hasAudioPerSlide = options?.hasAudioPerSlide ?? [];
+	const audioInputIndicesPerSlide = options?.audioInputIndicesPerSlide ?? [];
+	const audioStartDelayMsPerSlide = options?.audioStartDelayMsPerSlide ?? [];
 
 	if (normalize) {
 		for (let i = 0; i < slides.length; i++) {
+			const durationSec = Math.max(0.001, slides[i].durationSec || 5);
+			const duration = durationSec.toFixed(3);
 			filterParts.push(
-				`[${i}:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${targetFps},settb=AVTB,setpts=PTS-STARTPTS,format=yuv420p[nv_${i}]`,
+				`[${i}:v]scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${targetFps},settb=AVTB,setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop_duration=${duration},trim=duration=${duration},setpts=PTS-STARTPTS,format=yuv420p[nv_${i}]`,
 			);
-			if (hasAudioPerSlide[i] !== false) {
+
+			const externalAudioInputIndices = audioInputIndicesPerSlide[i] ?? [];
+			if (externalAudioInputIndices.length > 0) {
+				const sourceLabels: string[] = [];
+				for (
+					let audioIndex = 0;
+					audioIndex < externalAudioInputIndices.length;
+					audioIndex++
+				) {
+					const startDelayMs = audioStartDelayMsPerSlide[i]?.[audioIndex] ?? 0;
+					const delayFilter =
+						Number.isFinite(startDelayMs) && startDelayMs > 0
+							? `,adelay=${startDelayMs}|${startDelayMs}`
+							: "";
+					const outputLabel =
+						externalAudioInputIndices.length === 1
+							? `na_${i}`
+							: `na_src_${i}_${audioIndex}`;
+					filterParts.push(
+						`[${externalAudioInputIndices[audioIndex]}:a]aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,asetpts=PTS-STARTPTS${delayFilter},apad,atrim=duration=${duration},asetpts=PTS-STARTPTS[${outputLabel}]`,
+					);
+					sourceLabels.push(`[${outputLabel}]`);
+				}
+				if (sourceLabels.length > 1) {
+					filterParts.push(
+						`${sourceLabels.join("")}amix=inputs=${sourceLabels.length}:duration=longest:dropout_transition=0,atrim=duration=${duration},asetpts=PTS-STARTPTS[na_${i}]`,
+					);
+				}
+			} else if (hasAudioPerSlide[i] !== false) {
 				filterParts.push(
-					`[${i}:a]aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,asetpts=PTS-STARTPTS[na_${i}]`,
+					`[${i}:a]aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,asetpts=PTS-STARTPTS,apad,atrim=duration=${duration},asetpts=PTS-STARTPTS[na_${i}]`,
 				);
 			} else {
-				const dur = slides[i].durationSec || 5;
 				filterParts.push(
-					`aevalsrc=0:d=${dur.toFixed(3)}:s=48000:c=stereo,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,asetpts=PTS-STARTPTS[na_${i}]`,
+					`anullsrc=r=48000:cl=stereo,atrim=duration=${duration},aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,asetpts=PTS-STARTPTS[na_${i}]`,
 				);
 			}
 		}
@@ -119,7 +153,18 @@ export function buildStitchFiltergraph(
 		const nextAudioLabel = `a_out_${i}`;
 
 		const trans = transitions[i - 1] ?? { type: "none", durationSec: 0 };
-		const transDuration = trans.type === "none" ? 0 : Math.min(trans.durationSec, 2.0);
+		const transDuration =
+			trans.type === "none"
+				? 0
+				: Math.max(
+						0,
+						Math.min(
+							trans.durationSec,
+							2.0,
+							currentTotalDurationSec,
+							slides[i].durationSec,
+						),
+					);
 		const xfadeName = mapToFfmpegXfadeType(trans.type);
 
 		// Calculate xfade offset: cumulative duration minus transition duration
@@ -169,7 +214,7 @@ export async function stitchSlidesWithTransitions(
 	}
 
 	// Single slide fast-path: simply copy or remux if no global audio
-	if (slides.length === 1 && !globalAudio) {
+	if (slides.length === 1 && !globalAudio && !slides[0].audioPaths?.length) {
 		try {
 			await fs.copyFile(slides[0].filePath, outputPath);
 			return { success: true, outputPath };
@@ -194,6 +239,7 @@ export async function stitchSlidesWithTransitions(
 	// fall back to a silent placeholder when that fails too.
 	const hasAudioPerSlide = await Promise.all(
 		slides.map(async (slide, index) => {
+			if (slide.audioPaths?.length) return false;
 			const probe = probes[index];
 			if (typeof probe?.hasAudio === "boolean") return probe.hasAudio;
 			try {
@@ -214,10 +260,41 @@ export async function stitchSlidesWithTransitions(
 		args.push("-i", slide.filePath);
 	}
 
+	// Record slides keep microphone and system audio in companion files rather
+	// than the video container. Pass those tracks as inputs and combine them in
+	// the per-slide audio graph so transitions preserve each slide's sound.
+	const audioInputIndicesPerSlide: number[][] = slides.map(() => []);
+	const audioStartDelayMsPerSlide: number[][] = slides.map(() => []);
+	let nextInputIndex = slides.length;
+	for (let slideIndex = 0; slideIndex < slides.length; slideIndex++) {
+		for (const audioPath of slides[slideIndex].audioPaths ?? []) {
+			if (!audioPath.trim()) continue;
+			try {
+				await fs.access(audioPath);
+			} catch {
+				return {
+					success: false,
+					error: `Audio asset untuk slide ${slideIndex + 1} tidak ditemukan: ${audioPath}`,
+				};
+			}
+			let startDelayMs = 0;
+			try {
+				const { getCompanionAudioStartDelayMs } = await import("../recording/diagnostics");
+				startDelayMs = (await getCompanionAudioStartDelayMs(audioPath)) ?? 0;
+			} catch {
+				// Timing metadata is optional; keep the sidecar aligned at the start.
+			}
+			audioInputIndicesPerSlide[slideIndex].push(nextInputIndex++);
+			args.push("-i", audioPath);
+			audioStartDelayMsPerSlide[slideIndex].push(startDelayMs);
+			args.push("-i", audioPath);
+		}
+	}
+
 	// 2. Add global audio input if present
 	let globalAudioIndex = -1;
 	if (globalAudio?.path) {
-		globalAudioIndex = slides.length;
+		globalAudioIndex = nextInputIndex;
 		args.push("-i", globalAudio.path);
 	}
 
@@ -231,6 +308,8 @@ export async function stitchSlidesWithTransitions(
 			targetHeight,
 			targetFps,
 			hasAudioPerSlide,
+			audioInputIndicesPerSlide,
+			audioStartDelayMsPerSlide,
 		},
 	);
 
