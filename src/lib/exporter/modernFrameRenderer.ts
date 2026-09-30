@@ -2620,18 +2620,15 @@ export class FrameRenderer {
 			return;
 		}
 
-		const layoutScene =
-			(this.config.layoutRegions ?? []).length > 0
-				? resolveLayoutSceneAtTime({
-						timeMs: this.currentVideoTime * 1000,
-						layoutRegions: this.config.layoutRegions ?? [],
-						stageWidth: this.config.width,
-						stageHeight: this.config.height,
-						webcam,
-						zoomScale: this.animationState.appliedScale || 1,
-						hasWebcam: true,
-					})
-				: null;
+		const layoutScene = resolveLayoutSceneAtTime({
+			timeMs: this.currentVideoTime * 1000,
+			layoutRegions: this.config.layoutRegions ?? [],
+			stageWidth: this.config.width,
+			stageHeight: this.config.height,
+			webcam,
+			zoomScale: this.animationState.appliedScale || 1,
+			hasWebcam: true,
+		});
 		const margin = webcam.margin ?? 24;
 		const requestedSize = layoutScene
 			? layoutScene.webcam.width
@@ -2724,7 +2721,7 @@ export class FrameRenderer {
 			hasWebcam: Boolean(webcam.enabled && webcam.sourcePath),
 		});
 
-		if (!layoutScene) {
+		if (layoutScene.isDefault) {
 			this.cameraContainer.alpha = 1;
 			if (this.layoutScreenMask) {
 				this.cameraContainer.mask = null;

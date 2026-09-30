@@ -2230,20 +2230,15 @@ export class FrameRenderer {
 		const ctx = this.compositeCtx;
 		const w = this.compositeCanvas.width;
 		const h = this.compositeCanvas.height;
-		const layoutScene =
-			(this.config.layoutRegions ?? []).length > 0
-				? resolveLayoutSceneAtTime({
-						timeMs: this.currentVideoTime * 1000,
-						layoutRegions: this.config.layoutRegions ?? [],
-						stageWidth: w,
-						stageHeight: h,
-						webcam: this.config.webcam ?? DEFAULT_WEBCAM_OVERLAY,
-						zoomScale: this.animationState.appliedScale || 1,
-						hasWebcam: Boolean(
-							this.config.webcam?.enabled && this.config.webcam?.sourcePath,
-						),
-					})
-				: null;
+		const layoutScene = resolveLayoutSceneAtTime({
+			timeMs: this.currentVideoTime * 1000,
+			layoutRegions: this.config.layoutRegions ?? [],
+			stageWidth: w,
+			stageHeight: h,
+			webcam: this.config.webcam ?? DEFAULT_WEBCAM_OVERLAY,
+			zoomScale: this.animationState.appliedScale || 1,
+			hasWebcam: Boolean(this.config.webcam?.enabled && this.config.webcam?.sourcePath),
+		});
 		const screen = layoutScene?.screen ?? {
 			x: 0,
 			y: 0,
@@ -2417,18 +2412,15 @@ export class FrameRenderer {
 			return;
 		}
 
-		const layoutScene =
-			(this.config.layoutRegions ?? []).length > 0
-				? resolveLayoutSceneAtTime({
-						timeMs: this.currentVideoTime * 1000,
-						layoutRegions: this.config.layoutRegions ?? [],
-						stageWidth: width,
-						stageHeight: height,
-						webcam,
-						zoomScale: this.animationState.appliedScale || 1,
-						hasWebcam: true,
-					})
-				: null;
+		const layoutScene = resolveLayoutSceneAtTime({
+			timeMs: this.currentVideoTime * 1000,
+			layoutRegions: this.config.layoutRegions ?? [],
+			stageWidth: width,
+			stageHeight: height,
+			webcam,
+			zoomScale: this.animationState.appliedScale || 1,
+			hasWebcam: true,
+		});
 
 		const margin = webcam.margin ?? 24;
 		const requestedSize = layoutScene

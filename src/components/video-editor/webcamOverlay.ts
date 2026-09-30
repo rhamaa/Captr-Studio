@@ -152,7 +152,8 @@ export function getWebcamCornerRadiusPx({
 		return maxRadius * clamp(cornerRadiusPercent as number, 0, 1);
 	}
 	const legacyRadius = Number.isFinite(cornerRadius) ? (cornerRadius as number) : fallback;
-	return clamp(legacyRadius, 0, maxRadius);
+	// Match the slider's legacy 0..160 scale without saturating small previews.
+	return maxRadius * clamp(legacyRadius / 160, 0, 1);
 }
 
 export function normalizeWebcamCropRegion(cropRegion?: Partial<CropRegion> | null): CropRegion {

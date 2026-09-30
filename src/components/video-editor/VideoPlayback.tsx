@@ -121,7 +121,6 @@ import {
 	notifyCursorInteraction,
 } from "@/lib/extensions/renderHooks";
 import { applyCanvasSceneTransform } from "@/lib/extensions/sceneTransform";
-import { getSquircleSvgPath, isFullyRoundedWebcam } from "@/lib/geometry/squircle";
 import { type AspectRatio, formatAspectRatioForCSS } from "@/utils/aspectRatioUtils";
 import { AnnotationOverlay } from "./AnnotationOverlay";
 import {
@@ -737,20 +736,17 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					return;
 				}
 
-				const layoutScene =
-					layoutRegions.length > 0
-						? resolveLayoutSceneAtTime({
-								timeMs: currentTimeRef.current,
-								layoutRegions,
-								stageWidth: overlay.clientWidth,
-								stageHeight: overlay.clientHeight,
-								webcam: webcam ?? DEFAULT_WEBCAM_OVERLAY,
-								zoomScale,
-								hasWebcam: webcamEnabled && Boolean(webcamVideoPath),
-							})
-						: null;
+				const layoutScene = resolveLayoutSceneAtTime({
+					timeMs: currentTimeRef.current,
+					layoutRegions,
+					stageWidth: overlay.clientWidth,
+					stageHeight: overlay.clientHeight,
+					webcam: webcam ?? DEFAULT_WEBCAM_OVERLAY,
+					zoomScale,
+					hasWebcam: webcamEnabled && Boolean(webcamVideoPath),
+				});
 
-				if (layoutScene && screenContainer) {
+				if (!layoutScene.isDefault && screenContainer) {
 					const screen = layoutScene.screen;
 					const stageW = Math.max(1, overlay.clientWidth);
 					const stageH = Math.max(1, overlay.clientHeight);
@@ -863,13 +859,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				bubble.style.height = `${scaledHeight}px`;
 				bubble.style.opacity = `${layoutScene?.webcam.opacity ?? 1}`;
 				bubble.style.aspectRatio = `${scaledSize} / ${scaledHeight}`;
-				const squirclePath = getSquircleSvgPath({
-					x: 0,
-					y: 0,
-					width: scaledSize,
-					height: scaledHeight,
-					radius,
-				});
 				const shadow = layoutScene ? layoutScene.webcam.shadow : webcamShadow;
 				bubble.style.filter = `drop-shadow(0 ${Math.round(scaledHeight * 0.06)}px ${Math.round(
 					scaledHeight * 0.22,
@@ -880,15 +869,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				bubbleInner.style.borderRadius = "0px";
 				bubbleInner.style.overflow = "hidden";
 				bubbleInner.style.contain = "paint";
-				const mask = isFullyRoundedWebcam({
-					x: 0,
-					y: 0,
-					width: scaledSize,
-					height: scaledHeight,
-					radius,
-				})
-					? "ellipse(50% 50% at 50% 50%)"
-					: `path('${squirclePath}')`;
+				const mask = `inset(0px round ${radius}px)`;
 				bubbleInner.style.clipPath = mask;
 				bubbleInner.style.setProperty("-webkit-clip-path", mask);
 			},

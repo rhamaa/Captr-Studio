@@ -31,6 +31,8 @@ export interface LayoutSceneLayerTransform {
 
 export interface ResolvedLayoutScene {
 	preset: LayoutScenePreset;
+	/** Stable base layout; keep the screen's existing scene styling. */
+	isDefault?: boolean;
 	screen: LayoutSceneLayerTransform;
 	webcam: LayoutSceneLayerTransform;
 }
@@ -147,12 +149,8 @@ export function getLayoutCameraSettings(
 						region.preset === "bubble-bottom-right-landscape"
 					? "bottom-right"
 					: null;
-	const webcamPosition = isLayoutCameraPosition(webcam.positionPreset)
-		? webcam.positionPreset
-		: webcam.corner;
-
 	return {
-		position: region.cameraSettings?.position ?? legacyPosition ?? webcamPosition,
+		position: region.cameraSettings?.position ?? legacyPosition ?? "bottom-right",
 		size: region.cameraSettings?.size ?? webcam.size,
 	};
 }
@@ -460,11 +458,11 @@ export function resolveActiveLayoutRegion(
 	timeMs: number,
 	layoutRegions: LayoutRegion[],
 ): LayoutRegion | null {
-	const rounded = Math.max(0, Math.round(timeMs));
+	const time = Math.max(0, timeMs);
 	return (
 		[...layoutRegions]
 			.sort((left, right) => left.startMs - right.startMs)
-			.find((region) => rounded >= region.startMs && rounded < region.endMs) ?? null
+			.find((region) => time >= region.startMs && time < region.endMs) ?? null
 	);
 }
 
@@ -476,30 +474,35 @@ export function resolveLayoutSceneAtTime(params: {
 	webcam: WebcamOverlaySettings;
 	zoomScale?: number;
 	hasWebcam: boolean;
-}): ResolvedLayoutScene | null {
-	const active = resolveActiveLayoutRegion(params.timeMs, params.layoutRegions);
+}): ResolvedLayoutScene {
+	const timeMs = Math.max(0, params.timeMs);
+	const active = resolveActiveLayoutRegion(timeMs, params.layoutRegions);
 	const sorted = [...params.layoutRegions].sort((left, right) => left.startMs - right.startMs);
 	const getRegionTransform = (region: LayoutRegion | null) =>
 		getLayoutPresetTransform({
 			...params,
 			preset: region?.preset ?? DEFAULT_LAYOUT_SCENE_PRESET,
-			cameraSettings: region ? getLayoutCameraSettings(region, params.webcam) : undefined,
+			cameraSettings: region
+				? getLayoutCameraSettings(region, params.webcam)
+				: { position: "bottom-right", size: params.webcam.size },
 		});
+	const defaultScene: ResolvedLayoutScene = { ...getRegionTransform(null), isDefault: true };
 
 	if (!active) {
-		const previous = [...sorted].reverse().find((region) => params.timeMs >= region.endMs);
-		if (!previous) return null;
+		const previous = [...sorted].reverse().find((region) => timeMs >= region.endMs);
+		if (!previous) return defaultScene;
+		const next = sorted.find((region) => region.startMs > previous.endMs);
 
 		const transitionMs = clamp(
-			previous.transitionMs || DEFAULT_LAYOUT_SCENE_TRANSITION_MS,
+			previous.transitionMs ?? DEFAULT_LAYOUT_SCENE_TRANSITION_MS,
 			0,
-			4000,
+			Math.min(4000, next ? next.startMs - previous.endMs : 4000),
 		);
-		if (transitionMs <= 0 || params.timeMs - previous.endMs >= transitionMs) return null;
+		if (transitionMs <= 0 || timeMs - previous.endMs >= transitionMs) return defaultScene;
 
 		const from = getRegionTransform(previous);
-		const to = getRegionTransform(null);
-		const progress = ease((params.timeMs - previous.endMs) / transitionMs, previous.easing);
+		const to = defaultScene;
+		const progress = ease((timeMs - previous.endMs) / transitionMs, previous.easing);
 		return {
 			preset: DEFAULT_LAYOUT_SCENE_PRESET,
 			screen: mixLayer(from.screen, to.screen, progress),
@@ -510,21 +513,16 @@ export function resolveLayoutSceneAtTime(params: {
 	const activeIndex = sorted.findIndex((region) => region.id === active.id);
 	const previous = activeIndex > 0 ? sorted[activeIndex - 1] : null;
 	const base = getRegionTransform(active);
-	const transitionMs = clamp(active.transitionMs || DEFAULT_LAYOUT_SCENE_TRANSITION_MS, 0, 4000);
+	const transitionMs = clamp(
+		active.transitionMs ?? DEFAULT_LAYOUT_SCENE_TRANSITION_MS,
+		0,
+		Math.min(4000, active.endMs - active.startMs),
+	);
 
-	if (previous && transitionMs > 0 && params.timeMs - active.startMs < transitionMs) {
-		const from = getRegionTransform(previous.endMs >= active.startMs ? previous : null);
-		const progress = ease((params.timeMs - active.startMs) / transitionMs, active.easing);
-		return {
-			preset: active.preset,
-			screen: mixLayer(from.screen, base.screen, progress),
-			webcam: mixLayer(from.webcam, base.webcam, progress),
-		};
-	}
-
-	if (!previous && transitionMs > 0 && params.timeMs - active.startMs < transitionMs) {
-		const from = getRegionTransform(null);
-		const progress = ease((params.timeMs - active.startMs) / transitionMs, active.easing);
+	if (transitionMs > 0 && timeMs - active.startMs < transitionMs) {
+		const from =
+			previous && previous.endMs >= active.startMs ? getRegionTransform(previous) : defaultScene;
+		const progress = ease((timeMs - active.startMs) / transitionMs, active.easing);
 		return {
 			preset: active.preset,
 			screen: mixLayer(from.screen, base.screen, progress),
