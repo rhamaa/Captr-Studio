@@ -1,3 +1,4 @@
+import { assertSupportedLegacyProject } from "@/core/project/legacySupport";
 import {
 	BookmarkSimple,
 	Check,
@@ -2247,6 +2248,12 @@ export default function VideoEditor() {
 
 	const applyLoadedProject = useCallback(
 		async (candidate: unknown, path?: string | null) => {
+			try {
+				assertSupportedLegacyProject(candidate);
+			} catch (error) {
+				toast.error(error instanceof Error ? error.message : String(error));
+				return false;
+			}
 			if (!validateProjectData(candidate)) {
 				return false;
 			}

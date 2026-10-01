@@ -3,6 +3,7 @@ import { existsSync, constants as fsConstants, realpathSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { app } from "electron";
+import { assertSupportedLegacyProject } from "../../../src/core/project/legacySupport";
 import { RECORDINGS_DIR, USER_DATA_PATH } from "../../appPaths";
 import { isSupportedLocalMediaPath } from "../../mediaTypes";
 import {
@@ -453,6 +454,12 @@ export async function loadProjectFromPath(projectPath: string) {
 			const projectJsonPath = path.join(tempExtractDir, "project.json");
 			const content = await fs.readFile(projectJsonPath, "utf-8");
 			const rawProject = parseJsonWithByteOrderMark(content) as Record<string, unknown>;
+			try {
+				assertSupportedLegacyProject(rawProject);
+			} catch (error) {
+				await fs.rm(tempExtractDir, { recursive: true, force: true }).catch(() => undefined);
+				throw error;
+			}
 			const projectId =
 				typeof rawProject?.projectId === "string" && rawProject.projectId
 					? rawProject.projectId

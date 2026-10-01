@@ -300,6 +300,26 @@ describe("local media path policy", () => {
 		await expect(fs.readFile(thumbnailPath, "utf8")).resolves.toBe("png-thumbnail");
 	});
 
+	it("rejects retired slides before replacing the active project or its workspace", async () => {
+		const projectPath = path.join(tempPath, "retired.captr");
+		await makeBundle(tempPath, projectPath, { projectId: "active-id", slides: [{ id: "old-motion", type: "motion" }] });
+		const state = await import("../state");
+		state.setCurrentProjectPath("active.captr");
+		state.setCurrentVideoPath("active.mp4");
+		const workspace = path.join(userDataPath, "projects", "active-id");
+		await fs.mkdir(workspace, { recursive: true });
+		await fs.writeFile(path.join(workspace, "sentinel.txt"), "keep");
+		const before = await fs.readFile(projectPath);
+		const { loadProjectFromPath } = await import("./manager");
+		const result = await loadProjectFromPath(projectPath);
+		expect(result.success).toBe(false);
+		expect(result.message).toMatch(/previous version/i);
+		expect(state.currentProjectPath).toBe("active.captr");
+		expect(state.currentVideoPath).toBe("active.mp4");
+		expect(await fs.readFile(projectPath)).toEqual(before);
+		expect(await fs.readFile(path.join(workspace, "sentinel.txt"), "utf8")).toBe("keep");
+	});
+
 	it("rejects legacy plain JSON .captr files with a clear error message", async () => {
 		const videoPath = path.join(tempPath, "recording.mp4");
 		const projectPath = path.join(tempPath, "recording.captr");
