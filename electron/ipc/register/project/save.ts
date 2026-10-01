@@ -1,5 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import os from "node:os";
+import { stageTimelineProject } from "../../project/timelineBundle";
+import { validateTimelineProject } from "../../../../src/core/timeline/validation";
 import { dialog, ipcMain } from "electron";
 import { PROJECT_FILE_EXTENSION } from "../../constants";
 import {
@@ -33,6 +36,21 @@ export function registerProjectSaveHandlers() {
 		thumbnailDataUrl?: string | null,
 	) {
 		const projectId = preparedProject.projectId;
+		if (preparedProject.projectData.version === 3) {
+			const project = validateTimelineProject(preparedProject.projectData);
+			const staging = await fs.mkdtemp(path.join(os.tmpdir(), "captr-save-v3-"));
+			try {
+				await stageTimelineProject(project, staging);
+				if (thumbnailDataUrl?.startsWith("data:image/png;base64,")) await fs.writeFile(path.join(staging, "thumbnail.png"), Buffer.from(thumbnailDataUrl.split(",")[1], "base64"));
+				await packProjectWorkspace(staging, targetPath);
+			} finally {
+				if (path.dirname(path.resolve(staging)) !== path.resolve(os.tmpdir())) throw new Error("Unsafe staging cleanup path");
+				await fs.rm(staging, { recursive: true, force: true });
+			}
+			setCurrentProjectPath(targetPath);
+			await rememberRecentProject(targetPath);
+			return project;
+		}
 		const workspaceDir = await ensureProjectWorkspace(projectId);
 
 		// Ensure any external files in clips are copied into their respective slide folders
@@ -473,9 +491,8 @@ export function registerProjectSaveHandlers() {
 				const trustedExistingProjectPath = isTrustedProjectPath(existingProjectPath)
 					? existingProjectPath
 					: null;
-				let targetProjectPath = trustedExistingProjectPath;
+				let targetProjectPath: string | null = null;
 				if (
-					!targetProjectPath &&
 					typeof existingProjectPath === "string" &&
 					existingProjectPath.trim() &&
 					preparedProject.projectId

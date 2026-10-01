@@ -4,6 +4,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { app } from "electron";
 import { assertSupportedLegacyProject } from "../../../src/core/project/legacySupport";
+import { validateTimelineProject } from "../../../src/core/timeline/validation";
+import { resolveTimelineProject } from "./timelineBundle";
 import { RECORDINGS_DIR, USER_DATA_PATH } from "../../appPaths";
 import { isSupportedLocalMediaPath } from "../../mediaTypes";
 import {
@@ -39,7 +41,7 @@ import {
 	ProjectBundleValidationError,
 } from "./mediaReferences";
 import { isProjectBundle, readBundleThumbnailDataUrl, unpackProjectBundle } from "./projectBundle";
-import { convertProjectToWorkspaceAbsolute, ensureProjectWorkspace } from "./projectWorkspace";
+import { convertProjectToWorkspaceAbsolute, ensureProjectWorkspace, getProjectWorkspaceDir, getWorkspacesRoot } from "./projectWorkspace";
 
 export { normalizePath, normalizeVideoSourcePath };
 
@@ -218,6 +220,10 @@ export async function resolveProjectMediaSources(
 > {
 	if (!project || typeof project !== "object") {
 		return { success: false, message: "Invalid project file format" };
+	}
+	if ((project as { version?: number }).version === 3) {
+		try { validateTimelineProject(project); return { success: true, videoPath: null, webcamPath: null }; }
+		catch (error) { return { success: false, message: String(error) }; }
 	}
 
 	const { videoPath: rawVideoPath, webcamPath: rawWebcamPath } = getProjectPrimaryMedia(project);
@@ -447,8 +453,9 @@ export async function loadProjectFromPath(projectPath: string) {
 
 	if (await isProjectBundle(normalizedPath)) {
 		let finalWorkspace: string;
+		let tempExtractDir: string | undefined;
 		try {
-			const tempExtractDir = path.join(app.getPath("temp"), `captr-extract-${Date.now()}`);
+			tempExtractDir = await fs.mkdtemp(path.join(app.getPath("temp"), "captr-extract-"));
 			await unpackProjectBundle(normalizedPath, tempExtractDir);
 
 			const projectJsonPath = path.join(tempExtractDir, "project.json");
@@ -465,17 +472,44 @@ export async function loadProjectFromPath(projectPath: string) {
 					? rawProject.projectId
 					: randomUUID();
 
-			finalWorkspace = await ensureProjectWorkspace(projectId);
-			await fs.cp(tempExtractDir, finalWorkspace, { recursive: true });
+			// Validate every source before replacing any active project workspace.
+			const extractedProject = rawProject.version === 3
+				? resolveTimelineProject(validateTimelineProject(rawProject), tempExtractDir)
+				: convertProjectToWorkspaceAbsolute(rawProject, tempExtractDir);
+			await assertProjectMediaInsideBundle(extractedProject, tempExtractDir);
+			if (rawProject.version === 3) {
+				finalWorkspace = getProjectWorkspaceDir(projectId);
+				await fs.mkdir(getWorkspacesRoot(), { recursive: true });
+				const next = await fs.mkdtemp(path.join(getWorkspacesRoot(), "install-"));
+				const backup = `${next}-previous`;
+				if (![next, backup, finalWorkspace].every(dir => path.dirname(path.resolve(dir)) === path.resolve(getWorkspacesRoot()))) throw new Error("Unsafe workspace installation path");
+				let backedUp = false;
+				try {
+					await fs.cp(tempExtractDir, next, { recursive: true });
+					if (existsSync(finalWorkspace)) { await fs.rename(finalWorkspace, backup); backedUp = true; }
+					await fs.rename(next, finalWorkspace);
+				} catch (error) {
+					if (backedUp) await fs.rename(backup, finalWorkspace);
+					throw error;
+				} finally {
+					await fs.rm(next, { recursive: true, force: true }).catch(() => undefined);
+				}
+				await fs.rm(backup, { recursive: true, force: true }).catch(() => undefined);
+				project = resolveTimelineProject(validateTimelineProject(rawProject), finalWorkspace);
+			} else {
+				finalWorkspace = await ensureProjectWorkspace(projectId);
+				await fs.cp(tempExtractDir, finalWorkspace, { recursive: true });
+				project = convertProjectToWorkspaceAbsolute(rawProject, finalWorkspace);
+			}
 			await fs.rm(tempExtractDir, { recursive: true, force: true }).catch(() => undefined);
-
-			project = convertProjectToWorkspaceAbsolute(rawProject, finalWorkspace);
 		} catch (error) {
 			return {
 				success: false,
 				canceled: false,
 				message: `Failed to unpack project bundle: ${error instanceof Error ? error.message : String(error)}`,
 			};
+		} finally {
+			if (tempExtractDir && path.dirname(path.resolve(tempExtractDir)) === path.resolve(app.getPath("temp"))) await fs.rm(tempExtractDir, { recursive: true, force: true }).catch(() => undefined);
 		}
 
 		// Guarantee the bundle is self-contained: every referenced media file must

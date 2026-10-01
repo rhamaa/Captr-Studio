@@ -9,7 +9,7 @@ export function assertSafeMediaPath(value: unknown): asserts value is string {
 }
 function source(s:MediaSource|undefined,required=false){
  requireValue(!required||s,"Missing required media source");if(!s)return;
- assertSafeMediaPath(s.path);requireValue(integer(s.durationUs)&&s.durationUs>0&&integer(s.offsetUs),"Invalid source clock");
+ assertSafeMediaPath(s.path);requireValue(integer(s.durationUs)&&s.durationUs>0&&Number.isSafeInteger(s.offsetUs),"Invalid source clock");
 }
 function serializable(value:unknown,seen=new Set<unknown>()) {
  if(value===undefined||value===null||typeof value==="string"||typeof value==="boolean")return;
@@ -20,10 +20,10 @@ function serializable(value:unknown,seen=new Set<unknown>()) {
 export function validateTimelineProject(value:unknown):TimelineProject {
  requireValue(value&&typeof value==="object","Invalid timeline project");
  const p=value as TimelineProject;
- requireValue(p.version===3&&typeof p.projectId==="string"&&p.projectId.length>0&&typeof p.title==="string","Invalid timeline identity");
+ requireValue(p.version===3&&typeof p.projectId==="string"&&/^[a-zA-Z0-9_-]+$/.test(p.projectId)&&typeof p.title==="string","Invalid timeline identity");
  requireValue(p.canvas&&integer(p.canvas.width)&&p.canvas.width>0&&integer(p.canvas.height)&&p.canvas.height>0&&positive(p.canvas.fps),"Invalid canvas");
  for(const key of ["assets","packages","compositions","tracks"] as const)requireValue(Array.isArray(p[key]),`Invalid ${key}`);
- const ids=new Set<string>();const id=(v:string)=>{requireValue(typeof v==="string"&&v.length>0&&!ids.has(v),"Duplicate or invalid ID");ids.add(v);};
+ const ids=new Set<string>();const id=(v:string)=>{requireValue(typeof v==="string"&&/^[a-zA-Z0-9_-]+$/.test(v)&&!ids.has(v),"Duplicate or invalid ID");ids.add(v);};
  for(const r of p.packages){id(r.id);requireValue(r.schemaVersion===1&&typeof r.captureId==="string"&&r.captureId.length>0,"Invalid recording identity");requireValue(integer(r.durationUs)&&r.durationUs>0&&integer(r.width)&&r.width>0&&integer(r.height)&&r.height>0,"Invalid recording duration/dimensions");source(r.screen,true);requireValue(r.screen.offsetUs===0&&r.screen.durationUs>=r.durationUs,"Invalid recording screen range");source(r.webcam);source(r.microphone);source(r.system);if(r.cursorPath)assertSafeMediaPath(r.cursorPath);requireValue(r.settings&&typeof r.settings==="object","Invalid recording settings");serializable(r.settings);}
  requireValue(new Set(p.packages.map(r=>r.captureId)).size===p.packages.length,"Duplicate capture ID");
  for(const a of p.assets){id(a.id);requireValue(["video","image","audio","recording"].includes(a.kind)&&typeof a.name==="string"&&integer(a.durationUs)&&a.durationUs>0&&integer(a.width)&&integer(a.height),"Invalid asset");if(a.kind==="recording"){const pkg=p.packages.find(r=>r.id===a.packageId);requireValue(pkg&&a.durationUs===pkg.durationUs,"Invalid recording asset reference");}else source(a.source,true);}

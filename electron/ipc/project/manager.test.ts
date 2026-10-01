@@ -428,6 +428,31 @@ describe("local media path policy", () => {
 		expect(entry?.thumbnailPath).toBeNull();
 	});
 
+	it("validates a V3 library before installing it and approves unused media", async () => {
+		const { createTimelineProject, registerMedia } = await import("../../../src/core/timeline/commands");
+		const { stageTimelineProject } = await import("./timelineBundle");
+		const { loadProjectFromPath, isAllowedLocalMediaPath } = await import("./manager");
+		const { getProjectWorkspaceDir } = await import("./projectWorkspace");
+		const source = path.join(tempRoot, "unused.mp4"); await fs.writeFile(source, "unused media");
+		const project = registerMedia(createTimelineProject("library", "Library"), { id: "asset", kind: "video", name: "Unused", durationUs: 1_000_000, width: 1920, height: 1080, source: { path: source, durationUs: 1_000_000, offsetUs: 0 } });
+		const workspace = path.join(tempPath, "v3-stage");
+		const staged = await stageTimelineProject(project, workspace);
+		const bundle = path.join(tempPath, "library.captr"); await packProjectWorkspace(workspace, bundle);
+		const loaded = await loadProjectFromPath(bundle);
+		expect(loaded.success).toBe(true);
+		const active = loaded.project as typeof project;
+		expect(await fs.readFile(active.assets[0].source!.path, "utf8")).toBe("unused media");
+		expect(await isAllowedLocalMediaPath(active.assets[0].source!.path)).toBe(true);
+		expect(await fs.readdir(getProjectWorkspaceDir("library"))).not.toContain("slides");
+		const emptyBundle = path.join(tempPath, "empty-v3.captr");
+		await makeBundle(tempPath, emptyBundle, createTimelineProject("empty", "Empty") as unknown as Record<string, unknown>);
+		expect((await loadProjectFromPath(emptyBundle)).success).toBe(true);
+		const brokenBundle = path.join(tempPath, "broken-v3.captr");
+		await makeBundle(tempPath, brokenBundle, { ...staged, title: "Broken", assets: [{ ...staged.assets[0], source: { ...staged.assets[0].source, path: "assets/asset/missing.mp4" } }] });
+		expect((await loadProjectFromPath(brokenBundle)).success).toBe(false);
+		expect(JSON.parse(await fs.readFile(path.join(getProjectWorkspaceDir("library"), "project.json"), "utf8")).title).toBe("Library");
+	});
+
 	it("rejects bundle projects that reference media missing from the bundle", async () => {
 		const projectPath = path.join(tempPath, "incomplete.captr");
 		await makeBundle(tempPath, projectPath, {
