@@ -4,6 +4,7 @@ import { SettingsPanel } from "@/components/video-editor/SettingsPanel";
 import { ProjectPreview } from "@/components/editor/ProjectPreview";
 import { recordingPreviewProject, sourceToCompositionTime } from "../evaluation";
 import { mapCompositionTime } from "@/core/timeline/timeMapping";
+import { playbackOutputTimeUs } from "./playbackClock";
 import type {
 	AnnotationRegion,
 	EditorEffectSection,
@@ -106,9 +107,9 @@ export function RecordingCompositionEditor({
 		const base = outputUs,
 			start = performance.now();
 		let frame = 0;
-		const tick = (now: number) => {
-			const output = base + Math.round((now - start) * 1000);
-			if (output >= composition.durationUs) {
+		const tick = () => {
+			const output = playbackOutputTimeUs(base, performance.now() - start, composition.durationUs);
+			if (output === null) {
 				setPlaying(false);
 				return;
 			}

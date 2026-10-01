@@ -10,6 +10,57 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
+it("waits for the sought video frame to be presented before returning it", async () => {
+	let onPresentedFrame:
+		| ((now: number, metadata: { mediaTime: number }) => void)
+		| undefined;
+	class Media extends EventTarget {
+		duration = 4;
+		seeking = false;
+		src = "";
+		crossOrigin = "";
+		muted = false;
+		preload = "";
+		playsInline = false;
+		private time = 0;
+		get currentTime() {
+			return this.time;
+		}
+		set currentTime(value: number) {
+			this.time = value;
+			queueMicrotask(() => this.dispatchEvent(new Event("seeked")));
+		}
+		load() {
+			queueMicrotask(() =>
+				this.dispatchEvent(new Event(this.src ? "loadeddata" : "emptied")),
+			);
+		}
+		requestVideoFrameCallback(callback: (now: number, metadata: { mediaTime: number }) => void) {
+			onPresentedFrame = callback;
+			return 1;
+		}
+		pause = vi.fn();
+		removeAttribute() {
+			this.src = "";
+		}
+	}
+	const media = new Media();
+	vi.stubGlobal("document", { createElement: () => media });
+	const source = new LayerVideoSource();
+	await source.load("b.mp4");
+	let resolved = false;
+	const pending = source.frame(2).then((frame) => {
+		resolved = true;
+		return frame;
+	});
+	await new Promise<void>((resolve) => setTimeout(resolve, 0));
+	expect(resolved).toBe(false);
+	expect(onPresentedFrame).toBeTypeOf("function");
+	onPresentedFrame?.(0, { mediaTime: 2 });
+	await expect(pending).resolves.toBe(media);
+	source.destroy();
+});
+
 it("seeks both directions, clamps EOF, opts into CORS and releases the decoder", async () => {
 	class Media extends EventTarget {
 		duration = 4;

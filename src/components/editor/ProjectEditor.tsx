@@ -69,6 +69,17 @@ export function ProjectEditor() {
 	modalOpen.current = Boolean(
 		pendingNew || pendingOpen || legacy || editingClipId || exportProgress !== null,
 	);
+	useEffect(() => {
+		if (!editingClipId) return;
+		const closeOnEscape = (event: KeyboardEvent) => {
+			if (event.key === "Escape") {
+				event.preventDefault();
+				setEditingClipId(null);
+			}
+		};
+		window.addEventListener("keydown", closeOnEscape);
+		return () => window.removeEventListener("keydown", closeOnEscape);
+	}, [editingClipId]);
 	const exportProject = async () => {
 		const abort = new AbortController();
 		exportAbort.current = abort;
@@ -612,14 +623,22 @@ export function ProjectEditor() {
 					controller.preview(null);
 					controller.seek(time);
 				}}
-				onOpenRecording={setEditingClipId}
+				onOpenRecording={(id) => {
+					setPlaying(false);
+					setEditingClipId(id);
+				}}
 			/>
 			<footer className="project-footer">
 				<span>{busy ? "Importing media…" : `${state.project.assets.length} assets`}</span>
 				<span>{state.project.canvas.fps} fps</span>
 			</footer>
 			{composition && pkg && (
-				<div className="project-composition-modal">
+				<div
+					className="project-composition-modal"
+					role="dialog"
+					aria-modal="true"
+					aria-label="Recording effects editor"
+				>
 					<RecordingCompositionEditor
 						key={composition.id}
 						package={pkg}

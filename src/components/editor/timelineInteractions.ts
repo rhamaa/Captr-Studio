@@ -3,12 +3,21 @@ import type { ProjectCommand } from "@/core/timeline/history";
 import { clipDurationUs, type TimelineProject } from "@/core/timeline/types";
 export const ASSET_DRAG_TYPE="application/x-captr-asset";
 export const CLIP_DRAG_TYPE="application/x-captr-clip";
+export interface TimelineDragSession {type:"asset"|"clip";id:string;durationUs:number;mediaKind:"visual"|"audio";pointerOffsetPx:number}
+let activeTimelineDrag:TimelineDragSession|null=null;
+export const beginTimelineDrag=(session:TimelineDragSession)=>{activeTimelineDrag=session;};
+export const getTimelineDrag=()=>activeTimelineDrag;
+export const endTimelineDrag=(id:string)=>{if(activeTimelineDrag?.id===id)activeTimelineDrag=null;};
 export const timeToPixels=(timeUs:number,pixelsPerSecond:number)=>timeUs/1_000_000*pixelsPerSecond;
 export const pixelsToTime=(pixels:number,pixelsPerSecond:number)=>Math.round(pixels/pixelsPerSecond*1_000_000);
 export function snapTimelineTime(timeUs:number,project:TimelineProject,playheadUs:number,pixelsPerSecond:number,excludedClipId?:string):number {
  const points=[0,playheadUs,...project.tracks.flatMap(t=>t.clips.filter(c=>c.id!==excludedClipId).flatMap(c=>[c.startUs,c.startUs+clipDurationUs(c)]))];
  const threshold=pixelsToTime(8,pixelsPerSecond);let nearest=Math.max(0,Math.round(timeUs)),distance=threshold+1;
  for(const point of points){const delta=Math.abs(point-timeUs);if(delta<=threshold&&delta<distance){nearest=point;distance=delta;}}return nearest;
+}
+export function timelineDropStartUs(pointerX:number,laneLeft:number,pointerOffsetPx:number,project:TimelineProject,playheadUs:number,pixelsPerSecond:number,excludedClipId?:string):number {
+ const leadingEdgeX=Math.max(0,pointerX-laneLeft-Math.max(0,pointerOffsetPx));
+ return snapTimelineTime(pixelsToTime(leadingEdgeX,pixelsPerSecond),project,playheadUs,pixelsPerSecond,excludedClipId);
 }
 export function assetDropCommand(assetId:string,trackId:string,startUs:number,ids:{clipId:string;compositionId?:string}):ProjectCommand {return p=>placeAsset(p,assetId,trackId,startUs,ids);}
 export interface ClipGesture {kind:"move"|"trim-in"|"trim-out";deltaUs:number;trackId?:string}

@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { FilmStrip, Image as ImageIcon, Microphone, MusicNote, Plus, Trash, VideoCamera } from "@phosphor-icons/react";
 import type { MediaAsset } from "@/core/timeline/types";
-import { ASSET_DRAG_TYPE } from "./timelineInteractions";
+import { ASSET_DRAG_TYPE, beginTimelineDrag, endTimelineDrag } from "./timelineInteractions";
 import { localMediaUrl } from "@/recording/mediaProbe";
 export interface AssetCardProps {asset:MediaAsset;sourcePath?:string;selected:boolean;onPreview:()=>void;onPlace:()=>void;onRemove:()=>void}
 export function AssetCard({asset,sourcePath,selected,onPreview,onPlace,onRemove}:AssetCardProps) {
  const [url,setUrl]=useState("");useEffect(()=>{let current=true;setUrl("");if(sourcePath)void localMediaUrl(sourcePath).then(u=>{if(current)setUrl(u);}).catch(()=>undefined);return()=>{current=false;};},[sourcePath]);
  const Icon=asset.kind==="recording"?VideoCamera:asset.kind==="audio"?MusicNote:asset.kind==="image"?ImageIcon:FilmStrip;
- return <article className={`project-asset-card ${selected?"selected":""}`} draggable onDragStart={event=>{event.dataTransfer.setData(ASSET_DRAG_TYPE,asset.id);event.dataTransfer.effectAllowed="copy";}}>
+ return <article className={`project-asset-card ${selected?"selected":""}`} draggable onDragStart={event=>{beginTimelineDrag({type:"asset",id:asset.id,durationUs:asset.durationUs,mediaKind:asset.kind==="audio"?"audio":"visual",pointerOffsetPx:0});event.dataTransfer.setData(ASSET_DRAG_TYPE,asset.id);event.dataTransfer.effectAllowed="copy";}} onDragEnd={()=>endTimelineDrag(asset.id)}>
   <button className="project-asset-preview" aria-label={`Preview ${asset.name}`} onClick={onPreview}>
    {url&&asset.kind==="image"?<img src={url} alt={asset.name}/>:url&&asset.kind!=="audio"?<video src={url} muted preload="metadata"/>:<Icon size={32} weight="duotone"/>}
    <span className="project-asset-duration">{(asset.durationUs/1_000_000).toFixed(1)}s</span>{asset.kind==="recording"&&<span className="project-package-badge"><VideoCamera size={12}/>Recording</span>}

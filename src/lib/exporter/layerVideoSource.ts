@@ -33,8 +33,42 @@ export class LayerVideoSource {
 			await this.waitFor("seeked", () => {
 				this.video.currentTime = target;
 			});
+			await this.waitForPresentedFrame();
 		}
 		return this.video;
+	}
+
+	private waitForPresentedFrame(): Promise<void> {
+		const video = this.video as HTMLVideoElement & {
+			requestVideoFrameCallback?: (callback: () => void) => number;
+			cancelVideoFrameCallback?: (handle: number) => void;
+		};
+
+		return new Promise((resolve) => {
+			let settled = false;
+			let frameRequest: number | null = null;
+			let animationRequest: number | null = null;
+			let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
+			const finish = () => {
+				if (settled) return;
+				settled = true;
+				if (fallbackTimer !== undefined) clearTimeout(fallbackTimer);
+				if (frameRequest !== null) video.cancelVideoFrameCallback?.(frameRequest);
+				if (animationRequest !== null) cancelAnimationFrame(animationRequest);
+				resolve();
+			};
+			const hasFrameCallback = typeof video.requestVideoFrameCallback === "function";
+			const hasAnimationFrame = typeof requestAnimationFrame === "function";
+			fallbackTimer = setTimeout(finish, hasFrameCallback || hasAnimationFrame ? 350 : 0);
+
+			if (hasFrameCallback) {
+				frameRequest = video.requestVideoFrameCallback(finish);
+			} else if (hasAnimationFrame) {
+				animationRequest = requestAnimationFrame(() => {
+					animationRequest = requestAnimationFrame(finish);
+				});
+			}
+		});
 	}
 
 	private waitFor(event: string, action: () => void): Promise<void> {
