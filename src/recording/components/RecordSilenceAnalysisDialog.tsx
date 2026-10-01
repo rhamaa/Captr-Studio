@@ -9,7 +9,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { useI18n } from "@/contexts/I18nContext";
-import type { SilenceRegion } from "@/slides/record/silenceDetector";
+import type { SilenceRegion } from "@/recording/silenceDetector";
 
 export interface RecordSilenceAnalysisDialogProps {
 	open: boolean;

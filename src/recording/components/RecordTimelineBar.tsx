@@ -10,11 +10,11 @@ import {
 	MagicWand as WandSparkles,
 } from "@phosphor-icons/react";
 import React, { useRef } from "react";
-import type { RecordSlideMeta } from "../schema";
+import type { RecordingEffectSettings } from "../schema";
 import { formatTime } from "./recordConstants";
 
 export interface RecordTimelineBarProps {
-	meta: RecordSlideMeta;
+	meta: RecordingEffectSettings;
 	durationMs: number;
 	currentTimeMs: number;
 	isPlaying: boolean;

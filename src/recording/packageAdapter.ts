@@ -1,7 +1,7 @@
-import { createDefaultRecordMeta } from "@/slides/record/schema";
+import { createDefaultRecordingSettings } from "@/recording/schema";
 import type { CompletedRecording, RecordComposition, RecordingPackage, RecordingSettings } from "./types";
 export function createRecordingPackage(input: CompletedRecording, id: string): RecordingPackage {
- return { ...structuredClone(input), id, schemaVersion: 1, settings: {...createDefaultRecordMeta(),...structuredClone(input.settings)} };
+ return { ...structuredClone(input), id, schemaVersion: 1, settings: {...createDefaultRecordingSettings(),...structuredClone(input.settings)} };
 }
 export function compositionTimeMap(durationUs: number,settings: RecordingSettings) {
  const trims=settings.trimRegions??[],speeds=settings.speedRegions??[],durationMs=durationUs/1000;

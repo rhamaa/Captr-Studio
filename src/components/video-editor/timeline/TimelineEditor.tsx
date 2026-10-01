@@ -1,21 +1,21 @@
 import * as React from "react";
 import {
-	RecordSlideTimeline,
-	type RecordSlideTimelineHandle,
-	type RecordSlideTimelineProps,
-} from "@/slides/record/components/RecordSlideTimeline";
+	RecordingTimeline,
+	type RecordingTimelineHandle,
+	type RecordingTimelineProps,
+} from "@/recording/components/RecordingTimeline";
 export type SlideTimelineMode = "record";
-export type TimelineEditorHandle = RecordSlideTimelineHandle;
+export type TimelineEditorHandle = RecordingTimelineHandle;
 export interface TimelineEditorGlobalProps {
 	mode?: SlideTimelineMode;
-	recordProps?: RecordSlideTimelineProps;
+	recordProps?: RecordingTimelineProps;
 	className?: string;
 }
-export type TimelineEditorProps = Partial<RecordSlideTimelineProps> & TimelineEditorGlobalProps;
-export const TimelineEditor = React.forwardRef<RecordSlideTimelineHandle, TimelineEditorProps>(
+export type TimelineEditorProps = Partial<RecordingTimelineProps> & TimelineEditorGlobalProps;
+export const TimelineEditor = React.forwardRef<RecordingTimelineHandle, TimelineEditorProps>(
 	function TimelineEditor(props, ref) {
-		const recordProps = props.recordProps ?? (props as RecordSlideTimelineProps);
-		return <RecordSlideTimeline ref={ref} {...recordProps} />;
+		const recordProps = props.recordProps ?? (props as RecordingTimelineProps);
+		return <RecordingTimeline ref={ref} {...recordProps} />;
 	},
 );
 TimelineEditor.displayName = "TimelineEditor";

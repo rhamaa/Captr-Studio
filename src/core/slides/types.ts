@@ -1,9 +1,9 @@
 import type React from "react";
 
-import type { RecordSlideMeta } from "@/slides/record/schema";
+import type { RecordingEffectSettings } from "@/recording/schema";
 
 export interface SlideMetaByType {
-	record: RecordSlideMeta;
+	record: RecordingEffectSettings;
 	/** Compatibility slot for externally registered keyframe modules. */
 	keyframe: Record<string, unknown>;
 }

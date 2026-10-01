@@ -10,7 +10,7 @@ import type {
 	ZoomRegion,
 } from "@/components/video-editor/types";
 
-interface UseRecordSlideAutoReframeOptions {
+interface UseRecordingAutoReframeOptions {
 	cursorTelemetry: CursorTelemetryPoint[];
 	duration: number;
 	aspectRatio: AspectRatio;
@@ -24,13 +24,13 @@ interface RecordSlideSourceDimensions {
 }
 
 /** Builds and applies Record slide auto-reframe suggestions from cursor telemetry. */
-export function useRecordSlideAutoReframe({
+export function useRecordingAutoReframe({
 	cursorTelemetry,
 	duration,
 	aspectRatio,
 	zoomRegions,
 	onZoomSuggested,
-}: UseRecordSlideAutoReframeOptions) {
+}: UseRecordingAutoReframeOptions) {
 	return useCallback(
 		({ width, height }: RecordSlideSourceDimensions) => {
 			if (!cursorTelemetry.length || duration <= 0) return;

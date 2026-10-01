@@ -122,12 +122,12 @@ import type { SourceAudioTrackSettings } from "@/components/video-editor/audio/a
 import { WelcomeScreen } from "@/components/welcome/WelcomeScreen";
 import { extensionHost } from "@/lib/extensions";
 
-import { RecordSilenceAnalysisDialog } from "@/slides/record/components/RecordSilenceAnalysisDialog";
-import { type RecordSlideTimelineHandle } from "@/slides/record/components/RecordSlideTimeline";
-import { useRecordSlideAutoReframe } from "@/slides/record/hooks/useRecordSlideAutoReframe";
-import { useRecordSlideSilenceAnalysis } from "@/slides/record/hooks/useRecordSlideSilenceAnalysis";
-import { useRecordSlideTelemetry } from "@/slides/record/hooks/useRecordSlideTelemetry";
-import { applySilenceRemovalToTimeline } from "@/slides/record/silenceDetector";
+import { RecordSilenceAnalysisDialog } from "@/recording/components/RecordSilenceAnalysisDialog";
+import { type RecordingTimelineHandle } from "@/recording/components/RecordingTimeline";
+import { useRecordingAutoReframe } from "@/recording/hooks/useRecordingAutoReframe";
+import { useRecordingSilenceAnalysis } from "@/recording/hooks/useRecordingSilenceAnalysis";
+import { useRecordingTelemetry } from "@/recording/hooks/useRecordingTelemetry";
+import { applySilenceRemovalToTimeline } from "@/recording/silenceDetector";
 
 import { useVideoEditorAudio } from "./audio/useVideoEditorAudio";
 import { CropControl } from "./CropControl";
@@ -677,8 +677,8 @@ export default function VideoEditor() {
 	const projectSaveQueueRef = useRef<Promise<unknown>>(Promise.resolve());
 	const smokeExportReadyStateRef = useRef<Record<string, unknown>>({});
 	const [historyVersion, setHistoryVersion] = useState(0);
-	const timelineRef = useRef<RecordSlideTimelineHandle>(null);
-	const recordSlideTelemetry = useRecordSlideTelemetry({
+	const timelineRef = useRef<RecordingTimelineHandle>(null);
+	const recordSlideTelemetry = useRecordingTelemetry({
 		enabled: recordToolsEnabled,
 		videoPath,
 		videoSourcePath,
@@ -3814,7 +3814,7 @@ export default function VideoEditor() {
 			);
 		},
 	});
-	const recordSilenceAnalysis = useRecordSlideSilenceAnalysis({
+	const recordSilenceAnalysis = useRecordingSilenceAnalysis({
 		enabled: recordToolsEnabled,
 		videoPath,
 		videoSourcePath,
@@ -4044,7 +4044,7 @@ export default function VideoEditor() {
 		[videoPath, markFreshRecordingAutoZoomApplied],
 	);
 
-	const handleAutoReframe = useRecordSlideAutoReframe({
+	const handleAutoReframe = useRecordingAutoReframe({
 		cursorTelemetry: normalizedCursorTelemetry,
 		duration,
 		aspectRatio,

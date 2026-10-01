@@ -5,7 +5,7 @@ import {
 	DEFAULT_LAYOUT_SCENE_TRANSITION_MS,
 	type LegacyClipEntry,
 } from "@/components/video-editor/types";
-import { createDefaultRecordMeta, type RecordSlideMeta } from "@/slides/record/schema";
+import { createDefaultRecordingSettings, type RecordingEffectSettings } from "@/recording/schema";
 import type { ProjectV2Data, SlideData, SlideTransition, TransitionType } from "../slides/types";
 import { isProjectV2Data } from "./projectValidation";
 
@@ -13,8 +13,8 @@ function migrateRecordMeta(
 	clip: LegacyClipEntry,
 	editor: LegacyEditorProjectData["editor"],
 	useEditorState = false,
-): RecordSlideMeta {
-	const defaults = createDefaultRecordMeta();
+): RecordingEffectSettings {
+	const defaults = createDefaultRecordingSettings();
 	const editorSettings = useEditorState ? editor : undefined;
 	const trimRegions = editorSettings?.trimRegions?.length
 		? editorSettings.trimRegions
@@ -60,7 +60,8 @@ function migrateRecordMeta(
 		zoomRegions: clip.zoomRegions ?? editorSettings?.zoomRegions ?? defaults.zoomRegions,
 		clipRegions: editorSettings?.clipRegions ?? defaults.clipRegions,
 		trimRegions,
-		speedRegions,
+		// The legacy parser stores numeric speeds; retain them at this read boundary.
+		speedRegions: speedRegions as RecordingEffectSettings["speedRegions"],
 		layoutRegions: clip.layoutRegions?.length
 			? clip.layoutRegions
 			: clip.layoutPreset

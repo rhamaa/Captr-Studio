@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createDefaultRecordMeta } from "@/slides/record/schema";
+import { createDefaultRecordingSettings } from "@/recording/schema";
 
 import { slideRegistry } from "../slides/registry";
 import type { SlideData, SlideModule } from "../slides/types";
@@ -61,7 +61,7 @@ describe("slideChunkExporter", () => {
 			title: "Recording",
 			durationMs: 12000,
 			order: 0,
-			meta: { ...createDefaultRecordMeta(), videoPath: "C:/recordings/screen.mp4" },
+			meta: { ...createDefaultRecordingSettings(), videoPath: "C:/recordings/screen.mp4" },
 		};
 
 		const result = await exportSlideChunk({
@@ -110,7 +110,7 @@ describe("slideChunkExporter", () => {
 			title: "Empty Video Slide",
 			durationMs: 3000,
 			order: 0,
-			meta: createDefaultRecordMeta(),
+			meta: createDefaultRecordingSettings(),
 		};
 
 		await expect(

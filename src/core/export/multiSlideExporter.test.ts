@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { createDefaultRecordMeta } from "@/slides/record/schema";
+import { createDefaultRecordingSettings } from "@/recording/schema";
 
 import type { ProjectV2Data } from "../slides/types";
 import { exportMultiSlideProject } from "./multiSlideExporter";
 
 function recordMeta(videoPath: string) {
-	return { ...createDefaultRecordMeta(), videoPath };
+	return { ...createDefaultRecordingSettings(), videoPath };
 }
 
 describe("multiSlideExporter", () => {

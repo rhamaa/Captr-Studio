@@ -21,7 +21,7 @@ import {
 	TEMPORAL_MOTION_BLUR_MIN_SHUTTER_FRACTION,
 } from "@/lib/exporter/temporalMotionBlur";
 import { DEFAULT_WALLPAPER_PATH } from "@/lib/wallpapers";
-import { recordMetadataGuards } from "@/slides/record/schema";
+import { recordMetadataGuards } from "@/recording/schema";
 import { ASPECT_RATIOS, type AspectRatio, isCustomAspectRatio } from "@/utils/aspectRatioUtils";
 import { normalizePropertyKeyframes } from "./annotationKeyframes";
 import { CURSOR_MOTION_PRESETS, resolveCursorMotionPresetId } from "./cursorMotionPresets";

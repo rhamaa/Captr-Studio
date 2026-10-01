@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { slideRegistry } from "@/core/slides/registry";
 import "@/slides"; // auto-registers all slide modules
-import { recordSlideModule, RecordSlideTimeline } from "./index";
-import { createDefaultRecordMeta } from "./schema";
+import { recordSlideModule, RecordingTimeline } from "./index";
+import { createDefaultRecordingSettings } from "@/recording/schema";
 
 describe("RecordSlideModule", () => {
 	it("is registered in slideRegistry under type 'record'", () => {
@@ -14,7 +14,7 @@ describe("RecordSlideModule", () => {
 	});
 
 	it("creates default record metadata with expected initial properties", () => {
-		const meta = createDefaultRecordMeta();
+		const meta = createDefaultRecordingSettings();
 		expect(meta.showCursor).toBe(true);
 		expect(meta.cursorStyle).toBe("macos");
 		expect(meta.zoomRegions).toEqual([]);
@@ -27,7 +27,7 @@ describe("RecordSlideModule", () => {
 		expect(typeof recordSlideModule.WorkspaceComponent).toBe("function");
 	});
 
-	it("exports RecordSlideTimeline component", () => {
-		expect(RecordSlideTimeline).toBeDefined();
+	it("exports RecordingTimeline component", () => {
+		expect(RecordingTimeline).toBeDefined();
 	});
 });

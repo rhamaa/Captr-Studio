@@ -1,7 +1,7 @@
 import type { ProjectEditorState } from "@/components/video-editor/projectNormalization";
-import type { RecordSlideMeta } from "@/slides/record/schema";
+import type { RecordingEffectSettings } from "@/recording/schema";
 
-export type RecordingSettings = Omit<Partial<ProjectEditorState>, keyof RecordSlideMeta> & Partial<RecordSlideMeta>;
+export type RecordingSettings = Omit<Partial<ProjectEditorState>, keyof RecordingEffectSettings> & Partial<RecordingEffectSettings> & { sourceAudioSettings?:Record<string,{volume:number;normalize:boolean}> };
 export interface MediaSource { path: string; durationUs: number; offsetUs: number }
 export interface RecordingPackage {
  id: string; captureId: string; schemaVersion: 1; durationUs: number; width: number; height: number;

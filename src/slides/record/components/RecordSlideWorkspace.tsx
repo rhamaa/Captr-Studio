@@ -3,7 +3,7 @@ import {
 	applySilenceRemovalToTimeline,
 	detectSilenceFromAudioUrl,
 	type SilenceRegion,
-} from "@/slides/record/silenceDetector";
+} from "@/recording/silenceDetector";
 import {
 	buildInteractionZoomSuggestions,
 	normalizeCursorTelemetry,
@@ -21,10 +21,10 @@ import type { VideoPlaybackRef } from "@/components/video-editor/VideoPlayback";
 import type { SlideWorkspaceProps } from "@/core/slides/types";
 import { resolveMediaElementSource } from "@/lib/exporter/localMediaSource";
 import type { AspectRatio } from "@/utils/aspectRatioUtils";
-import { RecordInspectorPanel, type RecordInspectorTab } from "./RecordInspectorPanel";
-import { RecordPreviewMonitor } from "./RecordPreviewMonitor";
-import { RecordSilenceModal } from "./RecordSilenceModal";
-import { RecordTimelineBar } from "./RecordTimelineBar";
+import { RecordInspectorPanel, type RecordInspectorTab } from "@/recording/components/RecordInspectorPanel";
+import { RecordPreviewMonitor } from "@/recording/components/RecordPreviewMonitor";
+import { RecordSilenceModal } from "@/recording/components/RecordSilenceModal";
+import { RecordTimelineBar } from "@/recording/components/RecordTimelineBar";
 
 export const RecordSlideWorkspace: React.FC<SlideWorkspaceProps<"record">> = ({
 	slide,

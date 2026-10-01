@@ -7,7 +7,7 @@ import type {
 } from "@/components/video-editor/types";
 import VideoPlayback, { type VideoPlaybackRef } from "@/components/video-editor/VideoPlayback";
 import type { AspectRatio } from "@/utils/aspectRatioUtils";
-import type { RecordSlideMeta } from "../schema";
+import type { RecordingEffectSettings } from "../schema";
 
 export interface RecordPreviewMonitorProps {
 	videoPath?: string;
@@ -19,7 +19,7 @@ export interface RecordPreviewMonitorProps {
 	onTimeUpdate: (ms: number) => void;
 	onDurationChange: (durMs: number) => void;
 	onPlayStateChange: (playing: boolean) => void;
-	meta: RecordSlideMeta;
+	meta: RecordingEffectSettings;
 	normalizedTelemetry: CursorTelemetryPoint[];
 	effectiveWebcam?: WebcamOverlaySettings;
 	currentAspectRatio: AspectRatio;

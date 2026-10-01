@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CursorTelemetryPoint } from "@/components/video-editor/types";
 import { normalizeCursorTelemetry } from "@/components/video-editor/timeline/zoomSuggestionUtils";
 
-interface UseRecordSlideTelemetryOptions {
+interface UseRecordingTelemetryOptions {
 	enabled: boolean;
 	videoPath: string | null;
 	videoSourcePath: string | null;
@@ -16,7 +16,7 @@ interface UseRecordSlideTelemetryOptions {
 }
 
 /** Owns Record-only cursor telemetry loading and fresh-recording auto-zoom flow. */
-export function useRecordSlideTelemetry({
+export function useRecordingTelemetry({
 	enabled,
 	videoPath,
 	videoSourcePath,
@@ -27,7 +27,7 @@ export function useRecordSlideTelemetry({
 	isPreviewReady,
 	hasZoomRegions,
 	autoApplyFreshRecordingAutoZooms,
-}: UseRecordSlideTelemetryOptions) {
+}: UseRecordingTelemetryOptions) {
 	const [cursorTelemetry, setCursorTelemetry] = useState<CursorTelemetryPoint[]>([]);
 	const [cursorTelemetrySourcePath, setCursorTelemetrySourcePath] = useState<string | null>(null);
 	const [autoSuggestZoomsTrigger, setAutoSuggestZoomsTrigger] = useState(0);

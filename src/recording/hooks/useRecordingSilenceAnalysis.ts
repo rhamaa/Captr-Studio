@@ -4,10 +4,10 @@ import {
 	detectSilenceFromAudioUrl,
 	NoAudioTrackError,
 	type SilenceRegion,
-} from "@/slides/record/silenceDetector";
+} from "@/recording/silenceDetector";
 import { toast } from "sonner";
 
-interface UseRecordSlideSilenceAnalysisOptions {
+interface UseRecordingSilenceAnalysisOptions {
 	enabled: boolean;
 	videoPath: string | null;
 	videoSourcePath: string | null;
@@ -16,13 +16,13 @@ interface UseRecordSlideSilenceAnalysisOptions {
 }
 
 /** Owns Record slide silence detection state and analysis flow. */
-export function useRecordSlideSilenceAnalysis({
+export function useRecordingSilenceAnalysis({
 	enabled,
 	videoPath,
 	videoSourcePath,
 	fallbackAudioPaths,
 	resolveVideoUrl,
-}: UseRecordSlideSilenceAnalysisOptions) {
+}: UseRecordingSilenceAnalysisOptions) {
 	const { t } = useI18n();
 	const [isOpen, setIsOpen] = useState(false);
 	const [isAnalyzing, setIsAnalyzing] = useState(false);

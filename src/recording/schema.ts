@@ -49,7 +49,7 @@ export type {
 	ZoomTransitionEasing,
 };
 
-export interface RecordSlideMeta {
+export interface RecordingEffectSettings {
 	videoPath?: string;
 	webcamPath?: string | null;
 	microphoneAudioPath?: string | null;
@@ -65,7 +65,7 @@ export interface RecordSlideMeta {
 	zoomRegions: ZoomRegion[];
 	clipRegions?: ClipRegion[];
 	trimRegions: Array<{ id: string; startMs: number; endMs: number }>;
-	speedRegions: Array<{ id: string; startMs: number; endMs: number; speed: number }>;
+	speedRegions: SpeedRegion[];
 	layoutRegions: LayoutRegion[];
 	annotationRegions: AnnotationRegion[];
 	audioRegions: AudioRegion[];
@@ -447,7 +447,7 @@ export const recordMetadataGuards = {
 };
 
 /** Runtime schema check for the Record slide's canonical persisted metadata. */
-export function isValidRecordSlideMeta(value: unknown): value is RecordSlideMeta {
+export function isValidRecordingSettings(value: unknown): value is RecordingEffectSettings {
 	if (!isObjectRecord(value)) return false;
 	return (
 		isOptional(value.videoPath, isString) &&
@@ -486,7 +486,7 @@ export function isValidRecordSlideMeta(value: unknown): value is RecordSlideMeta
 	);
 }
 
-export function createDefaultRecordMeta(): RecordSlideMeta {
+export function createDefaultRecordingSettings(): RecordingEffectSettings {
 	return {
 		wallpaper: "wallpapers/tahoe-light.jpg",
 		shadowIntensity: 0.67,

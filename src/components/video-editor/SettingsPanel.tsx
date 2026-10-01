@@ -35,7 +35,7 @@ import { AudioTrackSection } from "./settings/sections/AudioTrackSection";
 import { ClipItemSection } from "./settings/sections/ClipItemSection";
 import { CursorSection } from "./settings/sections/CursorSection";
 import { GeneralPreferencesSection } from "./settings/sections/GeneralPreferencesSection";
-import { RecordLayoutSection } from "@/slides/record/components/RecordLayoutSection";
+import { RecordLayoutSection } from "@/recording/components/RecordLayoutSection";
 import { MediaSection } from "./settings/sections/MediaSection";
 import { SceneSection } from "./settings/sections/SceneSection";
 import { TransitionsSection } from "./settings/sections/TransitionsSection";

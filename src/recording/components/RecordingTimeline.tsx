@@ -29,7 +29,7 @@ import type {
 import { useScopedT } from "@/contexts/I18nContext";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
 
-export interface RecordSlideTimelineProps {
+export interface RecordingTimelineProps {
 	recordToolsEnabled?: boolean;
 	videoDuration: number;
 	currentTime: number;
@@ -91,7 +91,7 @@ export interface RecordSlideTimelineProps {
 	onDropMediaAsset?: (asset: SlideAssetFile, dropMs: number) => void;
 }
 
-export interface RecordSlideTimelineHandle {
+export interface RecordingTimelineHandle {
 	addZoom: () => void;
 	suggestZooms: () => void;
 	splitClip: () => void;
@@ -106,8 +106,8 @@ export interface RecordSlideTimelineHandle {
 	}[];
 }
 
-export const RecordSlideTimeline = forwardRef<RecordSlideTimelineHandle, RecordSlideTimelineProps>(
-	function RecordSlideTimeline(
+export const RecordingTimeline = forwardRef<RecordingTimelineHandle, RecordingTimelineProps>(
+	function RecordingTimeline(
 		{
 			recordToolsEnabled = true,
 			videoDuration,
@@ -478,5 +478,5 @@ export const RecordSlideTimeline = forwardRef<RecordSlideTimelineHandle, RecordS
 	},
 );
 
-RecordSlideTimeline.displayName = "RecordSlideTimeline";
-export default RecordSlideTimeline;
+RecordingTimeline.displayName = "RecordingTimeline";
+export default RecordingTimeline;
