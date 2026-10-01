@@ -21,28 +21,11 @@ export const VALID_RECORD_SECTIONS = [
 	"crop",
 ] as const;
 
-export const VALID_VIDEO_SECTIONS = ["media", "audio-record", "settings", "clip", "audio"] as const;
-
-export const VALID_MOTION_SECTIONS = ["motion", "settings", "clip"] as const;
-
 export function isRecordSlide(clip: ClipEntry | null | undefined): boolean {
 	return (clip?.slideMode ?? (clip?.origin === "uploaded" ? "video" : "record")) === "record";
 }
 
-export function isMotionSlide(clip: ClipEntry | null | undefined): boolean {
-	return clip?.slideMode === "motion";
-}
-
-export function sanitizeSectionForSlideMode(
-	mode: "record" | "video" | "motion",
-	section: string,
-): string {
-	if (mode === "motion") {
-		return (VALID_MOTION_SECTIONS as readonly string[]).includes(section) ? section : "motion";
-	}
-	if (mode === "video") {
-		return (VALID_VIDEO_SECTIONS as readonly string[]).includes(section) ? section : "media";
-	}
+export function sanitizeSectionForSlideMode(_mode: "record", section: string): string {
 	return (VALID_RECORD_SECTIONS as readonly string[]).includes(section) ? section : "scene";
 }
 

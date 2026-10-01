@@ -1,12 +1,11 @@
+import { assertSupportedLegacyProject } from "./legacySupport";
 import type { LegacyEditorProjectData } from "@/components/video-editor/projectPersistence";
 import {
 	DEFAULT_LAYOUT_SCENE_EASING,
 	DEFAULT_LAYOUT_SCENE_TRANSITION_MS,
 	type LegacyClipEntry,
 } from "@/components/video-editor/types";
-import { createDefaultMotionMeta, type MotionSlideMeta } from "@/slides/motion/schema";
 import { createDefaultRecordMeta, type RecordSlideMeta } from "@/slides/record/schema";
-import { createDefaultVideoMeta, type VideoSlideMeta } from "@/slides/video/schema";
 import type { ProjectV2Data, SlideData, SlideTransition, TransitionType } from "../slides/types";
 import { isProjectV2Data } from "./projectValidation";
 
@@ -96,94 +95,6 @@ function migrateRecordMeta(
 	};
 }
 
-function migrateVideoMeta(clip: LegacyClipEntry): VideoSlideMeta {
-	if (clip.videoMeta) {
-		return {
-			...clip.videoMeta,
-			videoTracks: clip.videoMeta.videoTracks.map((track) => ({
-				...track,
-				clips: track.clips.map((item) => ({ ...item })),
-			})),
-			audioTracks: clip.videoMeta.audioTracks.map((track) => ({ ...track })),
-			textOverlays: clip.videoMeta.textOverlays.map((overlay) => ({
-				...overlay,
-				position: { ...overlay.position },
-			})),
-			mediaPool: clip.videoMeta.mediaPool.map((asset) => ({ ...asset })),
-		};
-	}
-
-	const defaults = createDefaultVideoMeta();
-	const videoClip = {
-		id: clip.id,
-		title: clip.label || "Video",
-		sourcePath: clip.videoPath,
-		startOffsetMs: 0,
-		durationMs: clip.durationMs,
-		...(clip.trimStartMs !== undefined ? { trimStartMs: clip.trimStartMs } : {}),
-		...(clip.trimEndMs !== undefined ? { trimEndMs: clip.trimEndMs } : {}),
-		speedMultiplier: clip.speed ?? 1,
-		volume: 1,
-	};
-	const audioTracks = (clip.audioRegions ?? []).map((region) => ({
-		id: region.id,
-		name: `Audio ${region.id}`,
-		sourcePath: region.audioPath,
-		startOffsetMs: region.startMs,
-		durationMs: Math.max(0, region.endMs - region.startMs),
-		volume: region.volume,
-	}));
-	if (clip.microphoneAudioPath) {
-		audioTracks.push({
-			id: `mic-${clip.id}`,
-			name: "Microphone",
-			sourcePath: clip.microphoneAudioPath,
-			startOffsetMs: 0,
-			durationMs: clip.durationMs,
-			volume: 1,
-		});
-	}
-	if (clip.systemAudioPath) {
-		audioTracks.push({
-			id: `system-${clip.id}`,
-			name: "System Audio",
-			sourcePath: clip.systemAudioPath,
-			startOffsetMs: 0,
-			durationMs: clip.durationMs,
-			volume: 1,
-		});
-	}
-
-	return {
-		...defaults,
-		videoTracks: defaults.videoTracks.map((track, index) =>
-			index === 0 ? { ...track, clips: [videoClip] } : track,
-		),
-		audioTracks,
-		textOverlays: (clip.annotationRegions ?? [])
-			.filter((region) => region.type === "text")
-			.map((region) => ({
-				id: region.id,
-				text: region.textContent ?? region.content,
-				startOffsetMs: region.startMs,
-				durationMs: Math.max(0, region.endMs - region.startMs),
-				position: { x: region.position.x, y: region.position.y },
-				fontSize: region.style.fontSize,
-				color: region.style.color,
-			})),
-		mediaPool: (clip.assetFiles ?? []).map(({ id, name, path, type }) => ({
-			id,
-			name,
-			path,
-			type,
-		})),
-	};
-}
-
-function migrateMotionMeta(clip: LegacyClipEntry): MotionSlideMeta {
-	return { ...(clip.motionMeta ?? createDefaultMotionMeta()) };
-}
-
 /**
  * Checks whether an incoming project object is in V2 slide-based format.
  */
@@ -195,6 +106,7 @@ export function isProjectV2(data: unknown): data is ProjectV2Data {
  * Migrates a legacy V1 monolithic project data structure to the V2 Slide-Based format.
  */
 export function migrateV1ProjectToV2(v1: LegacyEditorProjectData): ProjectV2Data {
+	assertSupportedLegacyProject(v1);
 	const projectId = v1.projectId || `proj-${Date.now()}`;
 	const title = (v1 as unknown as { title?: string }).title || "Untitled Project";
 
@@ -213,14 +125,7 @@ export function migrateV1ProjectToV2(v1: LegacyEditorProjectData): ProjectV2Data
 	if (Array.isArray(v1.clips) && v1.clips.length > 0) {
 		v1.clips.forEach((clip, index) => {
 			const slideId = clip.id || `slide-${index + 1}-${Date.now()}`;
-			let slideType: "record" | "video" | "motion";
-			if (clip.slideMode === "motion") {
-				slideType = "motion";
-			} else if (clip.slideMode === "video" || clip.slideMode === "record") {
-				slideType = clip.slideMode;
-			} else {
-				slideType = clip.origin === "uploaded" ? "video" : "record";
-			}
+			const slideType = "record" as const;
 
 			const slideTitle = clip.label || `Slide ${index + 1}`;
 			const durationMs = Math.max(0, clip.durationMs || 5000);
@@ -244,11 +149,7 @@ export function migrateV1ProjectToV2(v1: LegacyEditorProjectData): ProjectV2Data
 				});
 			}
 
-			if (slideType === "motion") {
-				slides.push({ ...slideFields, type: "motion", meta: migrateMotionMeta(clip) });
-			} else if (slideType === "video") {
-				slides.push({ ...slideFields, type: "video", meta: migrateVideoMeta(clip) });
-			} else {
+			{
 				slides.push({
 					...slideFields,
 					type: "record",

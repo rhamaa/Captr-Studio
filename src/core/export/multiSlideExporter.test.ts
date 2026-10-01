@@ -1,36 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { createDefaultRecordMeta } from "@/slides/record/schema";
-import { createDefaultVideoMeta } from "@/slides/video/schema";
+
 import type { ProjectV2Data } from "../slides/types";
 import { exportMultiSlideProject } from "./multiSlideExporter";
 
 function recordMeta(videoPath: string) {
 	return { ...createDefaultRecordMeta(), videoPath };
-}
-
-function videoMeta(sourcePath: string) {
-	const defaults = createDefaultVideoMeta();
-	return {
-		...defaults,
-		videoTracks: defaults.videoTracks.map((track, index) =>
-			index === 0
-				? {
-						...track,
-						clips: [
-							{
-								id: "c1",
-								title: "Video clip",
-								sourcePath,
-								startOffsetMs: 0,
-								durationMs: 5000,
-								speedMultiplier: 1,
-								volume: 1,
-							},
-						],
-					}
-				: track,
-		),
-	};
 }
 
 describe("multiSlideExporter", () => {
@@ -123,11 +98,11 @@ describe("multiSlideExporter", () => {
 				},
 				{
 					id: "slide-2",
-					type: "video",
-					title: "Video NLE Main",
+					type: "record",
+					title: "Record Main",
 					durationMs: 6000,
 					order: 1,
-					meta: videoMeta("/media/slide2.mp4"),
+					meta: recordMeta("/media/slide2.mp4"),
 				},
 			],
 			transitions: [
@@ -211,11 +186,11 @@ describe("multiSlideExporter", () => {
 				},
 				{
 					id: "s3",
-					type: "video",
+					type: "record",
 					title: "Three",
 					durationMs: 5000,
 					order: 2,
-					meta: videoMeta("/media/three.mp4"),
+					meta: recordMeta("/media/three.mp4"),
 				},
 			],
 			// Stored for the SECOND boundary only — a positional mapping would

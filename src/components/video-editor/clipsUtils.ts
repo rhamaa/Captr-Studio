@@ -179,74 +179,10 @@ export function createRecordedClip(params: {
 /**
  * Factory for creating an external uploaded video clip
  */
-export function createUploadedClip(params: {
-	id: string;
-	videoPath: string;
-	startMsOffset: number;
-	durationMs: number;
-	label: string;
-}): ClipEntry {
-	return {
-		id: params.id,
-		origin: "uploaded",
-		slideMode: "video",
-		layoutRegions: [],
-		zoomRegions: [],
-		annotationRegions: [],
-		audioRegions: [],
-		videoPath: params.videoPath,
-		webcamPath: null, // Strictly no webcam sidecar
-		microphoneAudioPath: null,
-		systemAudioPath: null,
-		cursorTelemetry: null,
-		startMsOffset: params.startMsOffset,
-		durationMs: params.durationMs,
-		label: params.label,
-		webcam: {
-			...DEFAULT_WEBCAM_OVERLAY,
-			enabled: false,
-			sourcePath: null,
-		},
-		showCursor: false, // External uploaded videos don't have synthetic cursor overlay
-	};
-}
 
 /**
  * Factory for creating a Motion Graphics slide clip
  */
-export function createMotionClip(params: {
-	id: string;
-	startMsOffset: number;
-	durationMs?: number;
-	label?: string;
-	motionMeta?: import("@/slides/motion/schema").MotionSlideMeta;
-}): ClipEntry {
-	const durationMs = params.durationMs ?? params.motionMeta?.durationMs ?? 5000;
-	return {
-		id: params.id,
-		origin: "uploaded",
-		slideMode: "motion",
-		layoutRegions: [],
-		zoomRegions: [],
-		annotationRegions: [],
-		audioRegions: [],
-		videoPath: "",
-		webcamPath: null,
-		microphoneAudioPath: null,
-		systemAudioPath: null,
-		cursorTelemetry: null,
-		startMsOffset: params.startMsOffset,
-		durationMs,
-		label: params.label || "Motion Slide",
-		webcam: {
-			...DEFAULT_WEBCAM_OVERLAY,
-			enabled: false,
-			sourcePath: null,
-		},
-		showCursor: false,
-		motionMeta: params.motionMeta,
-	};
-}
 
 /**
  * Folds the ACTIVE slide's audio regions into its own clip before persisting.

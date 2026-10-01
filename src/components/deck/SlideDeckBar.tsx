@@ -4,7 +4,6 @@ import {
 	CaretRight,
 	DownloadSimple,
 	FilmSlate,
-	Lightning,
 	Plus,
 	Sparkle,
 	Trash,
@@ -51,24 +50,14 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 					icon: VideoCamera,
 					colorClass: "bg-[#6FA8FF]/15 text-[#6FA8FF] border border-[#6FA8FF]/30",
 				};
-			case "video":
-				return {
-					label: "Video NLE",
-					icon: FilmSlate,
-					colorClass: "bg-[#A879F5]/15 text-[#A879F5] border border-[#A879F5]/30",
-				};
+
 			case "keyframe":
 				return {
 					label: "Keyframe",
 					icon: Sparkle,
 					colorClass: "bg-[#A879F5]/15 text-[#A879F5] border border-[#A879F5]/30",
 				};
-			case "motion":
-				return {
-					label: "Motion",
-					icon: Lightning,
-					colorClass: "bg-[#F6C768]/15 text-[#F6C768] border border-[#F6C768]/30",
-				};
+
 			default:
 				return {
 					label: type,
@@ -281,24 +270,6 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 								</div>
 							</button>
 
-							<button
-								type="button"
-								onClick={() => handleAddSlide("video")}
-								className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-slate-800"
-							>
-								<div className="flex h-7 w-7 items-center justify-center rounded bg-[#A879F5]/15 text-[#A879F5]">
-									<FilmSlate size={16} weight="bold" />
-								</div>
-								<div>
-									<div className="text-xs font-medium text-white">
-										Video Slide
-									</div>
-									<div className="text-[10px] text-slate-400">
-										CapCut multi-track NLE
-									</div>
-								</div>
-							</button>
-
 							<div className="my-1 border-t border-slate-800" />
 
 							<div className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 opacity-50 cursor-not-allowed">
@@ -308,24 +279,6 @@ export const SlideDeckBar: React.FC<SlideDeckBarProps> = ({ className }) => {
 								</div>
 								<span className="text-[9px] text-slate-500">Soon</span>
 							</div>
-
-							<button
-								type="button"
-								onClick={() => handleAddSlide("motion")}
-								className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-slate-800"
-							>
-								<div className="flex h-7 w-7 items-center justify-center rounded bg-[#F6C768]/15 text-[#F6C768]">
-									<Lightning size={16} weight="bold" />
-								</div>
-								<div>
-									<div className="text-xs font-medium text-white">
-										Motion Slide
-									</div>
-									<div className="text-[10px] text-slate-400">
-										HTML, CSS & JS Motion Graphics
-									</div>
-								</div>
-							</button>
 						</div>
 					)}
 				</div>

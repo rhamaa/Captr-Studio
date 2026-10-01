@@ -53,7 +53,7 @@ export interface CursorVisualSettings {
 export type CursorStyle = "macos" | "tahoe" | "tahoe-inverted" | "dot" | "figma" | (string & {}); // extension-contributed cursor styles
 export const DEFAULT_CURSOR_STYLE: CursorStyle = "macos";
 
-export type SlideMode = "record" | "video" | "motion";
+export type SlideMode = "record";
 
 export type EditorEffectSection =
 	| "scene"
@@ -346,10 +346,6 @@ export interface LegacyClipEntry {
 	keyframes?: PropertyKeyframe[];
 	/** Exclusive per-slide asset library for video and multimedia slides */
 	assetFiles?: SlideAssetFile[];
-	/** Motion slide HTML/CSS/JS metadata and configuration */
-	motionMeta?: import("@/slides/motion/schema").MotionSlideMeta;
-	/** Video slide multi-track NLE metadata */
-	videoMeta?: import("@/slides/video/schema").VideoSlideMeta;
 }
 
 /** Backward-compatible name for the editor's pre-V2 clip model. */

@@ -3,9 +3,7 @@ import {
 	CaretDown,
 	Check,
 	Copy,
-	FilmSlate,
 	FilmStrip,
-	Lightning,
 	MagnifyingGlassPlus,
 	Plus,
 	Scissors,
@@ -18,7 +16,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import type { ClipEntry, ClipRegion, ClipTransitionType, SlideMode } from "../types";
+import type { ClipEntry, ClipRegion, ClipTransitionType } from "../types";
 
 export interface SlideListProps {
 	slides: ClipEntry[];
@@ -27,8 +25,7 @@ export interface SlideListProps {
 	onSelectSlide: (id: string) => void;
 	onAddSlide?: () => void;
 	onAddRecordSlide?: () => void;
-	onAddVideoSlide?: () => void;
-	onAddMotionSlide?: () => void;
+
 	onDeleteSlide?: (id: string) => void;
 	onDuplicateSlide?: (id: string) => void;
 	onSplitSlide?: (id: string) => void;
@@ -93,8 +90,6 @@ export function SlideList({
 	onSelectSlide,
 	onAddSlide,
 	onAddRecordSlide,
-	onAddVideoSlide,
-	onAddMotionSlide,
 	onDeleteSlide,
 	onDuplicateSlide,
 	onSplitSlide,
@@ -108,24 +103,6 @@ export function SlideList({
 		setIsAddMenuOpen(false);
 		if (onAddRecordSlide) {
 			onAddRecordSlide();
-		} else if (onAddSlide) {
-			onAddSlide();
-		}
-	};
-
-	const handleAddVideo = () => {
-		setIsAddMenuOpen(false);
-		if (onAddVideoSlide) {
-			onAddVideoSlide();
-		} else if (onAddSlide) {
-			onAddSlide();
-		}
-	};
-
-	const handleAddMotion = () => {
-		setIsAddMenuOpen(false);
-		if (onAddMotionSlide) {
-			onAddMotionSlide();
 		} else if (onAddSlide) {
 			onAddSlide();
 		}
@@ -151,7 +128,7 @@ export function SlideList({
 							variant="outline"
 							size="sm"
 							className="h-6 px-2.5 text-[11px] font-medium border-foreground/15 bg-foreground/5 hover:bg-foreground/10 text-foreground gap-1.5 rounded-lg shadow-xs cursor-pointer"
-							title="Add new slide (Record mode or Video Editor mode)"
+							title="Add a screen recording"
 						>
 							<Plus className="w-3 h-3 text-primary" weight="bold" />
 							<span>Add Slide</span>
@@ -170,7 +147,7 @@ export function SlideList({
 									Add New Slide
 								</h4>
 								<p className="text-[10px] text-muted-foreground">
-									Select slide editing mode
+									Record screen, webcam and audio
 								</p>
 							</div>
 
@@ -197,54 +174,6 @@ export function SlideList({
 									</p>
 								</div>
 							</button>
-
-							{/* Option 2: Video Slide */}
-							<button
-								type="button"
-								onClick={handleAddVideo}
-								className="w-full flex items-start gap-2.5 p-2 rounded-lg text-left hover:bg-foreground/10 transition-colors cursor-pointer group"
-							>
-								<div className="p-1.5 rounded-md bg-[#6FA8FF]/15 text-[#6FA8FF] group-hover:bg-[#6FA8FF]/25 mt-0.5">
-									<FilmSlate className="w-4 h-4" weight="fill" />
-								</div>
-								<div className="min-w-0 flex-1">
-									<div className="flex items-center gap-1.5">
-										<span className="text-xs font-semibold text-foreground">
-											Video Slide
-										</span>
-										<span className="text-[9px] px-1 py-0.2 rounded bg-[#6FA8FF]/15 text-[#6FA8FF] font-bold font-mono">
-											VID
-										</span>
-									</div>
-									<p className="text-[10px] text-muted-foreground leading-snug mt-0.5">
-										Filmora / CapCut style media editor
-									</p>
-								</div>
-							</button>
-
-							{/* Option 3: Motion Slide */}
-							<button
-								type="button"
-								onClick={handleAddMotion}
-								className="w-full flex items-start gap-2.5 p-2 rounded-lg text-left hover:bg-foreground/10 transition-colors cursor-pointer group"
-							>
-								<div className="p-1.5 rounded-md bg-amber-500/10 text-amber-400 group-hover:bg-amber-500/20 group-hover:text-amber-300 mt-0.5">
-									<Lightning className="w-4 h-4" weight="fill" />
-								</div>
-								<div className="min-w-0 flex-1">
-									<div className="flex items-center gap-1.5">
-										<span className="text-xs font-semibold text-foreground">
-											Motion Slide
-										</span>
-										<span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/15 text-amber-400 font-bold font-mono">
-											MOTION
-										</span>
-									</div>
-									<p className="text-[10px] text-muted-foreground leading-snug mt-0.5">
-										HTML, CSS & JS Motion Graphics
-									</p>
-								</div>
-							</button>
 						</div>
 					</PopoverContent>
 				</Popover>
@@ -257,11 +186,8 @@ export function SlideList({
 					const region = clipRegions.find((r) => r.id === slide.id);
 					const transitionIn = region?.transitionIn ?? "none";
 					const transitionInDurationMs = region?.transitionInDurationMs ?? 400;
-					const slideMode: SlideMode =
-						slide.slideMode ?? (slide.origin === "uploaded" ? "video" : "record");
-					const isVideoMode = slideMode === "video";
-					const isMotionMode = slideMode === "motion";
-					const hasTransitionBefore = index > 0 && !isVideoMode && !isMotionMode;
+
+					const hasTransitionBefore = index > 0;
 
 					return (
 						<div
@@ -447,23 +373,13 @@ export function SlideList({
 
 										{/* Slide kind is fixed; editing one kind never reconfigures another. */}
 										<span
-											title={
-												isMotionMode
-													? "Motion Graphics Mode"
-													: isVideoMode
-														? "Video Editor Mode"
-														: "Record Mode"
-											}
+											title={"Record Mode"}
 											className={cn(
 												"text-[9px] font-bold px-1 rounded",
-												isMotionMode
-													? "text-amber-400 bg-amber-500/15"
-													: isVideoMode
-														? "text-[#6FA8FF] bg-[#6FA8FF]/15"
-														: "text-muted-foreground",
+												"text-muted-foreground",
 											)}
 										>
-											{isMotionMode ? "MOTION" : isVideoMode ? "VID" : "REC"}
+											{"REC"}
 										</span>
 									</div>
 
@@ -514,12 +430,7 @@ export function SlideList({
 								{/* Bottom info of Slide Card */}
 								<div className="flex items-end justify-between z-10 mt-auto">
 									<p className="text-[10px] font-medium text-foreground truncate max-w-[65px]">
-										{slide.label ||
-											(isMotionMode
-												? `Motion ${index + 1}`
-												: isVideoMode
-													? `Video ${index + 1}`
-													: `Take ${index + 1}`)}
+										{slide.label || `Take ${index + 1}`}
 									</p>
 									<span className="text-[9px] font-mono text-muted-foreground font-semibold flex-shrink-0">
 										{formatSlideDuration(slide.durationMs)}
@@ -531,9 +442,7 @@ export function SlideList({
 									className={cn(
 										"absolute inset-0 pointer-events-none opacity-20",
 										isSelected
-											? isVideoMode
-												? "bg-gradient-to-br from-[#6FA8FF]/20 to-[#A879F5]/10"
-												: "bg-gradient-to-br from-primary/30 to-rose-600/10"
+											? "bg-gradient-to-br from-primary/30 to-rose-600/10"
 											: "bg-gradient-to-br from-transparent to-foreground/[0.02]",
 									)}
 								/>

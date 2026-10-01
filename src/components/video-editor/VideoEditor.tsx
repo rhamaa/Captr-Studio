@@ -1,3 +1,4 @@
+import { SlideList } from "./slides/SlideList";
 import { assertSupportedLegacyProject } from "@/core/project/legacySupport";
 import {
 	BookmarkSimple,
@@ -9,11 +10,8 @@ import {
 	Cursor,
 	DownloadSimple as Download,
 	FolderOpen,
-	FolderSimple,
 	SquaresFour as LayoutIcon,
-	Microphone,
 	Pause,
-	Code as PhCodeRegular,
 	Play,
 	Plus,
 	ArrowClockwise as Redo2,
@@ -22,7 +20,6 @@ import {
 	SkipForward,
 	Sparkle,
 	ArrowCounterClockwise as Undo2,
-	UploadSimple,
 	VideoCamera,
 	SpeakerLow as Volume1,
 	SpeakerHigh as Volume2,
@@ -100,7 +97,6 @@ import { getLayoutCameraSettings } from "./layoutScenes";
 import { resolveMp4ExportRouting } from "./mp4ExportRouting";
 import { resolveMp4ExportSettings } from "./mp4ExportSettings";
 import {
-	isMotionSlide,
 	isRecordSlide,
 	resolveSceneEditingState,
 	sanitizeSectionForSlideMode,
@@ -119,38 +115,24 @@ const PhSparkle = (props: { className?: string; weight?: "fill" | "regular" }) =
 const PhLayout = (props: { className?: string; weight?: "fill" | "regular" }) => (
 	<LayoutIcon weight={props.weight ?? "regular"} className={props.className} />
 );
-const PhFolder = (props: { className?: string; weight?: "fill" | "regular" }) => (
-	<FolderSimple weight={props.weight ?? "regular"} className={props.className} />
-);
-const PhMicrophone = (props: { className?: string; weight?: "fill" | "regular" }) => (
-	<Microphone weight={props.weight ?? "regular"} className={props.className} />
-);
-const PhCode = (props: { className?: string; weight?: "fill" | "regular" }) => (
-	<PhCodeRegular weight={props.weight ?? "regular"} className={props.className} />
-);
 
 import { CaptrLogo } from "@/components/brand/CaptrLogo";
 import { AppSettingsDialog } from "@/components/settings/AppSettingsDialog";
 import type { SourceAudioTrackSettings } from "@/components/video-editor/audio/audioTypes";
 import { WelcomeScreen } from "@/components/welcome/WelcomeScreen";
 import { extensionHost } from "@/lib/extensions";
-import { MotionSlideCodeEditorPanel } from "@/slides/motion/components/MotionSlideCodeEditorPanel";
-import { renderMotionSlideChunk } from "@/slides/motion/export/renderMotionSlideChunk";
-import { useMotionSlidePreview } from "@/slides/motion/hooks/useMotionSlidePreview";
-import { createDefaultMotionMeta, type MotionSlideMeta } from "@/slides/motion/schema";
+
 import { RecordSilenceAnalysisDialog } from "@/slides/record/components/RecordSilenceAnalysisDialog";
 import { type RecordSlideTimelineHandle } from "@/slides/record/components/RecordSlideTimeline";
 import { useRecordSlideAutoReframe } from "@/slides/record/hooks/useRecordSlideAutoReframe";
 import { useRecordSlideSilenceAnalysis } from "@/slides/record/hooks/useRecordSlideSilenceAnalysis";
 import { useRecordSlideTelemetry } from "@/slides/record/hooks/useRecordSlideTelemetry";
 import { applySilenceRemovalToTimeline } from "@/slides/record/silenceDetector";
-import { createDefaultVideoMeta } from "@/slides/video/schema";
+
 import { useVideoEditorAudio } from "./audio/useVideoEditorAudio";
 import { CropControl } from "./CropControl";
 import {
-	createMotionClip,
 	createRecordedClip,
-	createUploadedClip,
 	findClipAtTimelineTime,
 	foldActiveAudioRegionsIntoClips,
 	reorderClips,
@@ -192,7 +174,7 @@ import {
 import { SettingsPanel } from "./SettingsPanel";
 import SlideTimelineHost, { type SlideTimelineMode } from "./SlideTimelineHost";
 import { resolveLoadedSlideAudioRegions, resolveSlideAudioSourcePath } from "./slideAudioIsolation";
-import { SlideList } from "./slides/SlideList";
+
 import { getDevOpenRecordingConfig, getSmokeExportConfig } from "./smokeExportConfig";
 import { createSmokeExportProgressSampler } from "./smokeExportProgress";
 import {
@@ -1638,36 +1620,10 @@ export default function VideoEditor() {
 
 	// Derive the editing mode of the active slide. Legacy clips
 	// (without a slideMode field) default based on their origin.
-	const activeSlideMode =
-		activeSlide?.slideMode ?? (activeSlide?.origin === "uploaded" ? "video" : "record");
+	const activeSlideMode = "record" as const;
 
 	// Extension-contributed standalone section pages (no parentSection)
 	const editorSectionButtons = useMemo(() => {
-		if (activeSlideMode === "motion") {
-			return [
-				{
-					id: "motion" as const,
-					label: t("settings.sections.motion", "Motion Code"),
-					icon: PhCode,
-				},
-			];
-		}
-
-		if (activeSlideMode === "video") {
-			return [
-				{
-					id: "media" as const,
-					label: t("settings.sections.media", "Media"),
-					icon: PhFolder,
-				},
-				{
-					id: "audio-record" as const,
-					label: t("settings.sections.audioRecord", "Audio & Mic"),
-					icon: PhMicrophone,
-				},
-			];
-		}
-
 		return [
 			{ id: "scene" as const, label: t("settings.sections.scene", "Scene"), icon: PhSparkle },
 			{
@@ -1685,7 +1641,7 @@ export default function VideoEditor() {
 
 	useEffect(() => {
 		const targetSection =
-			activeSlideMode === "record" && activeEffectSection === "webcam"
+			activeEffectSection === "webcam"
 				? "layout"
 				: sanitizeSectionForSlideMode(activeSlideMode, activeEffectSection);
 		if (targetSection !== activeEffectSection) {
@@ -3102,12 +3058,9 @@ export default function VideoEditor() {
 			if (id) {
 				const clip =
 					clipsRef.current.find((c) => c.id === id) ?? clips.find((c) => c.id === id);
-				const isRecord = isRecordSlide(clip);
-				const mode =
-					clip?.slideMode ??
-					(isRecord ? "record" : clip?.origin === "uploaded" ? "video" : "record");
+
 				setActiveEffectSection(
-					(prev) => sanitizeSectionForSlideMode(mode, prev) as EditorEffectSection,
+					(prev) => sanitizeSectionForSlideMode("record", prev) as EditorEffectSection,
 				);
 				setSelectedZoomId(null);
 				setSelectedLayoutId(null);
@@ -3226,198 +3179,6 @@ export default function VideoEditor() {
 		],
 	);
 
-	const handleImportVideoClip = useCallback(
-		async (filePathInput?: string, labelInput?: string) => {
-			try {
-				let filePath = filePathInput;
-				if (!filePath) {
-					const result = await window.electronAPI.showOpenDialog({
-						title: "Import Video Clip",
-						filters: [{ name: "Videos", extensions: ["mp4", "webm", "mov", "mkv"] }],
-						properties: ["openFile"],
-					});
-					if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
-						return;
-					}
-					filePath = result.filePaths[0];
-				}
-				if (window.electronAPI?.approveLocalMediaPath) {
-					await window.electronAPI.approveLocalMediaPath(filePath);
-				}
-				const newVideoUrl = await resolveVideoUrl(filePath);
-				const durationMs = await new Promise<number>((resolve) => {
-					const video = document.createElement("video");
-					video.onloadedmetadata = () =>
-						resolve(Math.round(video.duration * 1000) || 5000);
-					video.onerror = () => resolve(5000);
-					video.src = newVideoUrl;
-				});
-
-				const currentClips = clipsRef.current;
-				const currentClipRegions = clipRegionsRef.current;
-
-				if (currentClips.length === 0 && !videoPath) {
-					const newClipId = deriveUniqueClipId(currentClips, currentClipRegions);
-					const newClip = createUploadedClip({
-						id: newClipId,
-						videoPath: filePath,
-						startMsOffset: 0,
-						durationMs,
-						label: labelInput || "Slide 1",
-					});
-					setVideoSourcePath(filePath);
-					setVideoPath(newVideoUrl);
-					setClips([newClip]);
-					setSelectedClipId(newClipId);
-					setActiveSceneId(newClipId);
-					restoreSceneEditing(newClip);
-					setWebcam((prev) => ({
-						...prev,
-						enabled: false,
-						sourcePath: null,
-					}));
-					setResolvedWebcamVideoUrl(null);
-					setShowCursor(false);
-					clearCursorTelemetry();
-					setClipRegions([
-						{
-							id: newClipId,
-							startMs: 0,
-							endMs: durationMs,
-							speed: 1,
-						},
-					]);
-					toast.success(`Slide added as ${labelInput || "Slide 1"}`);
-				} else {
-					const nextTakeNum = currentClips.length + 1;
-					const newClipId = deriveUniqueClipId(currentClips, currentClipRegions);
-					const startMsOffset = currentClips.reduce((acc, c) => acc + c.durationMs, 0);
-					const newClip = createUploadedClip({
-						id: newClipId,
-						videoPath: filePath,
-						startMsOffset,
-						durationMs,
-						label: labelInput || `Slide ${nextTakeNum}`,
-					});
-					const currentClipsEndTime = currentClipRegions.reduce(
-						(acc, c) => Math.max(acc, c.endMs),
-						0,
-					);
-					const newClipRegion: ClipRegion = {
-						id: newClipId,
-						startMs: currentClipsEndTime,
-						endMs: currentClipsEndTime + durationMs,
-						speed: 1,
-					};
-					const updatedClips = [...currentClips, newClip];
-					setClips(updatedClips);
-					clipsRef.current = updatedClips;
-					setClipRegions((prev) => [...prev, newClipRegion]);
-					handleSelectClip(newClipId);
-					toast.success(`Slide added as ${labelInput || `Slide ${nextTakeNum}`}`);
-				}
-				recordEditorHistorySnapshot(editorHistoryRef.current, buildHistorySnapshot());
-				syncHistoryButtons();
-			} catch (err) {
-				console.error("Failed to import clip:", err);
-				toast.error("Failed to import clip");
-			}
-		},
-		[
-			deriveUniqueClipId,
-			videoPath,
-			handleSelectClip,
-			buildHistorySnapshot,
-			syncHistoryButtons,
-			clearCursorTelemetry,
-		],
-	);
-
-	const handleAddMotionSlide = useCallback(
-		(motionMetaInput?: MotionSlideMeta, labelInput?: string) => {
-			const currentClips = clipsRef.current;
-			const currentClipRegions = clipRegionsRef.current;
-			const nextSlideNum = currentClips.length + 1;
-			const newClipId = deriveUniqueClipId(currentClips, currentClipRegions);
-			const meta = motionMetaInput ? { ...motionMetaInput } : createDefaultMotionMeta();
-			meta.modeSelected = true;
-			const durationMs = meta.durationMs || 5000;
-			const label = labelInput || `Motion ${nextSlideNum}`;
-
-			if (currentClips.length === 0 && !videoPath) {
-				const newClip = createMotionClip({
-					id: newClipId,
-					startMsOffset: 0,
-					durationMs,
-					label,
-					motionMeta: meta,
-				});
-				setClips([newClip]);
-				clipsRef.current = [newClip];
-				setSelectedClipId(newClipId);
-				setActiveSceneId(newClipId);
-				restoreSceneEditing(newClip);
-				setClipRegions([
-					{
-						id: newClipId,
-						startMs: 0,
-						endMs: durationMs,
-						speed: 1,
-					},
-				]);
-				clipRegionsRef.current = [
-					{
-						id: newClipId,
-						startMs: 0,
-						endMs: durationMs,
-						speed: 1,
-					},
-				];
-				setDuration(durationMs / 1000);
-				toast.success(`Slide Motion ditambahkan: ${label}`);
-			} else {
-				const startMsOffset = currentClips.reduce((acc, c) => acc + c.durationMs, 0);
-				const newClip = createMotionClip({
-					id: newClipId,
-					startMsOffset,
-					durationMs,
-					label,
-					motionMeta: meta,
-				});
-				const currentClipsEndTime = currentClipRegions.reduce(
-					(acc, c) => Math.max(acc, c.endMs),
-					0,
-				);
-				const newClipRegion: ClipRegion = {
-					id: newClipId,
-					startMs: currentClipsEndTime,
-					endMs: currentClipsEndTime + durationMs,
-					speed: 1,
-				};
-				const updatedClips = [...currentClips, newClip];
-				const updatedRegions = [...currentClipRegions, newClipRegion];
-				setClips(updatedClips);
-				clipsRef.current = updatedClips;
-				setClipRegions(updatedRegions);
-				clipRegionsRef.current = updatedRegions;
-				handleSelectClip(newClipId);
-				setDuration((currentClipsEndTime + durationMs) / 1000);
-				toast.success(`Slide Motion ditambahkan: ${label}`);
-			}
-			recordEditorHistorySnapshot(editorHistoryRef.current, buildHistorySnapshot());
-			syncHistoryButtons();
-		},
-		[
-			deriveUniqueClipId,
-			videoPath,
-			restoreSceneEditing,
-			handleSelectClip,
-			setDuration,
-			buildHistorySnapshot,
-			syncHistoryButtons,
-		],
-	);
-
 	const handleVideoPlaybackError = useCallback((errorMessage: string) => {
 		console.error("[VideoEditor] Playback error:", errorMessage);
 		toast.error(errorMessage, {
@@ -3474,13 +3235,6 @@ export default function VideoEditor() {
 
 	const handleTransitionChange = useCallback(
 		(slideId: string, transitionType: ClipTransitionType, durationMs: number) => {
-			const targetClip = clipsRef.current.find((c) => c.id === slideId);
-			if (
-				targetClip &&
-				(targetClip.slideMode === "video" || targetClip.slideMode === "motion")
-			) {
-				return;
-			}
 			setClips((prev) =>
 				prev.map((c) =>
 					c.id === slideId
@@ -3943,7 +3697,7 @@ export default function VideoEditor() {
 
 	const effectiveZoomRegions = useMemo<ZoomRegion[]>(
 		() =>
-			(activeSlideMode === "record" ? zoomRegions : []).map((region) => ({
+			zoomRegions.map((region) => ({
 				...region,
 				startMs: mapTimelineTimeToSourceTime(region.startMs),
 				endMs: mapTimelineTimeToSourceTime(region.endMs),
@@ -3978,91 +3732,6 @@ export default function VideoEditor() {
 		return Math.max(1, duration);
 	}, [activeSlide, duration]);
 
-	const motionPreview = useMotionSlidePreview({
-		isActive: activeSlideMode === "motion",
-		meta: activeSlide?.motionMeta,
-		currentTimeMs: currentTime * 1000,
-		durationMs: activeSlide?.durationMs || 5000,
-	});
-
-	const updateSelectedMotionMeta = useCallback(
-		(updater: (meta: MotionSlideMeta) => MotionSlideMeta) => {
-			setClips((previousClips) =>
-				previousClips.map((clip) =>
-					clip.id === selectedClipId
-						? {
-								...clip,
-								motionMeta: updater(clip.motionMeta || createDefaultMotionMeta()),
-							}
-						: clip,
-				),
-			);
-		},
-		[selectedClipId],
-	);
-
-	const handleSelectedMotionDurationChange = useCallback(
-		(nextDurationMs: number) => {
-			setClips((previousClips) =>
-				previousClips.map((clip) =>
-					clip.id === selectedClipId
-						? {
-								...clip,
-								durationMs: nextDurationMs,
-								motionMeta: {
-									...(clip.motionMeta || createDefaultMotionMeta()),
-									durationMs: nextDurationMs,
-								},
-							}
-						: clip,
-				),
-			);
-			setClipRegions((previousRegions) =>
-				previousRegions.map((region) =>
-					region.id === selectedClipId
-						? { ...region, endMs: region.startMs + nextDurationMs }
-						: region,
-				),
-			);
-			setDuration(nextDurationMs / 1000);
-		},
-		[selectedClipId],
-	);
-
-	const handleSelectedMotionLabelChange = useCallback(
-		(label: string) => {
-			setClips((previousClips) =>
-				previousClips.map((clip) =>
-					clip.id === selectedClipId ? { ...clip, label } : clip,
-				),
-			);
-		},
-		[selectedClipId],
-	);
-
-	useEffect(() => {
-		if (activeSlideMode !== "motion" || !isPlaying) return;
-		let lastNow = performance.now();
-		let animId: number;
-
-		const onTick = (now: number) => {
-			const deltaSec = (now - lastNow) / 1000;
-			lastNow = now;
-			setCurrentTime((prev) => {
-				const next = prev + deltaSec;
-				if (next >= slideDurationSec) {
-					setIsPlaying(false);
-					return 0;
-				}
-				return next;
-			});
-			animId = requestAnimationFrame(onTick);
-		};
-
-		animId = requestAnimationFrame(onTick);
-		return () => cancelAnimationFrame(animId);
-	}, [activeSlideMode, isPlaying, slideDurationSec]);
-
 	const slideLocalClipRegions = useMemo<ClipRegion[]>(() => {
 		const durMs = activeSlide ? activeSlide.durationMs : Math.round(duration * 1000);
 		const id = activeSlide ? activeSlide.id : "slide-1";
@@ -4080,178 +3749,6 @@ export default function VideoEditor() {
 	}, [activeSlide, duration]);
 
 	// Dedicated Video Slide multi-track timeline data and handlers
-	const activeVideoTracks = useMemo(() => {
-		if (activeSlide?.videoMeta?.videoTracks && activeSlide.videoMeta.videoTracks.length > 0) {
-			return activeSlide.videoMeta.videoTracks;
-		}
-		return [
-			{
-				id: "track-v1",
-				name: "Main Video (V1)",
-				type: "video" as const,
-				clips: [
-					{
-						id: activeSlide?.id || "clip-1",
-						title: activeSlide?.label || "Video Clip",
-						sourcePath: activeSlide?.videoPath || "",
-						startOffsetMs: 0,
-						durationMs: activeSlide?.durationMs || Math.round(slideDurationSec * 1000),
-						speedMultiplier: activeSlide?.speed || 1,
-						volume: 1,
-					},
-				],
-			},
-		];
-	}, [activeSlide, slideDurationSec]);
-
-	const activeAudioTracks = useMemo(() => {
-		return activeSlide?.videoMeta?.audioTracks || [];
-	}, [activeSlide?.videoMeta?.audioTracks]);
-
-	const handleVideoSlideClipSplit = useCallback(
-		(trackId: string, clipId: string, splitMs: number) => {
-			if (!activeSlide) return;
-			const currentMeta = activeSlide.videoMeta || {
-				...createDefaultVideoMeta(),
-				videoTracks: activeVideoTracks,
-			};
-			const targetTrack = currentMeta.videoTracks.find((t) => t.id === trackId);
-			if (!targetTrack) return;
-			const targetClip = targetTrack.clips.find((c) => c.id === clipId);
-			if (!targetClip) return;
-
-			const leftDuration = splitMs - targetClip.startOffsetMs;
-			const rightDuration = targetClip.durationMs - leftDuration;
-			if (leftDuration <= 200 || rightDuration <= 200) return;
-
-			const leftClip = {
-				...targetClip,
-				durationMs: leftDuration,
-			};
-			const rightClip = {
-				...targetClip,
-				id: `clip-${Date.now()}`,
-				title: `${targetClip.title} (Part 2)`,
-				startOffsetMs: splitMs,
-				durationMs: rightDuration,
-			};
-
-			const newTracks = currentMeta.videoTracks.map((tr) =>
-				tr.id === trackId
-					? {
-							...tr,
-							clips: tr.clips.flatMap((c) =>
-								c.id === clipId ? [leftClip, rightClip] : [c],
-							),
-						}
-					: tr,
-			);
-
-			setClips((prev) =>
-				prev.map((c) =>
-					c.id === activeSlide.id
-						? { ...c, videoMeta: { ...currentMeta, videoTracks: newTracks } }
-						: c,
-				),
-			);
-			toast.success(t("editor.clip.splitSuccess", "Clip split at playhead"));
-		},
-		[activeSlide, activeVideoTracks, setClips, t],
-	);
-
-	const handleVideoSlideClipTrim = useCallback(
-		(trackId: string, clipId: string, newStartOffsetMs: number, newDurationMs: number) => {
-			if (!activeSlide) return;
-			const currentMeta = activeSlide.videoMeta || {
-				...createDefaultVideoMeta(),
-				videoTracks: activeVideoTracks,
-			};
-			const newTracks = currentMeta.videoTracks.map((tr) =>
-				tr.id === trackId
-					? {
-							...tr,
-							clips: tr.clips.map((c) =>
-								c.id === clipId
-									? {
-											...c,
-											startOffsetMs: newStartOffsetMs,
-											durationMs: newDurationMs,
-										}
-									: c,
-							),
-						}
-					: tr,
-			);
-
-			setClips((prev) =>
-				prev.map((c) =>
-					c.id === activeSlide.id
-						? { ...c, videoMeta: { ...currentMeta, videoTracks: newTracks } }
-						: c,
-				),
-			);
-		},
-		[activeSlide, activeVideoTracks, setClips],
-	);
-
-	const handleVideoSlideClipDelete = useCallback(
-		(trackId: string, clipId: string) => {
-			if (!activeSlide) return;
-			const currentMeta = activeSlide.videoMeta || {
-				...createDefaultVideoMeta(),
-				videoTracks: activeVideoTracks,
-			};
-			const newTracks = currentMeta.videoTracks.map((tr) =>
-				tr.id === trackId
-					? {
-							...tr,
-							clips: tr.clips.filter((c) => c.id !== clipId),
-						}
-					: tr,
-			);
-
-			setClips((prev) =>
-				prev.map((c) =>
-					c.id === activeSlide.id
-						? { ...c, videoMeta: { ...currentMeta, videoTracks: newTracks } }
-						: c,
-				),
-			);
-			if (selectedClipId === clipId) {
-				setSelectedClipId(null);
-			}
-		},
-		[activeSlide, activeVideoTracks, selectedClipId, setClips],
-	);
-
-	const handleVideoSlideClipSpeed = useCallback(
-		(trackId: string, clipId: string, speed: number) => {
-			if (!activeSlide) return;
-			const currentMeta = activeSlide.videoMeta || {
-				...createDefaultVideoMeta(),
-				videoTracks: activeVideoTracks,
-			};
-			const newTracks = currentMeta.videoTracks.map((tr) =>
-				tr.id === trackId
-					? {
-							...tr,
-							clips: tr.clips.map((c) =>
-								c.id === clipId ? { ...c, speedMultiplier: speed } : c,
-							),
-						}
-					: tr,
-			);
-
-			setClips((prev) =>
-				prev.map((c) =>
-					c.id === activeSlide.id
-						? { ...c, videoMeta: { ...currentMeta, videoTracks: newTracks } }
-						: c,
-				),
-			);
-		},
-		[activeSlide, activeVideoTracks, setClips],
-	);
 
 	// Merge clip speeds into speed regions so playback + export respect per-clip speed
 	const effectiveSpeedRegions = useMemo<SpeedRegion[]>(() => {
@@ -4338,10 +3835,6 @@ export default function VideoEditor() {
 	} = recordSilenceAnalysis;
 
 	function togglePlayPause() {
-		if (activeSlideMode === "motion") {
-			setIsPlaying((prev) => !prev);
-			return;
-		}
 		const playback = videoPlaybackRef.current;
 		const video = playback?.video;
 		if (!playback || !video) return;
@@ -4355,14 +3848,6 @@ export default function VideoEditor() {
 
 	const handleSeek = useCallback(
 		(time: number, options: { pause?: boolean } = {}) => {
-			if (activeSlideMode === "motion") {
-				if (options.pause) {
-					setIsPlaying(false);
-				}
-				setCurrentTime(Math.max(0, Math.min(time, slideDurationSec)));
-				return;
-			}
-
 			const playback = videoPlaybackRef.current;
 			const video = playback?.video;
 			if (!video) return;
@@ -4405,11 +3890,6 @@ export default function VideoEditor() {
 					? activeSlide.durationMs / 1000
 					: duration;
 			const targetTime = Math.max(0, Math.min(time, maxDuration));
-
-			if (activeSlideMode === "motion") {
-				setCurrentTime(targetTime);
-				return;
-			}
 
 			const playback = videoPlaybackRef.current;
 			const video = playback?.video;
@@ -5545,120 +5025,6 @@ export default function VideoEditor() {
 		[annotationRegions.length, currentTime, duration],
 	);
 
-	const handleImportMediaToSlide = useCallback(
-		async (targetSubfolder?: string) => {
-			const activeId = selectedClipId ?? clips[0]?.id;
-			if (!activeId) return;
-
-			const result = await window.electronAPI.showOpenDialog({
-				title: "Import Media to Slide",
-				filters: [
-					{
-						name: "All Media Files",
-						extensions: [
-							"mp4",
-							"webm",
-							"mov",
-							"mkv",
-							"mp3",
-							"wav",
-							"aac",
-							"m4a",
-							"ogg",
-							"flac",
-							"png",
-							"jpg",
-							"jpeg",
-							"webp",
-							"svg",
-							"gif",
-						],
-					},
-					{ name: "Videos", extensions: ["mp4", "webm", "mov", "mkv"] },
-					{ name: "Audio", extensions: ["mp3", "wav", "aac", "m4a", "ogg", "flac"] },
-					{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "svg", "gif"] },
-				],
-				properties: ["openFile", "multiSelections"],
-			});
-
-			if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
-				return;
-			}
-
-			const videoExts = ["mp4", "webm", "mov", "mkv"];
-			const audioExts = ["mp3", "wav", "aac", "m4a", "ogg", "flac"];
-			const activeProjectId = lastSavedSnapshot?.projectId || "project-active";
-
-			const newAssets: SlideAssetFile[] = await Promise.all(
-				result.filePaths.map(async (filePath) => {
-					const ext = (filePath.split(".").pop() || "").toLowerCase();
-					const isVideo = videoExts.includes(ext);
-					const isAudio = audioExts.includes(ext);
-					const type: "video" | "audio" | "image" = isVideo
-						? "video"
-						: isAudio
-							? "audio"
-							: "image";
-
-					let subfolder = targetSubfolder;
-					if (!subfolder || subfolder === "Imported Media") {
-						subfolder = isVideo
-							? "Video Layers"
-							: isAudio
-								? "Audio & Voiceovers"
-								: "Graphics & Overlays";
-					}
-
-					let importedPath = filePath;
-					let fileSize = 0;
-					let finalName = filePath.split(/[/\\]/).pop() || "Asset";
-
-					if (window.electronAPI.importAssetToSlide) {
-						try {
-							const importRes = await window.electronAPI.importAssetToSlide(
-								activeProjectId,
-								activeId,
-								filePath,
-								subfolder,
-							);
-							if (importRes.success && importRes.absolutePath) {
-								importedPath = importRes.absolutePath;
-								if (importRes.size) fileSize = importRes.size;
-								if (importRes.fileName) finalName = importRes.fileName;
-							}
-						} catch {
-							// Fall back to original filePath
-						}
-					}
-
-					return {
-						id: `asset-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-						name: finalName,
-						path: importedPath,
-						size: fileSize,
-						mtimeMs: Date.now(),
-						type,
-						subfolder,
-						category: "imported",
-					};
-				}),
-			);
-
-			setClips((prevClips) =>
-				prevClips.map((clip) => {
-					if (clip.id !== activeId) return clip;
-					const existing = clip.assetFiles ?? [];
-					return {
-						...clip,
-						assetFiles: [...existing, ...newAssets],
-					};
-				}),
-			);
-			toast.success(`Imported ${newAssets.length} asset(s) to this slide`);
-		},
-		[selectedClipId, clips],
-	);
-
 	const handleRemoveAssetFromSlide = useCallback(
 		(assetId: string) => {
 			const activeId = selectedClipId ?? clips[0]?.id;
@@ -5958,11 +5324,6 @@ export default function VideoEditor() {
 					return;
 				}
 				e.preventDefault();
-
-				if (activeSlideMode === "motion") {
-					setIsPlaying((prev) => !prev);
-					return;
-				}
 
 				const playback = videoPlaybackRef.current;
 				if (playback?.video) {
@@ -6331,9 +5692,7 @@ export default function VideoEditor() {
 
 					const effectiveVideoUrl =
 						videoPath ||
-						(clips.length > 0
-							? clips.find((c) => !isMotionSlide(c) && c.videoPath)?.videoPath
-							: "") ||
+						(clips.length > 0 ? clips.find((c) => c.videoPath)?.videoPath : "") ||
 						"";
 
 					const exporterConfig = {
@@ -6418,98 +5777,12 @@ export default function VideoEditor() {
 
 					let result: ExportResult;
 
-					const isSingleMotion =
-						clips.length <= 1 &&
-						(activeSlideMode === "motion" ||
-							(clips.length === 1 && isMotionSlide(clips[0])));
-
-					if (isSingleMotion) {
-						const targetClip = clips[0] ?? activeSlide;
-						const meta =
-							targetClip?.motionMeta ??
-							(activeSlide?.id === targetClip?.id
-								? activeSlide?.motionMeta
-								: undefined) ??
-							createDefaultMotionMeta();
-						const durationMs = targetClip?.durationMs || meta.durationMs || 5000;
-						const motionResult = await renderMotionSlideChunk({
-							meta,
-							durationMs,
-							width: exportWidth,
-							height: exportHeight,
-							fps: selectedMp4FrameRate,
-							onProgress: (progress) => {
-								const exportProg: ExportProgress = {
-									...progress,
-									estimatedTimeRemaining: Math.max(
-										0,
-										Math.round(
-											(progress.totalFrames - progress.currentFrame) /
-												Math.max(1, selectedMp4FrameRate),
-										),
-									),
-									phase: "extracting",
-								};
-								recordSmokeProgress(exportProg);
-								setExportProgress(exportProg);
-							},
-						});
-						result = {
-							success: true,
-							tempFilePath: motionResult.filePath,
-						};
-					} else if (clips.length > 1) {
+					if (clips.length > 1) {
 						const renderedClipPaths: string[] = [];
 						const totalClips = clips.length;
 
 						for (let i = 0; i < clips.length; i++) {
 							const clip = clips[i];
-
-							if (isMotionSlide(clip)) {
-								const meta =
-									clip.motionMeta ??
-									(activeSlide?.id === clip.id
-										? activeSlide?.motionMeta
-										: undefined) ??
-									createDefaultMotionMeta();
-								const durationMs = clip.durationMs || meta.durationMs || 5000;
-								const motionResult = await renderMotionSlideChunk({
-									meta,
-									durationMs,
-									width: exportWidth,
-									height: exportHeight,
-									fps: selectedMp4FrameRate,
-									onProgress: (progress) => {
-										const aggregateProgress: ExportProgress = {
-											...progress,
-											percentage: Math.round(
-												((i + progress.percentage / 100) / totalClips) *
-													100,
-											),
-											estimatedTimeRemaining: Math.max(
-												0,
-												Math.round(
-													(progress.totalFrames - progress.currentFrame) /
-														Math.max(1, selectedMp4FrameRate),
-												),
-											),
-											phase: "extracting",
-										};
-										recordSmokeProgress(aggregateProgress);
-										setExportProgress(aggregateProgress);
-									},
-								});
-
-								renderedClipPaths.push(motionResult.filePath);
-								setExportProgress((prev) => ({
-									currentFrame: prev?.currentFrame ?? 1,
-									totalFrames: prev?.totalFrames ?? 1,
-									percentage: Math.round(((i + 1) / totalClips) * 100),
-									estimatedTimeRemaining: prev?.estimatedTimeRemaining ?? 0,
-									phase: "extracting",
-								}));
-								continue;
-							}
 
 							const isRecorded = isRecordSlide(clip);
 							const scene = resolveSceneEditingState(clip);
@@ -7518,7 +6791,6 @@ export default function VideoEditor() {
 						recentProjects={projectLibraryEntries}
 						onSaveProject={() => void saveProject(false)}
 						onSaveAsProject={() => void saveProject(true)}
-						onImportMedia={() => void handleImportVideoClip()}
 						onExportVideo={handleOpenExportDropdown}
 						onNavigateToWelcome={() => void handleNavigateToWelcome()}
 						canUndo={canUndo}
@@ -7740,20 +7012,20 @@ export default function VideoEditor() {
 																: "border-foreground/8 bg-foreground/[0.03] text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
 														)}
 													>
- 														<button
- 															type="button"
- 															onClick={() =>
- 																handleApplyEditorPreset(preset.id)
- 															}
- 															className="flex min-w-0 flex-1 items-center justify-between text-left"
- 														>
- 															<span className="truncate pr-3">
- 																{preset.name}
- 															</span>
- 															{isActive ? (
+														<button
+															type="button"
+															onClick={() =>
+																handleApplyEditorPreset(preset.id)
+															}
+															className="flex min-w-0 flex-1 items-center justify-between text-left"
+														>
+															<span className="truncate pr-3">
+																{preset.name}
+															</span>
+															{isActive ? (
 																<Check className="h-3.5 w-3.5 shrink-0 text-[#6FA8FF]" />
- 															) : null}
- 														</button>
+															) : null}
+														</button>
 														<button
 															type="button"
 															onClick={() =>
@@ -7814,54 +7086,54 @@ export default function VideoEditor() {
 												{t("editor.exportStatus.exporting", "Exporting")}
 											</p>
 											<p className="text-xs text-muted-foreground">
- 												{t(
- 													"editor.exportStatus.renderingFile",
- 													"Rendering your file.",
- 												)}
- 											</p>
- 											{isLightningExportInProgress ? (
- 												<p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground/70">
- 													PLEASE
- 													<button
- 														type="button"
- 														onClick={() => void openLightningIssues()}
- 														className="underline decoration-slate-500/70 underline-offset-2 transition-colors hover:text-foreground"
- 													>
- 														report bugs
- 													</button>
- 													with Lightning export
- 													<span aria-hidden="true">{"\u{1F64F}"}</span>
- 												</p>
- 											) : null}
- 											{isLegacyExportInProgress ? (
- 												<p className="mt-1 text-[11px] text-muted-foreground/70">
- 													Export too slow? Cancel and try Lightning
- 													export!
- 												</p>
- 											) : null}
- 										</div>
- 										<Button
- 											type="button"
- 											variant="outline"
- 											onClick={handleCancelExport}
- 											className="h-8 border-red-500/20 bg-red-500/10 px-3 text-xs text-red-400 hover:bg-red-500/20"
- 										>
- 											{t("common.actions.cancel")}
- 										</Button>
- 									</div>
- 									<div className="h-2 overflow-hidden rounded-full border border-foreground/5 bg-foreground/5">
- 										{isExportPreparing ||
- 										isExportSaving ||
- 										isExportFinalSaveIndeterminate ? (
- 											<div className="indeterminate-progress h-full rounded-full bg-transparent" />
- 										) : (
- 											<div
+												{t(
+													"editor.exportStatus.renderingFile",
+													"Rendering your file.",
+												)}
+											</p>
+											{isLightningExportInProgress ? (
+												<p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground/70">
+													PLEASE
+													<button
+														type="button"
+														onClick={() => void openLightningIssues()}
+														className="underline decoration-slate-500/70 underline-offset-2 transition-colors hover:text-foreground"
+													>
+														report bugs
+													</button>
+													with Lightning export
+													<span aria-hidden="true">{"\u{1F64F}"}</span>
+												</p>
+											) : null}
+											{isLegacyExportInProgress ? (
+												<p className="mt-1 text-[11px] text-muted-foreground/70">
+													Export too slow? Cancel and try Lightning
+													export!
+												</p>
+											) : null}
+										</div>
+										<Button
+											type="button"
+											variant="outline"
+											onClick={handleCancelExport}
+											className="h-8 border-red-500/20 bg-red-500/10 px-3 text-xs text-red-400 hover:bg-red-500/20"
+										>
+											{t("common.actions.cancel")}
+										</Button>
+									</div>
+									<div className="h-2 overflow-hidden rounded-full border border-foreground/5 bg-foreground/5">
+										{isExportPreparing ||
+										isExportSaving ||
+										isExportFinalSaveIndeterminate ? (
+											<div className="indeterminate-progress h-full rounded-full bg-transparent" />
+										) : (
+											<div
 												className="h-full bg-[#A879F5] transition-all duration-300 ease-out"
- 												style={{
- 													width: `${Math.min(isRenderingAudio ? (exportProgress?.audioProgress ?? 0) * 100 : (exportFinalizingProgress ?? exportProgress?.percentage ?? 8), 100)}%`,
- 												}}
- 											/>
- 										)}
+												style={{
+													width: `${Math.min(isRenderingAudio ? (exportProgress?.audioProgress ?? 0) * 100 : (exportFinalizingProgress ?? exportProgress?.percentage ?? 8), 100)}%`,
+												}}
+											/>
+										)}
 									</div>
 									<p className="mt-2 text-xs text-muted-foreground">
 										{exportPercentLabel}
@@ -8141,45 +7413,13 @@ export default function VideoEditor() {
 
 						{/* Function Panel (Middle Inspector) */}
 						<div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-							{activeSlideMode === "motion" && activeEffectSection === "motion" ? (
-								<MotionSlideCodeEditorPanel
-									motionMeta={activeSlide?.motionMeta}
-									durationMs={activeSlide?.durationMs || 5000}
-									onUpdateMeta={updateSelectedMotionMeta}
-									onChangeDuration={handleSelectedMotionDurationChange}
-									onChangeSlideLabel={handleSelectedMotionLabelChange}
-								/>
-							) : (
+							{
 								<SettingsPanel
 									panelMode="editor"
 									className="w-full h-full border-none rounded-none shadow-none bg-transparent"
-									activeEffectSection={
-										activeSlideMode === "video" &&
-										[
-											"scene",
-											"layout",
-											"zoom",
-											"cursor",
-											"webcam",
-											"frame",
-											"crop",
-											"video-adjust",
-										].includes(activeEffectSection)
-											? "media"
-											: activeEffectSection
-									}
+									activeEffectSection={activeEffectSection}
 									recordToolsEnabled={recordToolsEnabled}
 									slides={clips}
-									onAddAsSlide={(filePath, label) => {
-										void handleImportVideoClip(filePath, label);
-									}}
-									onImportMedia={(subfolder) => {
-										if (activeSlideMode === "video") {
-											void handleImportMediaToSlide(subfolder);
-										} else {
-											void handleImportVideoClip();
-										}
-									}}
 									onUseAsset={handleUseAssetInSlide}
 									onRemoveAsset={handleRemoveAssetFromSlide}
 									onAudioAdded={handleAudioAdded}
@@ -8450,7 +7690,7 @@ export default function VideoEditor() {
 									onAnnotationLayerChange={handleAnnotationLayerChange}
 									onAnnotationDelete={handleAnnotationDelete}
 								/>
-							)}
+							}
 						</div>
 					</div>
 
@@ -8616,19 +7856,7 @@ export default function VideoEditor() {
 												boxSizing: "border-box",
 											}}
 										>
-											{activeSlideMode === "motion" ? (
-												<div className="relative w-full h-full flex items-center justify-center bg-slate-950 overflow-hidden">
-													<iframe
-														ref={motionPreview.iframeRef}
-														key={selectedClipId || "motion-preview"}
-														title="Captr Motion Preview"
-														srcDoc={motionPreview.srcDoc}
-														onLoad={motionPreview.onIframeLoad}
-														sandbox="allow-scripts allow-same-origin"
-														className="h-full w-full border-0 select-none pointer-events-auto"
-													/>
-												</div>
-											) : clips.length === 0 && !videoPath ? (
+											{clips.length === 0 && !videoPath ? (
 												<div className="flex flex-col items-center justify-center h-full w-full max-w-md mx-auto rounded-3xl border border-foreground/10 bg-foreground/[0.02] p-8 text-center backdrop-blur-md shadow-2xl my-auto">
 													<div className="p-4 rounded-2xl bg-foreground/5 border border-foreground/10 mb-4 shadow-inner">
 														<CaptrLogo
@@ -8641,8 +7869,8 @@ export default function VideoEditor() {
 														Captr Studio
 													</h2>
 													<p className="text-xs text-muted-foreground mb-6 max-w-xs leading-relaxed">
-														Record your screen & camera or import video
-														files to start your project.
+														Record your screen & camera to start your
+														project.
 													</p>
 													<div className="flex flex-col sm:flex-row items-center gap-3 w-full justify-center">
 														<Button
@@ -8655,17 +7883,6 @@ export default function VideoEditor() {
 																weight="fill"
 															/>
 															<span>Record Video</span>
-														</Button>
-														<Button
-															type="button"
-															variant="outline"
-															onClick={() =>
-																void handleImportVideoClip()
-															}
-															className="w-full sm:w-auto h-9 px-5 rounded-xl border-foreground/15 bg-foreground/5 hover:bg-foreground/10 text-xs font-semibold gap-2 transition-all cursor-pointer"
-														>
-															<UploadSimple className="w-3.5 h-3.5" />
-															Import Video
 														</Button>
 													</div>
 												</div>
@@ -8718,11 +7935,7 @@ export default function VideoEditor() {
 																	sourcePath: null,
 																}
 													}
-													layoutRegions={
-														activeSlideMode === "record"
-															? layoutRegions
-															: []
-													}
+													layoutRegions={layoutRegions}
 													webcamVideoPath={
 														webcam.sourcePath
 															? resolvedWebcamVideoUrl
@@ -9059,10 +8272,7 @@ export default function VideoEditor() {
 								clipRegions={clipRegions}
 								selectedSlideId={selectedClipId}
 								onSelectSlide={handleSelectClip}
-								onAddSlide={() => void handleImportVideoClip()}
 								onAddRecordSlide={handleOpenRecorderHud}
-								onAddVideoSlide={() => void handleImportVideoClip()}
-								onAddMotionSlide={handleAddMotionSlide}
 								onDeleteSlide={handleDeleteClip}
 								onDuplicateSlide={handleDuplicateSlide}
 								onSplitSlide={handleSplitSlide}
@@ -9160,7 +8370,7 @@ export default function VideoEditor() {
 							ref={timelineRef}
 							mode={activeSlideMode as SlideTimelineMode}
 							recordProps={{
-								recordToolsEnabled: activeSlideMode === "record",
+								recordToolsEnabled: true,
 								videoDuration: slideDurationSec,
 								currentTime: currentTime,
 								playheadTime: currentTime,
@@ -9185,10 +8395,8 @@ export default function VideoEditor() {
 								cursorTelemetry: normalizedCursorTelemetry,
 								autoSuggestZoomsTrigger: autoSuggestZoomsTrigger,
 								onAutoSuggestZoomsConsumed: consumeAutoSuggestZooms,
-								disableSuggestedZooms:
-									activeSlideMode !== "record" ||
-									!autoApplyFreshRecordingAutoZooms,
-								zoomRegions: activeSlideMode === "record" ? zoomRegions : [],
+								disableSuggestedZooms: !autoApplyFreshRecordingAutoZooms,
+								zoomRegions: zoomRegions,
 								onZoomAdded: handleZoomAdded,
 								onZoomSuggested: handleZoomSuggested,
 								onZoomSpanChange: handleZoomSpanChange,
@@ -9202,7 +8410,7 @@ export default function VideoEditor() {
 								onClipDelete: handleClipDelete,
 								selectedClipId: selectedClipId,
 								onSelectClip: handleSelectClip,
-								layoutRegions: activeSlideMode === "record" ? layoutRegions : [],
+								layoutRegions: layoutRegions,
 								onLayoutAdded: handleLayoutAdded,
 								onLayoutSpanChange: handleLayoutSpanChange,
 								onLayoutDelete: handleLayoutDelete,
@@ -9233,59 +8441,6 @@ export default function VideoEditor() {
 									audio.onSourceAudioTracksMetaChange(tracks);
 								},
 								onDropMediaAsset: handleDropMediaAssetOnTimeline,
-							}}
-							motionProps={{
-								currentTimeMs: Math.round(currentTime * 1000),
-								durationMs:
-									activeSlide?.durationMs || Math.round(slideDurationSec * 1000),
-								isPlaying: isPlaying,
-								onSeek: (ms) => handleTimelineSeek(ms / 1000),
-								onTogglePlay: togglePlayPause,
-								onRewind: () => handleTimelineSeek(0),
-								onChangeDuration: (newDurationMs) => {
-									setClips((prev) =>
-										prev.map((c) =>
-											c.id === selectedClipId
-												? {
-														...c,
-														durationMs: newDurationMs,
-														motionMeta: {
-															...(c.motionMeta ||
-																createDefaultMotionMeta()),
-															durationMs: newDurationMs,
-														},
-													}
-												: c,
-										),
-									);
-									setClipRegions((prev) =>
-										prev.map((r) =>
-											r.id === selectedClipId
-												? {
-														...r,
-														endMs: r.startMs + newDurationMs,
-													}
-												: r,
-										),
-									);
-								},
-							}}
-							videoProps={{
-								videoTracks: activeVideoTracks,
-								audioTracks: activeAudioTracks,
-								slideDurationMs:
-									activeSlide?.durationMs || Math.round(slideDurationSec * 1000),
-								currentTimeMs: Math.round(currentTime * 1000),
-								isPlaying: isPlaying,
-								selectedClipId: selectedClipId,
-								onSeek: (ms) => handleTimelineSeek(ms / 1000),
-								onTogglePlay: togglePlayPause,
-								onRewind: () => handleTimelineSeek(0),
-								onSelectClip: handleSelectClip,
-								onSplitClip: handleVideoSlideClipSplit,
-								onTrimClip: handleVideoSlideClipTrim,
-								onDeleteClip: handleVideoSlideClipDelete,
-								onChangeClipSpeed: handleVideoSlideClipSpeed,
 							}}
 						/>
 					)}

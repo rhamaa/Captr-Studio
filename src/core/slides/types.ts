@@ -1,15 +1,11 @@
 import type React from "react";
 
-import type { MotionSlideMeta } from "@/slides/motion/schema";
 import type { RecordSlideMeta } from "@/slides/record/schema";
-import type { VideoSlideMeta } from "@/slides/video/schema";
 
 export interface SlideMetaByType {
 	record: RecordSlideMeta;
-	video: VideoSlideMeta;
 	/** Compatibility slot for externally registered keyframe modules. */
 	keyframe: Record<string, unknown>;
-	motion: MotionSlideMeta;
 }
 
 export type SlideType = keyof SlideMetaByType;

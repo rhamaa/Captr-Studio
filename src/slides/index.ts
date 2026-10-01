@@ -1,8 +1,3 @@
-// Auto-registers all built-in slide modules
+// Register the remaining Record module. General editing uses the project timeline.
 import "./record";
-import "./video";
-import "./motion";
-
-export * from "./motion";
 export * from "./record";
-export * from "./video";

@@ -25,36 +25,6 @@ describe("resolveSlideAudioSourcePath", () => {
 		).toBe(RECORD_SOURCE);
 	});
 
-	it("never leaks the record source into a motion slide", () => {
-		expect(
-			resolveSlideAudioSourcePath({
-				activeSlide: { videoPath: "" },
-				activeSlideMode: "motion",
-				currentSourcePath: RECORD_SOURCE,
-			}),
-		).toBeNull();
-	});
-
-	it("never leaks the record source into a video slide without its own media", () => {
-		expect(
-			resolveSlideAudioSourcePath({
-				activeSlide: { videoPath: "" },
-				activeSlideMode: "video",
-				currentSourcePath: RECORD_SOURCE,
-			}),
-		).toBeNull();
-	});
-
-	it("scopes a video slide to its own media path", () => {
-		expect(
-			resolveSlideAudioSourcePath({
-				activeSlide: { videoPath: "C:/imports/broll.mp4" },
-				activeSlideMode: "video",
-				currentSourcePath: RECORD_SOURCE,
-			}),
-		).toBe("C:/imports/broll.mp4");
-	});
-
 	it("keeps the global source while no slide is loaded (dev/smoke flows)", () => {
 		expect(
 			resolveSlideAudioSourcePath({

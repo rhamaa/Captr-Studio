@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LegacyEditorProjectData } from "@/components/video-editor/projectPersistence";
-import { createDefaultMotionMeta } from "@/slides/motion/schema";
+
 import { isProjectV2, migrateV1ProjectToV2 } from "./backwardCompat";
 
 describe("backwardCompat", () => {
@@ -74,10 +74,14 @@ describe("backwardCompat", () => {
 					startMsOffset: 0,
 					durationMs: 5000,
 					label: "Screen Demo",
+					webcamPath: "webcam.mp4",
+					microphoneAudioPath: "mic.wav",
+					systemAudioPath: "system.wav",
+					cursorTelemetryPath: "cursor.json",
 				},
 				{
 					id: "clip-2",
-					slideMode: "video",
+					slideMode: "record",
 					videoPath: "C:/recordings/broll.mp4",
 					startMsOffset: 5000,
 					durationMs: 4000,
@@ -98,76 +102,17 @@ describe("backwardCompat", () => {
 		expect(v2.slides.length).toBe(2);
 		expect(v2.slides[0].type).toBe("record");
 		expect(v2.slides[0].title).toBe("Screen Demo");
-		expect(v2.slides[1].type).toBe("video");
+		const reopened = JSON.parse(JSON.stringify(v2));
+		expect(reopened.slides[0].meta).toMatchObject({
+			webcamPath: "webcam.mp4",
+			microphoneAudioPath: "mic.wav",
+			systemAudioPath: "system.wav",
+			cursorTelemetryPath: "cursor.json",
+		});
+		expect(v2.slides[1].type).toBe("record");
 		expect(v2.slides[1].title).toBe("Feature B-Roll");
 		expect(v2.transitions.length).toBe(1);
 		expect(v2.transitions[0].type).toBe("crossfade");
 		expect(v2.transitions[0].durationMs).toBe(600);
-	});
-
-	it("preserves Motion slides and their metadata when migrating V1 clips", () => {
-		const motionMeta = {
-			...createDefaultMotionMeta(),
-			document: "<!doctype html><html><body>Legacy Motion</body></html>",
-			html: "<main>Legacy Motion</main>",
-			css: "main { color: rebeccapurple; }",
-			js: "window.setSeekTime = () => {};",
-			durationMs: 2400,
-			backgroundColor: "#120a24",
-		};
-		const v1: LegacyEditorProjectData = {
-			version: 1,
-			projectId: "motion-legacy-project",
-			videoPath: "",
-			clips: [
-				{
-					id: "motion-intro",
-					origin: "uploaded",
-					slideMode: "motion",
-					videoPath: "",
-					startMsOffset: 0,
-					durationMs: 2400,
-					label: "Animated Intro",
-					motionMeta,
-				},
-				{
-					id: "motion-outro",
-					slideMode: "motion",
-					videoPath: "",
-					startMsOffset: 2400,
-					durationMs: 3000,
-					label: "Animated Outro",
-					transitionIn: { type: "fade-black", durationMs: 450 },
-				},
-			],
-			editor: {},
-		};
-
-		const v2 = migrateV1ProjectToV2(v1);
-
-		expect(v2.slides).toHaveLength(2);
-		expect(v2.slides[0]).toMatchObject({
-			id: "motion-intro",
-			type: "motion",
-			title: "Animated Intro",
-			durationMs: 2400,
-			dirName: "slide_01_motion",
-			meta: motionMeta,
-		});
-		expect(v2.slides[1]).toMatchObject({
-			id: "motion-outro",
-			type: "motion",
-			durationMs: 3000,
-			meta: createDefaultMotionMeta(),
-		});
-		expect(v2.transitions).toEqual([
-			{
-				id: "trans-motion-intro-motion-outro",
-				fromSlideId: "motion-intro",
-				toSlideId: "motion-outro",
-				type: "fade-black",
-				durationMs: 450,
-			},
-		]);
 	});
 });

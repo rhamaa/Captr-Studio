@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
 	buildSceneClipRegions,
 	createRecordedClip,
-	createUploadedClip,
 	findClipAtTimelineTime,
 	foldActiveAudioRegionsIntoClips,
 	formatClipDuration,
@@ -208,23 +207,6 @@ describe("clipsUtils", () => {
 			expect(recClip.showCursor).toBe(true);
 		});
 
-		it("creates uploaded clip strictly isolated from webcam and cursor sidecars", () => {
-			const upClip = createUploadedClip({
-				id: "clip-file-1",
-				videoPath: "C:/downloads/external.mp4",
-				startMsOffset: 12000,
-				durationMs: 8000,
-				label: "Video 1",
-			});
-			expect(upClip.origin).toBe("uploaded");
-			expect(isRecordedClip(upClip)).toBe(false);
-			expect(upClip.webcamPath).toBeNull();
-			expect(upClip.webcam?.enabled).toBe(false);
-			expect(upClip.webcam?.sourcePath).toBeNull();
-			expect(upClip.cursorTelemetry).toBeNull();
-			expect(upClip.showCursor).toBe(false);
-		});
-
 		it("calculates local time within clip boundary correctly", () => {
 			const clip: ClipEntry = {
 				id: "c2",
@@ -245,7 +227,7 @@ describe("foldActiveAudioRegionsIntoClips", () => {
 	];
 	const slides: ClipEntry[] = [
 		{ id: "clip-1", videoPath: "record.mp4", startMsOffset: 0, durationMs: 5000 },
-		{ id: "clip-2", videoPath: "", startMsOffset: 5000, durationMs: 3000, slideMode: "motion" },
+		{ id: "clip-2", videoPath: "", startMsOffset: 5000, durationMs: 3000, slideMode: "record" },
 	];
 
 	it("writes the active slide's audio into its own clip only", () => {

@@ -3,35 +3,20 @@ import type { AudioRegion, SlideMode } from "./types";
 export interface SlideAudioSourceParams {
 	/** The active slide/take, or null when nothing is loaded yet. */
 	activeSlide: { videoPath: string } | null;
-	/** Effective mode of the active slide (record / video / motion). */
+	/** Effective mode of the active Record take. */
 	activeSlideMode: SlideMode;
 	/** Editor-global source path (last loaded video / active take). */
 	currentSourcePath: string | null;
 }
 
-/**
- * Resolves the media path that preview & export source audio may be read from.
- *
- * Companion audio is discovered by walking this exact path (`<video>.system.wav`,
- * `<video>.mic.wav`, `<video>.system.m4a`, ...), so the path must belong to the
- * ACTIVE slide. Handing the audio layer a stale record path is what made the
- * Record recording's audio bleed into the Video and Motion slides.
- *
- * Contract:
- * - Motion slides never own source audio → `null`.
- * - A slide without its own media never inherits the previous slide's path.
- * - Record slides keep the legacy global fallback for takes stored before the
- *   per-slide `videoPath` existed.
- */
+/** Resolves source audio from the active take, with the legacy Record fallback. */
 export function resolveSlideAudioSourcePath({
 	activeSlide,
-	activeSlideMode,
 	currentSourcePath,
 }: SlideAudioSourceParams): string | null {
 	if (!activeSlide) return currentSourcePath;
-	if (activeSlideMode === "motion") return null;
 	if (activeSlide.videoPath) return activeSlide.videoPath;
-	return activeSlideMode === "record" ? currentSourcePath : null;
+	return currentSourcePath;
 }
 
 export interface LoadedSlideAudioRegionsParams {

@@ -5,9 +5,7 @@ import {
 	isOptional,
 	isString,
 } from "@/core/slides/validation";
-import { isValidMotionSlideMeta } from "@/slides/motion/schema";
 import { isValidRecordSlideMeta } from "@/slides/record/schema";
-import { isValidVideoSlideMeta } from "@/slides/video/schema";
 import type {
 	GlobalAudioTrack,
 	ProjectSlideData,
@@ -47,10 +45,6 @@ function isProjectSlide(value: unknown): value is ProjectSlideData {
 	switch (value.type) {
 		case "record":
 			return isValidRecordSlideMeta(value.meta);
-		case "video":
-			return isValidVideoSlideMeta(value.meta);
-		case "motion":
-			return isValidMotionSlideMeta(value.meta);
 		case "keyframe":
 			// Keyframe remains an extension slot; its owning module validates its schema.
 			return true;
