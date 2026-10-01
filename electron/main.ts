@@ -30,6 +30,7 @@ import { loadProjectFromPath, rememberApprovedLocalReadPath } from "./ipc/projec
 import { currentProjectPath, setPreserveProjectPathForNextNativeRecording } from "./ipc/state";
 import { getScreen } from "./ipc/utils";
 import { ensureMediaServer } from "./mediaServer";
+import { openStartupProject } from "./startupProject";
 import { ensurePackagedRendererServer } from "./rendererServer";
 import type { UpdateToastPayload } from "./updater";
 import {
@@ -1204,11 +1205,7 @@ app.whenReady().then(async () => {
 	const startupCaptrPath = pendingCaptrFilePathToOpen || extractCaptrFilePath(process.argv);
 	if (startupCaptrPath) {
 		console.log(`[main] Opening project from startup argument: ${startupCaptrPath}`);
-		try {
-			await loadProjectFromPath(startupCaptrPath);
-		} catch (error) {
-			console.error(`[main] Failed to load startup project: ${startupCaptrPath}`, error);
-		}
+		await openStartupProject(startupCaptrPath);
 		createEditorWindowWrapper();
 		setupAutoUpdates(getUpdateDialogWindow, sendUpdateToastToWindows);
 		return;

@@ -302,11 +302,15 @@ describe("local media path policy", () => {
 
 	it("rejects retired slides before replacing the active project or its workspace", async () => {
 		const projectPath = path.join(tempPath, "retired.captr");
-		await makeBundle(tempPath, projectPath, { projectId: "active-id", slides: [{ id: "old-motion", type: "motion" }] });
+		await makeBundle(tempPath, projectPath, {
+			projectId: "active-id",
+			slides: [{ id: "old-motion", type: "motion" }],
+		});
 		const state = await import("../state");
 		state.setCurrentProjectPath("active.captr");
 		state.setCurrentVideoPath("active.mp4");
-		const workspace = path.join(userDataPath, "projects", "active-id");
+		const { getProjectWorkspaceDir } = await import("./projectWorkspace");
+		const workspace = getProjectWorkspaceDir("active-id");
 		await fs.mkdir(workspace, { recursive: true });
 		await fs.writeFile(path.join(workspace, "sentinel.txt"), "keep");
 		const before = await fs.readFile(projectPath);

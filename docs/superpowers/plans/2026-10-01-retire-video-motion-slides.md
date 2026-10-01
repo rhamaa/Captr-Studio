@@ -55,25 +55,25 @@ Create src/core/project/legacySupport.ts and legacySupport.test.ts. This module 
 
 `assertSupportedLegacyProject(value: unknown): void` throws a named UnsupportedLegacySlidesError carrying issues and user-facing instruction to open with the previous Captr version. This guard must run before normalization, project/path assignment, autosave scheduling, or migration.
 
-- [ ] Write legacySupport.test.ts: Record-only → []; explicit video/motion → issues with matching IDs; uploaded V1 clip without slideMode → video issue; mixed project throws; input remains deep-equal after checking.
-- [ ] Run npm test -- src/core/project/legacySupport.test.ts; expect failure because guard does not exist.
-- [ ] Implement the guard and error in legacySupport.ts.
-- [ ] Run graft callers migrateV1ProjectToV2 --depth all and graft callers normalizeClipEntries --depth all; read named load entry spans. Wire guard before load mutation; add integration test in the owning load test proving rejected load never calls state/path setters or schedules autosave.
-- [ ] Run focused guard/load tests; expect pass.
-- [ ] Commit only guard and integration changes: feat(project): reject retired slide projects before loading.
+- [x] Write legacySupport.test.ts: Record-only → []; explicit video/motion → issues with matching IDs; uploaded V1 clip without slideMode → video issue; mixed project throws; input remains deep-equal after checking.
+- [x] Run npm test -- src/core/project/legacySupport.test.ts; expect failure because guard does not exist.
+- [x] Implement the guard and error in legacySupport.ts.
+- [x] Run graft callers migrateV1ProjectToV2 --depth all and graft callers normalizeClipEntries --depth all; read named load entry spans. Wire guard before load mutation; add integration test in the owning load test proving rejected load never calls state/path setters or schedules autosave.
+- [x] Run focused guard/load tests; expect pass.
+- [x] Commit only guard and integration changes: feat(project): reject retired slide projects before loading.
 
 ## Task 2: Remove both modules and every active consumer atomically
 
 **Interfaces:** Existing RecordSlideTimelineProps/Handle and RecordSlideMeta remain canonical during this phase. TimelineEditor accepts Record props only; no motionProps/videoProps. All migration callers consume Task 1 guard.
 
-- [ ] Run graft grep "slides/video" and graft grep "slides/motion", inspect imports and consumers; also inspect src/slides/index.ts relative registrations. Run graft callers createMotionClip --depth all and callers for actual constructors/hooks being changed. Graph type edges can be absent, so literal hits remain mandatory.
-- [ ] Add/update tests: registry exposes Record and excludes Video/Motion; unsupported migration throws instead of producing a partial deck; Record metadata round-trip retains cursor/webcam/mic/system audio paths. Run those tests and record expected pre-change failures.
-- [ ] Remove types, validators, migrations, constructors and normalized retired metadata. Preserve raw-envelope detection from Task 1. Remove UI add/import Motion/Video-slide actions and all retired editor state/hook/preview/export branches. Generic video import is introduced by the later timeline plan; do not expose a broken import button during this intermediate phase.
-- [ ] Simplify TimelineEditor to Record delegation and detach retired registry exports. Inspect all non-module callers found by compiler; fix them in this task.
-- [ ] Inventory and delete tracked contents of both named directories after workspace boundary validation. No move-to-legacy workaround. Preserve Record motionSmoothing, pixi motion-blur imports, generic media sources, native capture and encoder helpers.
-- [ ] Update outside tests that import removed schemas; keep meaningful Record export coverage and unsupported cases instead of deleting entire test suites.
-- [ ] Run local TypeScript compiler with --noEmit and focused project/export/Record tests; expect pass and no missing-module errors. Search indexed imports again, then fallback filesystem Select-String for unindexed source/config/test files; expect zero runtime imports or registrations of removed modules.
-- [ ] Commit atomic retirement: refactor(editor): remove video and motion slide modules.
+- [x] Run graft grep "slides/video" and graft grep "slides/motion", inspect imports and consumers; also inspect src/slides/index.ts relative registrations. Run graft callers createMotionClip --depth all and callers for actual constructors/hooks being changed. Graph type edges can be absent, so literal hits remain mandatory.
+- [x] Add/update tests: registry exposes Record and excludes Video/Motion; unsupported migration throws instead of producing a partial deck; Record metadata round-trip retains cursor/webcam/mic/system audio paths. Run those tests and record expected pre-change failures.
+- [x] Remove types, validators, migrations, constructors and normalized retired metadata. Preserve raw-envelope detection from Task 1. Remove UI add/import Motion/Video-slide actions and all retired editor state/hook/preview/export branches. Generic video import is introduced by the later timeline plan; do not expose a broken import button during this intermediate phase.
+- [x] Simplify TimelineEditor to Record delegation and detach retired registry exports. Inspect all non-module callers found by compiler; fix them in this task.
+- [x] Inventory and delete tracked contents of both named directories after workspace boundary validation. No move-to-legacy workaround. Preserve Record motionSmoothing, pixi motion-blur imports, generic media sources, native capture and encoder helpers.
+- [x] Update outside tests that import removed schemas; keep meaningful Record export coverage and unsupported cases instead of deleting entire test suites.
+- [x] Run local TypeScript compiler with --noEmit and focused project/export/Record tests; expect pass and no missing-module errors. Search indexed imports again, then fallback filesystem Select-String for unindexed source/config/test files; expect zero runtime imports or registrations of removed modules.
+- [x] Commit atomic retirement: refactor(editor): remove video and motion slide modules.
 
 ## Task 3: Verify Record foundation and document the new compatibility boundary
 
@@ -93,3 +93,5 @@ This plan intentionally covers retirement only. Subsequent independently reviewe
 OpenCut UX acceptance requires project-library/navigation, media import, drag to timeline, selection→inspector, trim/split/snapping, playback/seek, save/reopen, and export. Record-specific difference: Capture creates an asset package, double-click opens its internal editor. No claim of exact feature parity until these flows are compared using the same media and gestures.
 
 Self-review: all retirement consumers identified by graph are in Task 2; raw-envelope guard prevents silent metadata loss; Review Focus cases have assigned tests/QA; no product implementation occurs as part of writing this plan.
+
+Execution: automated retirement and review fix committed; final evidence in [retirement verification](2026-10-01-retirement-verification.md). Desktop QA and renderer append interaction remain pending; full-suite and i18n baseline failures remain documented. No merge readiness claim.

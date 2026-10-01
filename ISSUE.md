@@ -26,7 +26,8 @@
 - [x] Satu project disimpan dalam satu file `.captr`. Setiap slide memiliki folder `slides/<slideId>/` berisi `slide.json` dengan metadata slide dan referensi path bundle-relative, serta aset slide tersebut.
 - [ ] Verifikasi alur: buka project `.captr`, tambahkan setidaknya dua Record slide, simpan tanpa dialog Save As, tutup lalu buka kembali file yang sama, dan pastikan semua slide serta asetnya utuh.
 - [ ] Verifikasi khusus Windows: simpan project sebagai `Test 2.captr`, tambahkan Record slide baru, tekan Ctrl+S, pastikan tidak muncul Save As dan file yang sama diperbarui.
-- [ ] Verifikasi Video dan Motion: tambahkan masing-masing slide ke `Test 2.captr`, tekan Ctrl+S, pastikan keduanya tersimpan ke file yang sama beserta asetnya.
+- [x] Video/Motion slide dipensiunkan pada 1 Oktober 2026. Bundle lama dengan salah satu jenis tersebut ditolak sebelum state/path/aset aktif berubah; tes bundle nyata memverifikasi file asli tidak berubah.
+- [ ] Verifikasi UI: membuka bundle lama Video/Motion menampilkan pesan untuk memakai versi Captr sebelumnya, lalu Ctrl+S tetap menyimpan project Record aktif.
 - [ ] Pastikan Save As eksplisit dan pembuatan project baru tetap membuat file baru.
 
 **Instruksi untuk perubahan berikutnya:** jangan menghapus preservasi path di jalur sesi/finalisasi, jangan mengembalikan kondisi append yang bergantung pada `videoSourcePath`, dan jangan memindahkan semua aset slide ke folder global. Jika kontrak ini berubah, perbarui checklist ini dan instruksi agen di `AGENTS.md`.
