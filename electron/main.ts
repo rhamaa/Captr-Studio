@@ -1,4 +1,6 @@
 import { existsSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { getActiveRecordingProjectId, setRecordingProjectContext } from "./ipc/project/recordingContext";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -281,7 +283,8 @@ function createWindow() {
 	isCreatingMainWindow = false;
 }
 
-function openHudRecorder(preserveProjectPath = false): BrowserWindow {
+function openHudRecorder(preserveProjectPath = false, context?: {projectId?:string;captureId?:string}): BrowserWindow {
+	setRecordingProjectContext(context??{projectId:getActiveRecordingProjectId(),captureId:randomUUID()});
 	// The editor can open the recorder through more than one UI path. Preserve
 	// the active project whenever main-process state knows one is open, even if
 	// the caller did not pass the context flag.
@@ -743,9 +746,7 @@ ipcMain.handle("read-file-as-data-url", async (_event, filePath: string) => {
 
 ipcMain.handle("open-recorder-hud", async (_event, options?: { preserveProjectPath?: boolean; projectId?:string;captureId?:string }) => {
 	console.log("[main] IPC: open-recorder-hud invoked");
-	const { setRecordingProjectContext } = await import("./ipc/project/recordingContext");
-	setRecordingProjectContext(options??{});
-	const hud = openHudRecorder(Boolean(options?.preserveProjectPath));
+	const hud = openHudRecorder(Boolean(options?.preserveProjectPath),options?.captureId?options:undefined);
 	return { success: Boolean(hud) };
 });
 

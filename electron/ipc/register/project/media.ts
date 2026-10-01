@@ -12,6 +12,16 @@ import { currentProjectPath } from "../../state";
 import { getRecordingsDir, normalizePath } from "../../utils";
 
 export function registerProjectMediaHandlers() {
+	ipcMain.handle("import-project-media", async (_, suppliedPaths?:string[]) => {
+		try {
+			const result=suppliedPaths?{canceled:false,filePaths:suppliedPaths}:await dialog.showOpenDialog({title:"Import media",properties:["openFile","multiSelections"],filters:[{name:"Media",extensions:["mp4","webm","mov","mkv","png","jpg","jpeg","webp","gif","wav","mp3","m4a","ogg","aac","flac"]}]});
+			if(result.canceled)return {success:false,canceled:true,paths:[]};
+			const paths:string[]=[];
+			for(const file of result.filePaths){if(!/\.(mp4|webm|mov|mkv|png|jpe?g|webp|gif|wav|mp3|m4a|ogg|aac|flac)$/i.test(file))throw new Error("Unsupported media type");const real=await fs.realpath(file);if(!(await fs.stat(real)).isFile())throw new Error("Media source must be a file");paths.push(real);}
+			for(const file of paths)await rememberApprovedLocalReadPath(file);
+			return {success:true,paths};
+		} catch(error){return {success:false,error:String(error),paths:[]};}
+	});
 	ipcMain.handle(
 		"import-asset-to-slide",
 		async (_, projectId: string, slideId: string, sourcePath: string, subfolder?: string) => {

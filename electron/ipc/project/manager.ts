@@ -6,6 +6,7 @@ import { app } from "electron";
 import { assertSupportedLegacyProject } from "../../../src/core/project/legacySupport";
 import { validateTimelineProject } from "../../../src/core/timeline/validation";
 import { resolveTimelineProject } from "./timelineBundle";
+import { setActiveRecordingProjectId } from "./recordingContext";
 import { RECORDINGS_DIR, USER_DATA_PATH } from "../../appPaths";
 import { isSupportedLocalMediaPath } from "../../mediaTypes";
 import {
@@ -581,6 +582,7 @@ export async function loadProjectFromPath(projectPath: string) {
 	await rememberRecentProject(normalizedPath);
 
 	setCurrentProjectPath(normalizedPath);
+	if ((project as {version?:number}).version === 3) setActiveRecordingProjectId(validateTimelineProject(project).projectId);
 	if (mediaSources.videoPath) {
 		setCurrentVideoPath(mediaSources.videoPath);
 		setCurrentRecordingSession({

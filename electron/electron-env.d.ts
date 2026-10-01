@@ -733,6 +733,9 @@ interface Window {
 			options?: { preserveProjectPath?: boolean;captureId?:string;projectId?:string },
 		) => Promise<{ success: boolean }>;
 		getRecordingProjectContext: () => Promise<{captureId?:string;projectId?:string}>;
+		activateTimelineProject: (projectId:string,resetPath?:boolean) => Promise<{success:boolean}>;
+		getPathForFile: (file:File) => string;
+		importProjectMedia: (paths?:string[]) => Promise<{success:boolean;canceled?:boolean;paths?:string[];error?:string}>;
 		inspectRecordingSources: (videoPath:string) => Promise<{success:boolean;microphonePath?:string|null;systemPath?:string|null;cursorPath?:string|null;microphoneOffsetMs?:number;systemOffsetMs?:number;embeddedAudio?:boolean;diagnostics?:Record<string,unknown>;error?:string}>;
 		getCurrentRecordingSession: () => Promise<{
 			success: boolean;

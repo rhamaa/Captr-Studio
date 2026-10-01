@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { RecordingSessionData } from "./ipc/types";
 
 type NativeVideoExportWriteResult = { success: boolean; error?: string };
@@ -733,6 +733,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		return ipcRenderer.invoke("set-current-recording-session", session, options);
 	},
 	getRecordingProjectContext: () => ipcRenderer.invoke("get-recording-project-context"),
+	activateTimelineProject: (projectId:string,resetPath=false) => ipcRenderer.invoke("activate-timeline-project",projectId,resetPath),
+	getPathForFile: (file:File) => webUtils.getPathForFile(file),
+	importProjectMedia: (paths?:string[]) => ipcRenderer.invoke("import-project-media",paths),
 	inspectRecordingSources: (videoPath:string) => ipcRenderer.invoke("inspect-recording-sources",videoPath),
 	onRecordingSessionChanged: (callback: (session: RecordingSessionData | null) => void) => {
 		const listener = (

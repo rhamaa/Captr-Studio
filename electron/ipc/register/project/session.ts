@@ -23,9 +23,15 @@ import {
 	normalizeVideoSourcePath,
 } from "../../utils";
 import { normalizeBoolean, normalizeRecordingTimeOffsetMs } from "./shared";
-import { getRecordingProjectContext } from "../../project/recordingContext";
+import { getRecordingProjectContext, setActiveRecordingProjectId } from "../../project/recordingContext";
 
 export function registerProjectSessionHandlers() {
+	ipcMain.handle("activate-timeline-project", (_, projectId:string, resetPath:boolean) => {
+		if (!/^[a-zA-Z0-9_-]+$/.test(projectId)) throw new Error("Invalid project identity");
+		setActiveRecordingProjectId(projectId);
+		if (resetPath) {setCurrentProjectPath(null);setCurrentVideoPath(null);setCurrentRecordingSession(null);}
+		return {success:true};
+	});
 	ipcMain.handle("get-recording-project-context", () => getRecordingProjectContext());
 	ipcMain.handle(
 		"set-current-video-path",
