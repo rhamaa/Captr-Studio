@@ -763,6 +763,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	loadProjectFile: () => {
 		return ipcRenderer.invoke("load-project-file");
 	},
+	consumePendingProjectOpen: () => ipcRenderer.invoke("consume-pending-project-open"),
+	saveConvertedProjectCopy: (project:unknown, token:string) => ipcRenderer.invoke("save-converted-project-copy", project, token),
 	releaseLegacyProjectCandidate:(token:string)=>ipcRenderer.invoke("release-legacy-project-candidate",token),
 	loadCurrentProjectFile: () => {
 		return ipcRenderer.invoke("load-current-project-file");

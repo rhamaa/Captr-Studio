@@ -448,8 +448,9 @@ export async function listProjectLibraryEntries() {
 	};
 }
 
-const legacyCandidates=new Map<string,string>();
-export async function releaseLegacyProjectCandidate(token:string){const dir=legacyCandidates.get(token);if(!dir)return;legacyCandidates.delete(token);if(path.dirname(path.resolve(dir))!==path.resolve(getWorkspacesRoot())||!path.basename(dir).startsWith("conversion-"))throw new Error("Unsafe conversion cleanup");await fs.rm(dir,{recursive:true,force:true});}
+const legacyCandidates=new Map<string,{workspaceDir:string;path:string;projectId?:string}>();
+export function getLegacyConversionOrigin(token:string){const origin=legacyCandidates.get(token);return origin?{path:origin.path,projectId:origin.projectId}:null;}
+export async function releaseLegacyProjectCandidate(token:string){const candidate=legacyCandidates.get(token);if(!candidate)return;const dir=candidate.workspaceDir;legacyCandidates.delete(token);if(path.dirname(path.resolve(dir))!==path.resolve(getWorkspacesRoot())||!path.basename(dir).startsWith("conversion-"))throw new Error("Unsafe conversion cleanup");await fs.rm(dir,{recursive:true,force:true});}
 export async function loadProjectFromPath(projectPath: string) {
 	const normalizedPath = normalizePath(projectPath);
 	let project: unknown;
@@ -479,7 +480,7 @@ export async function loadProjectFromPath(projectPath: string) {
 				}}
 				const candidate=convertProjectToWorkspaceAbsolute(rawProject,tempExtractDir);await assertProjectMediaInsideBundle(candidate,tempExtractDir);
 				await fs.mkdir(getWorkspacesRoot(),{recursive:true});const conversionDir=await fs.mkdtemp(path.join(getWorkspacesRoot(),"conversion-"));
-				try{await fs.cp(tempExtractDir,conversionDir,{recursive:true});const project=convertProjectToWorkspaceAbsolute(rawProject,conversionDir);for(const media of collectProjectMediaPaths(project)){await rememberApprovedLocalReadPath(media);if(/\.(mp4|mov|webm|mkv)$/i.test(media)){for(const candidate of await getUsableCompanionAudioCandidates(media))for(const audio of candidate.usablePaths)await rememberApprovedLocalReadPath(audio);}}const token=path.basename(conversionDir);legacyCandidates.set(token,conversionDir);return {success:true,path:normalizedPath,project,conversionRequired:true,conversionToken:token};}
+				try{await fs.cp(tempExtractDir,conversionDir,{recursive:true});const project=convertProjectToWorkspaceAbsolute(rawProject,conversionDir);for(const media of collectProjectMediaPaths(project)){await rememberApprovedLocalReadPath(media);if(/\.(mp4|mov|webm|mkv)$/i.test(media)){for(const candidate of await getUsableCompanionAudioCandidates(media))for(const audio of candidate.usablePaths)await rememberApprovedLocalReadPath(audio);}}const token=path.basename(conversionDir);legacyCandidates.set(token,{workspaceDir:conversionDir,path:normalizedPath,projectId:typeof rawProject.projectId==="string"?rawProject.projectId:undefined});return {success:true,path:normalizedPath,project,conversionRequired:true,conversionToken:token};}
 				catch(error){if(path.dirname(path.resolve(conversionDir))===path.resolve(getWorkspacesRoot()))await fs.rm(conversionDir,{recursive:true,force:true});throw error;}
 			}
 			const projectId =

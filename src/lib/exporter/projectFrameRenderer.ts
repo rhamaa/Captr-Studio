@@ -8,6 +8,8 @@ export class ProjectFrameRenderer {
 	private sources = new Map<string, LayerVideoSource>();
 	private images = new Map<string, HTMLImageElement>();
 	private effects = new Map<string, FrameRenderer>();
+	private compositionKeys = new WeakMap<object, number>();
+	private nextCompositionKey = 0;
 	private disposed = false;
 	private async video(path: string, timeUs: number) {
 		let source = this.sources.get(path);
@@ -57,7 +59,13 @@ export class ProjectFrameRenderer {
 		const record = visual.recording!,
 			{ settings, package: pkg, composition } = record,
 			{ width, height } = evaluation.project.canvas;
-		const key = `${composition.id}:${composition.revision}:${width}:${height}`;
+		// History branches may reuse a numeric revision; immutable object identity cannot collide.
+		let identity = this.compositionKeys.get(composition);
+		if (identity === undefined) {
+			identity = ++this.nextCompositionKey;
+			this.compositionKeys.set(composition, identity);
+		}
+		const key = `${identity}:${width}:${height}`;
 		let renderer = this.effects.get(key);
 		if (!renderer) {
 			renderer = new FrameRenderer({

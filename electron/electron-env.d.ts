@@ -753,6 +753,8 @@ interface Window {
 			canceled?: boolean;
 			error?: string;
 		}>;
+		consumePendingProjectOpen: () => Promise<import("../src/components/editor/projectLifecycle").PendingProjectOpen|null>;
+		saveConvertedProjectCopy: (project:unknown,token:string) => Promise<{success:boolean;path?:string;projectId?:string;canceled?:boolean;error?:string}>;
 		loadCurrentProjectFile: () => Promise<{
 			conversionToken?: string;
 			success: boolean;
@@ -775,6 +777,7 @@ interface Window {
 			error?: string;
 		}>;
 		openProjectFileAtPath: (filePath: string) => Promise<{
+			conversionToken?: string;
 			success: boolean;
 			path?: string;
 			project?: unknown;

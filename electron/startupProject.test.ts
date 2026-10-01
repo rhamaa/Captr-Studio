@@ -3,6 +3,7 @@ const mocks = vi.hoisted(() => ({ load: vi.fn(), show: vi.fn() }));
 vi.mock("./ipc/project/manager", () => ({ loadProjectFromPath: mocks.load }));
 vi.mock("electron", () => ({ dialog: { showErrorBox: mocks.show } }));
 import { openStartupProject } from "./startupProject";
+import { consumePendingProjectOpen } from "./pendingProjectOpen";
 describe("startup project rejection", () => {
 	beforeEach(() => vi.clearAllMocks());
 	it("shows the compatibility explanation when file-association loading is rejected", async () => {
@@ -19,8 +20,15 @@ describe("startup project rejection", () => {
 		expect(mocks.show).toHaveBeenCalledWith("Unable to open project", "Unreadable bundle");
 	});
 	it("opens a supported project without an error dialog", async () => {
-		mocks.load.mockResolvedValue({ success: true, project: { version: 2 } });
+		const result = {
+			success: true,
+			project: { version: 2 },
+			conversionToken: "cold-candidate",
+			path: "record.captr",
+		};
+		mocks.load.mockResolvedValue(result);
 		await openStartupProject("record.captr");
 		expect(mocks.show).not.toHaveBeenCalled();
+		expect(consumePendingProjectOpen()).toEqual({ result });
 	});
 });

@@ -5,7 +5,12 @@ import { dialog, ipcMain } from "electron";
 import { PROJECT_FILE_EXTENSION } from "../../constants";
 import { stageTimelineProject } from "../../project/timelineBundle";
 import { validateTimelineProject } from "../../../../src/core/timeline/validation";
-import { getProjectsDir, isTrustedProjectPath, rememberRecentProject } from "../../project/manager";
+import {
+	getProjectsDir,
+	isTrustedProjectPath,
+	rememberRecentProject,
+	getLegacyConversionOrigin,
+} from "../../project/manager";
 import { inspectProjectBundle, packProjectWorkspace } from "../../project/projectBundle";
 import { setCurrentProjectPath } from "../../state";
 import { ensureProjectDataHasProjectId, normalizeProjectSaveName } from "./shared";
@@ -37,6 +42,56 @@ export function registerProjectSaveHandlers() {
 		}
 		throw new Error("Legacy project must be converted to an Assets project before saving");
 	}
+	ipcMain.handle("save-converted-project-copy", async (_, value: unknown, token: string) => {
+		try {
+			const origin = getLegacyConversionOrigin(token);
+			if (!origin)
+				throw new Error("Conversion candidate expired; open the original project again");
+			const project = validateTimelineProject(value);
+			if (project.projectId === origin.projectId)
+				throw new Error("Converted copy must have a new project identity");
+			const result = await dialog.showSaveDialog({
+				title: "Save converted project copy",
+				defaultPath: path.join(
+					await getProjectsDir(),
+					`${normalizeProjectSaveName(project.title) || "project"} copy.captr`,
+				),
+				filters: [{ name: "Captr Studio Project", extensions: [PROJECT_FILE_EXTENSION] }],
+				properties: ["createDirectory", "showOverwriteConfirmation"],
+			});
+			if (result.canceled || !result.filePath) return { success: false, canceled: true };
+			const original = await fs.realpath(origin.path);
+			const destination = await fs
+				.realpath(result.filePath)
+				.catch((error: NodeJS.ErrnoException) => {
+					if (error.code !== "ENOENT") throw error;
+					return path.resolve(result.filePath!);
+				});
+			const normalize = (p: string) =>
+				process.platform === "win32" ? path.resolve(p).toLowerCase() : path.resolve(p);
+			const [originalStat, destinationStat] = await Promise.all([
+				fs.stat(original),
+				fs.stat(destination).catch((error: NodeJS.ErrnoException) => {
+					if (error.code !== "ENOENT") throw error;
+					return null;
+				}),
+			]);
+			if (
+				normalize(original) === normalize(destination) ||
+				(destinationStat &&
+					originalStat.ino !== 0 &&
+					originalStat.ino === destinationStat.ino &&
+					originalStat.dev === destinationStat.dev)
+			)
+				throw new Error(
+					"Choose a different destination; the original project cannot be overwritten by conversion",
+				);
+			await saveAndBundleProject(result.filePath, ensureProjectDataHasProjectId(project));
+			return { success: true, path: result.filePath, projectId: project.projectId };
+		} catch (error) {
+			return { success: false, error: String(error) };
+		}
+	});
 
 	ipcMain.handle(
 		"save-project-file",

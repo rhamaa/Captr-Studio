@@ -28,11 +28,12 @@ import {
 	killWindowsCaptureProcess,
 	registerIpcHandlers,
 } from "./ipc/handlers";
-import { loadProjectFromPath, rememberApprovedLocalReadPath } from "./ipc/project/manager";
+import { rememberApprovedLocalReadPath } from "./ipc/project/manager";
 import { currentProjectPath, setPreserveProjectPathForNextNativeRecording } from "./ipc/state";
 import { getScreen } from "./ipc/utils";
 import { ensureMediaServer } from "./mediaServer";
 import { openStartupProject } from "./startupProject";
+import { queueProjectOpen } from "./pendingProjectOpen";
 import { ensurePackagedRendererServer } from "./rendererServer";
 import type { UpdateToastPayload } from "./updater";
 import {
@@ -1051,7 +1052,7 @@ app.on("second-instance", async (_event, commandLine) => {
 	const captrPath = extractCaptrFilePath(commandLine);
 	if (captrPath) {
 		try {
-			await loadProjectFromPath(captrPath);
+			await queueProjectOpen({ path: captrPath });
 			const win = createEditorWindowWrapper();
 			if (win && !win.isDestroyed()) {
 				win.webContents.send("open-project-file-request", captrPath);
@@ -1069,7 +1070,7 @@ app.on("open-file", async (event, filePath) => {
 	if (filePath && filePath.toLowerCase().endsWith(".captr")) {
 		if (app.isReady()) {
 			try {
-				await loadProjectFromPath(filePath);
+				await queueProjectOpen({ path: filePath });
 				const win = createEditorWindowWrapper();
 				if (win && !win.isDestroyed()) {
 					win.webContents.send("open-project-file-request", filePath);

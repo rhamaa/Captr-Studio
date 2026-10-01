@@ -8,14 +8,16 @@ The V3 bundle owns every library asset under `assets/<assetId>/`, including unus
 
 ## Verification evidence
 
-- Focused domain, recording, editor and project suites: 114 tests passed before the final completion/cancellation regressions; those six regression tests also passed.
-- Full suite with two workers: 889 passed; nine verified baseline failures in five files; no worker errors.
+- Focused domain, recording, editor and project suites: 131 tests passed; the additional existing-project bootstrap regression also passed. Final review-fix suites: 19 tests passed.
+- Final full suite with two workers: 900 passed; nine verified baseline failures in five files; 909 tests across 126 files; no worker errors.
 - TypeScript and production Vite renderer/Electron builds passed.
 - Real bundle tests cover unused recording sidecars, deduplicated source staging, missing media, identity recovery and atomic replacement failure.
 - Browser fixture URL: `http://127.0.0.1:5173/?windowType=editor`; title: `Captr Studio Editor`. Assets layout checked at 1600×1000 and 1100×800. No runtime error overlay or console errors.
 - Actual screen/webcam MP4 and mic/system WAV fixtures verify duplicate completion, Assets-only save, explicit placement, library drag/drop into two independent compositions and recording editing.
 - Random seek and 0.5×/2× produce identical effect pixels at equivalent source time. Microphone starts 500 ms after the screen; measured 880 Hz amplitude before its offset is below 0.000001 and after its offset is 0.125. System 440 Hz remains audible at 0.125.
 - A test bridge sends the actual project frame renderer and mixed PCM through the repository's existing FFmpeg. Encoded MP4 differs from preview by mean 1.51/255 per channel at the sampled frame, within H.264 compression tolerance. This verifies the shared engine, not desktop capture or encoder IPC.
+- Fresh whole-change review found six Important issues; one RED→GREEN fix pass resolved all six. Close protection blocks cancellation/failure and edits during saving; warm OS-open waits for the dirty guard and installs V3 in the renderer; cold legacy-open retains/releases its conversion token; dedicated copy IPC protects the original bundle; immutable composition identity isolates alternate history branches; recording panels use a scoped dark theme without changing saved light/dark preferences.
+- Browser fixtures now also cover capture completion before the editor exists, and completion before existing-bundle reload clears Electron's session. Both retain one package, zero automatic placements and the existing save path. Lifecycle and recording QA have zero console errors. Theme regression changed the effect panel from a white light surface to the scoped dark surface.
 - Remaining baseline: nine failures in five retained test files (media-layer migration, audio preparation, webcam renderer mocks and loopback decoder URL). Two original failures disappeared with retired Slide exporters. Existing locale diagnostics: 248. These are not counted as successful checks.
 
 ## Native checks still pending
@@ -23,3 +25,5 @@ The V3 bundle owns every library asset under `assets/<assetId>/`, including unus
 Run the V3 checklist in `ISSUE.md`: record twice into an already opened `.captr`; save the unused library; reopen that bundle; place, split, trim and edit shared Record sources independently; play/seek/export; Ctrl+S; Save As; New Project; unsupported legacy conversion. Windows/macOS capture, actual desktop encoder IPC, OS dialogs and project path preservation have automated coverage but have not been exercised end to end in the desktop app.
 
 Browser plugin was unavailable; bundled Playwright and Chromium were used. No dependencies installed.
+
+Final review judgments and execution rulings are preserved in `2026-10-01-project-assets-final-review.md`. Branch remains `Experiment`; no merge/push.

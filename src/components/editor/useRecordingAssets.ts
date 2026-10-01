@@ -58,6 +58,7 @@ export function useRecordingAssets(
 	projectId: string,
 	options: RecordingAssetOptions,
 	openingKey = 0,
+	restoredSession?: Parameters<typeof completedRecordingFromSession>[0] | null,
 ) {
 	const latest = useRef(options);
 	latest.current = options;
@@ -70,22 +71,41 @@ export function useRecordingAssets(
 		});
 	const generation = useRef(0),
 		captures = useRef(new Map<string, number>());
+	const acceptSession = (
+		session: Parameters<typeof completedRecordingFromSession>[0] | null | undefined,
+		expectedGeneration = generation.current,
+	) => {
+		if (!session?.captureId || !session.projectId) return;
+		const ownerGeneration = captures.current.get(session.captureId) ?? expectedGeneration;
+		if (!controller.current!.isCurrent(ownerGeneration, session.projectId)) return;
+		captures.current.set(session.captureId, ownerGeneration);
+		void completedRecordingFromSession(session)
+			.then((input) => controller.current!.acceptCompleted(ownerGeneration, input))
+			.catch((error) => {
+				if (controller.current!.isCurrent(ownerGeneration, session.projectId))
+					latest.current.onError(error);
+			});
+	};
 	useEffect(() => {
 		generation.current = controller.current!.beginProject(projectId);
-	}, [projectId, openingKey]);
+		const ownerGeneration = generation.current;
+		acceptSession(restoredSession, ownerGeneration);
+		// Capture can finish before this window subscribes; replay persisted provenance once per opening.
+		void window.electronAPI
+			?.getCurrentRecordingSession?.()
+			.then((result) => {
+				if (result.success && controller.current!.isCurrent(ownerGeneration, projectId))
+					acceptSession(result.session, ownerGeneration);
+			})
+			.catch((error) => {
+				if (controller.current!.isCurrent(ownerGeneration, projectId))
+					latest.current.onError(error);
+			});
+	}, [projectId, openingKey, restoredSession]);
 	useEffect(() => {
-		const unsubscribe = window.electronAPI?.onRecordingSessionChanged?.((session) => {
-			if (!session?.captureId || !session.projectId) return;
-			const ownerGeneration = captures.current.get(session.captureId) ?? generation.current;
-			if (!controller.current!.isCurrent(ownerGeneration, session.projectId)) return;
-			captures.current.set(session.captureId, ownerGeneration);
-			void completedRecordingFromSession(session)
-				.then((input) => controller.current!.acceptCompleted(ownerGeneration, input))
-				.catch((error) => {
-					if (controller.current!.isCurrent(ownerGeneration, session.projectId))
-						latest.current.onError(error);
-				});
-		});
+		const unsubscribe = window.electronAPI?.onRecordingSessionChanged?.((session) =>
+			acceptSession(session),
+		);
 		return () => {
 			unsubscribe?.();
 			controller.current!.dispose();

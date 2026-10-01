@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Native execution in the current session/Experiment checkout is the user's preserved execution method; one fresh whole-change review at the end.
 
+**Execution status:** Tasks 1–7 implemented and committed; fresh whole-change review and one fix pass complete. Native QA checklist remains pending, as documented in `../2026-10-01-project-assets-qa.md`.
+
 **Goal:** Deliver a project asset library and general timeline that consume editable recording packages, with no active Slide workflow or runtime.
 
 **Architecture:** A version-3 project owns source assets, recording packages, independent compositions and timeline placements. Recorder completion registers an asset; timeline commands place it. Preview/export share project-time evaluation, while persistence stages all library media, including assets unused by the timeline.
@@ -114,7 +116,7 @@
 - [x] Inventory tracked/untracked contents, validate resolved deletion targets remain within workspace, remove obsolete Slide modules only after migrated callers compile. Exhaustive Graft imports/symbol search plus TypeScript confirms only explicit read-only legacy conversion mentions remain; rename active IPC/renderer contracts, not merely UI text.
 - [x] Run focused suites, complete full suite, TypeScript, Vite renderer/Electron build, i18n check and `graft build`; distinguish baseline failures from new regressions. Commit atomic final removal/export `feat(editor): export project timelines without slide runtime`.
 - [ ] Native QA: Record twice into existing `.captr`, Assets-only save/reopen, place recording twice, split/trim/rate/edit independently, insert imported video/image/music, seek/play, Ctrl+S/reopen, export parity, Save As/New Project, unsupported conversion safety. If unavailable record precise unverified checks; do not claim desktop fidelity.
-- [ ] Fresh final reviewer examines whole commit range using spec, this plan, Review Focus and ledger rulings. Fix Important/Critical findings with RED→GREEN; no per-task delegation. Preserve branch without merge/push unless user requests it.
+- [x] Fresh final reviewer examines whole commit range using spec, this plan, Review Focus and ledger rulings. Fix Important/Critical findings with RED→GREEN; no per-task delegation. Preserve branch without merge/push unless user requests it.
 
 ## Plan self-review and execution handoff
 
