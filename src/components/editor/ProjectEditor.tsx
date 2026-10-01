@@ -35,6 +35,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AssetLibrary } from "./AssetLibrary";
 import { AssetSourcePreview } from "./AssetSourcePreview";
 import { ProjectInspector } from "./ProjectInspector";
+import { ProjectEditorPanel } from "./ProjectEditorPanel";
 import { ProjectTimeline } from "./ProjectTimeline";
 import { ProjectWelcome } from "./ProjectWelcome";
 import { useProjectController } from "./useProjectController";
@@ -526,130 +527,136 @@ export function ProjectEditor() {
 					</button>
 				</div>
 			)}
-			<div className="project-workspace">
-				<aside className="project-tool-rail">
-					<button aria-label="Assets" aria-current="page">
-						<Folder size={21} />
-					</button>
-				</aside>
-				<AssetLibrary
-					assets={state.project.assets}
-					packages={state.project.packages}
-					selectedAssetId={state.selectedAssetId}
-					onImport={(paths) => void importMedia(paths)}
-					onRecord={() => void startRecord()}
-					onPreview={(id) => {
-						setPlaying(false);
-						controller.preview(id);
-					}}
-					onPlace={addToTimeline}
-					onRemove={(id) => run((p) => removeAsset(p, id))}
-				/>
-				<section className="project-preview-panel">
-					<header className="project-panel-header">
-						<h2>{sourceAsset ? m("sourcePreview") : m("preview")}</h2>
-						<span>
-							{state.project.canvas.width} × {state.project.canvas.height}
-						</span>
-						{sourceAsset && (
-							<button onClick={() => controller.preview(null)}>
-								{m("backTimeline")}
+			<ProjectEditorPanel
+				recordingEditor={
+					composition && pkg ? (
+						<RecordingCompositionEditor
+							key={composition.id}
+							package={pkg}
+							composition={composition}
+							onChange={(next) =>
+								controller.execute((p) =>
+									updateComposition(p, composition.id, next),
+								)
+							}
+							onClose={() => setEditingClipId(null)}
+						/>
+					) : null
+				}
+			>
+				<>
+					<div className="project-workspace">
+						<aside className="project-tool-rail">
+							<button aria-label="Assets" aria-current="page">
+								<Folder size={21} />
 							</button>
-						)}
-					</header>
-					<div className="project-preview-stage">
-						{sourceAsset && sourcePath ? (
-							<AssetSourcePreview
-								key={sourceAsset.id}
-								asset={sourceAsset}
-								path={sourcePath}
-								onError={setError}
-							/>
-						) : projectDurationUs(state.project) > 0 ? (
-							<ProjectPreview
-								key={state.openingKey}
-								project={state.project}
-								timeUs={Math.min(
-									state.playheadUs,
-									Math.max(0, projectDurationUs(state.project) - 1),
-								)}
-								playing={playing && !editingClipId}
-								onError={setError}
-							/>
-						) : (
-							<ProjectWelcome
-								hasAssets={Boolean(state.project.assets.length)}
-								onImport={() => void importMedia()}
-								onRecord={() => void startRecord()}
-							/>
-						)}
-					</div>
-					<div className="project-preview-transport">
-						<span>{(state.playheadUs / 1_000_000).toFixed(2)}</span>
-						<button
-							aria-label={playing ? "Pause timeline" : "Play timeline"}
-							disabled={!projectDurationUs(state.project)}
-							onClick={() => {
-								controller.preview(null);
-								if (state.playheadUs >= projectDurationUs(state.project))
-									controller.seek(0);
-								setPlaying((v) => !v);
+						</aside>
+						<AssetLibrary
+							assets={state.project.assets}
+							packages={state.project.packages}
+							selectedAssetId={state.selectedAssetId}
+							onImport={(paths) => void importMedia(paths)}
+							onRecord={() => void startRecord()}
+							onPreview={(id) => {
+								setPlaying(false);
+								controller.preview(id);
 							}}
-						>
-							{playing ? (
-								<Pause size={20} weight="fill" />
-							) : (
-								<Play size={20} weight="fill" />
-							)}
-						</button>
-						<span>{(projectDurationUs(state.project) / 1_000_000).toFixed(2)}</span>
+							onPlace={addToTimeline}
+							onRemove={(id) => run((p) => removeAsset(p, id))}
+						/>
+						<section className="project-preview-panel">
+							<header className="project-panel-header">
+								<h2>{sourceAsset ? m("sourcePreview") : m("preview")}</h2>
+								<span>
+									{state.project.canvas.width} × {state.project.canvas.height}
+								</span>
+								{sourceAsset && (
+									<button onClick={() => controller.preview(null)}>
+										{m("backTimeline")}
+									</button>
+								)}
+							</header>
+							<div className="project-preview-stage">
+								{sourceAsset && sourcePath ? (
+									<AssetSourcePreview
+										key={sourceAsset.id}
+										asset={sourceAsset}
+										path={sourcePath}
+										onError={setError}
+									/>
+								) : projectDurationUs(state.project) > 0 ? (
+									<ProjectPreview
+										key={state.openingKey}
+										project={state.project}
+										timeUs={Math.min(
+											state.playheadUs,
+											Math.max(0, projectDurationUs(state.project) - 1),
+										)}
+										playing={playing && !editingClipId}
+										onError={setError}
+									/>
+								) : (
+									<ProjectWelcome
+										hasAssets={Boolean(state.project.assets.length)}
+										onImport={() => void importMedia()}
+										onRecord={() => void startRecord()}
+									/>
+								)}
+							</div>
+							<div className="project-preview-transport">
+								<span>{(state.playheadUs / 1_000_000).toFixed(2)}</span>
+								<button
+									aria-label={playing ? "Pause timeline" : "Play timeline"}
+									disabled={!projectDurationUs(state.project)}
+									onClick={() => {
+										controller.preview(null);
+										if (state.playheadUs >= projectDurationUs(state.project))
+											controller.seek(0);
+										setPlaying((v) => !v);
+									}}
+								>
+									{playing ? (
+										<Pause size={20} weight="fill" />
+									) : (
+										<Play size={20} weight="fill" />
+									)}
+								</button>
+								<span>
+									{(projectDurationUs(state.project) / 1_000_000).toFixed(2)}
+								</span>
+							</div>
+						</section>
+						<ProjectInspector
+							project={state.project}
+							selection={state.selection}
+							onCommand={run}
+							onOpenRecording={setEditingClipId}
+						/>
 					</div>
-				</section>
-				<ProjectInspector
-					project={state.project}
-					selection={state.selection}
-					onCommand={run}
-					onOpenRecording={setEditingClipId}
-				/>
-			</div>
-			<ProjectTimeline
-				project={state.project}
-				selection={state.selection}
-				playheadUs={state.playheadUs}
-				onCommand={run}
-				onSelect={(ids) => controller.select(ids)}
-				onSeek={(time) => {
-					setPlaying(false);
-					controller.preview(null);
-					controller.seek(time);
-				}}
-				onOpenRecording={(id) => {
-					setPlaying(false);
-					setEditingClipId(id);
-				}}
-			/>
-			<footer className="project-footer">
-				<span>{busy ? "Importing media…" : `${state.project.assets.length} assets`}</span>
-				<span>{state.project.canvas.fps} fps</span>
-			</footer>
-			{composition && pkg && (
-				<div
-					className="project-composition-modal"
-					role="dialog"
-					aria-modal="true"
-					aria-label="Recording effects editor"
-				>
-					<RecordingCompositionEditor
-						key={composition.id}
-						package={pkg}
-						composition={composition}
-						onChange={(next) =>
-							controller.execute((p) => updateComposition(p, composition.id, next))
-						}
-						onClose={() => setEditingClipId(null)}
+					<ProjectTimeline
+						project={state.project}
+						selection={state.selection}
+						playheadUs={state.playheadUs}
+						onCommand={run}
+						onSelect={(ids) => controller.select(ids)}
+						onSeek={(time) => {
+							setPlaying(false);
+							controller.preview(null);
+							controller.seek(time);
+						}}
+						onOpenRecording={(id) => {
+							setPlaying(false);
+							setEditingClipId(id);
+						}}
 					/>
-				</div>
-			)}
+					<footer className="project-footer">
+						<span>
+							{busy ? "Importing media…" : `${state.project.assets.length} assets`}
+						</span>
+						<span>{state.project.canvas.fps} fps</span>
+					</footer>
+				</>
+			</ProjectEditorPanel>
 			{Boolean(legacy) && (
 				<div className="project-dialog-backdrop">
 					<section
