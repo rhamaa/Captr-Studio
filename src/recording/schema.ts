@@ -29,7 +29,7 @@ import {
 	isOptional,
 	isOptionalNullable,
 	isString,
-} from "@/core/slides/validation";
+} from "@/core/validation";
 
 export type {
 	AnnotationRegion,
@@ -113,9 +113,7 @@ function isPadding(value: unknown): value is Padding {
 }
 
 function isZoomFocus(value: unknown): value is ZoomFocus {
-	return (
-		isObjectRecord(value) && isFiniteNumber(value.cx) && isFiniteNumber(value.cy)
-	);
+	return isObjectRecord(value) && isFiniteNumber(value.cx) && isFiniteNumber(value.cy);
 }
 
 function isZoomRegion(value: unknown): value is ZoomRegion {
@@ -134,7 +132,14 @@ function isZoomRegion(value: unknown): value is ZoomRegion {
 }
 
 function isClipTransitionType(value: unknown): value is ClipTransitionType {
-	return isOneOf(value, ["none", "fade-black", "fade-white", "slide-left", "slide-right", "zoom-push"]);
+	return isOneOf(value, [
+		"none",
+		"fade-black",
+		"fade-white",
+		"slide-left",
+		"slide-right",
+		"zoom-push",
+	]);
 }
 
 function isClipRegion(value: unknown): value is ClipRegion {
@@ -200,7 +205,17 @@ function isLayoutCameraSettings(value: unknown): value is Partial<LayoutCameraSe
 	return (
 		(value.shape === undefined || isOneOf(value.shape, ["circle", "rectangle"])) &&
 		(value.position === undefined ||
-			isOneOf(value.position, ["top-left", "top-center", "top-right", "center-left", "center", "center-right", "bottom-left", "bottom-center", "bottom-right"])) &&
+			isOneOf(value.position, [
+				"top-left",
+				"top-center",
+				"top-right",
+				"center-left",
+				"center",
+				"center-right",
+				"bottom-left",
+				"bottom-center",
+				"bottom-right",
+			])) &&
 		(value.size === undefined || isFiniteNumber(value.size)) &&
 		(value.shape !== undefined || value.position !== undefined || value.size !== undefined)
 	);
@@ -266,7 +281,14 @@ function isCursorTelemetryPoint(value: unknown): value is CursorTelemetryPoint {
 		isFiniteNumber(value.cy) &&
 		isOptional(value.pressure, isFiniteNumber) &&
 		isOptional(value.interactionType, (candidate) =>
-			isOneOf(candidate, ["move", "click", "double-click", "right-click", "middle-click", "mouseup"]),
+			isOneOf(candidate, [
+				"move",
+				"click",
+				"double-click",
+				"right-click",
+				"middle-click",
+				"mouseup",
+			]),
 		) &&
 		isOptional(value.cursorType, (candidate) =>
 			isOneOf(candidate, [
@@ -388,7 +410,9 @@ function isAnnotationRegion(value: unknown): value is AnnotationRegion {
 		isOptional(value.videoFilePath, isString) &&
 		isOptional(value.sourceOffsetMs, isFiniteNumber) &&
 		isOptional(value.playbackRate, isFiniteNumber) &&
-		isOptional(value.animationIn, (candidate) => isOneOf(candidate, ["none", "fade", "slide-up"])) &&
+		isOptional(value.animationIn, (candidate) =>
+			isOneOf(candidate, ["none", "fade", "slide-up"]),
+		) &&
 		isOptional(value.animationOut, (candidate) => isOneOf(candidate, ["none", "fade"])) &&
 		isOptional(value.animationDurationMs, isFiniteNumber) &&
 		isOptional(value.name, isString) &&

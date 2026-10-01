@@ -476,18 +476,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	discardExportedTemp: (tempPath: string) => {
 		return ipcRenderer.invoke("discard-exported-temp", tempPath);
 	},
-	stitchProjectSlides: (options: {
-		slides: Array<{ filePath: string; durationSec: number; audioPaths?: string[] }>;
-		transitions?: Array<{ type: string; durationSec: number }>;
-		globalAudio?: { path: string; volume?: number; loop?: boolean };
-		outputPath: string;
-	}) => {
-		return ipcRenderer.invoke("stitch-project-slides", options) as Promise<{
-			success: boolean;
-			outputPath?: string;
-			error?: string;
-		}>;
-	},
 	getVideoAudioFallbackPaths: (videoPath: string) => {
 		return ipcRenderer.invoke("get-video-audio-fallback-paths", videoPath);
 	},
@@ -536,15 +524,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 	stitchVideoClips: (clipPaths: string[]) => {
 		return ipcRenderer.invoke("stitch-video-clips", clipPaths);
-	},
-	renderMotionSlide: (options: {
-		htmlDocument: string;
-		durationMs: number;
-		width?: number;
-		height?: number;
-		fps?: number;
-	}) => {
-		return ipcRenderer.invoke("render-motion-slide", options);
 	},
 	onRenderMotionSlideProgress: (
 		callback: (progress: {
@@ -781,21 +760,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
 			thumbnailDataUrl,
 		);
 	},
-	saveProjectFileNamed: (
-		projectData: unknown,
-		projectName: string,
-		thumbnailDataUrl?: string | null,
-	) => {
-		return ipcRenderer.invoke(
-			"save-project-file-named",
-			projectData,
-			projectName,
-			thumbnailDataUrl,
-		);
-	},
 	loadProjectFile: () => {
 		return ipcRenderer.invoke("load-project-file");
 	},
+	releaseLegacyProjectCandidate:(token:string)=>ipcRenderer.invoke("release-legacy-project-candidate",token),
 	loadCurrentProjectFile: () => {
 		return ipcRenderer.invoke("load-current-project-file");
 	},
@@ -817,23 +785,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	pickAndInspectProjectFile: () => {
 		return ipcRenderer.invoke("pick-and-inspect-project-file");
 	},
-	importAssetToSlide: (
-		projectId: string,
-		slideId: string,
-		sourcePath: string,
-		subfolder?: string,
-	) => {
-		return ipcRenderer.invoke(
-			"import-asset-to-slide",
-			projectId,
-			slideId,
-			sourcePath,
-			subfolder,
-		);
-	},
 	saveRecordedAudio: (payload: {
 		audioBuffer: ArrayBuffer | Uint8Array | number[];
-		slideId?: string | null;
 		extension?: string;
 	}) => {
 		return ipcRenderer.invoke("save-recorded-audio", payload);

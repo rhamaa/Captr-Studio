@@ -301,18 +301,6 @@ interface Window {
 			outputPath?: string;
 			error?: string;
 		}>;
-		renderMotionSlide: (options: {
-			htmlDocument: string;
-			durationMs: number;
-			width?: number;
-			height?: number;
-			fps?: number;
-		}) => Promise<{
-			success: boolean;
-			tempPath?: string;
-			durationSec?: number;
-			error?: string;
-		}>;
 		onRenderMotionSlideProgress: (
 			callback: (progress: {
 				currentFrame: number;
@@ -626,16 +614,6 @@ interface Window {
 			error?: string;
 		}>;
 		discardExportedTemp: (tempPath: string) => Promise<{ success: boolean; error?: string }>;
-		stitchProjectSlides: (options: {
-			slides: Array<{ filePath: string; durationSec: number; audioPaths?: string[] }>;
-			transitions?: Array<{ type: string; durationSec: number }>;
-			globalAudio?: { path: string; volume?: number; loop?: boolean };
-			outputPath: string;
-		}) => Promise<{
-			success: boolean;
-			outputPath?: string;
-			error?: string;
-		}>;
 		getVideoAudioFallbackPaths: (videoPath: string) => Promise<{
 			success: boolean;
 			paths: string[];
@@ -766,19 +744,8 @@ interface Window {
 			canceled?: boolean;
 			error?: string;
 		}>;
-		saveProjectFileNamed: (
-			projectData: unknown,
-			projectName: string,
-			thumbnailDataUrl?: string | null,
-		) => Promise<{
-			success: boolean;
-			path?: string;
-			projectId?: string;
-			message?: string;
-			canceled?: boolean;
-			error?: string;
-		}>;
 		loadProjectFile: () => Promise<{
+			conversionToken?: string;
 			success: boolean;
 			path?: string;
 			project?: unknown;
@@ -787,6 +754,7 @@ interface Window {
 			error?: string;
 		}>;
 		loadCurrentProjectFile: () => Promise<{
+			conversionToken?: string;
 			success: boolean;
 			path?: string;
 			project?: unknown;
@@ -794,6 +762,7 @@ interface Window {
 			canceled?: boolean;
 			error?: string;
 		}>;
+		releaseLegacyProjectCandidate:(token:string)=>Promise<{success:boolean}>;
 		getProjectsDirectory: () => Promise<{
 			success: boolean;
 			path?: string;
@@ -821,22 +790,8 @@ interface Window {
 		}>;
 		inspectProjectFile: (filePath: string) => Promise<ProjectInspectionResult>;
 		pickAndInspectProjectFile: () => Promise<ProjectInspectionResult>;
-		importAssetToSlide: (
-			projectId: string,
-			slideId: string,
-			sourcePath: string,
-			subfolder?: string,
-		) => Promise<{
-			success: boolean;
-			absolutePath?: string;
-			bundleRelativePath?: string;
-			fileName?: string;
-			size?: number;
-			error?: string;
-		}>;
 		saveRecordedAudio?: (payload: {
 			audioBuffer: ArrayBuffer | Uint8Array | number[];
-			slideId?: string | null;
 			extension?: string;
 		}) => Promise<{
 			success: boolean;
@@ -991,16 +946,6 @@ interface Window {
 		setWindowMode: (mode: "welcome" | "editor") => Promise<{ success: boolean }>;
 		onWindowMaximizedChange: (callback: (isMaximized: boolean) => void) => () => void;
 		approveLocalMediaPath?: (filePath: string) => Promise<{ success: boolean }>;
-		stitchProjectSlides?: (options: {
-			slides: Array<{ filePath: string; durationSec: number; audioPaths?: string[] }>;
-			transitions?: Array<{ type: string; durationSec: number }>;
-			globalAudio?: { path: string; volume?: number; loop?: boolean };
-			outputPath: string;
-		}) => Promise<{
-			success: boolean;
-			outputPath?: string;
-			error?: string;
-		}>;
 	};
 }
 

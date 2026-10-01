@@ -45,7 +45,7 @@ export async function packProjectWorkspace(
 		store: true,
 	});
 
-	await new Promise<void>((resolve, reject) => {
+	try{await new Promise<void>((resolve, reject) => {
 		outputStream.on("close", resolve);
 		archive.on("error", reject);
 		outputStream.on("error", reject);
@@ -56,16 +56,9 @@ export async function packProjectWorkspace(
 		archive.finalize();
 	});
 
-	// Atomically replace targetCaptrPath
-	await fs.rename(tempTargetPath, targetCaptrPath).catch(async (renameError) => {
-		// Fallback for cross-device renames or Windows lock delays
-		try {
-			await fs.copyFile(tempTargetPath, targetCaptrPath);
-			await fs.unlink(tempTargetPath).catch(() => undefined);
-		} catch {
-			throw renameError;
-		}
-	});
+	// Staging is on the destination volume. A failed rename must preserve the old bundle.
+	await fs.rename(tempTargetPath, targetCaptrPath);
+	}catch(error){archive.abort();outputStream.destroy();await fs.rm(tempTargetPath,{force:true}).catch(()=>undefined);throw error;}
 }
 
 /**
@@ -151,7 +144,7 @@ export interface ProjectInspectionEntry {
 	size: number;
 	compressedSize: number;
 	isDirectory: boolean;
-	slideId?: string;
+	assetId?: string;
 	category: "config" | "thumbnail" | "video" | "audio" | "graphic" | "telemetry" | "other";
 }
 
@@ -170,33 +163,33 @@ export interface ProjectInspectionResult {
 
 function categorizeEntry(relativePath: string): {
 	category: ProjectInspectionEntry["category"];
-	slideId?: string;
+	assetId?: string;
 } {
 	const norm = relativePath.replace(/\\/g, "/");
-	const slideMatch = norm.match(/^slides\/([^/]+)\/(.+)$/);
-	const slideId = slideMatch ? slideMatch[1] : undefined;
+	const ownerMatch = norm.match(/^(?:assets|slides)\/([^/]+)\/(.+)$/);
+	const assetId = ownerMatch ? ownerMatch[1] : undefined;
 	const ext = path.extname(norm).toLowerCase();
 
 	if (norm === "project.json") {
-		return { category: "config", slideId };
+		return { category: "config", assetId };
 	}
 	if (norm === "thumbnail.png" || norm.endsWith(".thumb.png")) {
-		return { category: "thumbnail", slideId };
+		return { category: "thumbnail", assetId };
 	}
 	if ([".mp4", ".webm", ".mov", ".mkv"].includes(ext)) {
-		return { category: "video", slideId };
+		return { category: "video", assetId };
 	}
 	if ([".mp3", ".wav", ".m4a", ".aac", ".ogg"].includes(ext)) {
-		return { category: "audio", slideId };
+		return { category: "audio", assetId };
 	}
 	if ([".png", ".jpg", ".jpeg", ".svg", ".gif", ".webp"].includes(ext)) {
-		return { category: "graphic", slideId };
+		return { category: "graphic", assetId };
 	}
 	if (norm.endsWith("telemetry.json") || norm.endsWith("cursor.json")) {
-		return { category: "telemetry", slideId };
+		return { category: "telemetry", assetId };
 	}
 
-	return { category: "other", slideId };
+	return { category: "other", assetId };
 }
 
 function readEntryToBuffer(zipfile: yauzl.ZipFile, entry: yauzl.Entry): Promise<Buffer> {
@@ -325,14 +318,14 @@ export async function inspectProjectBundle(captrPath: string): Promise<ProjectIn
 					zipfile.on("entry", async (entry: yauzl.Entry) => {
 						const rawName = entry.fileName.replace(/\\/g, "/");
 						const isDir = rawName.endsWith("/");
-						const { category, slideId } = categorizeEntry(rawName);
+						const { category, assetId } = categorizeEntry(rawName);
 
 						entries.push({
 							path: rawName,
 							size: entry.uncompressedSize,
 							compressedSize: entry.compressedSize,
 							isDirectory: isDir,
-							slideId,
+							assetId,
 							category,
 						});
 

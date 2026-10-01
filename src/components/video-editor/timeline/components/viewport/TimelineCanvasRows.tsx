@@ -10,7 +10,7 @@ import {
 	isAnnotationTrackRowId,
 	isAudioTrackRowId,
 } from "../../core/rows";
-import type { SlideMedia4in1, TimelineRenderItem } from "../../core/timelineTypes";
+import type { RecordingMediaStreams, TimelineRenderItem } from "../../core/timelineTypes";
 import Item from "../../Item";
 import glassStyles from "../../ItemGlass.module.css";
 import Row from "../../Row";
@@ -36,7 +36,7 @@ export interface TimelineCanvasRowsProps {
 	onSelectLayout?: (id: string | null) => void;
 	onSelectAnnotation?: (id: string | null) => void;
 	onSelectAudio?: (id: string | null) => void;
-	media4in1?: SlideMedia4in1;
+	media4in1?: RecordingMediaStreams;
 	liveSpanPreviewById?: Record<string, { start: number; end: number }>;
 	liveHiddenItemIds?: string[];
 	direction: string;

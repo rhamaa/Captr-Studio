@@ -1,7 +1,7 @@
 # Project Assets and Timeline — No Slide Runtime
 
 Date: 2026-10-01
-Status: written design for user review; supersedes Slide-related rollout and storage decisions in `2026-10-01-timeline-record-compound-design.md`.
+Status: user-approved design, implementation executed; native QA remains pending; supersedes Slide-related rollout and storage decisions in `2026-10-01-timeline-record-compound-design.md`.
 
 ## Intent and scope
 

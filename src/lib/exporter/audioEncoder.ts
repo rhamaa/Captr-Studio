@@ -1127,7 +1127,7 @@ export class AudioProcessor {
 		options: { isVideoContainer?: boolean } = {},
 	): Promise<AudioBuffer | null> {
 		const isBlobOrData = url.startsWith("blob:") || url.startsWith("data:");
-		if (isBlobOrData) {
+		if (isBlobOrData || /\.wav(?:[?#]|$)/i.test(url)) {
 			// In-memory audio blobs (voiceovers, recorded clips) decode natively
 			// without worker XHR issues or WebDemuxer container mismatch.
 			const bulkBuffer = await this.bulkDecodeFromUrl(url, OFFLINE_AUDIO_SAMPLE_RATE);
@@ -1671,7 +1671,7 @@ export class AudioProcessor {
 		}
 	}
 
-	private stretchAudioBuffer(
+	public stretchAudioBuffer(
 		originalBuffer: AudioBuffer,
 		speed: number,
 		sourceOffsetSec: number,

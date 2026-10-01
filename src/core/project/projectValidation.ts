@@ -4,7 +4,7 @@ import {
 	isObjectRecord,
 	isOptional,
 	isString,
-} from "@/core/slides/validation";
+} from "@/core/validation";
 import { isValidRecordingSettings } from "@/recording/schema";
 import type {
 	GlobalAudioTrack,
@@ -12,7 +12,7 @@ import type {
 	ProjectV2Data,
 	SlideTransition,
 	TransitionType,
-} from "@/core/slides/types";
+} from "@/core/project/legacyTypes";
 
 const transitionTypes: readonly TransitionType[] = [
 	"none",

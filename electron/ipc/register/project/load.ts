@@ -5,11 +5,13 @@ import {
 	getProjectsDir,
 	listProjectLibraryEntries,
 	loadProjectFromPath,
+	releaseLegacyProjectCandidate,
 } from "../../project/manager";
 import { inspectProjectBundle } from "../../project/projectBundle";
 import { currentProjectPath } from "../../state";
 
 export function registerProjectLoadHandlers() {
+	ipcMain.handle("release-legacy-project-candidate",async(_,token:string)=>{await releaseLegacyProjectCandidate(token);return {success:true};});
 	ipcMain.handle("load-project-file", async () => {
 		try {
 			const projectsDir = await getProjectsDir();

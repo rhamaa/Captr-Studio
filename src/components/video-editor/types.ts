@@ -298,7 +298,7 @@ export type RecordClipSettings = Pick<
 	| "cursorSway"
 >;
 
-export interface SlideAssetFile {
+export interface MediaFileReference {
 	id: string;
 	name: string;
 	path: string;
@@ -345,7 +345,7 @@ export interface LegacyClipEntry {
 	mediaTrackLayers?: MediaTrackLayer[];
 	keyframes?: PropertyKeyframe[];
 	/** Exclusive per-slide asset library for video and multimedia slides */
-	assetFiles?: SlideAssetFile[];
+	assetFiles?: MediaFileReference[];
 }
 
 /** Backward-compatible name for the editor's pre-V2 clip model. */

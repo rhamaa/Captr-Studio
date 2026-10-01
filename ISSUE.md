@@ -37,9 +37,13 @@
 - [x] Load memvalidasi semua media sebelum memasang workspace; sumber hilang tidak mengganti project aktif. Save gagal mempertahankan bytes bundle dan path aktif.
 - [x] Pemulihan target Ctrl+S memverifikasi identitas, termasuk path yang sudah trusted.
 - [x] Konverter Record V1/V2 mengutamakan slides canonical, membuat identitas baru, menjaga trim/settings/audio; transitions/extensions dan audio loop/fades yang belum didukung ditolak utuh, tanpa mutasi input.
-- [ ] Finalisasi Record hanya masuk Assets; stale completion/import tidak masuk project baru.
+- [x] Finalisasi Record hanya masuk Assets; stale completion/import tidak masuk project baru. Tes juga memastikan event duplikat tidak mengembalikan aset yang sudah dihapus.
 - [ ] Native QA: Record dua kali pada `.captr` aktif, Ctrl+S tanpa Save As, buka ulang Assets tanpa timeline dan semua sidecar utuh.
 - [ ] Native QA: tempatkan Record dua kali, split/trim/rate/edit independen; import video/gambar/audio, preview/export parity, Ctrl+S/reopen.
 - [ ] Native QA: Save As dan New Project mempertahankan perbedaan path/identitas; konversi eksplisit memakai file baru dan bundle asli tidak berubah.
 
 **Instruksi berikutnya:** pertahankan preservasi path native/browser/Windows dan pemeriksaan identitas. Jangan menentukan project kosong dari source aktif. Aset milik library, penghapusan clip tidak menghapus source; seluruh library harus ikut save meskipun timeline kosong. Perbarui checklist ini dan `AGENTS.md` saat kontrak berubah.
+
+**Verifikasi engine V3 (1 Oktober 2026):** bundle nyata menguji seluruh library dan sidecar, atomic save/load serta konversi sebagai copy. Uji browser memakai screen/webcam MP4 dan mic/system WAV nyata: completion duplikat menghasilkan satu Asset tanpa clip, seek acak dan rate 0.5×/2× mempertahankan frame efek pada source time yang sama, offset mic 500 ms terukur tepat. MP4 dari frame hasil edit dan mixer yang sama memiliki selisih rata-rata preview/export 1.51 dari 255 per channel, sesuai kompresi H.264. Tidak ada error console.
+
+**Batas verifikasi:** bridge encoder fixture memakai FFmpeg yang sudah tersedia; belum menjalankan capture native Windows/macOS atau IPC encoder di aplikasi desktop. Checklist native di atas tetap pending, termasuk Ctrl+S setelah dua capture pada `.captr` aktif, reopen dari aplikasi, serta Save As/New Project selama capture berlangsung. Sembilan kegagalan test decoder/effect/audio/media-layer dan 248 diagnostik locale merupakan baseline yang sudah direproduksi sebelum perubahan ini.

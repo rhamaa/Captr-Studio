@@ -4,9 +4,9 @@ import type {
 	SourceAudioTrackSettings,
 	SourceAudioTrackWithPeaks,
 } from "@/components/video-editor/audio/audioTypes";
-import type { SlideAssetFile } from "@/components/video-editor/types";
+import type { MediaFileReference } from "@/components/video-editor/types";
 import { isAnnotationTrackRowId, isAudioTrackRowId } from "../../core/rows";
-import type { SlideMedia4in1, TimelineRenderItem } from "../../core/timelineTypes";
+import type { RecordingMediaStreams, TimelineRenderItem } from "../../core/timelineTypes";
 import { getTimelineRowsMinHeightPx } from "../../timelineLayout";
 import TimelineAxis from "../axis/TimelineAxis";
 import PlaybackCursor from "../playhead/PlaybackCursor";
@@ -35,7 +35,7 @@ export interface TimelineCanvasProps {
 	selectedAudioId?: string | null;
 	selectAllBlocksActive?: boolean;
 	onClearBlockSelection?: () => void;
-	onDropMediaAsset?: (asset: SlideAssetFile, dropMs: number) => void;
+	onDropMediaAsset?: (asset: MediaFileReference, dropMs: number) => void;
 	keyframes?: {
 		id: string;
 		time: number;
@@ -45,7 +45,7 @@ export interface TimelineCanvasProps {
 	sourceAudioTracks?: SourceAudioTrackWithPeaks[];
 	getSourceAudioTrackSettingsForClip?: (clipId: string) => SourceAudioTrackSettings | undefined;
 	showSourceAudioTrack?: boolean;
-	media4in1?: SlideMedia4in1;
+	media4in1?: RecordingMediaStreams;
 	liveSpanPreviewById?: Record<string, { start: number; end: number }>;
 	liveHiddenItemIds?: string[];
 	isLoading?: boolean;
@@ -318,7 +318,7 @@ export default function TimelineCanvas({
 			e.preventDefault();
 			setDragOverTimeMs(null);
 
-			let asset: SlideAssetFile | null = null;
+			let asset: MediaFileReference | null = null;
 			const customData = e.dataTransfer.getData("application/x-captr-asset");
 			const jsonData = e.dataTransfer.getData("application/json");
 

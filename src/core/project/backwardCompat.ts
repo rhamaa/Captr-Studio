@@ -6,7 +6,7 @@ import {
 	type LegacyClipEntry,
 } from "@/components/video-editor/types";
 import { createDefaultRecordingSettings, type RecordingEffectSettings } from "@/recording/schema";
-import type { ProjectV2Data, SlideData, SlideTransition, TransitionType } from "../slides/types";
+import type { ProjectV2Data, SlideData, SlideTransition, TransitionType } from "./legacyTypes";
 import { isProjectV2Data } from "./projectValidation";
 
 function migrateRecordMeta(

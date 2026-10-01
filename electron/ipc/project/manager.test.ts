@@ -12,6 +12,7 @@ async function makeBundle(
 	tmpDir: string,
 	captrPath: string,
 	projectData: Record<string, unknown>,
+	media:Record<string,string>={},
 ): Promise<string> {
 	const workspaceDir = path.join(
 		tmpDir,
@@ -23,6 +24,7 @@ async function makeBundle(
 		JSON.stringify(projectData),
 		"utf-8",
 	);
+	for(const [name,bytes] of Object.entries(media)){const target=path.resolve(workspaceDir,name);if(!target.startsWith(path.resolve(workspaceDir)+path.sep))throw new Error("Unsafe fixture");await fs.mkdir(path.dirname(target),{recursive:true});await fs.writeFile(target,bytes);}
 	await packProjectWorkspace(workspaceDir, captrPath);
 	await fs.rm(workspaceDir, { recursive: true, force: true });
 	return captrPath;
@@ -451,6 +453,13 @@ describe("local media path policy", () => {
 		await makeBundle(tempPath, brokenBundle, { ...staged, title: "Broken", assets: [{ ...staged.assets[0], source: { ...staged.assets[0].source, path: "assets/asset/missing.mp4" } }] });
 		expect((await loadProjectFromPath(brokenBundle)).success).toBe(false);
 		expect(JSON.parse(await fs.readFile(path.join(getProjectWorkspaceDir("library"), "project.json"), "utf8")).title).toBe("Library");
+	});
+
+	it("legacy conversion candidates preserve the active destination and original bytes",async()=>{
+		const legacy=path.join(tempPath,"convert.captr");await makeBundle(tempPath,legacy,{version:1,projectId:"old",videoPath:"screen.mp4",editor:{},clips:[{id:"record",videoPath:"screen.mp4",durationMs:1000}]},{"screen.mp4":"source"});
+		const bytes=await fs.readFile(legacy);const state=await import("../state");state.setCurrentProjectPath("active.captr");
+		const {loadProjectFromPath}=await import("./manager");const result=await loadProjectFromPath(legacy);
+		expect(result.success).toBe(true);expect(result).toMatchObject({conversionRequired:true});expect(state.currentProjectPath).toBe("active.captr");expect(await fs.readFile(legacy)).toEqual(bytes);
 	});
 
 	it("rejects bundle projects that reference media missing from the bundle", async () => {

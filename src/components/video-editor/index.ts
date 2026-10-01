@@ -1,6 +1,5 @@
 export { default as PlaybackControls } from "./PlaybackControls";
 export { SettingsPanel } from "./SettingsPanel";
-export { default as SlideTimelineHost } from "./SlideTimelineHost";
 export { RecordingTimeline } from "@/recording";
 export type {
 	TimelineEditorHandle,

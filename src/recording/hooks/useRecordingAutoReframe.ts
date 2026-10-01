@@ -18,7 +18,7 @@ interface UseRecordingAutoReframeOptions {
 	onZoomSuggested: (span: Span, focus: ZoomFocus, depth?: ZoomDepth) => void;
 }
 
-interface RecordSlideSourceDimensions {
+interface RecordingSourceDimensions {
 	width: number;
 	height: number;
 }
@@ -32,7 +32,7 @@ export function useRecordingAutoReframe({
 	onZoomSuggested,
 }: UseRecordingAutoReframeOptions) {
 	return useCallback(
-		({ width, height }: RecordSlideSourceDimensions) => {
+		({ width, height }: RecordingSourceDimensions) => {
 			if (!cursorTelemetry.length || duration <= 0) return;
 
 			const sourceAspectRatio = height > 0 ? width / height : 16 / 9;

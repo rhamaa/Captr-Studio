@@ -10,7 +10,7 @@ import KeyframeMarkers from "@/components/video-editor/timeline/components/marke
 import TimelineCanvas from "@/components/video-editor/timeline/components/viewport/TimelineCanvas";
 import TimelineWrapper from "@/components/video-editor/timeline/components/wrapper/TimelineWrapper";
 import { calculateTimelineScale } from "@/components/video-editor/timeline/core/time";
-import type { SlideMedia4in1 } from "@/components/video-editor/timeline/core/timelineTypes";
+import type { RecordingMediaStreams } from "@/components/video-editor/timeline/core/timelineTypes";
 import { useTimelineAudioPeaks } from "@/components/video-editor/timeline/hooks/useTimelineAudioPeaks";
 import { useTimelineEditorRuntime } from "@/components/video-editor/timeline/hooks/useTimelineEditorRuntime";
 import { useTimelineRange } from "@/components/video-editor/timeline/hooks/useTimelineRange";
@@ -20,7 +20,7 @@ import type {
 	ClipRegion,
 	CursorTelemetryPoint,
 	LayoutRegion,
-	SlideAssetFile,
+	MediaFileReference,
 	SpeedRegion,
 	TrimRegion,
 	ZoomFocus,
@@ -88,7 +88,7 @@ export interface RecordingTimelineProps {
 	sourceAudioTrackSettings?: SourceAudioTrackSettings;
 	getSourceAudioTrackSettingsForClip?: (clipId: string | null) => SourceAudioTrackSettings;
 	onSourceAudioTracksMetaChange?: (tracks: SourceAudioTrackMeta) => void;
-	onDropMediaAsset?: (asset: SlideAssetFile, dropMs: number) => void;
+	onDropMediaAsset?: (asset: MediaFileReference, dropMs: number) => void;
 }
 
 export interface RecordingTimelineHandle {
@@ -262,7 +262,7 @@ export const RecordingTimeline = forwardRef<RecordingTimelineHandle, RecordingTi
 				: [];
 		}, [sourceAudioPeaks, t]);
 
-		const media4in1 = useMemo<SlideMedia4in1>(() => {
+		const media4in1 = useMemo<RecordingMediaStreams>(() => {
 			return {
 				videoPath: videoPath ?? null,
 				webcamPath: webcamPath ?? null,

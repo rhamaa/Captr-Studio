@@ -1,6 +1,6 @@
 import { assertSupportedLegacyProject, getRetiredSlideIssues } from "@/core/project/legacySupport";
 import type { SourceAudioTrackSettings } from "@/components/video-editor/audio/audioTypes";
-import { isObjectRecord as isSchemaObjectRecord } from "@/core/slides/validation";
+import { isObjectRecord as isSchemaObjectRecord } from "@/core/validation";
 import type {
 	ExportBackendPreference,
 	ExportEncodingMode,
@@ -72,7 +72,7 @@ import {
 	type LayoutRegion,
 	type Padding,
 	type RecordClipSettings,
-	type SlideAssetFile,
+	type MediaFileReference,
 	type SpeedRegion,
 	type TrimRegion,
 	type WebcamOverlaySettings,
@@ -202,7 +202,7 @@ function normalizeLegacySceneSettings(
 	return normalizeSceneVisualSettings(partial);
 }
 
-function parseLegacyAssetFiles(value: unknown, clipIndex: number): SlideAssetFile[] | undefined {
+function parseLegacyAssetFiles(value: unknown, clipIndex: number): MediaFileReference[] | undefined {
 	if (!Array.isArray(value)) return undefined;
 	return value.flatMap((candidate, assetIndex) => {
 		if (!isSchemaObjectRecord(candidate) || typeof candidate.path !== "string") return [];
@@ -210,7 +210,7 @@ function parseLegacyAssetFiles(value: unknown, clipIndex: number): SlideAssetFil
 			candidate.type === "audio" || candidate.type === "image" || candidate.type === "video"
 				? candidate.type
 				: "video";
-		const category: SlideAssetFile["category"] =
+		const category: MediaFileReference["category"] =
 			candidate.category === "main" ||
 			candidate.category === "layer" ||
 			candidate.category === "audio" ||

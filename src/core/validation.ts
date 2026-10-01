@@ -1,4 +1,4 @@
-/** Small runtime guards shared by slide metadata schemas and project parsing. */
+/** Small runtime guards shared by recording settings and project parsing. */
 export function isObjectRecord(value: unknown): value is Record<string, unknown> {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
 }

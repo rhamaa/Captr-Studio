@@ -41,10 +41,10 @@
 
 `mapClipTime(clip:TimelineClip,projectUs:number):number|null` returns composition/media time for active half-open interval. `mapCompositionTime(composition:RecordComposition,outputUs:number):number` uses monotonic piecewise segments. `mapStreamTime(sourceUs:number,offsetUs:number,durationUs:number):number|null` handles absent/out-of-range streams explicitly.
 
-- [ ] Write tests: recording registration creates one asset and zero clips; repeated captureId returns unchanged project; 2x maps project delta 5,000,000 to source delta 10,000,000; split boundaries meet; invalid/reference/lock cases reject; two placements share sources but not edits; removeClip retains asset.
-- [ ] Run `npm test -- src/core/timeline src/recording/packageAdapter.test.ts`; watch expected missing-implementation failures.
-- [ ] Implement interfaces and commands; clone edited composition/settings deeply while retaining shared source references.
-- [ ] Run same focused tests and TypeScript; require no new failures. Commit `feat(timeline): add project assets and recording composition domain`.
+- [x] Write tests: recording registration creates one asset and zero clips; repeated captureId returns unchanged project; 2x maps project delta 5,000,000 to source delta 10,000,000; split boundaries meet; invalid/reference/lock cases reject; two placements share sources but not edits; removeClip retains asset.
+- [x] Run `npm test -- src/core/timeline src/recording/packageAdapter.test.ts`; watch expected missing-implementation failures.
+- [x] Implement interfaces and commands; clone edited composition/settings deeply while retaining shared source references.
+- [x] Run same focused tests and TypeScript; require no new failures. Commit `feat(timeline): add project assets and recording composition domain`.
 
 ## Task 2: Version-3 bundle persistence and conversion
 
@@ -53,10 +53,10 @@
 **Consumes:** Task 1 domain validation and types.
 **Produces:** `stageTimelineProject(project:TimelineProject,workspaceDir:string):Promise<TimelineProject>` stages the entire library and package files under assets owners, storing relative refs; `resolveTimelineProject(project:TimelineProject,workspaceDir:string):TimelineProject` resolves validated relative refs. `convertLegacyRecordProject(value:unknown,ids:ConversionIds):TimelineProject` reads canonical V2 slides when available, otherwise V1 clips; preserves settings/streams/order/global audio; refuses unsupported metadata/transitions/extensions. `ConversionIds` provides a new projectId and deterministic IDs for generated entities; never silently filters. Explicit UI conversion/save-as-copy supplies a new path/identity after success.
 
-- [ ] Write real-bundle tests: unused Record package survives save/reopen with screen/webcam/mic/system/cursor files; duplicate placements stage one source set; project index has version 3/no slides; references cannot escape workspace; failed save leaves old bytes/state intact; identity mismatch cannot recover overwrite target; conversion uses V2 once and leaves original bytes unchanged.
-- [ ] Run owning project tests; watch failures before new staging implementation.
-- [ ] Dispatch save/load by validated format before mutation. V3 media discovery traverses assets/packages/compositions, not selected clip. Reuse current atomic bundling and serialized save behavior; new project state installs only after complete load validation. Library-only projects are valid.
-- [ ] Run project tests and TypeScript. Commit `feat(project): persist timeline libraries and recording packages`.
+- [x] Write real-bundle tests: unused Record package survives save/reopen with screen/webcam/mic/system/cursor files; duplicate placements stage one source set; project index has version 3/no slides; references cannot escape workspace; failed save leaves old bytes/state intact; identity mismatch cannot recover overwrite target; conversion uses V2 once and leaves original bytes unchanged.
+- [x] Run owning project tests; watch failures before new staging implementation.
+- [x] Dispatch save/load by validated format before mutation. V3 media discovery traverses assets/packages/compositions, not selected clip. Reuse current atomic bundling and serialized save behavior; new project state installs only after complete load validation. Library-only projects are valid.
+- [x] Run project tests and TypeScript. Commit `feat(project): persist timeline libraries and recording packages`.
 
 ## Task 3: Finalization enters project Assets
 
@@ -65,9 +65,9 @@
 **Consumes:** `registerRecording`, validated `CompletedRecording`, V3 state/persistence.
 **Produces:** `RecordingAssetController` with `beginProject(projectId:string):number` generation, `acceptCompleted(generation:number,input:CompletedRecording):Promise<void>`, `dispose():void`; callbacks update the authoritative project and report failure. Hook subscribes once to recording-session events; captureId comes from persisted recording provenance, not event arrival time. Probe all finalized media/telemetry before accepting an asset. Missing required screen/finalization failure cannot reset project/timeline. Project-session controller invalidates pending capture/import work when project identity changes.
 
-- [ ] Tests: two completions produce two Assets and zero clips; repeated capture once; stale generation ignored; failure preserves assets/tracks/path; empty active source does not imply a new project; both session handlers preserve active destination and consume pending flag once.
-- [ ] Run focused controller/session tests RED; implement registration and remove automatic append/first-Slide creation from the event path.
-- [ ] Run tests and TypeScript GREEN; commit `feat(recording): register completed captures in project assets`.
+- [x] Tests: two completions produce two Assets and zero clips; repeated capture once; stale generation ignored; failure preserves assets/tracks/path; empty active source does not imply a new project; both session handlers preserve active destination and consume pending flag once.
+- [x] Run focused controller/session tests RED; implement registration and remove automatic append/first-Slide creation from the event path.
+- [x] Run tests and TypeScript GREEN; commit `feat(recording): register completed captures in project assets`.
 
 ## Task 4: Timeline editing and history
 
@@ -76,9 +76,9 @@
 **Consumes:** Task 1 commands.
 **Produces:** `ProjectHistory` supporting execute/undo/redo against immutable project snapshots; gesture preview does not commit history until drop. `ProjectTimeline({project,selection,playheadUs,onCommand,onSelect,onSeek,onOpenRecording}:ProjectTimelineProps)` renders visual/audio tracks and accepts asset drag data containing stable assetId, not filesystem paths. `selection` is separate UI state. Keyboard actions use the same commands as toolbar.
 
-- [ ] Tests: drag/drop places at requested time; trim/split/move/rate/delete update placement only; duplicate/split Record compositions independent; each gesture produces one undo item; locks prevent edit; snapping applies to playhead/edges within 8 screen pixels converted by timeline scale; undo/redo restores selection safely if entity no longer exists.
-- [ ] Run RED; implement tracks, clip gestures, zoom/scroll, playhead, split/delete, mute/visibility/lock, accessible Add to timeline action and history.
-- [ ] Run domain/interaction tests GREEN plus TypeScript; commit `feat(editor): add project timeline commands and interactions`.
+- [x] Tests: drag/drop places at requested time; trim/split/move/rate/delete update placement only; duplicate/split Record compositions independent; each gesture produces one undo item; locks prevent edit; snapping applies to playhead/edges within 8 screen pixels converted by timeline scale; undo/redo restores selection safely if entity no longer exists.
+- [x] Run RED; implement tracks, clip gestures, zoom/scroll, playhead, split/delete, mute/visibility/lock, accessible Add to timeline action and history.
+- [x] Run domain/interaction tests GREEN plus TypeScript; commit `feat(editor): add project timeline commands and interactions`.
 
 ## Task 5: Recording composition editor without Slide adapters
 
@@ -87,9 +87,9 @@
 **Consumes:** Package, composition and Task 1 time mapping.
 **Produces:** `RecordingCompositionEditor({package:RecordingPackage,composition:RecordComposition,onChange:(next:RecordComposition)=>void,onClose:()=>void})`. Record cursor/webcam/zoom/layout/annotations/trim/internal-speed settings initialize from that composition and emit updates via one composition command; internal Save/Close does not write the project itself. Asset sources remain immutable. Return action restores project playhead/selection.
 
-- [ ] Tests: edit cursor/zoom/layout/webcam/audio on placement A leaves placement B/package unchanged; closing and reopening preserves edits; internal duration change clamps range atomically; original motion/spring helper regression tests continue to run.
-- [ ] Run RED; migrate reusable implementation and connect controlled composition adapter. Preserve timestamp semantics via explicit millisecond ↔ microsecond adapters at existing effect boundaries.
-- [ ] Run Record/effect/domain tests GREEN and TypeScript; commit `refactor(recording): replace slide wrappers with composition editor`.
+- [x] Tests: edit cursor/zoom/layout/webcam/audio on placement A leaves placement B/package unchanged; closing and reopening preserves edits; internal duration change clamps range atomically; original motion/spring helper regression tests continue to run.
+- [x] Run RED; migrate reusable implementation and connect controlled composition adapter. Preserve timestamp semantics via explicit millisecond ↔ microsecond adapters at existing effect boundaries.
+- [x] Run Record/effect/domain tests GREEN and TypeScript; commit `refactor(recording): replace slide wrappers with composition editor`.
 
 ## Task 6: OpenCut-style project workspace and asset library
 
@@ -98,9 +98,9 @@
 **Consumes:** Tasks 1–5; existing project browser/import dialog/recorder IPC.
 **Produces:** Authoritative project controller owns V3 project, revision/save queue/history, selected entities and generation. `AssetLibrary({assets,onImport,onRecord,onPreview,onPlace,onRemove}:AssetLibraryProps)` is independent of selected clip. Import probes video/image/audio, stages only during saving, and registers immutable assets without placements. Previewing source does not change timeline or composition. Project toolbar routes New/Open/Convert/Save/Save As/Record/Export; internal recording editor has none of these global actions.
 
-- [ ] Tests: New opens empty Assets/timeline; import without selected clip works and leaves timeline empty; Record action uses current project context; asset preview preserves placements; unused assets mark dirty and save; selected clip drives inspector; referenced asset removal explains block; late imports rejected by generation; save completion clears only saved revision.
-- [ ] Run RED; implement reference layout (left nav and Assets with Import/grid/list/sort, center preview, right inspector, timeline bottom) and real drag/drop/import. Controls unavailable in this scope remain hidden. Double-click Record clip opens Task 5 editor.
-- [ ] Run interaction/persistence tests GREEN plus build; commit `feat(editor): replace slide workspace with project assets`.
+- [x] Tests: New opens empty Assets/timeline; import without selected clip works and leaves timeline empty; Record action uses current project context; asset preview preserves placements; unused assets mark dirty and save; selected clip drives inspector; referenced asset removal explains block; late imports rejected by generation; save completion clears only saved revision.
+- [x] Run RED; implement reference layout (left nav and Assets with Import/grid/list/sort, center preview, right inspector, timeline bottom) and real drag/drop/import. Controls unavailable in this scope remain hidden. Double-click Record clip opens Task 5 editor.
+- [x] Run interaction/persistence tests GREEN plus build; commit `feat(editor): replace slide workspace with project assets`.
 
 ## Task 7: Shared evaluation/export, final removal and QA
 
@@ -109,10 +109,10 @@
 **Consumes:** V3 project and three-clock mapping, independent recording settings.
 **Produces:** `evaluateProject(project:TimelineProject,timeUs:number):ProjectEvaluation` returns ordered active visuals and canonical audio contributions with mapped stream times, transforms/gains and missing-required-source issues. `ProjectFrameRenderer.render(evaluation:ProjectEvaluation):Promise<HTMLCanvasElement>` owns bounded sources/cache and deterministic seek; recording frames use retained effect renderer with source-time sampling/pre-roll checkpoints. `TimelineProjectExporter.export(project,options:{outputPath:string;fps:number;signal?:AbortSignal;onProgress?:(percent:number)=>void}):Promise<ExportResult>` samples the same evaluation, composites stacked tracks, mixes audio once and encodes project frames. Empty timeline rejects even with library assets. Cancel/failure cleans temporary outputs without changing media/project.
 
-- [ ] Tests RED: overlap visual stacking; mic/system offsets, sidecar preferred over embedded; rate 0.5x/2x and random seek match source markers within one project frame; identical preview/export evaluation; missing required media/empty timeline blocks export; cancel retains source bytes. Use deterministic screen/cursor/webcam markers and audio tones.
-- [ ] Implement evaluation, Record rendering adapter, project preview/export and encoder integration. Wait for native/WebCodecs frame/audio availability; no blank success placeholders or raw-source export that omits edits.
-- [ ] Inventory tracked/untracked contents, validate resolved deletion targets remain within workspace, remove obsolete Slide modules only after migrated callers compile. Exhaustive Graft imports/symbol search plus TypeScript confirms only explicit read-only legacy conversion mentions remain; rename active IPC/renderer contracts, not merely UI text.
-- [ ] Run focused suites, complete full suite, TypeScript, Vite renderer/Electron build, i18n check and `graft build`; distinguish baseline failures from new regressions. Commit atomic final removal/export `feat(editor): export project timelines without slide runtime`.
+- [x] Tests RED: overlap visual stacking; mic/system offsets, sidecar preferred over embedded; rate 0.5x/2x and random seek match source markers within one project frame; identical preview/export evaluation; missing required media/empty timeline blocks export; cancel retains source bytes. Use deterministic screen/cursor/webcam markers and audio tones.
+- [x] Implement evaluation, Record rendering adapter, project preview/export and encoder integration. Wait for native/WebCodecs frame/audio availability; no blank success placeholders or raw-source export that omits edits.
+- [x] Inventory tracked/untracked contents, validate resolved deletion targets remain within workspace, remove obsolete Slide modules only after migrated callers compile. Exhaustive Graft imports/symbol search plus TypeScript confirms only explicit read-only legacy conversion mentions remain; rename active IPC/renderer contracts, not merely UI text.
+- [x] Run focused suites, complete full suite, TypeScript, Vite renderer/Electron build, i18n check and `graft build`; distinguish baseline failures from new regressions. Commit atomic final removal/export `feat(editor): export project timelines without slide runtime`.
 - [ ] Native QA: Record twice into existing `.captr`, Assets-only save/reopen, place recording twice, split/trim/rate/edit independently, insert imported video/image/music, seek/play, Ctrl+S/reopen, export parity, Save As/New Project, unsupported conversion safety. If unavailable record precise unverified checks; do not claim desktop fidelity.
 - [ ] Fresh final reviewer examines whole commit range using spec, this plan, Review Focus and ledger rulings. Fix Important/Critical findings with RED→GREEN; no per-task delegation. Preserve branch without merge/push unless user requests it.
 
