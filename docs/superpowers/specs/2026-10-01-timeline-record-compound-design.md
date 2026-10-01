@@ -1,7 +1,7 @@
 # Timeline umum dengan Record compound clip
 
 Tanggal: 1 Oktober 2026
-Status: spec untuk review pengguna; scope dan flow telah disetujui, implementasi belum dimulai.
+Status: flow compound clip disetujui; revisi scope menghapus Video/Motion slide dan mengikuti UX OpenCut. Implementasi belum dimulai.
 
 ## 1. Tujuan dan keputusan
 
@@ -9,7 +9,9 @@ Captr beralih dari penyusunan deck ala Tella ke editing timeline umum. Hasil scr
 
 Flow yang disetujui: Record/import → Media Library → drag ke timeline → trim/split/susun → edit efek → simpan/buka ulang → ekspor. Record tampil sebagai satu compound clip; membuka clip menampilkan editor internal. Screen, webcam, mikrofon, dan system audio tidak langsung menjadi track terpisah pada timeline utama.
 
-Pendekatan: evolusi Captr bertahap dengan timeline eksperimen di balik feature flag. Recorder native/browser dan logika efek Record dipertahankan melalui adapter. UI dan pola command editor lain boleh menjadi referensi; spec ini tidak memilih fork atau mengadopsi kode pihak ketiga.
+Pendekatan: evolusi Captr bertahap. Pengguna meminta penghapusan seluruh kode src/slides/video dan src/slides/motion, termasuk wiring runtime di luar folder tersebut. Recorder native/browser dan logika efek Record dipertahankan melalui adapter. UX mengikuti OpenCut yang berjalan di https://opencut.app; repository OpenCut utama sedang rewrite, sehingga bukan baseline UX eksperimen ini. Ini keputusan UX, bukan keputusan menyalin seluruh engine atau fork.
+
+Baseline yang diamati pada 1 Oktober 2026: project library → New project → workspace dengan assets di kiri, preview di tengah, inspector selection di kanan, timeline bawah, dan Export di header. Sidebar menyediakan Media, Text, Stickers, Effects, Transitions, Captions, Adjustment, Settings. Implementasi flow inti mengikuti baseline tersebut; kemampuan sidebar yang belum tersedia tidak boleh menjadi tombol palsu. Record ditambahkan sebagai aksi capture di Media; hasilnya masuk assets lalu didrag ke timeline. Editor internal Record merupakan ekstensi khusus Captr.
 
 Kesuksesan: recording 60 detik dipakai sebagai dua potongan, diselingi video biasa, diberi text dan musik, auto-zoom diubah, disimpan lalu dibuka ulang dan diekspor dengan seluruh stream tetap sinkron.
 
@@ -39,7 +41,7 @@ Termasuk:
 - Preview, seek, playback, save/load .captr, dan ekspor project timeline.
 - Kecepatan konstan positif pada clip, termasuk uji 0.5x dan 2x. Reverse dan speed ramp baru ditunda; speed regions lama tetap dibaca oleh adapter composition.
 
-Ditunda: membuka komponen menjadi track bebas, nested compound rekursif, transition baru, katalog efek, AI editing, collaboration, interchange package lintas aplikasi, dan rewrite recorder. Motion slide lama tetap dapat dibuka dalam editor lama; migrasi otomatisnya tidak disertakan pada eksperimen pertama.
+Ditunda: membuka komponen menjadi track bebas, nested compound rekursif, transition baru, katalog efek, AI editing, collaboration, interchange package lintas aplikasi, dan rewrite recorder. Modul Video/Motion slide dihapus; kemampuan video biasa dibangun sebagai timeline clip umum. Tidak ada editor Motion lama yang tetap aktif dalam hasil migrasi ini.
 
 ## 4. Model data yang diusulkan
 
@@ -107,11 +109,11 @@ Saat kontrak storage benar-benar diimplementasikan, perbarui ISSUE.md dan AGENTS
 
 ## 8. Migrasi dan rollout
 
-Feature flag memisahkan editor timeline eksperimen dari editor deck. Project lama tetap dibuka di editor lama. Perintah eksplisit Convert to Timeline menulis salinan .captr baru, mempertahankan file/identity lama; konversi tidak menimpa otomatis.
+Selama rollout, workspace Record yang tersisa menyediakan jalur regresi capture; Video/Motion tidak dipertahankan sebagai mode runtime. Perintah eksplisit Convert to Timeline untuk project Record yang didukung menulis salinan .captr baru, mempertahankan file/identity lama; konversi tidak menimpa otomatis.
 
 Record slide lama → package + composition + satu timeline clip. Urutan slide tanpa transition → posisi berurutan menurut durasi output aktual. Global audio → audio timeline clip dengan trim/fade/loop yang dipertahankan.
 
-Video slide dengan beberapa track → komposisi legacy melalui adapter pada tahap ini, sehingga layout/timing lama tetap utuh. Flatten ke track utama dapat menjadi tahap berikutnya. Project dengan Motion/keyframe extension atau transition yang belum direpresentasikan ditolak untuk konversi dengan alasan per-item; tetap bisa dibuka/diekspor oleh editor lama. Tidak diam-diam membuang data atau membakar Record menjadi MP4.
+Project lama yang mengandung Video/Motion atau extension/transition belum didukung ditolak untuk editing/konversi dengan alasan per-item sebelum mutasi state. Bundle asli tidak diubah dan tidak disimpan ulang dalam bentuk parsial. Pesan menyebut penggunaan versi Captr sebelumnya untuk membuka project tersebut. Tidak ada renderer atau schema aktif dari folder yang dihapus; deteksi legacy membaca envelope mentah secara minimal. Migrasi isi Video/Motion menjadi track umum dapat menjadi pekerjaan berikutnya. Record tidak dibakar menjadi MP4.
 
 Reader version 3 tidak menyamar sebagai version 2. Versi aplikasi yang tidak mendukung schema harus menampilkan pesan upgrade; tidak melakukan downgrade lossy.
 
@@ -123,18 +125,19 @@ Media wajib hilang: placeholder dan daftar file di UI; export diblokir dengan lo
 
 Resource decoder/cache dibatasi pada clip aktif dan prefetch terbatas. Seek yang tertinggal dibatalkan menggunakan generation token. Render compound dapat dicache berdasarkan revision, waktu, dan canvas; proxy tidak menggantikan metadata editable.
 
-Exporter deck lama tetap dipakai untuk project deck. Export timeline menyampling seluruh track pada setiap frame dan mencampur audio berdasarkan evaluator project; stitching slide saja tidak cukup untuk clip overlap. Cancel/failure membersihkan file sementara dan tidak mengubah project/media asli.
+Exporter Record yang tersisa dipertahankan melalui adapter. Export timeline menyampling seluruh track pada setiap frame dan mencampur audio berdasarkan evaluator project; stitching slide saja tidak cukup untuk clip overlap. Cancel/failure membersihkan file sementara dan tidak mengubah project/media asli.
 
 ## 10. Tahapan pengembangan
 
 Ini urutan milestone, bukan implementation plan terperinci:
 
+0. Hapus modul Video/Motion beserta wiring, UI action, registry, schema runtime dan test spesifik fitur tersebut; tambahkan penolakan project legacy yang aman. Pastikan Record tetap berjalan dan aplikasi lolos TypeScript.
 1. Kontrak RecordingPackage, composition dan time mapping; fixture capture/legacy; adapter murni tanpa UI baru.
 2. Timeline vertical slice: library, dua track visual/audio, operasi dasar, undo/redo; Record internal editor dan preview.
 3. Persistence version 3, staging aset, convert-as-copy untuk subset didukung, regresi path/projectId.
 4. Export evaluator project, audio mix, parity preview/export, packaged smoke test dan QA native Windows/macOS.
 
-Cartcut/OpenCut tetap kandidat referensi. Adopsi modul harus lewat inspeksi dependency/API/render contract dan attribution pada commit yang dipin; pemilihan tidak diperlukan untuk membuktikan vertical slice ini.
+OpenCut live/classic adalah acuan UX; Cartcut tidak lagi menjadi kandidat UX utama. Adopsi modul OpenCut harus lewat inspeksi dependency/API/render contract dan attribution pada commit yang dipin. Flow inti wajib memiliki acceptance matrix terhadap baseline, tanpa klaim seluruh feature set sudah identik.
 
 ## 11. Verifikasi dan acceptance
 
@@ -142,7 +145,7 @@ Cartcut/OpenCut tetap kandidat referensi. Adopsi modul harus lewat inspeksi depe
 - Integration: finalisasi recording → package → library; pending/error; sidecar versus embedded audio; queue autosave/Ctrl+S; project identity mismatch; save interrupted; bundle path validation.
 - Fixture deterministik: screen/cursor/click marker, webcam marker, mic tone, system tone dengan offset yang diketahui. Setelah split, trim, 0.5x/2x dan seek acak, marker preview/export harus cocok dalam satu frame project; audio alignment dalam satu frame setelah memperhitungkan codec delay.
 - End-to-end acceptance: recording 60 detik → potongan 5–15 dan 30–40 → video biasa di antaranya → text/image di track atas → musik di track audio → ubah cursor/auto-zoom salah satu potongan → undo/redo → Ctrl+S → tutup/buka ulang → export. Kedua potongan tetap punya edit independen, metadata utuh, dan tidak ada audio ganda.
-- Jalankan checklist ISSUE.md: dua Record tambahan pada project aktif, Video/Motion di editor lama, Windows Test 2.captr, Save As dan New Project. Verifikasi browser/native masing-masing; jalur Windows tidak dianggap melewati finalizer macOS.
+- Jalankan checklist ISSUE.md: dua Record tambahan pada project aktif, Windows Test 2.captr, Save As dan New Project. Saat penghapusan diterapkan, revisi checklist Video menjadi import video umum pada timeline; Motion menjadi penolakan legacy tanpa overwrite. Verifikasi browser/native masing-masing; jalur Windows tidak dianggap melewati finalizer macOS.
 - Pengujian otomatis domain/persistence/export wajib menjadi CI gate. QA UI/native dan packaged test melengkapi unit test; jumlah test saja bukan bukti kesuksesan.
 
 ## 12. Review spec
