@@ -320,6 +320,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	const requestedBrowserMicrophoneProfile = useRef<string | null>(null);
 	const hideEditorOverlayCursorByDefault = useRef(false);
 	const preserveProjectPathForRecording = useRef(false);
+	const captureProjectContext = useRef<{captureId?:string;projectId?:string}>({});
 
 	useEffect(() => {
 		preserveProjectPathForRecording.current =
@@ -651,10 +652,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 							timeOffsetMs: webcamTimeOffsetMs.current,
 							hideOverlayCursorByDefault: shouldHideOverlayCursor,
 						},
-						{ preserveProjectPath },
+						{ preserveProjectPath, ...captureProjectContext.current },
 					);
 				} else {
 					await window.electronAPI.setCurrentVideoPath(videoPath, {
+						...captureProjectContext.current,
 						hideOverlayCursorByDefault: shouldHideOverlayCursor,
 						preserveProjectPath,
 					});
@@ -664,6 +666,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 				try {
 					await window.electronAPI.setCurrentVideoPath(videoPath, {
+						...captureProjectContext.current,
 						hideOverlayCursorByDefault: shouldHideOverlayCursor,
 						preserveProjectPath: preserveProjectPathForRecording.current,
 					});
@@ -1360,6 +1363,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		setStarting(true);
 
 		try {
+			captureProjectContext.current = await window.electronAPI.getRecordingProjectContext?.() ?? {};
 			const platform = cachedPlatform.current ?? (await window.electronAPI.getPlatform());
 			cachedPlatform.current = platform;
 			hideEditorOverlayCursorByDefault.current = false;

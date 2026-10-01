@@ -324,7 +324,7 @@ interface Window {
 			success: boolean;
 			path?: string;
 		}>;
-		openRecorderHud: (options?: { preserveProjectPath?: boolean }) => Promise<{
+		openRecorderHud: (options?: { preserveProjectPath?: boolean;projectId?:string;captureId?:string }) => Promise<{
 			success: boolean;
 		}>;
 		onRecorderProjectContextChanged: (
@@ -718,6 +718,7 @@ interface Window {
 		setCurrentVideoPath: (
 			path: string,
 			options?: {
+				captureId?:string;projectId?:string;
 				preserveProjectPath?: boolean;
 				hideOverlayCursorByDefault?: boolean;
 			},
@@ -729,11 +730,14 @@ interface Window {
 				timeOffsetMs?: number;
 				hideOverlayCursorByDefault?: boolean;
 			},
-			options?: { preserveProjectPath?: boolean },
+			options?: { preserveProjectPath?: boolean;captureId?:string;projectId?:string },
 		) => Promise<{ success: boolean }>;
+		getRecordingProjectContext: () => Promise<{captureId?:string;projectId?:string}>;
+		inspectRecordingSources: (videoPath:string) => Promise<{success:boolean;microphonePath?:string|null;systemPath?:string|null;cursorPath?:string|null;microphoneOffsetMs?:number;systemOffsetMs?:number;embeddedAudio?:boolean;diagnostics?:Record<string,unknown>;error?:string}>;
 		getCurrentRecordingSession: () => Promise<{
 			success: boolean;
 			session?: {
+				captureId?:string;projectId?:string;
 				videoPath: string;
 				webcamPath?: string | null;
 				timeOffsetMs?: number;

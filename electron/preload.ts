@@ -565,7 +565,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	recordAdditionalClip: () => {
 		return ipcRenderer.invoke("record-additional-clip");
 	},
-	openRecorderHud: (options?: { preserveProjectPath?: boolean }) => {
+	openRecorderHud: (options?: { preserveProjectPath?: boolean;projectId?:string;captureId?:string }) => {
 		return ipcRenderer.invoke("open-recorder-hud", options);
 	},
 	onRecorderProjectContextChanged: (callback: (preserveProjectPath: boolean) => void) => {
@@ -714,6 +714,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	setCurrentVideoPath: (
 		path: string,
 		options?: {
+			captureId?:string;projectId?:string;
 			preserveProjectPath?: boolean;
 			hideOverlayCursorByDefault?: boolean;
 		},
@@ -727,10 +728,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
 			timeOffsetMs?: number;
 			hideOverlayCursorByDefault?: boolean;
 		},
-		options?: { preserveProjectPath?: boolean },
+		options?: { preserveProjectPath?: boolean;captureId?:string;projectId?:string },
 	) => {
 		return ipcRenderer.invoke("set-current-recording-session", session, options);
 	},
+	getRecordingProjectContext: () => ipcRenderer.invoke("get-recording-project-context"),
+	inspectRecordingSources: (videoPath:string) => ipcRenderer.invoke("inspect-recording-sources",videoPath),
 	onRecordingSessionChanged: (callback: (session: RecordingSessionData | null) => void) => {
 		const listener = (
 			_event: Electron.IpcRendererEvent,

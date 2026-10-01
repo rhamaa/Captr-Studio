@@ -25,6 +25,12 @@ import { registerProjectSessionHandlers } from "./session";
 import * as state from "../../state";
 
 describe("Record session project destination", () => {
+	it.each(["set-current-video-path", "set-current-recording-session"])("%s retains capture provenance for Assets registration", async name => {
+		const media=name==="set-current-video-path"?"C:/recordings/second.mp4":{videoPath:"C:/recordings/second.mp4"};
+		await handlers.get(name)!(null,media,{preserveProjectPath:true,captureId:"stable-capture",projectId:"active-project"});
+		expect(state.currentRecordingSession).toMatchObject({captureId:"stable-capture",projectId:"active-project"});
+		expect(state.currentProjectPath).toBe("C:/projects/Test 2.captr");
+	});
 	beforeEach(() => {
 		handlers.clear();
 		registerProjectSessionHandlers();

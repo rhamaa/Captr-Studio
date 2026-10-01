@@ -741,8 +741,10 @@ ipcMain.handle("read-file-as-data-url", async (_event, filePath: string) => {
 	}
 });
 
-ipcMain.handle("open-recorder-hud", async (_event, options?: { preserveProjectPath?: boolean }) => {
+ipcMain.handle("open-recorder-hud", async (_event, options?: { preserveProjectPath?: boolean; projectId?:string;captureId?:string }) => {
 	console.log("[main] IPC: open-recorder-hud invoked");
+	const { setRecordingProjectContext } = await import("./ipc/project/recordingContext");
+	setRecordingProjectContext(options??{});
 	const hud = openHudRecorder(Boolean(options?.preserveProjectPath));
 	return { success: Boolean(hud) };
 });

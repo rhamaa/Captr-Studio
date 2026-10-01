@@ -26,15 +26,17 @@ export async function persistRecordingSessionManifest(
 	const normalizedWebcamPath = normalizeVideoSourcePath(session.webcamPath ?? null);
 	const manifestPath = getRecordingSessionManifestPath(normalizedVideoPath);
 
-	if (!normalizedWebcamPath) {
+	if (!normalizedWebcamPath && !session.captureId) {
 		await fs.rm(manifestPath, { force: true });
 		return;
 	}
 
 	const manifest: RecordingSessionManifest = {
+		captureId:session.captureId,
+		projectId:session.projectId,
 		version: 2,
 		videoFileName: path.basename(normalizedVideoPath),
-		webcamFileName: path.basename(normalizedWebcamPath),
+		webcamFileName: normalizedWebcamPath ? path.basename(normalizedWebcamPath) : null,
 		timeOffsetMs: normalizeRecordingTimeOffsetMs(session.timeOffsetMs),
 	};
 
@@ -65,6 +67,8 @@ export async function resolveRecordingSessionManifest(
 
 		if (!webcamFileName) {
 			return {
+				captureId:parsed.captureId,
+				projectId:parsed.projectId,
 				videoPath: normalizedVideoPath,
 				webcamPath: null,
 				timeOffsetMs: normalizeRecordingTimeOffsetMs(parsed.timeOffsetMs),
@@ -78,6 +82,8 @@ export async function resolveRecordingSessionManifest(
 			.catch(() => false);
 
 		return {
+			captureId:parsed.captureId,
+			projectId:parsed.projectId,
 			videoPath: normalizedVideoPath,
 			webcamPath: webcamExists ? webcamPath : null,
 			timeOffsetMs: normalizeRecordingTimeOffsetMs(parsed.timeOffsetMs),
