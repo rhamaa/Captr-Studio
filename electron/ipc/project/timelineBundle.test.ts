@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, it } from "vitest";
-import { createTimelineProject, registerRecording, placeAsset } from "../../../src/core/timeline/commands";
+import { addTextOverlay, createTimelineProject, registerRecording, placeAsset } from "../../../src/core/timeline/commands";
 import { stageTimelineProject, resolveTimelineProject } from "./timelineBundle";
 import { packProjectWorkspace, unpackProjectBundle } from "./projectBundle";
 
@@ -21,4 +21,15 @@ it("bundles unused recording assets with every sidecar and no Slide folders",asy
  const one=placeAsset(p,"a","visual-1",0,{clipId:"c",compositionId:"e"}),two=placeAsset(one,"a","visual-1",20_000_000,{clipId:"c2",compositionId:"e2"});
  await stageTimelineProject(two,path.join(root,"second"));expect((await fs.readdir(path.join(root,"second","assets","a"))).filter(f=>f.endsWith(".mp4"))).toHaveLength(2);
  expect(()=>resolveTimelineProject({...staged,packages:[{...staged.packages[0],screen:{...staged.packages[0].screen,path:"../escape.mp4"}}]},loaded)).toThrow(/path/i);
+});
+it("saves and reopens text overlays as project data without staging fake media",async()=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),"captr-text-"));roots.push(root);
+ const project=addTextOverlay(createTimelineProject("text-project","Text project"),1_000_000,{assetId:"title",trackId:"title-track",clipId:"title-clip"});
+ const workspace=path.join(root,"workspace"),staged=await stageTimelineProject(project,workspace);
+ expect(staged.assets[0].text?.content).toBe("Your text");
+ expect(await fs.readdir(path.join(workspace,"assets","title"))).toEqual(["asset.json"]);
+ const bundle=path.join(root,"text.captr"),loaded=path.join(root,"loaded");
+ await packProjectWorkspace(workspace,bundle);await unpackProjectBundle(bundle,loaded);
+ const reopened=resolveTimelineProject(JSON.parse(await fs.readFile(path.join(loaded,"project.json"),"utf8")),loaded);
+ expect(reopened.tracks.find(t=>t.id==="title-track")?.clips[0].text?.content).toBe("Your text");
 });

@@ -45,6 +45,29 @@ function serializable(value: unknown, seen = new Set<unknown>()) {
 	for (const v of Object.values(value)) serializable(v, seen);
 	seen.delete(value);
 }
+function textOverlay(value: unknown) {
+	const text = value as Partial<import("./types").TextOverlay> | null;
+	requireValue(
+		text &&
+			typeof text.content === "string" &&
+			text.content.length <= 20_000 &&
+			typeof text.fontFamily === "string" &&
+			text.fontFamily.trim().length > 0 &&
+			text.fontFamily.length <= 120 &&
+			integer(text.fontSizePx) &&
+			text.fontSizePx >= 1 &&
+			text.fontSizePx <= 1000 &&
+			integer(text.fontWeight) &&
+			text.fontWeight >= 100 &&
+			text.fontWeight <= 900 &&
+			text.fontWeight % 100 === 0 &&
+			typeof text.color === "string" &&
+			/^#[0-9a-fA-F]{6}$/.test(text.color) &&
+			["left", "center", "right"].includes(text.align ?? ""),
+		"Invalid text overlay",
+	);
+	serializable(text);
+}
 export function validateTimelineProject(value: unknown): TimelineProject {
 	requireValue(value && typeof value === "object", "Invalid timeline project");
 	const p = value as TimelineProject;
@@ -109,7 +132,7 @@ export function validateTimelineProject(value: unknown): TimelineProject {
 	for (const a of p.assets) {
 		id(a.id);
 		requireValue(
-			["video", "image", "audio", "recording"].includes(a.kind) &&
+			["video", "image", "audio", "recording", "text"].includes(a.kind) &&
 				typeof a.name === "string" &&
 				integer(a.durationUs) &&
 				a.durationUs > 0 &&
@@ -123,6 +146,9 @@ export function validateTimelineProject(value: unknown): TimelineProject {
 				pkg && a.durationUs === pkg.durationUs,
 				"Invalid recording asset reference",
 			);
+		} else if (a.kind === "text") {
+			textOverlay(a.text);
+			requireValue(!a.source && !a.packageId, "Unexpected text asset media source");
 		} else source(a.source, true);
 	}
 	for (const c of p.compositions) {
@@ -182,6 +208,8 @@ export function validateTimelineProject(value: unknown): TimelineProject {
 				"Missing clip composition",
 			);
 			requireValue(a.kind === "recording" || !c.compositionId, "Unexpected clip composition");
+			if (a.kind === "text") textOverlay(c.text ?? a.text);
+			else requireValue(!c.text, "Unexpected clip text overlay");
 			if (composition) {
 				requireValue(
 					!compositionOwners.has(composition.id),

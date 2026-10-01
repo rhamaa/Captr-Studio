@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Eye, EyeSlash as EyeOff, LockKey as LockKeyhole, LockKeyOpen as UnlockKeyhole, SpeakerHigh as Volume2, SpeakerSlash as VolumeX } from "@phosphor-icons/react";
-import { moveClip, updateTrack } from "@/core/timeline/commands";
+import { addTextOverlay, moveClip, updateTrack } from "@/core/timeline/commands";
 import type { ProjectCommand } from "@/core/timeline/history";
 import { clipDurationUs, projectDurationUs, type TimelineProject } from "@/core/timeline/types";
 import { ASSET_DRAG_TYPE, CLIP_DRAG_TYPE, assetDropCommand, getTimelineDrag, pixelsToTime, timelineDropStartUs, timeToPixels, timelineActionCommand } from "./timelineInteractions";
@@ -20,7 +20,7 @@ export function ProjectTimeline({project,selection,playheadUs,onCommand,onSelect
   else if(event.key.toLowerCase()==="s"&&!event.ctrlKey&&!event.metaKey){event.preventDefault();onCommand(timelineActionCommand("split",selection,playheadUs));}
   else if(event.key.toLowerCase()==="d"&&(event.ctrlKey||event.metaKey)){event.preventDefault();onCommand(timelineActionCommand("duplicate",selection,playheadUs));}
  }}>
-  <TimelineToolbar selection={selection} playheadUs={playheadUs} onCommand={onCommand} scale={scale} onScale={setScale} locked={locked}/>
+  <TimelineToolbar selection={selection} playheadUs={playheadUs} onCommand={onCommand} onAddText={()=>{const ids={assetId:crypto.randomUUID(),trackId:crypto.randomUUID(),clipId:crypto.randomUUID()};onCommand(p=>addTextOverlay(p,playheadUs,ids));onSelect([ids.clipId]);}} scale={scale} onScale={setScale} locked={locked}/>
   <div className="project-timeline-scroll" onWheel={event=>{if(event.ctrlKey||event.metaKey){event.preventDefault();setScale(v=>Math.max(8,Math.min(250,v*(event.deltaY<0?1.12:0.89))));}}}>
    <div className="project-track-list" style={{width:width+150}}>
     <div className="project-ruler-row"><div className="project-track-heading">Timeline</div><div className="project-ruler" style={{width}} onPointerDown={event=>{event.currentTarget.setPointerCapture(event.pointerId);onSeek(Math.max(0,pixelsToTime(event.clientX-event.currentTarget.getBoundingClientRect().left,scale)));}} onPointerMove={event=>{if(event.buttons===1)onSeek(Math.max(0,pixelsToTime(event.clientX-event.currentTarget.getBoundingClientRect().left,scale)));}}>
@@ -43,7 +43,7 @@ export function ProjectTimeline({project,selection,playheadUs,onCommand,onSelect
       const rect=event.currentTarget.getBoundingClientRect(),startUs=timelineDropStartUs(event.clientX,rect.left,drag.pointerOffsetPx,project,playheadUs,scale,clipId||undefined);
       if(clipId)onCommand(p=>moveClip(p,clipId,track.id,startUs));else if(assetId)onCommand(assetDropCommand(assetId,track.id,startUs,{clipId:crypto.randomUUID(),compositionId:crypto.randomUUID()}));
      }}>
-      {!track.clips.length&&<span className="project-track-empty">{track.kind==="visual"?"Drag video, images or recordings here":"Drag audio here"}</span>}
+      {!track.clips.length&&<span className="project-track-empty">{track.kind==="visual"?"Drag video, images, text or recordings here":"Drag audio here"}</span>}
       {track.clips.map(clip=><TimelineClipItem key={clip.id} project={project} clip={clip} scale={scale} playheadUs={playheadUs} selected={selection.includes(clip.id)} locked={track.locked} onCommand={onCommand} onSelect={onSelect} onOpenRecording={onOpenRecording}/>)}
       {dropPreview?.trackId===track.id&&<div className={`project-drop-preview ${dropPreview.mediaKind} ${dropPreview.invalid?"invalid":""}`} style={{left:timeToPixels(dropPreview.startUs,scale),width:Math.max(8,timeToPixels(dropPreview.durationUs,scale))}} aria-hidden="true"/>}
      </div>

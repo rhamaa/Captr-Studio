@@ -577,11 +577,11 @@ export function ProjectEditor() {
 								)}
 							</header>
 							<div className="project-preview-stage">
-								{sourceAsset && sourcePath ? (
+								{sourceAsset ? (
 									<AssetSourcePreview
 										key={sourceAsset.id}
 										asset={sourceAsset}
-										path={sourcePath}
+										path={sourcePath ?? ""}
 										onError={setError}
 									/>
 								) : projectDurationUs(state.project) > 0 ? (

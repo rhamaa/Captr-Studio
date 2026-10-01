@@ -1,5 +1,5 @@
 import { SlidersHorizontal, VideoCamera } from "@phosphor-icons/react";
-import { moveClip, setClipRate, trimClip, updateClip } from "@/core/timeline/commands";
+import { moveClip, setClipRate, trimClip, updateClip, updateTextOverlay } from "@/core/timeline/commands";
 import { clipDurationUs, type TimelineProject } from "@/core/timeline/types";
 import type { ProjectCommand } from "@/core/timeline/history";
 export function ProjectInspector({project,selection,onCommand,onOpenRecording}:{project:TimelineProject;selection:string[];onCommand:(command:ProjectCommand)=>void;onOpenRecording:(id:string)=>void}) {
@@ -8,6 +8,13 @@ export function ProjectInspector({project,selection,onCommand,onOpenRecording}:{
   {!clip||!asset||!track?<div className="project-inspector-empty"><SlidersHorizontal size={27}/><p>Select a clip to edit its properties</p></div>:<fieldset disabled={track.locked}>
    <div className="project-inspector-title"><strong>{asset.name}</strong><span>{asset.kind}</span></div>
    {asset.kind==="recording"&&<button className="project-edit-recording" onClick={()=>onOpenRecording(clip.id)}><VideoCamera size={18}/>Edit recording effects</button>}
+   {asset.kind==="text"&&<>
+    <label className="project-text-content-field">Text<textarea aria-label="Overlay text" rows={4} maxLength={20000} value={(clip.text??asset.text)?.content??""} onChange={e=>onCommand(p=>updateTextOverlay(p,clip.id,{content:e.target.value}))}/></label>
+    <label>Font<input aria-label="Overlay font family" maxLength={120} value={(clip.text??asset.text)?.fontFamily??"Arial"} onChange={e=>onCommand(p=>updateTextOverlay(p,clip.id,{fontFamily:e.target.value||"Arial"}))}/></label>
+    <label>Size<input aria-label="Overlay font size" type="number" min={1} max={1000} step={1} value={(clip.text??asset.text)?.fontSizePx??96} onChange={e=>onCommand(p=>updateTextOverlay(p,clip.id,{fontSizePx:Number(e.target.value)}))}/><span>px</span></label>
+    <label>Color<input aria-label="Overlay text color" type="color" value={(clip.text??asset.text)?.color??"#ffffff"} onChange={e=>onCommand(p=>updateTextOverlay(p,clip.id,{color:e.target.value}))}/></label>
+    <label>Align<select aria-label="Overlay text alignment" value={(clip.text??asset.text)?.align??"center"} onChange={e=>onCommand(p=>updateTextOverlay(p,clip.id,{align:e.target.value as "left"|"center"|"right"}))}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
+   </>}
    <label>Start<input aria-label="Clip start seconds" type="number" min={0} step={0.1} value={clip.startUs/1_000_000} onChange={e=>onCommand(p=>moveClip(p,clip.id,track.id,Math.round(Number(e.target.value)*1_000_000)))}/><span>sec</span></label>
    <label>Duration<span>{(clipDurationUs(clip)/1_000_000).toFixed(2)} sec</span></label>
    <label>In<input aria-label="Clip source in seconds" type="number" min={0} step={0.1} value={clip.sourceInUs/1_000_000} onChange={e=>onCommand(p=>trimClip(p,clip.id,Math.round(Number(e.target.value)*1_000_000),clip.sourceOutUs))}/><span>sec</span></label>

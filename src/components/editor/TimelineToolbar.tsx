@@ -1,9 +1,9 @@
-import { Copy, LockKey as LockKeyhole, Plus, Scissors, Trash as Trash2, MagnifyingGlassPlus as ZoomIn, MagnifyingGlassMinus as ZoomOut } from "@phosphor-icons/react";
+import { Copy, LockKey as LockKeyhole, Plus, Scissors, TextT, Trash as Trash2, MagnifyingGlassPlus as ZoomIn, MagnifyingGlassMinus as ZoomOut } from "@phosphor-icons/react";
 import type { ProjectCommand } from "@/core/timeline/history";
 import { addTrack } from "@/core/timeline/commands";
 import { timelineActionCommand } from "./timelineInteractions";
-interface Props {selection:string[];playheadUs:number;onCommand:(command:ProjectCommand)=>void;scale:number;onScale:(scale:number)=>void;locked:boolean}
-export function TimelineToolbar({selection,playheadUs,onCommand,scale,onScale,locked}:Props) {
+interface Props {selection:string[];playheadUs:number;onCommand:(command:ProjectCommand)=>void;onAddText:()=>void;scale:number;onScale:(scale:number)=>void;locked:boolean}
+export function TimelineToolbar({selection,playheadUs,onCommand,onAddText,scale,onScale,locked}:Props) {
  const disabled=!selection.length||locked;
  return <div className="project-timeline-toolbar">
   <button title="Split at playhead (S)" aria-label="Split at playhead" disabled={disabled} onClick={()=>onCommand(timelineActionCommand("split",selection,playheadUs))}><Scissors size={17}/></button>
@@ -11,6 +11,7 @@ export function TimelineToolbar({selection,playheadUs,onCommand,scale,onScale,lo
   <button title="Delete clip (Delete)" aria-label="Delete clip" disabled={disabled} onClick={()=>onCommand(timelineActionCommand("delete",selection,playheadUs))}><Trash2 size={17}/></button>
   <span className="project-toolbar-separator"/>
   <button title="Add video track" onClick={()=>onCommand(p=>addTrack(p,crypto.randomUUID(),"visual"))}><Plus size={15}/>Video</button>
+  <button title="Add text overlay" aria-label="Add text overlay" onClick={onAddText}><Plus size={15}/><TextT size={15}/>Text</button>
   <button title="Add audio track" onClick={()=>onCommand(p=>addTrack(p,crypto.randomUUID(),"audio"))}><Plus size={15}/>Audio</button>
   {locked&&<span className="project-muted"><LockKeyhole size={14}/>Track locked</span>}
   <span style={{flex:1}}/>

@@ -126,6 +126,23 @@ export class ProjectFrameRenderer {
 		ctx.fillStyle = "#000";
 		ctx.fillRect(0, 0, width, height);
 		for (const visual of evaluation.visuals) {
+			if (visual.asset.kind === "text") {
+				const overlay = visual.clip.text ?? visual.asset.text!;
+				const transform = visual.clip.transform;
+				ctx.save();
+				ctx.globalAlpha = transform.opacity;
+				ctx.translate(width / 2 + transform.x, height / 2 + transform.y);
+				ctx.rotate((transform.rotation * Math.PI) / 180);
+				ctx.scale(transform.scale, transform.scale);
+				ctx.font = `${overlay.fontWeight} ${overlay.fontSizePx}px "${overlay.fontFamily.replace(/["\\\r\n]/g, "")}"`;
+				ctx.textAlign = overlay.align;
+				ctx.textBaseline = "middle";
+				ctx.fillStyle = overlay.color;
+				const lines = overlay.content.split("\n"), lineHeight = overlay.fontSizePx * 1.2;
+				lines.forEach((line, index) => ctx.fillText(line, 0, (index - (lines.length - 1) / 2) * lineHeight, width * 0.9));
+				ctx.restore();
+				continue;
+			}
 			const source = visual.recording
 				? await this.recording(visual, evaluation)
 				: visual.asset.kind === "image"

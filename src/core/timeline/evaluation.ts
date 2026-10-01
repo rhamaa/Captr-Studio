@@ -33,7 +33,17 @@ export function evaluateProject(project: TimelineProject, timeUs: number): Proje
 				issues.push(`Missing asset for ${clip.id}`);
 				continue;
 			}
-			if (asset.kind === "recording") {
+			if (asset.kind === "text") {
+				visuals.push({
+					clipId: clip.id,
+					trackId: track.id,
+					clip,
+					asset,
+					path: "",
+					sourceUs: compositionUs,
+					compositionUs,
+				});
+			} else if (asset.kind === "recording") {
 				const pkg = project.packages.find((p) => p.id === asset.packageId),
 					composition = project.compositions.find((c) => c.id === clip.compositionId);
 				if (!pkg?.screen.path || !composition) {
