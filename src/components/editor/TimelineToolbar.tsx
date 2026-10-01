@@ -1,0 +1,21 @@
+import { Copy, LockKey as LockKeyhole, Plus, Scissors, Trash as Trash2, MagnifyingGlassPlus as ZoomIn, MagnifyingGlassMinus as ZoomOut } from "@phosphor-icons/react";
+import type { ProjectCommand } from "@/core/timeline/history";
+import { addTrack } from "@/core/timeline/commands";
+import { timelineActionCommand } from "./timelineInteractions";
+interface Props {selection:string[];playheadUs:number;onCommand:(command:ProjectCommand)=>void;scale:number;onScale:(scale:number)=>void;locked:boolean}
+export function TimelineToolbar({selection,playheadUs,onCommand,scale,onScale,locked}:Props) {
+ const disabled=!selection.length||locked;
+ return <div className="project-timeline-toolbar">
+  <button title="Split at playhead (S)" aria-label="Split at playhead" disabled={disabled} onClick={()=>onCommand(timelineActionCommand("split",selection,playheadUs))}><Scissors size={17}/></button>
+  <button title="Duplicate (Ctrl+D)" aria-label="Duplicate clip" disabled={disabled} onClick={()=>onCommand(timelineActionCommand("duplicate",selection,playheadUs))}><Copy size={17}/></button>
+  <button title="Delete clip (Delete)" aria-label="Delete clip" disabled={disabled} onClick={()=>onCommand(timelineActionCommand("delete",selection,playheadUs))}><Trash2 size={17}/></button>
+  <span className="project-toolbar-separator"/>
+  <button title="Add video track" onClick={()=>onCommand(p=>addTrack(p,crypto.randomUUID(),"visual"))}><Plus size={15}/>Video</button>
+  <button title="Add audio track" onClick={()=>onCommand(p=>addTrack(p,crypto.randomUUID(),"audio"))}><Plus size={15}/>Audio</button>
+  {locked&&<span className="project-muted"><LockKeyhole size={14}/>Track locked</span>}
+  <span style={{flex:1}}/>
+  <button title="Zoom out timeline" aria-label="Zoom out timeline" onClick={()=>onScale(Math.max(8,scale/1.3))}><ZoomOut size={17}/></button>
+  <input aria-label="Timeline zoom" type="range" min={8} max={250} value={scale} onChange={e=>onScale(Number(e.target.value))}/>
+  <button title="Zoom in timeline" aria-label="Zoom in timeline" onClick={()=>onScale(Math.min(250,scale*1.3))}><ZoomIn size={17}/></button>
+ </div>;
+}
