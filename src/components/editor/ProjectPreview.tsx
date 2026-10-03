@@ -17,17 +17,24 @@ export function ProjectPreview({
 }) {
 	const canvas = useRef<HTMLCanvasElement>(null),
 		queue =
-			useRef<PreviewQueue<{ project: TimelineProject; timeUs: number }, HTMLCanvasElement>>(),
+			useRef<
+				PreviewQueue<
+					{ project: TimelineProject; timeUs: number; playing: boolean },
+					HTMLCanvasElement
+				>>(),
 		latest = useRef({ timeUs, playing, onError });
 	latest.current = { timeUs, playing, onError };
 	const audio = useRef<HTMLAudioElement>();
 	useEffect(() => {
 		const renderer = new ProjectFrameRenderer();
 		const next = new PreviewQueue<
-			{ project: TimelineProject; timeUs: number },
+			{ project: TimelineProject; timeUs: number; playing: boolean },
 			HTMLCanvasElement
 		>(
-			(request) => renderer.render(evaluateProject(request.project, request.timeUs)),
+			(request) =>
+				renderer.render(evaluateProject(request.project, request.timeUs), {
+					continuousPlayback: request.playing,
+				}),
 			(rendered) => {
 				if (canvas.current) {
 					canvas.current.width = rendered.width;
@@ -45,8 +52,11 @@ export function ProjectPreview({
 		};
 	}, []);
 	useEffect(() => {
-		queue.current?.request({ project, timeUs });
-	}, [project, timeUs]);
+		queue.current?.request(
+			{ project, timeUs, playing },
+			{ continuousPlayback: playing },
+		);
+	}, [project, timeUs, playing]);
 	useEffect(() => {
 		const abort = new AbortController();
 		let url = "";

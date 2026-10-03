@@ -2,15 +2,18 @@
 export class PreviewQueue<Request, Frame> {
 	private active = true;
 	private working = false;
-	private pending: Request | undefined;
+	private pending: { request: Request; continuousPlayback: boolean } | undefined;
 	constructor(
 		private readonly render: (request: Request) => Promise<Frame>,
 		private readonly paint: (frame: Frame) => void,
 		private readonly report: (error: unknown) => void,
 	) {}
-	request(request: Request) {
+	request(request: Request, options: { continuousPlayback?: boolean } = {}) {
 		if (!this.active) return;
-		this.pending = request;
+		this.pending = {
+			request,
+			continuousPlayback: options.continuousPlayback ?? false,
+		};
 		if (!this.working) void this.pump();
 	}
 	dispose() {
@@ -21,11 +24,15 @@ export class PreviewQueue<Request, Frame> {
 		this.working = true;
 		try {
 			while (this.active && this.pending !== undefined) {
-				const request = this.pending;
+				const pending = this.pending;
 				this.pending = undefined;
 				try {
-					const frame = await this.render(request);
-					if (this.active && this.pending === undefined) this.paint(frame);
+					const frame = await this.render(pending.request);
+					if (
+						this.active &&
+						(pending.continuousPlayback || this.pending === undefined)
+					)
+						this.paint(frame);
 				} catch (error) {
 					if (this.active && this.pending === undefined) this.report(error);
 				}

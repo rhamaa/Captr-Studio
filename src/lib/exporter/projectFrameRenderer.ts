@@ -8,10 +8,29 @@ export class ProjectFrameRenderer {
 	private sources = new Map<string, LayerVideoSource>();
 	private images = new Map<string, HTMLImageElement>();
 	private effects = new Map<string, FrameRenderer>();
+	private playbackPositions = new Map<string, { projectUs: number; sourceUs: number }>();
 	private compositionKeys = new WeakMap<object, number>();
 	private nextCompositionKey = 0;
 	private disposed = false;
-	private async video(path: string, timeUs: number) {
+	private playbackRate(path: string, projectUs: number, sourceUs: number, playing: boolean) {
+		if (!playing) {
+			this.playbackPositions.delete(path);
+			return 1;
+		}
+		const previous = this.playbackPositions.get(path);
+		this.playbackPositions.set(path, { projectUs, sourceUs });
+		if (!previous) return 1;
+		const projectDelta = projectUs - previous.projectUs;
+		if (projectDelta <= 0 || projectDelta > 500_000) return 1;
+		const rate = (sourceUs - previous.sourceUs) / projectDelta;
+		return Number.isFinite(rate) && rate >= 0.0625 && rate <= 16 ? rate : 1;
+	}
+	private async video(
+		path: string,
+		timeUs: number,
+		projectUs: number,
+		continuousPlayback: boolean,
+	) {
 		let source = this.sources.get(path);
 		if (!source) {
 			source = new LayerVideoSource();
@@ -31,7 +50,10 @@ export class ProjectFrameRenderer {
 			this.sources.delete(key);
 			value.destroy();
 		}
-		return source.frame(timeUs / 1_000_000);
+		return source.frame(timeUs / 1_000_000, {
+			continuousPlayback,
+			playbackRate: this.playbackRate(path, projectUs, timeUs, continuousPlayback),
+		});
 	}
 	private async image(path: string) {
 		let image = this.images.get(path);
@@ -55,7 +77,11 @@ export class ProjectFrameRenderer {
 		if (this.images.size > 16) this.images.delete(this.images.keys().next().value!);
 		return image;
 	}
-	private async recording(visual: ProjectVisual, evaluation: ProjectEvaluation) {
+	private async recording(
+		visual: ProjectVisual,
+		evaluation: ProjectEvaluation,
+		continuousPlayback: boolean,
+	) {
 		const record = visual.recording!,
 			{ settings, package: pkg, composition } = record,
 			{ width, height } = evaluation.project.canvas;
@@ -94,9 +120,19 @@ export class ProjectFrameRenderer {
 				value.destroy();
 			}
 		}
-		const video = await this.video(visual.path, visual.sourceUs);
+		const video = await this.video(
+			visual.path,
+			visual.sourceUs,
+			evaluation.timeUs,
+			continuousPlayback,
+		);
 		if (pkg.webcam && settings.webcam.enabled && record.webcamUs !== null) {
-			const webcam = await this.video(pkg.webcam.path, record.webcamUs);
+			const webcam = await this.video(
+				pkg.webcam.path,
+				record.webcamUs,
+				evaluation.timeUs,
+				continuousPlayback,
+			);
 			renderer.setProjectWebcamFrame(
 				new VideoFrame(webcam, { timestamp: Math.round(record.webcamUs) }),
 			);
@@ -115,10 +151,14 @@ export class ProjectFrameRenderer {
 			frame.close();
 		}
 	}
-	async render(evaluation: ProjectEvaluation): Promise<HTMLCanvasElement> {
+	async render(
+		evaluation: ProjectEvaluation,
+		options: { continuousPlayback?: boolean } = {},
+	): Promise<HTMLCanvasElement> {
 		if (this.disposed) throw new Error("Project renderer disposed");
 		if (evaluation.issues.length) throw new Error(evaluation.issues.join("; "));
 		const { width, height } = evaluation.project.canvas;
+		const continuousPlayback = options.continuousPlayback ?? false;
 		this.canvas.width = width;
 		this.canvas.height = height;
 		const ctx = this.canvas.getContext("2d");
@@ -144,10 +184,15 @@ export class ProjectFrameRenderer {
 				continue;
 			}
 			const source = visual.recording
-				? await this.recording(visual, evaluation)
+				? await this.recording(visual, evaluation, continuousPlayback)
 				: visual.asset.kind === "image"
 					? await this.image(visual.path)
-					: await this.video(visual.path, visual.sourceUs);
+					: await this.video(
+							visual.path,
+						visual.sourceUs,
+						evaluation.timeUs,
+						continuousPlayback,
+						);
 			if (this.disposed) throw new Error("Project renderer disposed");
 			const sourceWidth =
 					source instanceof HTMLVideoElement
@@ -183,6 +228,7 @@ export class ProjectFrameRenderer {
 		this.effects.forEach((s) => s.destroy());
 		this.sources.clear();
 		this.effects.clear();
+		this.playbackPositions.clear();
 		this.images.clear();
 		this.canvas.width = this.canvas.height = 0;
 	}

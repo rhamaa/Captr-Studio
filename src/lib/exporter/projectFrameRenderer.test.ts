@@ -7,6 +7,7 @@ import {
 } from "@/core/timeline/commands";
 import { evaluateProject } from "@/core/timeline/evaluation";
 const configs = vi.hoisted(() => [] as any[]);
+const videoFrames = vi.hoisted(() => [] as any[]);
 vi.mock("./frameRenderer", () => ({
 	FrameRenderer: class {
 		constructor(config: any) {
@@ -24,7 +25,8 @@ vi.mock("./frameRenderer", () => ({
 vi.mock("./layerVideoSource", () => ({
 	LayerVideoSource: class {
 		async load() {}
-		async frame() {
+		async frame(timeSec: number, options?: unknown) {
+			videoFrames.push({ timeSec, options });
 			return {};
 		}
 		destroy() {}
@@ -34,6 +36,7 @@ import { ProjectFrameRenderer } from "./projectFrameRenderer";
 afterEach(() => {
 	vi.unstubAllGlobals();
 	configs.length = 0;
+	videoFrames.length = 0;
 });
 it("undo followed by another edit at the same revision uses different effect settings", async () => {
 	vi.stubGlobal("document", {
@@ -93,5 +96,10 @@ it("undo followed by another edit at the same revision uses different effect set
 	expect(configs.map((c) => c.background)).toEqual(["#ff0000", undefined, "#0000ff"]);
 	await renderer.render(evaluateProject(first, 0));
 	expect(configs).toHaveLength(3);
+	await renderer.render(evaluateProject(first, 0), { continuousPlayback: true });
+	expect(videoFrames.at(-1)).toEqual({
+		timeSec: 0,
+		options: { continuousPlayback: true, playbackRate: 1 },
+	});
 	renderer.destroy();
 });

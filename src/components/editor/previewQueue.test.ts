@@ -46,4 +46,23 @@ describe("preview lifecycle", () => {
 		await new Promise((r) => setTimeout(r, 0));
 		expect(frames).toEqual(["3"]);
 	});
+	it("keeps painting completed frames during continuous playback", async () => {
+		let resolve!: (value: string) => void;
+		const frames: string[] = [];
+		const queue = new PreviewQueue<number, string>(
+			(v) =>
+				v === 1
+					? new Promise((r) => {
+							resolve = r;
+						})
+					: Promise.resolve(String(v)),
+			(v) => frames.push(v),
+			() => {},
+		);
+		queue.request(1, { continuousPlayback: true });
+		queue.request(2, { continuousPlayback: true });
+		resolve("1");
+		await new Promise((r) => setTimeout(r, 0));
+		expect(frames).toEqual(["1", "2"]);
+	});
 });
