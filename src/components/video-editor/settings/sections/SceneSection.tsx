@@ -272,6 +272,9 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 			if (clean(candidateValue).endsWith(clean(selected))) return true;
 			if (previewPath && clean(selected).endsWith(clean(previewPath))) return true;
 			if (previewPath && clean(previewPath).endsWith(clean(selected))) return true;
+			const baseName = (p: string) => clean(p).split("/").pop()?.replace(/^\d+-/, "") ?? "";
+			if (baseName(selected) && baseName(selected) === baseName(candidateValue)) return true;
+			if (previewPath && baseName(selected) && baseName(selected) === baseName(previewPath)) return true;
 		} catch {
 			return false;
 		}

@@ -44,15 +44,9 @@ import {
 import { isProjectBundle, readBundleThumbnailDataUrl, unpackProjectBundle } from "./projectBundle";
 import { convertProjectToWorkspaceAbsolute, getProjectWorkspaceDir, getWorkspacesRoot } from "./projectWorkspace";
 
-export { normalizePath, normalizeVideoSourcePath };
+import { getAssetRootPath } from "./assetPaths";
 
-export function getAssetRootPath() {
-	if (app.isPackaged) {
-		return path.join(process.resourcesPath, "assets");
-	}
-
-	return path.join(app.getAppPath(), "public");
-}
+export { normalizePath, normalizeVideoSourcePath, getAssetRootPath };
 
 export function isPathInsideDirectory(candidatePath: string, directoryPath: string) {
 	const normalizedCandidatePath = normalizePath(candidatePath);

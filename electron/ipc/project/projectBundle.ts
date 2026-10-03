@@ -1,7 +1,7 @@
 import { createWriteStream } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { pipeline } from "node:stream/promises";
+import { PassThrough } from "node:stream";
 import { ZipArchive } from "archiver";
 import yauzl from "yauzl";
 
@@ -109,7 +109,7 @@ export async function unpackProjectBundle(
 					// File entry: ensure parent directory exists
 					await fs.mkdir(path.dirname(targetPath), { recursive: true });
 
-					zipfile.openReadStream(entry, async (streamErr, readStream) => {
+					zipfile.openReadStream(entry, (streamErr, readStream) => {
 						if (streamErr) {
 							return reject(streamErr);
 						}
@@ -119,13 +119,22 @@ export async function unpackProjectBundle(
 							);
 						}
 
-						try {
-							const writeStream = createWriteStream(targetPath);
-							await pipeline(readStream, writeStream);
+						const writeStream = createWriteStream(targetPath);
+						const pass = new PassThrough();
+						readStream.on("error", (err) => {
+							pass.destroy();
+							writeStream.destroy();
+							reject(err);
+						});
+						writeStream.on("error", (err) => {
+							pass.destroy();
+							(readStream as unknown as { destroy?: () => void }).destroy?.();
+							reject(err);
+						});
+						writeStream.on("close", () => {
 							zipfile.readEntry();
-						} catch (writeErr) {
-							reject(writeErr);
-						}
+						});
+						readStream.pipe(pass).pipe(writeStream);
 					});
 				} catch (processErr) {
 					reject(processErr);
@@ -133,6 +142,11 @@ export async function unpackProjectBundle(
 			});
 
 			zipfile.on("end", () => {
+				try {
+					zipfile.close();
+				} catch {
+					// Ignore if already closed
+				}
 				resolve();
 			});
 		});
@@ -352,6 +366,11 @@ export async function inspectProjectBundle(captrPath: string): Promise<ProjectIn
 					});
 
 					zipfile.on("end", () => {
+						try {
+							zipfile.close();
+						} catch {
+							// Ignore if already closed
+						}
 						resolve({
 							success: true,
 							filePath: captrPath,

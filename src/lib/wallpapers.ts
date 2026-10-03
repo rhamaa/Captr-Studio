@@ -52,7 +52,7 @@ function safeDecodeFileName(fileName: string) {
 }
 
 function getBundledWallpaperFileName(value: string) {
-	if (!value.startsWith("/wallpapers/")) {
+	if (!value.startsWith("/wallpapers/") && !value.startsWith("wallpapers/")) {
 		return null;
 	}
 

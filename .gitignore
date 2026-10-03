@@ -52,3 +52,5 @@ gpu-export-probe.mp4
 # Local tooling worktrees (Kilo Code) — machine-local, never part of the build.
 .kilo/
 /.superpowers/
+
+workspaces/

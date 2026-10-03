@@ -2777,34 +2777,12 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						return;
 					}
 
-					// If it's a data URL (custom uploaded image), use as-is
-					if (wallpaper.startsWith("data:")) {
-						if (mounted) {
-							setResolvedWallpaper(wallpaper);
-							setResolvedWallpaperKind("image");
-						}
-						return;
-					}
-
-					if (
-						wallpaper.startsWith("http") ||
-						wallpaper.startsWith("file://") ||
-						wallpaper.startsWith("/")
-					) {
-						const renderable = await getRenderableAssetUrl(wallpaper);
-						if (mounted) {
-							setResolvedWallpaper(renderable);
-							setResolvedWallpaperKind("image");
-						}
-						return;
-					}
-					const p = await getRenderableAssetUrl(
-						await getAssetPath(wallpaper.replace(/^\//, "")),
-					);
+					const renderable = await getRenderableAssetUrl(wallpaper);
 					if (mounted) {
-						setResolvedWallpaper(p);
+						setResolvedWallpaper(renderable);
 						setResolvedWallpaperKind("image");
 					}
+					return;
 				} catch (_err) {
 					if (mounted) {
 						setResolvedWallpaper(wallpaper || DEFAULT_WALLPAPER_PATH);
