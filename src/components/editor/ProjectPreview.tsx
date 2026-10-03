@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
-import type { TimelineProject } from "@/core/timeline/types";
 import { evaluateProject } from "@/core/timeline/evaluation";
-import { ProjectFrameRenderer } from "@/lib/exporter/projectFrameRenderer";
+import type { TimelineProject } from "@/core/timeline/types";
 import { renderProjectAudio } from "@/lib/exporter/projectAudioRenderer";
+import { ProjectFrameRenderer } from "@/lib/exporter/projectFrameRenderer";
 import { PreviewQueue } from "./previewQueue";
 export function ProjectPreview({
 	project,
@@ -21,7 +21,8 @@ export function ProjectPreview({
 				PreviewQueue<
 					{ project: TimelineProject; timeUs: number; playing: boolean },
 					HTMLCanvasElement
-				>>(),
+				>
+			>(),
 		latest = useRef({ timeUs, playing, onError });
 	latest.current = { timeUs, playing, onError };
 	const audio = useRef<HTMLAudioElement>();
@@ -52,10 +53,7 @@ export function ProjectPreview({
 		};
 	}, []);
 	useEffect(() => {
-		queue.current?.request(
-			{ project, timeUs, playing },
-			{ continuousPlayback: playing },
-		);
+		queue.current?.request({ project, timeUs, playing }, { continuousPlayback: playing });
 	}, [project, timeUs, playing]);
 	useEffect(() => {
 		const abort = new AbortController();

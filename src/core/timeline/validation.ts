@@ -1,4 +1,4 @@
-import { clipDurationUs, type TimelineProject, type MediaSource } from "./types";
+import { clipDurationUs, type MediaSource, type TimelineProject } from "./types";
 
 function requireValue(condition: unknown, message: string): asserts condition {
 	if (!condition) throw new Error(message);
@@ -67,6 +67,63 @@ function textOverlay(value: unknown) {
 		"Invalid text overlay",
 	);
 	serializable(text);
+}
+function clipKeyframes(value: unknown) {
+	if (value === undefined) return;
+	requireValue(Array.isArray(value), "Invalid clip keyframes");
+	const kfIds = new Set<string>();
+	for (const item of value as Array<unknown>) {
+		const kf = item as Record<string, unknown> | null | undefined;
+		requireValue(
+			kf &&
+				typeof kf === "object" &&
+				typeof kf.id === "string" &&
+				kf.id.length > 0 &&
+				!kfIds.has(kf.id) &&
+				typeof kf.timeMs === "number" &&
+				Number.isFinite(kf.timeMs) &&
+				kf.timeMs >= 0 &&
+				typeof kf.property === "string" &&
+				["position", "scale", "rotation", "opacity"].includes(kf.property) &&
+				typeof kf.easing === "string" &&
+				[
+					"linear",
+					"ease-in",
+					"ease-out",
+					"ease-in-out",
+					"spring-bounce",
+					"cubic-bezier",
+				].includes(kf.easing),
+			"Invalid clip keyframe format",
+		);
+		kfIds.add(kf.id as string);
+		if (kf.property === "position") {
+			const pos = kf.value as { x?: unknown; y?: unknown } | null | undefined;
+			requireValue(
+				pos &&
+					typeof pos === "object" &&
+					typeof pos.x === "number" &&
+					Number.isFinite(pos.x) &&
+					typeof pos.y === "number" &&
+					Number.isFinite(pos.y),
+				"Invalid position keyframe value",
+			);
+		} else {
+			requireValue(
+				typeof kf.value === "number" && Number.isFinite(kf.value),
+				"Invalid numeric keyframe value",
+			);
+		}
+		if (kf.bezier !== undefined) {
+			requireValue(
+				Array.isArray(kf.bezier) &&
+					kf.bezier.length === 4 &&
+					kf.bezier.every((n: unknown) => typeof n === "number" && Number.isFinite(n)),
+				"Invalid keyframe bezier",
+			);
+		}
+	}
+	serializable(value);
 }
 export function validateTimelineProject(value: unknown): TimelineProject {
 	requireValue(value && typeof value === "object", "Invalid timeline project");
@@ -251,6 +308,7 @@ export function validateTimelineProject(value: unknown): TimelineProject {
 					typeof c.enabled === "boolean",
 				"Invalid clip transform/gain",
 			);
+			clipKeyframes(c.keyframes);
 		}
 	}
 	return p;

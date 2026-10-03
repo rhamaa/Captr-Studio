@@ -1,5 +1,5 @@
-import type { ProjectController } from "./useProjectController";
 import type { RecordingSessionData } from "../../../electron/ipc/types";
+import type { ProjectController } from "./useProjectController";
 
 export interface ProjectOpenResult {
 	success: boolean;

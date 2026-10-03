@@ -1,7 +1,7 @@
+import type { ProjectEvaluation, ProjectVisual } from "@/core/timeline/evaluation";
+import { localMediaUrl } from "@/recording/mediaProbe";
 import { FrameRenderer } from "./frameRenderer";
 import { LayerVideoSource } from "./layerVideoSource";
-import { localMediaUrl } from "@/recording/mediaProbe";
-import type { ProjectEvaluation, ProjectVisual } from "@/core/timeline/evaluation";
 /** Paused source decoders and effect renderers are bounded and shared by preview/export. */
 export class ProjectFrameRenderer {
 	private canvas = document.createElement("canvas");
@@ -168,7 +168,7 @@ export class ProjectFrameRenderer {
 		for (const visual of evaluation.visuals) {
 			if (visual.asset.kind === "text") {
 				const overlay = visual.clip.text ?? visual.asset.text!;
-				const transform = visual.clip.transform;
+				const transform = visual.transform ?? visual.clip.transform;
 				ctx.save();
 				ctx.globalAlpha = transform.opacity;
 				ctx.translate(width / 2 + transform.x, height / 2 + transform.y);
@@ -178,8 +178,16 @@ export class ProjectFrameRenderer {
 				ctx.textAlign = overlay.align;
 				ctx.textBaseline = "middle";
 				ctx.fillStyle = overlay.color;
-				const lines = overlay.content.split("\n"), lineHeight = overlay.fontSizePx * 1.2;
-				lines.forEach((line, index) => ctx.fillText(line, 0, (index - (lines.length - 1) / 2) * lineHeight, width * 0.9));
+				const lines = overlay.content.split("\n"),
+					lineHeight = overlay.fontSizePx * 1.2;
+				lines.forEach((line, index) =>
+					ctx.fillText(
+						line,
+						0,
+						(index - (lines.length - 1) / 2) * lineHeight,
+						width * 0.9,
+					),
+				);
 				ctx.restore();
 				continue;
 			}
@@ -189,9 +197,9 @@ export class ProjectFrameRenderer {
 					? await this.image(visual.path)
 					: await this.video(
 							visual.path,
-						visual.sourceUs,
-						evaluation.timeUs,
-						continuousPlayback,
+							visual.sourceUs,
+							evaluation.timeUs,
+							continuousPlayback,
 						);
 			if (this.disposed) throw new Error("Project renderer disposed");
 			const sourceWidth =
@@ -211,7 +219,7 @@ export class ProjectFrameRenderer {
 			const ratio = Math.min(width / sourceWidth, height / sourceHeight),
 				w = sourceWidth * ratio,
 				h = sourceHeight * ratio,
-				transform = visual.clip.transform;
+				transform = visual.transform ?? visual.clip.transform;
 			ctx.save();
 			ctx.globalAlpha = transform.opacity;
 			ctx.translate(width / 2 + transform.x, height / 2 + transform.y);

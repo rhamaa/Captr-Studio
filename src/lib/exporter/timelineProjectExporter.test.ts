@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest";
+import { createTimelineProject, placeAsset, registerMedia } from "@/core/timeline/commands";
 import { TimelineProjectExporter } from "./timelineProjectExporter";
-import { createTimelineProject, registerMedia, placeAsset } from "@/core/timeline/commands";
+
 function project() {
 	const p = registerMedia(createTimelineProject("p", "P"), {
 		id: "a",

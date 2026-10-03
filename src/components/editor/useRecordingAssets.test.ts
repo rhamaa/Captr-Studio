@@ -2,6 +2,7 @@ import { expect, it, vi } from "vitest";
 import { createTimelineProject } from "@/core/timeline/commands";
 import type { CompletedRecording } from "@/recording/types";
 import { RecordingAssetController } from "./useRecordingAssets";
+
 const recording = (captureId: string): CompletedRecording => ({
 	captureId,
 	name: captureId,

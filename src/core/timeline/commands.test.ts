@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
 	createTimelineProject,
-	registerRecording,
-	placeAsset,
-	splitClip,
-	removeClip,
-	removeAsset,
-	setClipRate,
 	moveClip,
+	placeAsset,
+	registerRecording,
+	removeAsset,
+	removeClip,
+	setClipRate,
+	splitClip,
 	updateComposition,
 } from "./commands";
 import { mapClipTime, mapCompositionTime, mapStreamTime } from "./timeMapping";

@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest";
-import { ProjectController } from "./useProjectController";
 import { createTimelineProject, placeAsset, registerMedia } from "@/core/timeline/commands";
+import { ProjectController } from "./useProjectController";
+
 it("imports into an empty library, previews independently and retains dirty work after a save races an edit", async () => {
 	let finish!: (result: any) => void;
 	const save = vi.fn(

@@ -1,7 +1,8 @@
-import type { TimelineProject, TimelineClip, MediaAsset } from "./types";
-import { mapClipTime } from "./timeMapping";
 import { evaluateRecording } from "@/recording/evaluation";
 import { audioAtTime, buildProjectAudioPlan } from "./audioPlan";
+import { sampleClipTransform } from "./clipTransform";
+import { mapClipTime } from "./timeMapping";
+import type { ClipTransform, MediaAsset, TimelineClip, TimelineProject } from "./types";
 export interface ProjectVisual {
 	clipId: string;
 	trackId: string;
@@ -10,6 +11,7 @@ export interface ProjectVisual {
 	path: string;
 	sourceUs: number;
 	compositionUs: number;
+	transform: ClipTransform;
 	recording?: ReturnType<typeof evaluateRecording>;
 }
 export interface ProjectEvaluation {
@@ -33,6 +35,10 @@ export function evaluateProject(project: TimelineProject, timeUs: number): Proje
 				issues.push(`Missing asset for ${clip.id}`);
 				continue;
 			}
+			const transform = sampleClipTransform(
+				clip,
+				Math.max(0, (timeUs - clip.startUs) * clip.rate),
+			);
 			if (asset.kind === "text") {
 				visuals.push({
 					clipId: clip.id,
@@ -42,6 +48,7 @@ export function evaluateProject(project: TimelineProject, timeUs: number): Proje
 					path: "",
 					sourceUs: compositionUs,
 					compositionUs,
+					transform,
 				});
 			} else if (asset.kind === "recording") {
 				const pkg = project.packages.find((p) => p.id === asset.packageId),
@@ -63,6 +70,7 @@ export function evaluateProject(project: TimelineProject, timeUs: number): Proje
 					path: pkg.screen.path,
 					sourceUs: recording.screenUs,
 					compositionUs,
+					transform,
 					recording,
 				});
 			} else if (asset.source?.path)
@@ -74,6 +82,7 @@ export function evaluateProject(project: TimelineProject, timeUs: number): Proje
 					path: asset.source.path,
 					sourceUs: compositionUs,
 					compositionUs,
+					transform,
 				});
 			else issues.push(`Missing media source for ${clip.id}`);
 		}

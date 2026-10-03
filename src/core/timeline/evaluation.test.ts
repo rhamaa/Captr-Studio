@@ -1,14 +1,15 @@
 import { expect, it } from "vitest";
+import { buildProjectAudioPlan } from "./audioPlan";
 import {
-	createTimelineProject,
-	registerRecording,
-	placeAsset,
 	addTrack,
+	createTimelineProject,
+	placeAsset,
+	registerRecording,
 	setClipRate,
 	updateComposition,
 } from "./commands";
 import { evaluateProject } from "./evaluation";
-import { buildProjectAudioPlan } from "./audioPlan";
+
 const recording = {
 	captureId: "capture",
 	name: "Screen",

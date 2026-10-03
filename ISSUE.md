@@ -1,9 +1,22 @@
 # Issue Log & Regression Checklist
 
 
-1. Issue pada keyframing enggine (Video editor) "Slide Record", jadi dia itu melakukan keyframing pada timeline clip video record, bukan pada komponen overlay text, atau gambar yg di upload.
+## 1. Keyframing engine pada timeline overlay (Text Overlay & Gambar)
 
-2. Audio record pada "Video Record" masih sering hilang dan tidak ter record, nah saya ingin agar
+**Status:** Selesai dan terverifikasi (3 Oktober 2026).
+
+**Masalah:** Sebelumnya engine keyframing hanya tersedia/diarahkan pada video recording composition clips, dan belum mendukung komponen overlay visual seperti Text Overlay dan aset Gambar pada timeline.
+
+**Penyelesaian & Kontrak:**
+- [x] Mendukung `keyframes?: PropertyKeyframe[]` pada `TimelineClip` (properti: `position`, `scale`, `rotation`, `opacity`) dengan waktu relatif terhadap clip (`timeMs`).
+- [x] Validasi ketat format, boundary, dan easing curves (`linear`, `ease-in`, `ease-out`, `ease-in-out`, `spring-bounce`, `cubic-bezier`) pada `validateTimelineProject`.
+- [x] Engine interpolasi `sampleClipTransform` pada `src/core/timeline/clipTransform.ts` terintegrasi langsung ke `evaluateProject` (`ProjectVisual.transform`) dan `ProjectFrameRenderer`, memastikan sinkronisasi preview canvas dan ekspor video MP4.
+- [x] UI `ProjectInspector` menyediakan panel pengaturan keyframe untuk klip overlay teks dan gambar di playhead aktif: penambahan keyframe per-properti (`position`, `scale`, `rotation`, `opacity`), pengaturan easing, serta penghapusan keyframe.
+- [x] Penanda visual diamond keyframe pada klip timeline di `TimelineClipItem`.
+- [x] Verifikasi unit & integrasi lengkap pada `src/core/timeline/clipKeyframes.test.ts`.
+
+## 2. Audio record pada "Video Record" sering hilang / tidak ter-record
+
 
 ## 3. Menambahkan Record slide meminta project baru
 

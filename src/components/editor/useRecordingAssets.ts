@@ -2,8 +2,8 @@ import { useEffect, useRef } from "react";
 import { registerRecording } from "@/core/timeline/commands";
 import { ProjectSession } from "@/core/timeline/projectSession";
 import type { TimelineProject } from "@/core/timeline/types";
-import type { CompletedRecording } from "@/recording/types";
 import { completedRecordingFromSession } from "@/recording/completedRecording";
+import type { CompletedRecording } from "@/recording/types";
 
 interface RecordingAssetOptions {
 	getProject: () => TimelineProject;

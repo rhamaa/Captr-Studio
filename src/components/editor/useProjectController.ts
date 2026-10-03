@@ -1,9 +1,9 @@
 import { useRef, useSyncExternalStore } from "react";
-import { ProjectHistory, type ProjectCommand } from "@/core/timeline/history";
+import { type ProjectCommand, ProjectHistory } from "@/core/timeline/history";
 import { ProjectSession } from "@/core/timeline/projectSession";
 import { projectDurationUs, type TimelineProject } from "@/core/timeline/types";
 import { validateTimelineProject } from "@/core/timeline/validation";
-import { TimelinePersistence, type SaveProject } from "./useTimelinePersistence";
+import { type SaveProject, TimelinePersistence } from "./useTimelinePersistence";
 export interface ProjectControllerState {
 	project: TimelineProject;
 	revision: number;

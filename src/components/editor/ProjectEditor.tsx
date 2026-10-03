@@ -1,20 +1,20 @@
-import { useProjectMessages } from "./useProjectMessages";
-import { useEffect, useMemo, useRef, useState } from "react";
 import {
-	ArrowCounterClockwise,
 	ArrowClockwise,
+	ArrowCounterClockwise,
 	CaretDown,
 	FloppyDisk,
 	Folder,
 	FolderOpen,
 	Minus,
+	Pause,
+	Play,
 	Plus,
+	Square,
 	VideoCamera,
 	X,
-	Square,
-	Play,
-	Pause,
 } from "@phosphor-icons/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Toaster } from "@/components/ui/sonner";
 import {
 	createTimelineProject,
 	placeAsset,
@@ -22,32 +22,32 @@ import {
 	removeAsset,
 	updateComposition,
 } from "@/core/timeline/commands";
-import { clipDurationUs, projectDurationUs, type MediaAsset } from "@/core/timeline/types";
-import { ProjectPreview } from "./ProjectPreview";
-import { TimelineProjectExporter } from "@/lib/exporter/timelineProjectExporter";
-import { validateTimelineProject } from "@/core/timeline/validation";
-import { probeLegacyRecordProject } from "@/recording/legacyProbe";
-import { convertLegacyRecordProject } from "@/core/timeline/legacyConversion";
 import type { ProjectCommand } from "@/core/timeline/history";
+import { convertLegacyRecordProject } from "@/core/timeline/legacyConversion";
+import { clipDurationUs, type MediaAsset, projectDurationUs } from "@/core/timeline/types";
+import { validateTimelineProject } from "@/core/timeline/validation";
+import { TimelineProjectExporter } from "@/lib/exporter/timelineProjectExporter";
 import { RecordingCompositionEditor } from "@/recording/editor/RecordingCompositionEditor";
+import { probeLegacyRecordProject } from "@/recording/legacyProbe";
 import { probeMedia } from "@/recording/mediaProbe";
-import { Toaster } from "@/components/ui/sonner";
 import { AssetLibrary } from "./AssetLibrary";
 import { AssetSourcePreview } from "./AssetSourcePreview";
-import { ProjectInspector } from "./ProjectInspector";
 import { ProjectEditorPanel } from "./ProjectEditorPanel";
+import { ProjectInspector } from "./ProjectInspector";
+import { ProjectPreview } from "./ProjectPreview";
 import { ProjectTimeline } from "./ProjectTimeline";
 import { ProjectWelcome } from "./ProjectWelcome";
 import { useProjectController } from "./useProjectController";
+import { useProjectMessages } from "./useProjectMessages";
 import { useRecordingAssets } from "./useRecordingAssets";
 import "./projectEditor.css";
+import type { RecordingSessionData } from "../../../electron/ipc/types";
 import {
 	bindProjectClose,
-	resolveEditorBootstrap,
 	type PendingProjectOpen,
 	type ProjectOpenResult,
+	resolveEditorBootstrap,
 } from "./projectLifecycle";
-import type { RecordingSessionData } from "../../../electron/ipc/types";
 
 export function ProjectEditor() {
 	const m = useProjectMessages();
@@ -629,6 +629,7 @@ export function ProjectEditor() {
 						<ProjectInspector
 							project={state.project}
 							selection={state.selection}
+							playheadUs={state.playheadUs}
 							onCommand={run}
 							onOpenRecording={setEditingClipId}
 						/>

@@ -1,16 +1,16 @@
 import { assertSupportedLegacyProject } from "@/core/project/legacySupport";
+import { createDefaultRecordingSettings } from "@/recording/schema";
+import type { MediaSource, RecordingSettings } from "@/recording/types";
 import {
 	createTimelineProject,
-	registerRecording,
 	placeAsset,
 	registerMedia,
+	registerRecording,
 	trimClip,
 	updateClip,
 } from "./commands";
-import { validateTimelineProject } from "./validation";
 import type { TimelineProject } from "./types";
-import type { RecordingSettings, MediaSource } from "@/recording/types";
-import { createDefaultRecordingSettings } from "@/recording/schema";
+import { validateTimelineProject } from "./validation";
 
 const supportedSettings = new Set([
 	...Object.keys(createDefaultRecordingSettings()),

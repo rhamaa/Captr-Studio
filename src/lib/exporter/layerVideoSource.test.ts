@@ -11,9 +11,7 @@ afterEach(() => {
 });
 
 it("waits for the sought video frame to be presented before returning it", async () => {
-	let onPresentedFrame:
-		| ((now: number, metadata: { mediaTime: number }) => void)
-		| undefined;
+	let onPresentedFrame: ((now: number, metadata: { mediaTime: number }) => void) | undefined;
 	class Media extends EventTarget {
 		duration = 4;
 		seeking = false;
@@ -35,7 +33,9 @@ it("waits for the sought video frame to be presented before returning it", async
 				this.dispatchEvent(new Event(this.src ? "loadeddata" : "emptied")),
 			);
 		}
-		requestVideoFrameCallback(callback: (now: number, metadata: { mediaTime: number }) => void) {
+		requestVideoFrameCallback(
+			callback: (now: number, metadata: { mediaTime: number }) => void,
+		) {
 			onPresentedFrame = callback;
 			return 1;
 		}
@@ -106,9 +106,7 @@ it("seeks both directions, clamps EOF, opts into CORS and releases the decoder",
 });
 
 it("plays adjacent preview frames without seeking the decoder on every update", async () => {
-	const presentedFrames: Array<
-		(now: number, metadata: { mediaTime: number }) => void
-	> = [];
+	const presentedFrames: Array<(now: number, metadata: { mediaTime: number }) => void> = [];
 	class Media extends EventTarget {
 		duration = 4;
 		seeking = false;
@@ -157,11 +155,9 @@ it("plays adjacent preview frames without seeking the decoder on every update", 
 	await source.load("b.mp4");
 
 	let firstResolved = false;
-	const first = source
-		.frame(1.03, { continuousPlayback: true, playbackRate: 1.5 })
-		.then(() => {
-			firstResolved = true;
-		});
+	const first = source.frame(1.03, { continuousPlayback: true, playbackRate: 1.5 }).then(() => {
+		firstResolved = true;
+	});
 	await new Promise<void>((resolve) => setTimeout(resolve, 0));
 	expect(media.currentTime).toBe(1);
 	expect(media.playbackRate).toBe(1.5);
@@ -170,11 +166,9 @@ it("plays adjacent preview frames without seeking the decoder on every update", 
 	await first;
 
 	let secondResolved = false;
-	const second = source
-		.frame(1.06, { continuousPlayback: true, playbackRate: 1.5 })
-		.then(() => {
-			secondResolved = true;
-		});
+	const second = source.frame(1.06, { continuousPlayback: true, playbackRate: 1.5 }).then(() => {
+		secondResolved = true;
+	});
 	await new Promise<void>((resolve) => setTimeout(resolve, 0));
 	expect(media.currentTime).toBe(1);
 	expect(media.seekCount).toBe(0);

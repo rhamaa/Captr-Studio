@@ -1,7 +1,7 @@
-import type { TimelineProject, MediaSource } from "./types";
-import { resolveRecordingSettings } from "@/recording/editor/compositionAdapter";
-import { buildVideoLayerAudioRegions } from "@/components/video-editor/videoLayerAudio";
 import type { AudioDuckingSettings } from "@/components/video-editor/types";
+import { buildVideoLayerAudioRegions } from "@/components/video-editor/videoLayerAudio";
+import { resolveRecordingSettings } from "@/recording/editor/compositionAdapter";
+import type { MediaSource, TimelineProject } from "./types";
 export interface ProjectAudioSegment {
 	id: string;
 	clipId: string;

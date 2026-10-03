@@ -1,11 +1,12 @@
 import { afterEach, expect, it, vi } from "vitest";
 import {
 	createTimelineProject,
-	registerRecording,
 	placeAsset,
+	registerRecording,
 	updateComposition,
 } from "@/core/timeline/commands";
 import { evaluateProject } from "@/core/timeline/evaluation";
+
 const configs = vi.hoisted(() => [] as any[]);
 const videoFrames = vi.hoisted(() => [] as any[]);
 vi.mock("./frameRenderer", () => ({
@@ -32,7 +33,9 @@ vi.mock("./layerVideoSource", () => ({
 		destroy() {}
 	},
 }));
+
 import { ProjectFrameRenderer } from "./projectFrameRenderer";
+
 afterEach(() => {
 	vi.unstubAllGlobals();
 	configs.length = 0;

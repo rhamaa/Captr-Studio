@@ -1,8 +1,9 @@
 import { evaluateProject } from "@/core/timeline/evaluation";
 import { projectDurationUs, type TimelineProject } from "@/core/timeline/types";
 import { validateTimelineProject } from "@/core/timeline/validation";
-import { ProjectFrameRenderer } from "./projectFrameRenderer";
 import { renderProjectAudio, throwIfCanceled } from "./projectAudioRenderer";
+import { ProjectFrameRenderer } from "./projectFrameRenderer";
+
 interface Options {
 	outputPath: string;
 	fps: number;

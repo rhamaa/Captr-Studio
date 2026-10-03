@@ -303,26 +303,79 @@ export class FrameRenderer {
 	private springY: SpringState;
 	private cursorFollowCamera: CursorFollowCameraState;
 	private lastContentTimeMs: number | null = null;
-	private projectCheckpoints = new Map<number, ReturnType<FrameRenderer["animationCheckpoint"]>>();
-	private animationCheckpoint() {return {animationState:structuredClone(this.animationState),motionBlurState:structuredClone(this.motionBlurState),springScale:structuredClone(this.springScale),springX:structuredClone(this.springX),springY:structuredClone(this.springY),cursorFollowCamera:structuredClone(this.cursorFollowCamera),lastContentTimeMs:this.lastContentTimeMs,cursor:this.cursorOverlay?.checkpoint()};}
-	private restoreAnimation(checkpoint:ReturnType<FrameRenderer["animationCheckpoint"]>) {const {cursor,...state}=structuredClone(checkpoint);Object.assign(this,state);if(cursor)this.cursorOverlay?.restore(cursor);else this.cursorOverlay?.reset();}
-	private prepareProjectAnimation(timeMs:number) {
-		const targetTick=Math.max(0,Math.floor(timeMs*60/1000));
-		if(!this.projectCheckpoints.has(-1))this.projectCheckpoints.set(-1,this.animationCheckpoint());
-		const key=Math.max(...Array.from(this.projectCheckpoints.keys()).filter(t=>t<targetTick));
+	private projectCheckpoints = new Map<
+		number,
+		ReturnType<FrameRenderer["animationCheckpoint"]>
+	>();
+	private animationCheckpoint() {
+		return {
+			animationState: structuredClone(this.animationState),
+			motionBlurState: structuredClone(this.motionBlurState),
+			springScale: structuredClone(this.springScale),
+			springX: structuredClone(this.springX),
+			springY: structuredClone(this.springY),
+			cursorFollowCamera: structuredClone(this.cursorFollowCamera),
+			lastContentTimeMs: this.lastContentTimeMs,
+			cursor: this.cursorOverlay?.checkpoint(),
+		};
+	}
+	private restoreAnimation(checkpoint: ReturnType<FrameRenderer["animationCheckpoint"]>) {
+		const { cursor, ...state } = structuredClone(checkpoint);
+		Object.assign(this, state);
+		if (cursor) this.cursorOverlay?.restore(cursor);
+		else this.cursorOverlay?.reset();
+	}
+	private prepareProjectAnimation(timeMs: number) {
+		const targetTick = Math.max(0, Math.floor((timeMs * 60) / 1000));
+		if (!this.projectCheckpoints.has(-1))
+			this.projectCheckpoints.set(-1, this.animationCheckpoint());
+		const key = Math.max(
+			...Array.from(this.projectCheckpoints.keys()).filter((t) => t < targetTick),
+		);
 		this.restoreAnimation(this.projectCheckpoints.get(key)!);
-		for(let tick=key+1;tick<=targetTick;tick++){
-			const previousBlur=structuredClone(this.motionBlurState);
-			const sampleMs=tick*1000/60;
-			if(this.layoutCache)this.cursorOverlay?.update(this.config.cursorTelemetry??[],sampleMs,this.layoutCache.maskRect,this.config.showCursor??true,false);
+		for (let tick = key + 1; tick <= targetTick; tick++) {
+			const previousBlur = structuredClone(this.motionBlurState);
+			const sampleMs = (tick * 1000) / 60;
+			if (this.layoutCache)
+				this.cursorOverlay?.update(
+					this.config.cursorTelemetry ?? [],
+					sampleMs,
+					this.layoutCache.maskRect,
+					this.config.showCursor ?? true,
+					false,
+				);
 			this.updateAnimationState(sampleMs);
-			Object.assign(this.motionBlurState,{prevCamX:this.animationState.x,prevCamY:this.animationState.y,prevCamScale:this.animationState.appliedScale,lastFrameTimeMs:sampleMs,initialized:tick>0});
-			if(tick%60===0){this.projectCheckpoints.set(tick,this.animationCheckpoint());if(this.projectCheckpoints.size>122){const oldest=this.projectCheckpoints.keys().next().value;if(oldest!==undefined&&oldest!==-1)this.projectCheckpoints.delete(oldest);else {const next=Array.from(this.projectCheckpoints.keys())[1];this.projectCheckpoints.delete(next);}}}
-			if(tick===targetTick)this.motionBlurState=previousBlur;
+			Object.assign(this.motionBlurState, {
+				prevCamX: this.animationState.x,
+				prevCamY: this.animationState.y,
+				prevCamScale: this.animationState.appliedScale,
+				lastFrameTimeMs: sampleMs,
+				initialized: tick > 0,
+			});
+			if (tick % 60 === 0) {
+				this.projectCheckpoints.set(tick, this.animationCheckpoint());
+				if (this.projectCheckpoints.size > 122) {
+					const oldest = this.projectCheckpoints.keys().next().value;
+					if (oldest !== undefined && oldest !== -1)
+						this.projectCheckpoints.delete(oldest);
+					else {
+						const next = Array.from(this.projectCheckpoints.keys())[1];
+						this.projectCheckpoints.delete(next);
+					}
+				}
+			}
+			if (tick === targetTick) this.motionBlurState = previousBlur;
 		}
 	}
 	/** Takes ownership of the webcam frame sampled by the project source decoder. */
-	setProjectWebcamFrame(frame:VideoFrame|null):void {this.closeWebcamDecodedFrame();this.webcamDecodedFrame=frame;if(!frame){this.webcamFrameCacheCanvas=null;this.webcamFrameCacheCtx=null;}}
+	setProjectWebcamFrame(frame: VideoFrame | null): void {
+		this.closeWebcamDecodedFrame();
+		this.webcamDecodedFrame = frame;
+		if (!frame) {
+			this.webcamFrameCacheCanvas = null;
+			this.webcamFrameCacheCtx = null;
+		}
+	}
 	private cursorOverlay: PixiCursorOverlay | null = null;
 	private webcamForwardFrameSource: ForwardFrameSource | null = null;
 	private webcamDecodedFrame: VideoFrame | null = null;
@@ -1650,7 +1703,7 @@ export class FrameRenderer {
 
 		const timeMs = this.currentVideoTime * 1000;
 		const cursorTimeMs = cursorTimestamp / 1000;
-		if(this.config.projectClock)this.prepareProjectAnimation(timeMs);
+		if (this.config.projectClock) this.prepareProjectAnimation(timeMs);
 
 		if (this.cursorOverlay && !this.config.projectClock) {
 			this.cursorOverlay.update(
@@ -2124,7 +2177,7 @@ export class FrameRenderer {
 
 		const timeMs = this.currentVideoTime * 1000;
 		const cursorTimeMs = cursorTimestamp / 1000;
-		if(this.config.projectClock)this.prepareProjectAnimation(timeMs);
+		if (this.config.projectClock) this.prepareProjectAnimation(timeMs);
 
 		if (this.cursorOverlay && !this.config.projectClock) {
 			this.cursorOverlay.update(
@@ -2145,7 +2198,7 @@ export class FrameRenderer {
 			},
 		);
 
-		if(!this.config.projectClock)this.updateAnimationState(timeMs);
+		if (!this.config.projectClock) this.updateAnimationState(timeMs);
 
 		applyZoomTransform({
 			cameraContainer: this.cameraContainer,

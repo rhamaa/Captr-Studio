@@ -1,13 +1,13 @@
-import { AudioProcessor } from "./audioEncoder";
-import { buildProjectAudioPlan, type ProjectAudioSegment } from "@/core/timeline/audioPlan";
 import {
 	computeDuckingGain,
 	getSpeechIntervalsFromChannelData,
 	mergeSpeechIntervals,
 	type SpeechInterval,
 } from "@/components/video-editor/audio/audioDucking";
+import { buildProjectAudioPlan, type ProjectAudioSegment } from "@/core/timeline/audioPlan";
 import { projectDurationUs, type TimelineProject } from "@/core/timeline/types";
 import { localMediaUrl } from "@/recording/mediaProbe";
+import { AudioProcessor } from "./audioEncoder";
 export function throwIfCanceled(signal?: AbortSignal) {
 	if (signal?.aborted) throw new DOMException("Export canceled", "AbortError");
 }

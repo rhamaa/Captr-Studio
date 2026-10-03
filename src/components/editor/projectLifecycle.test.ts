@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { createTimelineProject } from "@/core/timeline/commands";
-import { ProjectController } from "./useProjectController";
 import { bindProjectClose, resolveEditorBootstrap } from "./projectLifecycle";
+import { ProjectController } from "./useProjectController";
 
 it("publishes dirty state and closes only after the current revision is saved", async () => {
 	let finish!: (value: any) => void;

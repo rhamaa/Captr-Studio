@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { addTextOverlay, createTimelineProject, duplicateClip, placeAsset, updateTextOverlay } from "./commands";
+import {
+	addTextOverlay,
+	createTimelineProject,
+	duplicateClip,
+	placeAsset,
+	updateTextOverlay,
+} from "./commands";
 import { evaluateProject } from "./evaluation";
 import { validateTimelineProject } from "./validation";
 
@@ -54,9 +60,9 @@ describe("project text overlays", () => {
 		expect(edited.tracks.find((track) => track.id === "visual-1")?.clips[0].text?.content).toBe(
 			"Placed copy",
 		);
-		expect(edited.tracks.find((track) => track.id === "title-track")?.clips[0].text?.content).toBe(
-			"Your text",
-		);
+		expect(
+			edited.tracks.find((track) => track.id === "title-track")?.clips[0].text?.content,
+		).toBe("Your text");
 		expect(edited.assets[0].text?.content).toBe("Your text");
 	});
 

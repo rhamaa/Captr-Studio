@@ -1,6 +1,7 @@
-import { it, expect, vi } from "vitest";
+import { expect, it, vi } from "vitest";
 import { AudioProcessor } from "./audioEncoder";
 import { projectSpeechIntervals } from "./projectAudioRenderer";
+
 it("decodes WAV natively before asking a container demuxer", async () => {
 	const processor = new AudioProcessor();
 	const buffer = {} as AudioBuffer;

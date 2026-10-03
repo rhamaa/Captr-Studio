@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import { convertLegacyRecordProject } from "./legacyConversion";
+
 it("converts canonical V2 Record once and preserves metadata without changing original", () => {
 	const old = {
 		version: 2,
