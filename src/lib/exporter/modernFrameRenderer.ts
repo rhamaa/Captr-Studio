@@ -1,24 +1,10 @@
-import {
-	Application,
-	BlurFilter,
-	ColorMatrixFilter,
-	Container,
-	Graphics,
-	Rectangle,
-	Sprite,
-	Texture,
-} from "pixi.js";
+import { Application, BlurFilter, Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 import { MotionBlurFilter } from "pixi-filters/motion-blur";
 import { ZoomBlurFilter } from "pixi-filters/zoom-blur";
-import {
-	applyColorGradingToFilter,
-	getVignetteTexture,
-} from "@/components/video-editor/colorGrading";
 import { resolveLayoutSceneAtTime } from "@/components/video-editor/layoutScenes";
 import type {
 	AnnotationRegion,
 	ClipRegion,
-	ColorGradingSettings,
 	CropRegion,
 	CursorStyle,
 	CursorTelemetryPoint,
@@ -55,13 +41,6 @@ import {
 	type SpringState,
 	stepSpringValue,
 } from "@/components/video-editor/videoPlayback/motionSmoothing";
-import {
-	applyPerspectiveTilt,
-	computePerspectiveTilt,
-	createPerspectiveTiltState,
-	type PerspectiveTiltState,
-	resetPerspectiveTiltState,
-} from "@/components/video-editor/videoPlayback/perspectiveTilt";
 import { getWebcamMediaTargetTimeSeconds } from "@/components/video-editor/videoPlayback/webcamSync";
 import { findDominantRegion } from "@/components/video-editor/videoPlayback/zoomRegionUtils";
 import {
@@ -72,7 +51,9 @@ import {
 	type MotionBlurState,
 } from "@/components/video-editor/videoPlayback/zoomTransform";
 import {
+	getWebcamCornerRadiusPx,
 	getWebcamCropSourceRect,
+	getWebcamOverlayDimensions,
 	getWebcamOverlayPosition,
 	getWebcamOverlaySizePx,
 	isWebcamCropRegionDefault,
@@ -89,7 +70,12 @@ import {
 	notifyCursorInteraction,
 } from "@/lib/extensions/renderHooks";
 import { applyCanvasSceneTransform } from "@/lib/extensions/sceneTransform";
-import { drawSquircleOnCanvas, drawSquircleOnGraphics } from "@/lib/geometry/squircle";
+import {
+	drawSquircleOnCanvas,
+	drawSquircleOnGraphics,
+	drawWebcamMaskOnCanvas,
+	drawWebcamMaskOnGraphics,
+} from "@/lib/geometry/squircle";
 import {
 	clampMediaTimeToDuration,
 	getEffectiveVideoStreamDurationSeconds,
@@ -165,11 +151,9 @@ interface FrameRenderConfig {
 	cursorClickBounce?: number;
 	cursorClickBounceDuration?: number;
 	cursorSway?: number;
-	cameraPerspectiveTilt?: number;
 	zoomSmoothness?: number;
 	zoomClassicMode?: boolean;
 	frame?: string | null;
-	colorGrading?: ColorGradingSettings;
 	nativeReadbackMode?: "pixels" | "canvas";
 }
 
@@ -418,8 +402,6 @@ export class FrameRenderer {
 	private webcamMaskGraphics: Graphics | null = null;
 	private zoomBlurFilter: ZoomBlurFilter | null = null;
 	private motionBlurFilter: MotionBlurFilter | null = null;
-	private colorMatrixFilter: ColorMatrixFilter | null = null;
-	private vignetteSprite: Sprite | null = null;
 
 	private backgroundBlurFilter: BlurFilter | null = null;
 	private annotationAssets: AnnotationRenderAssets | null = null;
@@ -499,13 +481,10 @@ export class FrameRenderer {
 	private transitionOverlayGraphics: Graphics | null = null;
 	private layoutScreenMask: Graphics | null = null;
 	private clipRegions: ClipRegion[] = [];
-	private cameraPerspectiveTilt = 0;
-	private perspectiveTiltState: PerspectiveTiltState = createPerspectiveTiltState();
 
 	constructor(config: FrameRenderConfig) {
 		this.config = config;
 		this.clipRegions = config.clipRegions ?? [];
-		this.cameraPerspectiveTilt = config.cameraPerspectiveTilt ?? 0;
 		this.animationState = createAnimationState();
 		this.motionBlurState = createMotionBlurState();
 		this.springScale = createSpringState(1);
@@ -607,18 +586,6 @@ export class FrameRenderer {
 		this.videoContainer.addChild(this.videoMaskGraphics);
 		this.videoContainer.addChild(this.transitionOverlayGraphics);
 
-		this.colorMatrixFilter = new ColorMatrixFilter();
-		const hasActiveColorFilter = applyColorGradingToFilter(
-			this.colorMatrixFilter,
-			this.config.colorGrading,
-		);
-		this.videoContainer.filters = hasActiveColorFilter ? [this.colorMatrixFilter] : null;
-
-		this.vignetteSprite = new Sprite(getVignetteTexture());
-		this.vignetteSprite.alpha = (this.config.colorGrading?.vignette ?? 0) / 100;
-		this.vignetteSprite.visible = (this.config.colorGrading?.vignette ?? 0) > 0;
-		this.videoContainer.addChild(this.vignetteSprite);
-
 		this.videoContainer.mask = this.videoMaskGraphics;
 
 		this.webcamMaskGraphics = new Graphics();
@@ -659,7 +626,11 @@ export class FrameRenderer {
 				strength: 0,
 				maxKernelSize: 13,
 			});
-			this.motionBlurFilter = new MotionBlurFilter([0, 0], 5, 0);
+			this.motionBlurFilter = new MotionBlurFilter({
+				velocity: [0, 0],
+				kernelSize: 5,
+				offset: 0,
+			});
 		}
 
 		this.compositeCanvas = document.createElement("canvas");
@@ -831,6 +802,7 @@ export class FrameRenderer {
 			offsetY: number;
 			alpha: number;
 			blur: number;
+			webcamMask?: boolean;
 		},
 	): void {
 		if (options.alpha <= 0 || options.width <= 0 || options.height <= 0) {
@@ -854,7 +826,8 @@ export class FrameRenderer {
 		layer.context.save();
 		layer.context.filter = options.blur > 0 ? `blur(${options.blur}px)` : "none";
 		layer.context.fillStyle = `rgba(0, 0, 0, ${options.alpha})`;
-		drawSquircleOnCanvas(layer.context, {
+		const drawMask = options.webcamMask ? drawWebcamMaskOnCanvas : drawSquircleOnCanvas;
+		drawMask(layer.context, {
 			x: padding,
 			y: padding + options.offsetY,
 			width: options.width,
@@ -1395,7 +1368,7 @@ export class FrameRenderer {
 
 			if (this.config.backgroundBlur > 0) {
 				this.backgroundBlurFilter = new BlurFilter();
-				this.backgroundBlurFilter.blur = this.config.backgroundBlur * 3;
+				this.backgroundBlurFilter.strength = this.config.backgroundBlur * 3;
 				this.backgroundBlurFilter.quality = 4;
 				this.backgroundBlurFilter.resolution = this.app?.renderer.resolution ?? 1;
 				this.backgroundSprite.filters = [this.backgroundBlurFilter];
@@ -2374,7 +2347,7 @@ export class FrameRenderer {
 		);
 
 		this.webcamMaskGraphics.clear();
-		drawSquircleOnGraphics(this.webcamMaskGraphics, {
+		drawWebcamMaskOnGraphics(this.webcamMaskGraphics, {
 			x: 0,
 			y: 0,
 			width: targetWidth,
@@ -2399,6 +2372,7 @@ export class FrameRenderer {
 				offsetY,
 				alpha: layer.alphaScale * nextLayout.shadowStrength,
 				blur: Math.max(0, targetHeight * layer.blurScale * nextLayout.shadowStrength),
+				webcamMask: true,
 			});
 		}
 
@@ -2646,20 +2620,17 @@ export class FrameRenderer {
 			return;
 		}
 
-		const layoutScene =
-			(this.config.layoutRegions ?? []).length > 0
-				? resolveLayoutSceneAtTime({
-						timeMs: this.currentVideoTime * 1000,
-						layoutRegions: this.config.layoutRegions ?? [],
-						stageWidth: this.config.width,
-						stageHeight: this.config.height,
-						webcam,
-						zoomScale: this.animationState.appliedScale || 1,
-						hasWebcam: true,
-					})
-				: null;
+		const layoutScene = resolveLayoutSceneAtTime({
+			timeMs: this.currentVideoTime * 1000,
+			layoutRegions: this.config.layoutRegions ?? [],
+			stageWidth: this.config.width,
+			stageHeight: this.config.height,
+			webcam,
+			zoomScale: this.animationState.appliedScale || 1,
+			hasWebcam: true,
+		});
 		const margin = webcam.margin ?? 24;
-		const size = layoutScene
+		const requestedSize = layoutScene
 			? layoutScene.webcam.width
 			: getWebcamOverlaySizePx({
 					containerWidth: this.config.width,
@@ -2669,22 +2640,40 @@ export class FrameRenderer {
 					zoomScale: this.animationState.appliedScale || 1,
 					reactToZoom: webcam.reactToZoom ?? true,
 				});
+		const webcamAspectRatio = Math.max(0.05, Math.min(20, webcam.cropAspectRatio ?? 1));
+		const dimensions = layoutScene
+			? { width: layoutScene.webcam.width, height: layoutScene.webcam.height }
+			: getWebcamOverlayDimensions({
+					containerWidth: this.config.width,
+					containerHeight: this.config.height,
+					size: requestedSize,
+					aspectRatio: webcamAspectRatio,
+					margin,
+				});
+		const size = dimensions.width;
+		const height = dimensions.height;
 		const position = layoutScene
 			? { x: layoutScene.webcam.x, y: layoutScene.webcam.y }
 			: getWebcamOverlayPosition({
 					containerWidth: this.config.width,
 					containerHeight: this.config.height,
 					size,
+					height,
 					margin,
 					positionPreset: webcam.positionPreset ?? webcam.corner,
 					positionX: webcam.positionX ?? 1,
 					positionY: webcam.positionY ?? 1,
 					legacyCorner: webcam.corner,
 				});
-		const radius = Math.max(0, layoutScene?.webcam.borderRadius ?? webcam.cornerRadius ?? 18);
+		const radius = layoutScene
+			? layoutScene.webcam.borderRadius
+			: getWebcamCornerRadiusPx({
+					width: size,
+					height,
+					cornerRadius: webcam.cornerRadius,
+					cornerRadiusPercent: webcam.cornerRadiusPercent,
+				});
 		const shadowStrength = clampUnitInterval(layoutScene?.webcam.shadow ?? webcam.shadow ?? 0);
-		const height = layoutScene ? layoutScene.webcam.height : size;
-
 		this.webcamRootContainer.visible = (layoutScene?.webcam.opacity ?? 1) > 0.001;
 		this.webcamRootContainer.alpha = layoutScene?.webcam.opacity ?? 1;
 
@@ -2732,7 +2721,7 @@ export class FrameRenderer {
 			hasWebcam: Boolean(webcam.enabled && webcam.sourcePath),
 		});
 
-		if (!layoutScene) {
+		if (layoutScene.isDefault) {
 			this.cameraContainer.alpha = 1;
 			if (this.layoutScreenMask) {
 				this.cameraContainer.mask = null;
@@ -3112,28 +3101,6 @@ export class FrameRenderer {
 			bounds: layoutCache.maskRect,
 		});
 
-		if (this.cameraContainer && this.cameraPerspectiveTilt > 0) {
-			const cursorSnapshot = this.cursorOverlay?.getSmoothedCursorSnapshot();
-			const frameDeltaMs =
-				typeof frameDurationUs === "number" && frameDurationUs > 0
-					? frameDurationUs / 1000
-					: 16.67;
-			const tilt = computePerspectiveTilt(this.perspectiveTiltState, {
-				cursor: cursorSnapshot ? { cx: cursorSnapshot.cx, cy: cursorSnapshot.cy } : null,
-				intensity: this.cameraPerspectiveTilt,
-				deltaMs: Math.min(80, Math.max(1, frameDeltaMs)),
-				stageSize: layoutCache.stageSize,
-				baseMask: layoutCache.maskRect,
-			});
-			applyPerspectiveTilt(this.cameraContainer, tilt);
-		} else if (
-			this.cameraContainer &&
-			(this.cameraContainer.skew.x !== 0 || this.cameraContainer.skew.y !== 0)
-		) {
-			resetPerspectiveTiltState(this.perspectiveTiltState);
-			this.cameraContainer.skew.set(0, 0);
-		}
-
 		this.updateAnnotationLayer(timeMs);
 		this.updateWebcamOverlay();
 
@@ -3445,12 +3412,6 @@ export class FrameRenderer {
 				sourceCrop: cropRegion,
 			},
 		};
-
-		if (this.vignetteSprite) {
-			this.vignetteSprite.position.set(layout.centerOffsetX, layout.centerOffsetY);
-			this.vignetteSprite.width = layout.croppedDisplayWidth;
-			this.vignetteSprite.height = layout.croppedDisplayHeight;
-		}
 
 		this.updateFrameLayout();
 	}
@@ -3798,9 +3759,6 @@ export class FrameRenderer {
 		this.zoomBlurFilter?.destroy();
 		this.motionBlurFilter?.destroy();
 		this.backgroundBlurFilter?.destroy();
-		this.colorMatrixFilter?.destroy();
-		this.colorMatrixFilter = null;
-		this.vignetteSprite = null;
 
 		this.app?.destroy(true, {
 			children: true,
@@ -3837,7 +3795,6 @@ export class FrameRenderer {
 			this.transitionOverlayGraphics.destroy();
 			this.transitionOverlayGraphics = null;
 		}
-		resetPerspectiveTiltState(this.perspectiveTiltState);
 		this.zoomBlurFilter = null;
 		this.motionBlurFilter = null;
 		this.backgroundBlurFilter = null;

@@ -28,192 +28,107 @@ export const CaptrLogo: React.FC<CaptrLogoProps> = ({
 
 	if (variant === "horizontal") {
 		const height = pixelSize;
-		const width = Math.round(pixelSize * (600 / 140));
+		const width = Math.round(pixelSize * 3.4);
 
 		return (
 			<svg
 				width={width}
 				height={height}
-				viewBox="0 0 600 140"
+				viewBox="0 0 340 100"
 				fill="none"
 				xmlns="http://www.w3.org/2000/svg"
 				className={`select-none ${className}`}
 				aria-label="Captr Studio"
 			>
 				<defs>
-					<linearGradient
-						id="captr-h-bg"
-						x1="16"
-						y1="10"
-						x2="124"
-						y2="120"
-						gradientUnits="userSpaceOnUse"
-					>
-						<stop offset="0%" stopColor="#131927" />
-						<stop offset="50%" stopColor="#0D121E" />
-						<stop offset="100%" stopColor="#070A10" />
-					</linearGradient>
-					<linearGradient
-						id="captr-h-rim"
-						x1="10"
-						y1="10"
-						x2="120"
-						y2="120"
-						gradientUnits="userSpaceOnUse"
-					>
-						<stop offset="0%" stopColor="#818CF8" stopOpacity="0.8" />
-						<stop offset="50%" stopColor="#06B6D4" stopOpacity="0.4" />
-						<stop offset="100%" stopColor="#38BDF8" stopOpacity="0.6" />
-					</linearGradient>
-					<linearGradient
-						id="captr-h-c-arc"
-						x1="20"
-						y1="20"
-						x2="110"
-						y2="110"
-						gradientUnits="userSpaceOnUse"
-					>
-						<stop offset="0%" stopColor="#A78BFA" />
-						<stop offset="40%" stopColor="#6366F1" />
-						<stop offset="85%" stopColor="#06B6D4" />
-						<stop offset="100%" stopColor="#38BDF8" />
-					</linearGradient>
-					<radialGradient
-						id="captr-h-rec-glow"
-						cx="72"
-						cy="70"
-						r="22"
-						gradientUnits="userSpaceOnUse"
-					>
-						<stop offset="0%" stopColor="#FF3358" stopOpacity="0.95" />
-						<stop offset="50%" stopColor="#F43F5E" stopOpacity="0.6" />
-						<stop offset="100%" stopColor="#FF3358" stopOpacity="0" />
-					</radialGradient>
-					<linearGradient
-						id="captr-h-text-grad"
-						x1="156"
-						y1="90"
-						x2="330"
-						y2="105"
-						gradientUnits="userSpaceOnUse"
-					>
-						<stop offset="0%" stopColor="#67E8F9" />
-						<stop offset="50%" stopColor="#818CF8" />
-						<stop offset="100%" stopColor="#C084FC" />
-					</linearGradient>
+					<clipPath id="captr-h-play-clip">
+						<path d="M 28 35.5 C 28 33.2 30.2 31.8 32.5 33.2 L 52.5 45.2 C 54.8 46.6 54.8 49.4 52.5 50.8 L 32.5 62.8 C 30.2 64.2 28 62.8 28 60.5 Z" />
+					</clipPath>
 				</defs>
 
-				{/* Squircle App Icon Frame */}
-				<g transform="translate(10, 10)">
-					<rect
-						x="0"
-						y="0"
-						width="120"
-						height="120"
-						rx="28"
-						fill="url(#captr-h-bg)"
-						stroke="url(#captr-h-rim)"
-						strokeWidth="2"
-					/>
-					{/* Subtle Viewfinder Frame Lines */}
+				{/* Logo Mark Group (x: 0..100) */}
+				<g transform="translate(0, 0)">
+					{/* Viewfinder Frame Brackets */}
 					<path
-						d="M16 28 V16 H28"
-						stroke="#818CF8"
-						strokeWidth="1.5"
+						d="M 17 35 L 17 24 C 17 18.5 20.5 15 26 15 L 37 15"
+						stroke="currentColor"
+						strokeWidth="6.5"
 						strokeLinecap="round"
-						opacity="0.4"
+						strokeLinejoin="round"
+						className="text-[#344054] dark:text-[#E2E8F0]"
 					/>
 					<path
-						d="M104 28 V16 H92"
-						stroke="#818CF8"
-						strokeWidth="1.5"
+						d="M 63 15 L 74 15 C 79.5 15 83 18.5 83 24 L 83 35"
+						stroke="currentColor"
+						strokeWidth="6.5"
 						strokeLinecap="round"
-						opacity="0.4"
+						strokeLinejoin="round"
+						className="text-[#344054] dark:text-[#E2E8F0]"
 					/>
 					<path
-						d="M16 92 V104 H28"
-						stroke="#818CF8"
-						strokeWidth="1.5"
+						d="M 17 65 L 17 76 C 17 81.5 20.5 85 26 85 L 37 85"
+						stroke="currentColor"
+						strokeWidth="6.5"
 						strokeLinecap="round"
-						opacity="0.4"
+						strokeLinejoin="round"
+						className="text-[#344054] dark:text-[#E2E8F0]"
 					/>
 					<path
-						d="M104 92 V104 H92"
-						stroke="#818CF8"
-						strokeWidth="1.5"
+						d="M 63 85 L 74 85 C 79.5 85 83 81.5 83 76 L 83 65"
+						stroke="currentColor"
+						strokeWidth="6.5"
 						strokeLinecap="round"
-						opacity="0.4"
+						strokeLinejoin="round"
+						className="text-[#344054] dark:text-[#E2E8F0]"
 					/>
 
-					{/* Scaled C Aperture Glyph */}
-					<g transform="translate(18, 18) scale(0.165)">
-						<path
-							d="M340 148 C305 116 250 102 195 120 C130 142 84 204 84 276 C84 348 130 410 195 432 C250 450 305 436 340 404"
-							fill="none"
-							stroke="url(#captr-h-c-arc)"
-							strokeWidth="50"
-							strokeLinecap="round"
-						/>
-						{/* Luminous Rec Aperture Core */}
-						<circle
-							cx="280"
-							cy="276"
-							r="42"
-							fill="url(#captr-h-rec-glow)"
-							className={animateGlow ? "animate-pulse" : ""}
-						/>
-						<circle
-							cx="280"
-							cy="276"
-							r="28"
-							stroke="#FFFFFF"
-							strokeWidth="3"
-							strokeDasharray="12 10"
-							opacity="0.5"
-						/>
-						<circle
-							cx="280"
-							cy="276"
-							r="16"
-							fill="#FF3358"
-							stroke="#FFFFFF"
-							strokeWidth="3"
-						/>
+					{/* Play Symbol */}
+					<g clipPath="url(#captr-h-play-clip)">
+						<rect x="25" y="30" width="35" height="40" fill="#6FA8FF" />
+						<path d="M 26 50 C 33 46 41 54 56 46 L 56 66 L 26 66 Z" fill="#A879F5" />
 					</g>
+
+					{/* Vertical Pastel Green Capsule */}
+					<rect x="57" y="36.5" width="5.5" height="27" rx="2.75" fill="#8DDB9B" />
+
+					{/* Waveform Bars */}
+					<rect
+						x="65"
+						y="42"
+						width="5"
+						height="16"
+						rx="2.5"
+						fill="#A879F5"
+						className={animateGlow ? "animate-pulse" : ""}
+					/>
+					<rect x="72.5" y="44.5" width="4.5" height="11" rx="2.25" fill="#A879F5" />
+					<rect x="79.5" y="46.5" width="4" height="7" rx="2" fill="#A879F5" />
 				</g>
 
 				{/* Wordmark Typography */}
 				<text
-					x="154"
-					y="72"
-					fontFamily="'Inter', system-ui, -apple-system, sans-serif"
-					fontSize="44"
+					x="106"
+					y="64"
+					fontFamily="'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
+					fontSize="46"
 					fontWeight="800"
-					letterSpacing="2.5"
-					fill="#F8FAFC"
+					letterSpacing="-0.5"
+					fill="currentColor"
+					className="text-[#344054] dark:text-[#F5F6F8]"
 				>
-					CAPTR
+					Captr
 				</text>
 				<text
-					x="156"
-					y="106"
-					fontFamily="'Inter', system-ui, -apple-system, sans-serif"
-					fontSize="18"
-					fontWeight="700"
-					letterSpacing="6.5"
-					fill="url(#captr-h-text-grad)"
+					x="224"
+					y="64"
+					fontFamily="'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
+					fontSize="46"
+					fontWeight="600"
+					letterSpacing="-0.5"
+					fill="#A879F5"
 				>
-					STUDIO
+					Studio
 				</text>
-				{/* Glowing Rec Indicator Beacon */}
-				<circle
-					cx="410"
-					cy="98"
-					r="4.5"
-					fill="#FF3358"
-					className={animateGlow ? "animate-ping" : ""}
-				/>
-				<circle cx="410" cy="98" r="4" fill="#FF3358" />
 			</svg>
 		);
 	}
@@ -223,241 +138,161 @@ export const CaptrLogo: React.FC<CaptrLogoProps> = ({
 			<svg
 				width={pixelSize}
 				height={pixelSize}
-				viewBox="0 0 512 512"
+				viewBox="0 0 100 100"
 				fill="none"
 				xmlns="http://www.w3.org/2000/svg"
 				className={`select-none ${className}`}
 				aria-label="Captr Mark"
 			>
 				<defs>
-					<linearGradient
-						id="captr-m-arc"
-						x1="80"
-						y1="80"
-						x2="430"
-						y2="430"
-						gradientUnits="userSpaceOnUse"
-					>
-						<stop offset="0%" stopColor="#A78BFA" />
-						<stop offset="30%" stopColor="#818CF8" />
-						<stop offset="65%" stopColor="#4F46E5" />
-						<stop offset="90%" stopColor="#06B6D4" />
-						<stop offset="100%" stopColor="#38BDF8" />
-					</linearGradient>
-					<radialGradient
-						id="captr-m-glow"
-						cx="280"
-						cy="256"
-						r="90"
-						gradientUnits="userSpaceOnUse"
-					>
-						<stop offset="0%" stopColor="#FF3358" stopOpacity="0.95" />
-						<stop offset="50%" stopColor="#F43F5E" stopOpacity="0.5" />
-						<stop offset="100%" stopColor="#FF3358" stopOpacity="0" />
-					</radialGradient>
+					<clipPath id="captr-m-play-clip">
+						<path d="M 28 35.5 C 28 33.2 30.2 31.8 32.5 33.2 L 52.5 45.2 C 54.8 46.6 54.8 49.4 52.5 50.8 L 32.5 62.8 C 30.2 64.2 28 62.8 28 60.5 Z" />
+					</clipPath>
 				</defs>
-				{/* The 'C' Aperture Geometry */}
+
+				{/* Viewfinder Corners */}
 				<path
-					d="M360 128 C310 88 238 74 168 98 C88 126 32 202 32 288 C32 374 88 450 168 478 C238 502 310 488 360 448"
-					fill="none"
-					stroke="url(#captr-m-arc)"
-					strokeWidth="56"
+					d="M 17 35 L 17 24 C 17 18.5 20.5 15 26 15 L 37 15"
+					stroke="currentColor"
+					strokeWidth="6.5"
 					strokeLinecap="round"
+					strokeLinejoin="round"
+					className="text-[#344054] dark:text-[#E2E8F0]"
 				/>
-				{/* Radiant Recording Lens */}
-				<circle
-					cx="288"
-					cy="288"
-					r="82"
-					fill="url(#captr-m-glow)"
+				<path
+					d="M 63 15 L 74 15 C 79.5 15 83 18.5 83 24 L 83 35"
+					stroke="currentColor"
+					strokeWidth="6.5"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					className="text-[#344054] dark:text-[#E2E8F0]"
+				/>
+				<path
+					d="M 17 65 L 17 76 C 17 81.5 20.5 85 26 85 L 37 85"
+					stroke="currentColor"
+					strokeWidth="6.5"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					className="text-[#344054] dark:text-[#E2E8F0]"
+				/>
+				<path
+					d="M 63 85 L 74 85 C 79.5 85 83 81.5 83 76 L 83 65"
+					stroke="currentColor"
+					strokeWidth="6.5"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					className="text-[#344054] dark:text-[#E2E8F0]"
+				/>
+
+				{/* Play Symbol */}
+				<g clipPath="url(#captr-m-play-clip)">
+					<rect x="25" y="30" width="35" height="40" fill="#6FA8FF" />
+					<path d="M 26 50 C 33 46 41 54 56 46 L 56 66 L 26 66 Z" fill="#A879F5" />
+				</g>
+
+				{/* Vertical Pastel Green Capsule */}
+				<rect x="57" y="36.5" width="5.5" height="27" rx="2.75" fill="#8DDB9B" />
+
+				{/* Waveform Bars */}
+				<rect
+					x="65"
+					y="42"
+					width="5"
+					height="16"
+					rx="2.5"
+					fill="#A879F5"
 					className={animateGlow ? "animate-pulse" : ""}
 				/>
-				<circle
-					cx="288"
-					cy="288"
-					r="54"
-					stroke="#FFFFFF"
-					strokeWidth="5"
-					strokeDasharray="18 16"
-					opacity="0.5"
-				/>
-				<circle cx="288" cy="288" r="32" fill="#FF3358" stroke="#FFFFFF" strokeWidth="6" />
-				{/* Specular Sparkle */}
-				<path
-					d="M420 100 Q420 120 400 120 Q420 120 420 140 Q420 120 440 120 Q420 120 420 100 Z"
-					fill="#38BDF8"
-					opacity="0.95"
-				/>
+				<rect x="72.5" y="44.5" width="4.5" height="11" rx="2.25" fill="#A879F5" />
+				<rect x="79.5" y="46.5" width="4" height="7" rx="2" fill="#A879F5" />
 			</svg>
 		);
 	}
 
-	// Default: "icon" with macOS-style Squircle & Obsidian Glass Container
+	// Default: "icon" (Icon Mark with elegant soft container or standalone)
 	return (
 		<svg
 			width={pixelSize}
 			height={pixelSize}
-			viewBox="0 0 512 512"
+			viewBox="0 0 100 100"
 			fill="none"
 			xmlns="http://www.w3.org/2000/svg"
 			className={`select-none ${className}`}
 			aria-label="Captr Studio Icon"
 		>
 			<defs>
-				{/* Deep Obsidian Radial/Linear Background */}
-				<linearGradient
-					id="captr-i-bg"
-					x1="40"
-					y1="30"
-					x2="472"
-					y2="482"
-					gradientUnits="userSpaceOnUse"
-				>
-					<stop offset="0%" stopColor="#141C2E" />
-					<stop offset="45%" stopColor="#0B101D" />
-					<stop offset="100%" stopColor="#05080E" />
-				</linearGradient>
-				{/* Specular Dual-Tone Border */}
-				<linearGradient
-					id="captr-i-border"
-					x1="24"
-					y1="24"
-					x2="488"
-					y2="488"
-					gradientUnits="userSpaceOnUse"
-				>
-					<stop offset="0%" stopColor="#A78BFA" stopOpacity="0.85" />
-					<stop offset="35%" stopColor="#818CF8" stopOpacity="0.4" />
-					<stop offset="70%" stopColor="#06B6D4" stopOpacity="0.6" />
-					<stop offset="100%" stopColor="#38BDF8" stopOpacity="0.8" />
-				</linearGradient>
-				{/* Ambient Internal Glow */}
-				<radialGradient
-					id="captr-i-ambient"
-					cx="256"
-					cy="140"
-					r="340"
-					gradientUnits="userSpaceOnUse"
-				>
-					<stop offset="0%" stopColor="#6366F1" stopOpacity="0.25" />
-					<stop offset="50%" stopColor="#06B6D4" stopOpacity="0.08" />
-					<stop offset="100%" stopColor="#0B101D" stopOpacity="0" />
-				</radialGradient>
-				{/* Luminous Aperture Curve */}
-				<linearGradient
-					id="captr-i-c-arc"
-					x1="100"
-					y1="100"
-					x2="400"
-					y2="400"
-					gradientUnits="userSpaceOnUse"
-				>
-					<stop offset="0%" stopColor="#C4B5FD" />
-					<stop offset="25%" stopColor="#818CF8" />
-					<stop offset="60%" stopColor="#4F46E5" />
-					<stop offset="90%" stopColor="#06B6D4" />
-					<stop offset="100%" stopColor="#38BDF8" />
-				</linearGradient>
-				{/* Rec Aura */}
-				<radialGradient
-					id="captr-i-rec-glow"
-					cx="280"
-					cy="268"
-					r="85"
-					gradientUnits="userSpaceOnUse"
-				>
-					<stop offset="0%" stopColor="#FF3358" stopOpacity="0.95" />
-					<stop offset="45%" stopColor="#F43F5E" stopOpacity="0.6" />
-					<stop offset="100%" stopColor="#FF3358" stopOpacity="0" />
-				</radialGradient>
+				<clipPath id="captr-i-play-clip">
+					<path d="M 28 35.5 C 28 33.2 30.2 31.8 32.5 33.2 L 52.5 45.2 C 54.8 46.6 54.8 49.4 52.5 50.8 L 32.5 62.8 C 30.2 64.2 28 62.8 28 60.5 Z" />
+				</clipPath>
+				{animateGlow && (
+					<radialGradient id="captr-i-glow" cx="50" cy="50" r="45" gradientUnits="userSpaceOnUse">
+						<stop offset="0%" stopColor="#A879F5" stopOpacity="0.25" />
+						<stop offset="60%" stopColor="#6FA8FF" stopOpacity="0.1" />
+						<stop offset="100%" stopColor="#6FA8FF" stopOpacity="0" />
+					</radialGradient>
+				)}
 			</defs>
 
-			{/* Squircle Body */}
+			{/* Soft ambient glow if enabled */}
+			{animateGlow && (
+				<circle cx="50" cy="50" r="46" fill="url(#captr-i-glow)" className="animate-pulse" />
+			)}
+
+			{/* Viewfinder Frame Brackets */}
+			<path
+				d="M 17 35 L 17 24 C 17 18.5 20.5 15 26 15 L 37 15"
+				stroke="currentColor"
+				strokeWidth="6.5"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				className="text-[#344054] dark:text-[#E2E8F0]"
+			/>
+			<path
+				d="M 63 15 L 74 15 C 79.5 15 83 18.5 83 24 L 83 35"
+				stroke="currentColor"
+				strokeWidth="6.5"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				className="text-[#344054] dark:text-[#E2E8F0]"
+			/>
+			<path
+				d="M 17 65 L 17 76 C 17 81.5 20.5 85 26 85 L 37 85"
+				stroke="currentColor"
+				strokeWidth="6.5"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				className="text-[#344054] dark:text-[#E2E8F0]"
+			/>
+			<path
+				d="M 63 85 L 74 85 C 79.5 85 83 81.5 83 76 L 83 65"
+				stroke="currentColor"
+				strokeWidth="6.5"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				className="text-[#344054] dark:text-[#E2E8F0]"
+			/>
+
+			{/* Play Symbol */}
+			<g clipPath="url(#captr-i-play-clip)">
+				<rect x="25" y="30" width="35" height="40" fill="#6FA8FF" />
+				<path d="M 26 50 C 33 46 41 54 56 46 L 56 66 L 26 66 Z" fill="#A879F5" />
+			</g>
+
+			{/* Vertical Pastel Green Capsule */}
+			<rect x="57" y="36.5" width="5.5" height="27" rx="2.75" fill="#8DDB9B" />
+
+			{/* Waveform Bars */}
 			<rect
-				x="24"
-				y="24"
-				width="464"
-				height="464"
-				rx="108"
-				fill="url(#captr-i-bg)"
-				stroke="url(#captr-i-border)"
-				strokeWidth="3.5"
-			/>
-			<rect x="24" y="24" width="464" height="464" rx="108" fill="url(#captr-i-ambient)" />
-
-			{/* Screen Studio Style Camera Viewfinder Brackets */}
-			<path
-				d="M68 112 V68 H112"
-				stroke="#818CF8"
-				strokeWidth="3"
-				strokeLinecap="round"
-				opacity="0.45"
-			/>
-			<path
-				d="M444 112 V68 H400"
-				stroke="#818CF8"
-				strokeWidth="3"
-				strokeLinecap="round"
-				opacity="0.45"
-			/>
-			<path
-				d="M68 400 V444 H112"
-				stroke="#818CF8"
-				strokeWidth="3"
-				strokeLinecap="round"
-				opacity="0.45"
-			/>
-			<path
-				d="M444 400 V444 H400"
-				stroke="#818CF8"
-				strokeWidth="3"
-				strokeLinecap="round"
-				opacity="0.45"
-			/>
-
-			{/* The 'C' Aperture Geometry */}
-			<path
-				d="M344 154 C300 118 240 106 182 126 C116 148 70 208 70 278 C70 348 116 408 182 430 C240 450 300 438 344 402"
-				fill="none"
-				stroke="url(#captr-i-c-arc)"
-				strokeWidth="46"
-				strokeLinecap="round"
-			/>
-
-			{/* The Glowing Recording Beacon Core */}
-			<circle
-				cx="280"
-				cy="278"
-				r="72"
-				fill="url(#captr-i-rec-glow)"
+				x="65"
+				y="42"
+				width="5"
+				height="16"
+				rx="2.5"
+				fill="#A879F5"
 				className={animateGlow ? "animate-pulse" : ""}
 			/>
-			<circle
-				cx="280"
-				cy="278"
-				r="46"
-				stroke="#FFFFFF"
-				strokeWidth="4.5"
-				strokeDasharray="15 13"
-				opacity="0.5"
-			/>
-			<circle cx="280" cy="278" r="26" fill="#FF3358" stroke="#FFFFFF" strokeWidth="4" />
-			<circle
-				cx="280"
-				cy="278"
-				r="38"
-				stroke="#FFFFFF"
-				strokeWidth="1.5"
-				strokeDasharray="6 12"
-				opacity="0.35"
-			/>
-
-			{/* Luminous Specular Sparkle */}
-			<path
-				d="M402 96 Q402 112 386 112 Q402 112 402 128 Q402 112 418 112 Q402 112 402 96 Z"
-				fill="#38BDF8"
-				opacity="0.95"
-			/>
+			<rect x="72.5" y="44.5" width="4.5" height="11" rx="2.25" fill="#A879F5" />
+			<rect x="79.5" y="46.5" width="4" height="7" rx="2" fill="#A879F5" />
 		</svg>
 	);
 };

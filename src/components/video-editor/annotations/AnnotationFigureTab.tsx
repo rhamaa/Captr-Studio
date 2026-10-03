@@ -58,7 +58,7 @@ export function AnnotationFigureTab({
 								className={cn(
 									"h-16 rounded-lg border flex items-center justify-center transition-all p-2",
 									annotation.figureData?.arrowDirection === direction
-										? "bg-[#2563EB] border-[#2563EB]"
+										? "bg-[#6FA8FF] border-[#6FA8FF]"
 										: "bg-foreground/5 border-foreground/10 hover:bg-foreground/10 hover:border-foreground/20",
 								)}
 							>
@@ -111,17 +111,17 @@ export function AnnotationFigureTab({
 							<div
 								className="w-5 h-5 rounded-full border border-foreground/20"
 								style={{
-									backgroundColor: annotation.figureData?.color || "#2563EB",
+									backgroundColor: annotation.figureData?.color || "#6FA8FF",
 								}}
 							/>
 							<span className="text-xs text-muted-foreground">
-								{annotation.figureData?.color || "#2563EB"}
+								{annotation.figureData?.color || "#6FA8FF"}
 							</span>
 						</Button>
 					</PopoverTrigger>
 					<PopoverContent className="w-[260px] p-3 bg-editor-surface-alt border border-foreground/10 rounded-xl shadow-xl">
 						<Block
-							color={annotation.figureData?.color || "#2563EB"}
+							color={annotation.figureData?.color || "#6FA8FF"}
 							colors={colorPalette}
 							onChange={(color) => {
 								const newFigureData: FigureData = {

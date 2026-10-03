@@ -37,10 +37,10 @@ export interface StandardTimelineItemProps {
 }
 
 const KEYFRAME_COLORS: Record<string, string> = {
-	position: "#06b6d4", // Cyan
-	scale: "#eab308", // Yellow
-	rotation: "#a855f7", // Purple
-	opacity: "#10b981", // Emerald
+	position: "#6FA8FF", // Captr Blue
+	scale: "#F6C768", // Captr Yellow
+	rotation: "#A879F5", // Captr Purple
+	opacity: "#8DDB9B", // Captr Green
 };
 
 export function StandardTimelineItem({
@@ -138,11 +138,11 @@ export function StandardTimelineItem({
 					) : (
 						<>
 							{typeof children === "string" && children.startsWith("Video:") ? (
-								<VideoCameraIcon className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
+								<VideoCameraIcon className="w-3.5 h-3.5 shrink-0 text-[#6FA8FF]" />
 							) : typeof children === "string" && children.includes("GIF") ? (
-								<Sparkle className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+								<Sparkle className="w-3.5 h-3.5 shrink-0 text-[#F6C768]" />
 							) : (
-								<MessageSquare className="w-3.5 h-3.5 shrink-0 text-indigo-400" />
+								<MessageSquare className="w-3.5 h-3.5 shrink-0 text-[#A879F5]" />
 							)}
 							<span className="text-[11px] font-semibold tracking-tight truncate max-w-[140px]">
 								{children}
@@ -182,7 +182,7 @@ export function StandardTimelineItem({
 							0,
 							Math.min(100, (kf.timeMs / spanDuration) * 100),
 						);
-						const dotColor = KEYFRAME_COLORS[kf.property] || "#06b6d4";
+						const dotColor = KEYFRAME_COLORS[kf.property] || "#6FA8FF";
 						return (
 							<div
 								key={kf.id}

@@ -1,69 +1,30 @@
-<svg width="64" height="64" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="64" height="64" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- Deep Obsidian Metallic Background -->
-    <linearGradient id="cf-bg" x1="40" y1="30" x2="472" y2="482" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#141C2E" />
-      <stop offset="45%" stop-color="#0B101D" />
-      <stop offset="100%" stop-color="#05080E" />
-    </linearGradient>
-
-    <!-- Specular Dual-Tone Border -->
-    <linearGradient id="cf-border" x1="24" y1="24" x2="488" y2="488" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#A78BFA" stop-opacity="0.9" />
-      <stop offset="35%" stop-color="#818CF8" stop-opacity="0.5" />
-      <stop offset="70%" stop-color="#06B6D4" stop-opacity="0.7" />
-      <stop offset="100%" stop-color="#38BDF8" stop-opacity="0.9" />
-    </linearGradient>
-
-    <!-- Ambient Internal Indigo Glow -->
-    <radialGradient id="cf-ambient" cx="256" cy="140" r="340" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#6366F1" stop-opacity="0.25" />
-      <stop offset="50%" stop-color="#06B6D4" stop-opacity="0.08" />
-      <stop offset="100%" stop-color="#0B101D" stop-opacity="0" />
-    </radialGradient>
-
-    <!-- Luminous 'C' Aperture Shutter Gradient -->
-    <linearGradient id="cf-c-arc" x1="100" y1="100" x2="400" y2="400" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#C4B5FD" />
-      <stop offset="25%" stop-color="#818CF8" />
-      <stop offset="60%" stop-color="#4F46E5" />
-      <stop offset="90%" stop-color="#06B6D4" />
-      <stop offset="100%" stop-color="#38BDF8" />
-    </linearGradient>
-
-    <!-- Radiant Recording Core Aura -->
-    <radialGradient id="cf-rec-glow" cx="280" cy="278" r="85" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#FF3358" stop-opacity="0.95" />
-      <stop offset="45%" stop-color="#F43F5E" stop-opacity="0.6" />
-      <stop offset="100%" stop-color="#FF3358" stop-opacity="0" />
-    </radialGradient>
+    <!-- Smooth curved split for play symbol -->
+    <clipPath id="play-clip">
+      <path d="M 28 35.5 C 28 33.2 30.2 31.8 32.5 33.2 L 52.5 45.2 C 54.8 46.6 54.8 49.4 52.5 50.8 L 32.5 62.8 C 30.2 64.2 28 62.8 28 60.5 Z" />
+    </clipPath>
   </defs>
 
-  <!-- Squircle Base Container -->
-  <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#cf-bg)" stroke="url(#cf-border)" stroke-width="4" />
-  <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#cf-ambient)" />
+  <!-- Viewfinder Frame Brackets -->
+  <path d="M 17 35 L 17 24 C 17 18.5 20.5 15 26 15 L 37 15" stroke="#344054" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 63 15 L 74 15 C 79.5 15 83 18.5 83 24 L 83 35" stroke="#344054" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 17 65 L 17 76 C 17 81.5 20.5 85 26 85 L 37 85" stroke="#344054" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 63 85 L 74 85 C 79.5 85 83 81.5 83 76 L 83 65" stroke="#344054" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
 
-  <!-- Camera Viewfinder Corner Brackets -->
-  <path d="M68 112 V68 H112" stroke="#818CF8" stroke-width="3.5" stroke-linecap="round" opacity="0.45" />
-  <path d="M444 112 V68 H400" stroke="#818CF8" stroke-width="3.5" stroke-linecap="round" opacity="0.45" />
-  <path d="M68 400 V444 H112" stroke="#818CF8" stroke-width="3.5" stroke-linecap="round" opacity="0.45" />
-  <path d="M444 400 V444 H400" stroke="#818CF8" stroke-width="3.5" stroke-linecap="round" opacity="0.45" />
+  <!-- Play Symbol: Dual-Tone Waveform Hybrid -->
+  <g clip-path="url(#play-clip)">
+    <!-- Top Blue Half -->
+    <rect x="25" y="30" width="35" height="40" fill="#6FA8FF" />
+    <!-- Bottom Purple Half with Wave Curve -->
+    <path d="M 26 50 C 33 46 41 54 56 46 L 56 66 L 26 66 Z" fill="#A879F5" />
+  </g>
 
-  <!-- Stylized Modern 'C' Lens/Aperture Arc -->
-  <path
-    d="M344 154 C300 118 240 106 182 126 C116 148 70 208 70 278 C70 348 116 408 182 430 C240 450 300 438 344 402"
-    fill="none"
-    stroke="url(#cf-c-arc)"
-    stroke-width="50"
-    stroke-linecap="round"
-  />
+  <!-- Vertical Pastel Green Capsule -->
+  <rect x="57" y="36.5" width="5.5" height="27" rx="2.75" fill="#8DDB9B" />
 
-  <!-- Glowing Recording Beacon Core -->
-  <circle cx="280" cy="278" r="76" fill="url(#cf-rec-glow)" />
-  <circle cx="280" cy="278" r="46" stroke="#FFFFFF" stroke-width="5" stroke-dasharray="15 13" opacity="0.5" />
-  <circle cx="280" cy="278" r="28" fill="#FF3358" stroke="#FFFFFF" stroke-width="4.5" />
-  <circle cx="280" cy="278" r="38" stroke="#FFFFFF" stroke-width="1.5" stroke-dasharray="6 12" opacity="0.35" />
-
-  <!-- Luminous Specular Sparkle -->
-  <path d="M402 96 Q402 112 386 112 Q402 112 402 128 Q402 112 418 112 Q402 112 402 96 Z" fill="#38BDF8" opacity="0.95" />
+  <!-- Audio Waveform Bars (Pastel Purple) -->
+  <rect x="65" y="42" width="5" height="16" rx="2.5" fill="#A879F5" />
+  <rect x="72.5" y="44.5" width="4.5" height="11" rx="2.25" fill="#A879F5" />
+  <rect x="79.5" y="46.5" width="4" height="7" rx="2" fill="#A879F5" />
 </svg>

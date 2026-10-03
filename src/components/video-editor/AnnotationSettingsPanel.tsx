@@ -81,21 +81,21 @@ export function AnnotationSettingsPanel({
 						<TabsList className="mb-4 bg-foreground/5 border border-foreground/5 p-1 w-full grid grid-cols-4 h-auto rounded-xl">
 							<TabsTrigger
 								value="text"
-								className="data-[state=active]:bg-[#2563EB] data-[state=active]:text-white text-muted-foreground py-2 rounded-lg transition-all gap-2"
+								className="data-[state=active]:bg-[#6FA8FF] data-[state=active]:text-[#172033] font-semibold text-muted-foreground py-2 rounded-lg transition-all gap-2"
 							>
 								<Type className="w-4 h-4" />
 								{t("annotations.text")}
 							</TabsTrigger>
 							<TabsTrigger
 								value="image"
-								className="data-[state=active]:bg-[#2563EB] data-[state=active]:text-white text-muted-foreground py-2 rounded-lg transition-all gap-2"
+								className="data-[state=active]:bg-[#6FA8FF] data-[state=active]:text-[#172033] font-semibold text-muted-foreground py-2 rounded-lg transition-all gap-2"
 							>
 								<ImageIcon className="w-4 h-4" />
 								{t("annotations.image")}
 							</TabsTrigger>
 							<TabsTrigger
 								value="figure"
-								className="data-[state=active]:bg-[#2563EB] data-[state=active]:text-white text-muted-foreground py-2 rounded-lg transition-all gap-2"
+								className="data-[state=active]:bg-[#6FA8FF] data-[state=active]:text-[#172033] font-semibold text-muted-foreground py-2 rounded-lg transition-all gap-2"
 							>
 								<svg
 									className="w-4 h-4"
@@ -114,7 +114,7 @@ export function AnnotationSettingsPanel({
 							</TabsTrigger>
 							<TabsTrigger
 								value="blur"
-								className="data-[state=active]:bg-[#2563EB] data-[state=active]:text-white text-muted-foreground py-2 rounded-lg transition-all gap-2"
+								className="data-[state=active]:bg-[#6FA8FF] data-[state=active]:text-[#172033] font-semibold text-muted-foreground py-2 rounded-lg transition-all gap-2"
 							>
 								<SquareDashed className="w-4 h-4" />
 								{t("annotations.blur")}

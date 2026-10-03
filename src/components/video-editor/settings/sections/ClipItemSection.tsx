@@ -59,7 +59,7 @@ export const ClipItemSection: React.FC<ClipItemSectionProps> = ({
 			<div className="flex items-center justify-between gap-3">
 				<SectionLabel>{tSettings("clip.title", "Clip")}</SectionLabel>
 				{selectedClipSpeed != null && selectedClipSpeed !== 1 && (
-					<span className="rounded-full bg-[#06b6d4]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[#06b6d4]">
+					<span className="rounded-full bg-[#6FA8FF]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[#6FA8FF]">
 						{selectedClipSpeed}×
 					</span>
 				)}
@@ -71,7 +71,7 @@ export const ClipItemSection: React.FC<ClipItemSectionProps> = ({
 					<button
 						type="button"
 						onClick={() => onClipSpeedChange?.(1)}
-						className="text-[10px] text-[#06b6d4] transition-opacity hover:opacity-80 cursor-pointer"
+						className="text-[10px] text-[#6FA8FF] transition-opacity hover:opacity-80 cursor-pointer"
 					>
 						{t("common.actions.reset", "Reset")}
 					</button>
@@ -120,7 +120,7 @@ export const ClipItemSection: React.FC<ClipItemSectionProps> = ({
 							className={cn(
 								"h-auto w-full rounded-lg border px-0.5 py-2 text-center shadow-sm transition-all duration-200 ease-out cursor-pointer",
 								isActive
-									? "border-[#06b6d4] bg-[#06b6d4] text-white"
+									? "border-[#6FA8FF] bg-[#6FA8FF] text-[#172033]"
 									: "border-foreground/5 bg-foreground/5 text-muted-foreground hover:bg-foreground/10 hover:border-foreground/10 hover:text-foreground",
 							)}
 						>
@@ -147,7 +147,7 @@ export const ClipItemSection: React.FC<ClipItemSectionProps> = ({
 					<Switch
 						checked={selectedClipMuted ?? false}
 						onCheckedChange={(v) => onClipMutedChange?.(v)}
-						className="data-[state=checked]:bg-[#06b6d4] scale-75"
+						className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 					/>
 				</div>
 				{hasClipSourceAudio && (
@@ -158,7 +158,7 @@ export const ClipItemSection: React.FC<ClipItemSectionProps> = ({
 						<Switch
 							checked={selectedClipShowSourceAudio ?? false}
 							onCheckedChange={(v) => onClipShowSourceAudioChange?.(v)}
-							className="data-[state=checked]:bg-[#06b6d4] scale-75"
+							className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 						/>
 					</div>
 				)}
@@ -186,7 +186,7 @@ export const ClipItemSection: React.FC<ClipItemSectionProps> = ({
 											onSourceAudioTrackVolumeChange?.(track.id, 1);
 											onSourceAudioTrackNormalizeChange?.(track.id, false);
 										}}
-										className="text-[10px] text-[#2563EB] transition-opacity hover:opacity-80"
+										className="text-[10px] text-[#6FA8FF] transition-opacity hover:opacity-80"
 									>
 										{t("common.actions.reset", "Reset")}
 									</button>
@@ -200,7 +200,7 @@ export const ClipItemSection: React.FC<ClipItemSectionProps> = ({
 										onCheckedChange={(v) =>
 											onSourceAudioTrackNormalizeChange?.(track.id, v)
 										}
-										className="data-[state=checked]:bg-[#06b6d4] scale-75"
+										className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 									/>
 								</div>
 								<SliderControl

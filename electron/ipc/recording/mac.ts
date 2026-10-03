@@ -6,6 +6,7 @@ import {
 	snapshotCursorTelemetryForPersistence,
 } from "../cursor/telemetry";
 import {
+	consumePreserveProjectPathForNextNativeRecording,
 	lastNativeCaptureDiagnostics,
 	nativeCaptureMicrophonePath,
 	nativeCaptureOutputBuffer,
@@ -186,7 +187,10 @@ export function attachNativeCaptureLifecycle(process: ChildProcessWithoutNullStr
 	});
 }
 
-export async function finalizeStoredVideo(videoPath: string) {
+export async function finalizeStoredVideo(
+	videoPath: string,
+	options?: { deferProjectPathReset?: boolean },
+) {
 	console.log("[finalize] Optimization active: skipping safety-net muxing.");
 
 	let validation: { fileSizeBytes: number; durationSeconds: number | null };
@@ -222,7 +226,12 @@ export async function finalizeStoredVideo(videoPath: string) {
 
 	snapshotCursorTelemetryForPersistence();
 	setCurrentVideoPath(videoPath);
-	setCurrentProjectPath(null);
+	if (!options?.deferProjectPathReset) {
+		const preserveProjectPath = consumePreserveProjectPathForNextNativeRecording();
+		if (!preserveProjectPath) {
+			setCurrentProjectPath(null);
+		}
+	}
 	try {
 		await persistPendingCursorTelemetry(videoPath);
 	} catch (error) {

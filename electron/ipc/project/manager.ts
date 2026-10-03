@@ -3,6 +3,10 @@ import { existsSync, constants as fsConstants, realpathSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { app } from "electron";
+import { assertSupportedLegacyProject } from "../../../src/core/project/legacySupport";
+import { validateTimelineProject } from "../../../src/core/timeline/validation";
+import { resolveTimelineProject } from "./timelineBundle";
+import { setActiveRecordingProjectId } from "./recordingContext";
 import { RECORDINGS_DIR, USER_DATA_PATH } from "../../appPaths";
 import { isSupportedLocalMediaPath } from "../../mediaTypes";
 import {
@@ -38,7 +42,7 @@ import {
 	ProjectBundleValidationError,
 } from "./mediaReferences";
 import { isProjectBundle, readBundleThumbnailDataUrl, unpackProjectBundle } from "./projectBundle";
-import { convertProjectToWorkspaceAbsolute, ensureProjectWorkspace } from "./projectWorkspace";
+import { convertProjectToWorkspaceAbsolute, getProjectWorkspaceDir, getWorkspacesRoot } from "./projectWorkspace";
 
 export { normalizePath, normalizeVideoSourcePath };
 
@@ -217,6 +221,10 @@ export async function resolveProjectMediaSources(
 > {
 	if (!project || typeof project !== "object") {
 		return { success: false, message: "Invalid project file format" };
+	}
+	if ((project as { version?: number }).version === 3) {
+		try { validateTimelineProject(project); return { success: true, videoPath: null, webcamPath: null }; }
+		catch (error) { return { success: false, message: String(error) }; }
 	}
 
 	const { videoPath: rawVideoPath, webcamPath: rawWebcamPath } = getProjectPrimaryMedia(project);
@@ -440,41 +448,87 @@ export async function listProjectLibraryEntries() {
 	};
 }
 
+const legacyCandidates=new Map<string,{workspaceDir:string;path:string;projectId?:string}>();
+export function getLegacyConversionOrigin(token:string){const origin=legacyCandidates.get(token);return origin?{path:origin.path,projectId:origin.projectId}:null;}
+export async function releaseLegacyProjectCandidate(token:string){const candidate=legacyCandidates.get(token);if(!candidate)return;const dir=candidate.workspaceDir;legacyCandidates.delete(token);if(path.dirname(path.resolve(dir))!==path.resolve(getWorkspacesRoot())||!path.basename(dir).startsWith("conversion-"))throw new Error("Unsafe conversion cleanup");await fs.rm(dir,{recursive:true,force:true});}
 export async function loadProjectFromPath(projectPath: string) {
 	const normalizedPath = normalizePath(projectPath);
 	let project: unknown;
 
 	if (await isProjectBundle(normalizedPath)) {
-		let finalWorkspace: string;
+		let finalWorkspace: string|undefined;
+		let tempExtractDir: string | undefined;
 		try {
-			const tempExtractDir = path.join(app.getPath("temp"), `captr-extract-${Date.now()}`);
+			tempExtractDir = await fs.mkdtemp(path.join(app.getPath("temp"), "captr-extract-"));
 			await unpackProjectBundle(normalizedPath, tempExtractDir);
 
 			const projectJsonPath = path.join(tempExtractDir, "project.json");
 			const content = await fs.readFile(projectJsonPath, "utf-8");
 			const rawProject = parseJsonWithByteOrderMark(content) as Record<string, unknown>;
+			if(rawProject.version===undefined&&(Array.isArray(rawProject.clips)||typeof rawProject.videoPath==="string"))rawProject.version=1;
+			try {
+				assertSupportedLegacyProject(rawProject);
+			} catch (error) {
+				await fs.rm(tempExtractDir, { recursive: true, force: true }).catch(() => undefined);
+				throw error;
+			}
+			if(rawProject.version!==3){
+				// A legacy open is a read-only conversion candidate. It never installs an active project.
+				if(rawProject.version!==1&&rawProject.version!==2)throw new Error("Unsupported legacy project version");
+				if(Array.isArray(rawProject.slides)){for(const entry of rawProject.slides as Array<Record<string,unknown>>){
+					if(!entry.meta){const owner=typeof entry.dirName==="string"?entry.dirName:String(entry.id);const metadataPath=path.resolve(tempExtractDir,"slides",owner,"slide.json");if(!metadataPath.startsWith(path.resolve(tempExtractDir)+path.sep))throw new Error("Unsafe legacy metadata path");entry.meta=parseJsonWithByteOrderMark(await fs.readFile(metadataPath,"utf8"));}
+				}}
+				const candidate=convertProjectToWorkspaceAbsolute(rawProject,tempExtractDir);await assertProjectMediaInsideBundle(candidate,tempExtractDir);
+				await fs.mkdir(getWorkspacesRoot(),{recursive:true});const conversionDir=await fs.mkdtemp(path.join(getWorkspacesRoot(),"conversion-"));
+				try{await fs.cp(tempExtractDir,conversionDir,{recursive:true});const project=convertProjectToWorkspaceAbsolute(rawProject,conversionDir);for(const media of collectProjectMediaPaths(project)){await rememberApprovedLocalReadPath(media);if(/\.(mp4|mov|webm|mkv)$/i.test(media)){for(const candidate of await getUsableCompanionAudioCandidates(media))for(const audio of candidate.usablePaths)await rememberApprovedLocalReadPath(audio);}}const token=path.basename(conversionDir);legacyCandidates.set(token,{workspaceDir:conversionDir,path:normalizedPath,projectId:typeof rawProject.projectId==="string"?rawProject.projectId:undefined});return {success:true,path:normalizedPath,project,conversionRequired:true,conversionToken:token};}
+				catch(error){if(path.dirname(path.resolve(conversionDir))===path.resolve(getWorkspacesRoot()))await fs.rm(conversionDir,{recursive:true,force:true});throw error;}
+			}
 			const projectId =
 				typeof rawProject?.projectId === "string" && rawProject.projectId
 					? rawProject.projectId
 					: randomUUID();
 
-			finalWorkspace = await ensureProjectWorkspace(projectId);
-			await fs.cp(tempExtractDir, finalWorkspace, { recursive: true });
+			// Validate every source before replacing any active project workspace.
+			const extractedProject = rawProject.version === 3
+				? resolveTimelineProject(validateTimelineProject(rawProject), tempExtractDir)
+				: convertProjectToWorkspaceAbsolute(rawProject, tempExtractDir);
+			await assertProjectMediaInsideBundle(extractedProject, tempExtractDir);
+			if (rawProject.version === 3) {
+				finalWorkspace = getProjectWorkspaceDir(projectId);
+				await fs.mkdir(getWorkspacesRoot(), { recursive: true });
+				const next = await fs.mkdtemp(path.join(getWorkspacesRoot(), "install-"));
+				const backup = `${next}-previous`;
+				if (![next, backup, finalWorkspace].every(dir => path.dirname(path.resolve(dir)) === path.resolve(getWorkspacesRoot()))) throw new Error("Unsafe workspace installation path");
+				let backedUp = false;
+				try {
+					await fs.cp(tempExtractDir, next, { recursive: true });
+					if (existsSync(finalWorkspace)) { await fs.rename(finalWorkspace, backup); backedUp = true; }
+					await fs.rename(next, finalWorkspace);
+				} catch (error) {
+					if (backedUp) await fs.rename(backup, finalWorkspace);
+					throw error;
+				} finally {
+					await fs.rm(next, { recursive: true, force: true }).catch(() => undefined);
+				}
+				await fs.rm(backup, { recursive: true, force: true }).catch(() => undefined);
+				project = resolveTimelineProject(validateTimelineProject(rawProject), finalWorkspace);
+			}
 			await fs.rm(tempExtractDir, { recursive: true, force: true }).catch(() => undefined);
-
-			project = convertProjectToWorkspaceAbsolute(rawProject, finalWorkspace);
 		} catch (error) {
 			return {
 				success: false,
 				canceled: false,
 				message: `Failed to unpack project bundle: ${error instanceof Error ? error.message : String(error)}`,
 			};
+		} finally {
+			if (tempExtractDir && path.dirname(path.resolve(tempExtractDir)) === path.resolve(app.getPath("temp"))) await fs.rm(tempExtractDir, { recursive: true, force: true }).catch(() => undefined);
 		}
 
 		// Guarantee the bundle is self-contained: every referenced media file must
 		// live inside the extracted workspace so a single .captr file can be moved
 		// to another device and reopened without issues.
 		try {
+			if(!finalWorkspace)throw new Error("Project workspace was not installed");
 			await assertProjectMediaInsideBundle(project, finalWorkspace);
 		} catch (error) {
 			if (error instanceof ProjectBundleValidationError) {
@@ -540,6 +594,7 @@ export async function loadProjectFromPath(projectPath: string) {
 	await rememberRecentProject(normalizedPath);
 
 	setCurrentProjectPath(normalizedPath);
+	if ((project as {version?:number}).version === 3) setActiveRecordingProjectId(validateTimelineProject(project).projectId);
 	if (mediaSources.videoPath) {
 		setCurrentVideoPath(mediaSources.videoPath);
 		setCurrentRecordingSession({

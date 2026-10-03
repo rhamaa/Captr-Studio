@@ -1,7 +1,10 @@
 import type {
+	LayoutCameraSettings,
 	LayoutRegion,
 	LayoutSceneEasing,
 	LayoutScenePreset,
+	WebcamCorner,
+	LayoutCameraPosition,
 	WebcamOverlaySettings,
 } from "./types";
 import {
@@ -9,7 +12,12 @@ import {
 	DEFAULT_LAYOUT_SCENE_PRESET,
 	DEFAULT_LAYOUT_SCENE_TRANSITION_MS,
 } from "./types";
-import { getWebcamOverlayPosition, getWebcamOverlaySizePx } from "./webcamOverlay";
+import {
+	getWebcamCornerRadiusPx,
+	getWebcamOverlayDimensions,
+	getWebcamOverlayPosition,
+	getWebcamOverlaySizePx,
+} from "./webcamOverlay";
 
 export interface LayoutSceneLayerTransform {
 	x: number;
@@ -23,12 +31,14 @@ export interface LayoutSceneLayerTransform {
 
 export interface ResolvedLayoutScene {
 	preset: LayoutScenePreset;
+	/** Stable base layout; keep the screen's existing scene styling. */
+	isDefault?: boolean;
 	screen: LayoutSceneLayerTransform;
 	webcam: LayoutSceneLayerTransform;
 }
 
 export const LAYOUT_SCENE_CATEGORIES: Array<{
-	id: "camera-bubble" | "side-by-side" | "camera-only" | "screen-only";
+	id: "camera-bubble" | "camera-only" | "screen-only";
 	label: string;
 	description: string;
 	value: LayoutScenePreset;
@@ -38,12 +48,6 @@ export const LAYOUT_SCENE_CATEGORIES: Array<{
 		label: "Camera Bubble",
 		description: "Floating camera over screen",
 		value: "bubble",
-	},
-	{
-		id: "side-by-side",
-		label: "Side-by-side",
-		description: "Split screen & camera",
-		value: "side-by-side",
 	},
 	{
 		id: "camera-only",
@@ -63,23 +67,7 @@ export const LAYOUT_SCENE_CATEGORY_DETAILS: Record<
 	(typeof LAYOUT_SCENE_CATEGORIES)[number]["id"],
 	Array<{ value: LayoutScenePreset; label: string }>
 > = {
-	"camera-bubble": [
-		{ value: "bubble", label: "Default bubble" },
-		{ value: "bubble-bottom-right", label: "Bottom right circle" },
-		{ value: "bubble-bottom-left", label: "Bottom left circle" },
-		{ value: "bubble-top-right", label: "Top right circle" },
-		{ value: "bubble-bottom-right-landscape", label: "Bottom right landscape" },
-	],
-	"side-by-side": [
-		{ value: "side-by-side", label: "Equal columns" },
-		{ value: "split-right", label: "Split right" },
-		{ value: "split-right-overlap", label: "Split right overlap" },
-		{ value: "split-right-50", label: "Split right 50/50" },
-		{ value: "split-left", label: "Split left" },
-		{ value: "split-left-overlap", label: "Split left overlap" },
-		{ value: "split-left-50", label: "Split left 50/50" },
-		{ value: "presenter", label: "Presenter" },
-	],
+	"camera-bubble": [{ value: "bubble", label: "Floating bubble" }],
 	"camera-only": [
 		{ value: "webcam-only", label: "Camera full" },
 		{ value: "camera-circle", label: "Camera circle" },
@@ -92,12 +80,79 @@ export const LAYOUT_SCENE_CATEGORY_DETAILS: Record<
 
 export const LAYOUT_SCENE_PRESETS = Object.values(LAYOUT_SCENE_CATEGORY_DETAILS).flat();
 
+const LEGACY_BUBBLE_LAYOUT_PRESETS: LayoutScenePreset[] = [
+	"bubble-bottom-right",
+	"bubble-bottom-left",
+	"bubble-top-right",
+	"bubble-bottom-right-landscape",
+	"side-by-side",
+	"split-right",
+	"split-right-overlap",
+	"split-right-50",
+	"split-left",
+	"split-left-overlap",
+	"split-left-50",
+	"presenter",
+];
+const REMOVED_SPLIT_LAYOUT_PRESETS: LayoutScenePreset[] = [
+	"side-by-side",
+	"split-right",
+	"split-right-overlap",
+	"split-right-50",
+	"split-left",
+	"split-left-overlap",
+	"split-left-50",
+	"presenter",
+];
+
+const ALL_LAYOUT_SCENE_PRESETS = [
+	...LAYOUT_SCENE_PRESETS,
+	...LEGACY_BUBBLE_LAYOUT_PRESETS.map((value) => ({ value, label: value })),
+];
+
 export function getLayoutSceneCategory(preset: LayoutScenePreset) {
 	return (
 		LAYOUT_SCENE_CATEGORIES.find((category) =>
 			LAYOUT_SCENE_CATEGORY_DETAILS[category.id].some((option) => option.value === preset),
 		) ?? LAYOUT_SCENE_CATEGORIES[0]
 	);
+}
+
+const LAYOUT_CAMERA_POSITIONS: LayoutCameraPosition[] = [
+	"top-left",
+	"top-center",
+	"top-right",
+	"center-left",
+	"center",
+	"center-right",
+	"bottom-left",
+	"bottom-center",
+	"bottom-right",
+];
+
+function isLayoutCameraPosition(value: unknown): value is LayoutCameraPosition {
+	return (
+		typeof value === "string" && LAYOUT_CAMERA_POSITIONS.includes(value as LayoutCameraPosition)
+	);
+}
+
+export function getLayoutCameraSettings(
+	region: Pick<LayoutRegion, "preset" | "cameraSettings">,
+	webcam: WebcamOverlaySettings,
+): LayoutCameraSettings {
+	const legacyPosition: WebcamCorner | null =
+		region.preset === "bubble-bottom-left"
+			? "bottom-left"
+			: region.preset === "bubble-top-right"
+				? "top-right"
+				: region.preset === "bubble-bottom-right" ||
+						region.preset === "bubble-bottom-right-landscape"
+					? "bottom-right"
+					: null;
+	return {
+		position: region.cameraSettings?.position ?? legacyPosition ?? "bottom-right",
+		size: region.cameraSettings?.size ?? webcam.size,
+	};
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -178,25 +233,63 @@ function layer(params: {
 function bubbleAt(params: {
 	stageWidth: number;
 	stageHeight: number;
-	position: "bottom-right" | "bottom-left" | "top-right";
-	shape: "circle" | "landscape";
+	position: LayoutCameraPosition;
+	aspectRatio?: number;
+	size?: number;
+	margin?: number;
+	cornerRadius?: number;
+	cornerRadiusPercent?: number;
+	shadow?: number;
+	zoomScale?: number;
+	reactToZoom?: boolean;
 }): LayoutSceneLayerTransform {
-	const margin = Math.round(Math.min(params.stageWidth, params.stageHeight) * 0.035);
-	const width =
-		params.shape === "landscape"
-			? Math.round(params.stageWidth * 0.22)
-			: Math.round(Math.min(params.stageWidth, params.stageHeight) * 0.2);
-	const height = params.shape === "landscape" ? Math.round(width * 0.66) : width;
-	const x = params.position === "bottom-left" ? margin : params.stageWidth - width - margin;
-	const y = params.position === "top-right" ? margin : params.stageHeight - height - margin;
+	const margin = Math.round(
+		params.margin ?? Math.min(params.stageWidth, params.stageHeight) * 0.035,
+	);
+	const requestedWidth =
+		params.size === undefined
+			? Math.round(Math.min(params.stageWidth, params.stageHeight) * 0.2)
+			: getWebcamOverlaySizePx({
+					containerWidth: params.stageWidth,
+					containerHeight: params.stageHeight,
+					sizePercent: params.size,
+					margin,
+					zoomScale: params.zoomScale ?? 1,
+					reactToZoom: params.reactToZoom ?? true,
+				});
+	const aspectRatio = clamp(params.aspectRatio ?? 1, 0.05, 20);
+	const { width, height } = getWebcamOverlayDimensions({
+		containerWidth: params.stageWidth,
+		containerHeight: params.stageHeight,
+		size: requestedWidth,
+		aspectRatio,
+		margin,
+	});
+	const { x, y } = getWebcamOverlayPosition({
+		containerWidth: params.stageWidth,
+		containerHeight: params.stageHeight,
+		size: width,
+		height,
+		margin,
+		positionPreset: params.position,
+		positionX: 0.5,
+		positionY: 0.5,
+		legacyCorner: "bottom-right",
+	});
 
 	return layer({
 		x,
 		y,
 		width,
 		height,
-		borderRadius: params.shape === "circle" ? Math.min(width, height) / 2 : 28,
-		shadow: 0.5,
+		borderRadius: getWebcamCornerRadiusPx({
+			width,
+			height,
+			cornerRadius: params.cornerRadius,
+			cornerRadiusPercent: params.cornerRadiusPercent,
+			fallback: 28,
+		}),
+		shadow: params.shadow ?? 0.5,
 	});
 }
 
@@ -205,16 +298,21 @@ export function getLayoutPresetTransform(params: {
 	stageWidth: number;
 	stageHeight: number;
 	webcam: WebcamOverlaySettings;
+	cameraSettings?: LayoutCameraSettings;
 	zoomScale?: number;
 	hasWebcam: boolean;
 }): ResolvedLayoutScene {
 	const { webcam, hasWebcam } = params;
 	const stageWidth = Math.max(1, params.stageWidth);
 	const stageHeight = Math.max(1, params.stageHeight);
-	const preset = hasWebcam ? params.preset : "screen-only";
+	const preset = hasWebcam
+		? REMOVED_SPLIT_LAYOUT_PRESETS.includes(params.preset)
+			? "bubble"
+			: params.preset
+		: "screen-only";
 	const fullScreen = fullLayer(stageWidth, stageHeight);
 	const hidden = hiddenLayer(stageWidth, stageHeight);
-	const bubbleSize = getWebcamOverlaySizePx({
+	const requestedBubbleSize = getWebcamOverlaySizePx({
 		containerWidth: stageWidth,
 		containerHeight: stageHeight,
 		sizePercent: webcam.size,
@@ -222,10 +320,18 @@ export function getLayoutPresetTransform(params: {
 		zoomScale: params.zoomScale ?? 1,
 		reactToZoom: webcam.reactToZoom,
 	});
+	const { width: bubbleSize, height: bubbleHeight } = getWebcamOverlayDimensions({
+		containerWidth: stageWidth,
+		containerHeight: stageHeight,
+		size: requestedBubbleSize,
+		aspectRatio: webcam.cropAspectRatio ?? 1,
+		margin: webcam.margin,
+	});
 	const bubblePosition = getWebcamOverlayPosition({
 		containerWidth: stageWidth,
 		containerHeight: stageHeight,
 		size: bubbleSize,
+		height: bubbleHeight,
 		margin: webcam.margin,
 		positionPreset: webcam.positionPreset,
 		positionX: webcam.positionX,
@@ -236,9 +342,14 @@ export function getLayoutPresetTransform(params: {
 		x: bubblePosition.x,
 		y: bubblePosition.y,
 		width: bubbleSize,
-		height: bubbleSize,
+		height: bubbleHeight,
 		opacity: 1,
-		borderRadius: webcam.cornerRadius,
+		borderRadius: getWebcamCornerRadiusPx({
+			width: bubbleSize,
+			height: bubbleHeight,
+			cornerRadius: webcam.cornerRadius,
+			cornerRadiusPercent: webcam.cornerRadiusPercent,
+		}),
 		shadow: webcam.shadow,
 	};
 
@@ -284,12 +395,43 @@ export function getLayoutPresetTransform(params: {
 	}
 
 	if (
+		params.cameraSettings &&
+		(preset === "bubble" ||
+			preset === "bubble-bottom-right" ||
+			preset === "bubble-bottom-left" ||
+			preset === "bubble-top-right" ||
+			preset === "bubble-bottom-right-landscape")
+	) {
+		const cameraSettings = getLayoutCameraSettings(
+			{ preset, cameraSettings: params.cameraSettings },
+			webcam,
+		);
+		return {
+			preset,
+			screen: fullScreen,
+			webcam: bubbleAt({
+				stageWidth,
+				stageHeight,
+				position: cameraSettings.position,
+				aspectRatio: webcam.cropAspectRatio,
+				size: cameraSettings.size,
+				margin: webcam.margin,
+				cornerRadius: webcam.cornerRadius,
+				cornerRadiusPercent: webcam.cornerRadiusPercent,
+				shadow: webcam.shadow,
+				zoomScale: params.zoomScale,
+				reactToZoom: webcam.reactToZoom,
+			}),
+		};
+	}
+
+	if (
 		preset === "bubble-bottom-right" ||
 		preset === "bubble-bottom-left" ||
 		preset === "bubble-top-right" ||
 		preset === "bubble-bottom-right-landscape"
 	) {
-		const position =
+		const position: WebcamCorner =
 			preset === "bubble-bottom-left"
 				? "bottom-left"
 				: preset === "bubble-top-right"
@@ -302,104 +444,10 @@ export function getLayoutPresetTransform(params: {
 				stageWidth,
 				stageHeight,
 				position,
-				shape: preset === "bubble-bottom-right-landscape" ? "landscape" : "circle",
+				aspectRatio: webcam.cropAspectRatio,
+				cornerRadius: webcam.cornerRadius,
+				cornerRadiusPercent: webcam.cornerRadiusPercent,
 			}),
-		};
-	}
-
-	if (preset === "side-by-side") {
-		const gap = Math.round(Math.min(stageWidth, stageHeight) * 0.035);
-		const columnWidth = (stageWidth - gap) / 2;
-		return {
-			preset,
-			screen: {
-				x: 0,
-				y: 0,
-				width: columnWidth,
-				height: stageHeight,
-				opacity: 1,
-				borderRadius: 20,
-				shadow: 0.18,
-			},
-			webcam: {
-				x: columnWidth + gap,
-				y: 0,
-				width: columnWidth,
-				height: stageHeight,
-				opacity: 1,
-				borderRadius: 20,
-				shadow: 0.18,
-			},
-		};
-	}
-
-	if (
-		preset === "split-right" ||
-		preset === "split-right-overlap" ||
-		preset === "split-right-50" ||
-		preset === "split-left" ||
-		preset === "split-left-overlap" ||
-		preset === "split-left-50"
-	) {
-		const gap = Math.round(Math.min(stageWidth, stageHeight) * 0.035);
-		const isLeft = preset.startsWith("split-left");
-		const isOverlap = preset.endsWith("overlap");
-		const isHalf = preset.endsWith("50");
-		const screenWidth = isHalf ? (stageWidth - gap) / 2 : stageWidth * 0.74;
-		const cameraWidth = isHalf ? (stageWidth - gap) / 2 : stageWidth * 0.22;
-		const cameraHeight = isHalf ? stageHeight : stageHeight * 0.88;
-		const screenX = isLeft
-			? isHalf
-				? cameraWidth + gap
-				: isOverlap
-					? stageWidth * 0.16
-					: cameraWidth + gap
-			: 0;
-		const cameraX = isLeft
-			? 0
-			: isHalf
-				? screenWidth + gap
-				: isOverlap
-					? stageWidth - cameraWidth - stageWidth * 0.035
-					: screenWidth + gap;
-		const cameraY = isHalf ? 0 : (stageHeight - cameraHeight) / 2;
-
-		return {
-			preset,
-			screen: layer({
-				x: screenX,
-				y: isOverlap ? stageHeight * 0.045 : 0,
-				width: isOverlap ? stageWidth * 0.78 : screenWidth,
-				height: isOverlap ? stageHeight * 0.91 : stageHeight,
-				borderRadius: 24,
-				shadow: isOverlap ? 0.34 : 0.2,
-			}),
-			webcam: layer({
-				x: cameraX,
-				y: cameraY,
-				width: cameraWidth,
-				height: cameraHeight,
-				borderRadius: 34,
-				shadow: 0.42,
-			}),
-		};
-	}
-
-	if (preset === "presenter") {
-		const insetWidth = stageWidth * 0.34;
-		const insetHeight = insetWidth * (9 / 16);
-		return {
-			preset,
-			screen: {
-				x: stageWidth - insetWidth - stageWidth * 0.045,
-				y: stageHeight - insetHeight - stageHeight * 0.06,
-				width: insetWidth,
-				height: insetHeight,
-				opacity: 1,
-				borderRadius: 18,
-				shadow: 0.45,
-			},
-			webcam: fullScreen,
 		};
 	}
 
@@ -410,11 +458,11 @@ export function resolveActiveLayoutRegion(
 	timeMs: number,
 	layoutRegions: LayoutRegion[],
 ): LayoutRegion | null {
-	const rounded = Math.max(0, Math.round(timeMs));
+	const time = Math.max(0, timeMs);
 	return (
 		[...layoutRegions]
 			.sort((left, right) => left.startMs - right.startMs)
-			.find((region) => rounded >= region.startMs && rounded < region.endMs) ?? null
+			.find((region) => time >= region.startMs && time < region.endMs) ?? null
 	);
 }
 
@@ -426,24 +474,35 @@ export function resolveLayoutSceneAtTime(params: {
 	webcam: WebcamOverlaySettings;
 	zoomScale?: number;
 	hasWebcam: boolean;
-}): ResolvedLayoutScene | null {
-	const active = resolveActiveLayoutRegion(params.timeMs, params.layoutRegions);
+}): ResolvedLayoutScene {
+	const timeMs = Math.max(0, params.timeMs);
+	const active = resolveActiveLayoutRegion(timeMs, params.layoutRegions);
 	const sorted = [...params.layoutRegions].sort((left, right) => left.startMs - right.startMs);
+	const getRegionTransform = (region: LayoutRegion | null) =>
+		getLayoutPresetTransform({
+			...params,
+			preset: region?.preset ?? DEFAULT_LAYOUT_SCENE_PRESET,
+			cameraSettings: region
+				? getLayoutCameraSettings(region, params.webcam)
+				: { position: "bottom-right", size: params.webcam.size },
+		});
+	const defaultScene: ResolvedLayoutScene = { ...getRegionTransform(null), isDefault: true };
 
 	if (!active) {
-		const previous = [...sorted].reverse().find((region) => params.timeMs >= region.endMs);
-		if (!previous) return null;
+		const previous = [...sorted].reverse().find((region) => timeMs >= region.endMs);
+		if (!previous) return defaultScene;
+		const next = sorted.find((region) => region.startMs > previous.endMs);
 
 		const transitionMs = clamp(
-			previous.transitionMs || DEFAULT_LAYOUT_SCENE_TRANSITION_MS,
+			previous.transitionMs ?? DEFAULT_LAYOUT_SCENE_TRANSITION_MS,
 			0,
-			4000,
+			Math.min(4000, next ? next.startMs - previous.endMs : 4000),
 		);
-		if (transitionMs <= 0 || params.timeMs - previous.endMs >= transitionMs) return null;
+		if (transitionMs <= 0 || timeMs - previous.endMs >= transitionMs) return defaultScene;
 
-		const from = getLayoutPresetTransform({ ...params, preset: previous.preset });
-		const to = getLayoutPresetTransform({ ...params, preset: DEFAULT_LAYOUT_SCENE_PRESET });
-		const progress = ease((params.timeMs - previous.endMs) / transitionMs, previous.easing);
+		const from = getRegionTransform(previous);
+		const to = defaultScene;
+		const progress = ease((timeMs - previous.endMs) / transitionMs, previous.easing);
 		return {
 			preset: DEFAULT_LAYOUT_SCENE_PRESET,
 			screen: mixLayer(from.screen, to.screen, progress),
@@ -453,26 +512,17 @@ export function resolveLayoutSceneAtTime(params: {
 
 	const activeIndex = sorted.findIndex((region) => region.id === active.id);
 	const previous = activeIndex > 0 ? sorted[activeIndex - 1] : null;
-	const base = getLayoutPresetTransform({ ...params, preset: active.preset });
-	const transitionMs = clamp(active.transitionMs || DEFAULT_LAYOUT_SCENE_TRANSITION_MS, 0, 4000);
+	const base = getRegionTransform(active);
+	const transitionMs = clamp(
+		active.transitionMs ?? DEFAULT_LAYOUT_SCENE_TRANSITION_MS,
+		0,
+		Math.min(4000, active.endMs - active.startMs),
+	);
 
-	if (previous && transitionMs > 0 && params.timeMs - active.startMs < transitionMs) {
-		const from = getLayoutPresetTransform({
-			...params,
-			preset:
-				previous.endMs >= active.startMs ? previous.preset : DEFAULT_LAYOUT_SCENE_PRESET,
-		});
-		const progress = ease((params.timeMs - active.startMs) / transitionMs, active.easing);
-		return {
-			preset: active.preset,
-			screen: mixLayer(from.screen, base.screen, progress),
-			webcam: mixLayer(from.webcam, base.webcam, progress),
-		};
-	}
-
-	if (!previous && transitionMs > 0 && params.timeMs - active.startMs < transitionMs) {
-		const from = getLayoutPresetTransform({ ...params, preset: DEFAULT_LAYOUT_SCENE_PRESET });
-		const progress = ease((params.timeMs - active.startMs) / transitionMs, active.easing);
+	if (transitionMs > 0 && timeMs - active.startMs < transitionMs) {
+		const from =
+			previous && previous.endMs >= active.startMs ? getRegionTransform(previous) : defaultScene;
+		const progress = ease((timeMs - active.startMs) / transitionMs, active.easing);
 		return {
 			preset: active.preset,
 			screen: mixLayer(from.screen, base.screen, progress),
@@ -486,19 +536,36 @@ export function resolveLayoutSceneAtTime(params: {
 export function normalizeLayoutRegion(region: Partial<LayoutRegion>, index = 0): LayoutRegion {
 	const startMs = Number.isFinite(region.startMs) ? Math.max(0, Math.round(region.startMs!)) : 0;
 	const rawEnd = Number.isFinite(region.endMs) ? Math.round(region.endMs!) : startMs + 4000;
-	const preset = LAYOUT_SCENE_PRESETS.some((option) => option.value === region.preset)
-		? region.preset!
+	const preset = ALL_LAYOUT_SCENE_PRESETS.some((option) => option.value === region.preset)
+		? REMOVED_SPLIT_LAYOUT_PRESETS.includes(region.preset!)
+			? "bubble"
+			: region.preset!
 		: DEFAULT_LAYOUT_SCENE_PRESET;
 	const easing =
 		region.easing === "linear" || region.easing === "snappy" || region.easing === "smooth"
 			? region.easing
 			: DEFAULT_LAYOUT_SCENE_EASING;
+	const rawCameraSettings = region.cameraSettings;
+	const cameraSettings: Partial<LayoutCameraSettings> | undefined = rawCameraSettings
+		? {
+				...(rawCameraSettings.shape === "circle" || rawCameraSettings.shape === "rectangle"
+					? { shape: rawCameraSettings.shape }
+					: {}),
+				...(isLayoutCameraPosition(rawCameraSettings.position)
+					? { position: rawCameraSettings.position }
+					: {}),
+				...(Number.isFinite(rawCameraSettings.size)
+					? { size: clamp(rawCameraSettings.size!, 10, 100) }
+					: {}),
+			}
+		: undefined;
 
 	return {
 		id: typeof region.id === "string" && region.id ? region.id : `layout-${index + 1}`,
 		startMs,
 		endMs: Math.max(startMs + 1, rawEnd),
 		preset,
+		...(cameraSettings && Object.keys(cameraSettings).length > 0 ? { cameraSettings } : {}),
 		transitionMs: Number.isFinite(region.transitionMs)
 			? clamp(Math.round(region.transitionMs!), 0, 4000)
 			: DEFAULT_LAYOUT_SCENE_TRANSITION_MS,

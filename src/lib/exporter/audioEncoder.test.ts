@@ -135,4 +135,22 @@ describe("AudioProcessor offline render preparation", () => {
 		expect(loadAudioFileDemuxer).not.toHaveBeenCalled();
 		expect(renderAndMuxOfflineAudio).toHaveBeenCalled();
 	});
+
+	it("creates a silent fallback buffer instead of throwing when no decodable audio sources exist", async () => {
+		const processor = new AudioProcessor() as unknown as OfflineRenderTestHarness;
+		vi.spyOn(processor, "decodeAudioFromUrl").mockResolvedValue(null);
+		vi.spyOn(processor, "getMediaDurationSec").mockResolvedValue(5);
+
+		const prepared = await processor.prepareOfflineRender(
+			"file:///tmp/silent-video.mp4",
+			[],
+			[],
+			[],
+			["/tmp/missing-audio.wav"],
+		);
+
+		expect(prepared.mainBufferEntry?.buffer).toBeDefined();
+		expect(prepared.mainBufferEntry?.gain).toBe(0);
+		expect(prepared.mainBufferEntry?.buffer.duration).toBeCloseTo(5);
+	});
 });

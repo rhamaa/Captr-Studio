@@ -241,6 +241,9 @@ interface Window {
 		showOpenDialog: (
 			options: import("electron").OpenDialogOptions,
 		) => Promise<import("electron").OpenDialogReturnValue>;
+		showSaveDialog: (
+			options: import("electron").SaveDialogOptions,
+		) => Promise<import("electron").SaveDialogReturnValue>;
 		readFileAsDataUrl: (filePath: string) => Promise<string | null>;
 		hudOverlaySetIgnoreMouse: (ignore: boolean) => void;
 		hudOverlayDrag: (phase: "start" | "move" | "end", screenX: number, screenY: number) => void;
@@ -298,13 +301,23 @@ interface Window {
 			outputPath?: string;
 			error?: string;
 		}>;
+		onRenderMotionSlideProgress: (
+			callback: (progress: {
+				currentFrame: number;
+				totalFrames: number;
+				percentage: number;
+			}) => void,
+		) => () => void;
 		recordAdditionalClip: () => Promise<{
 			success: boolean;
 			path?: string;
 		}>;
-		openRecorderHud: () => Promise<{
+		openRecorderHud: (options?: { preserveProjectPath?: boolean;projectId?:string;captureId?:string }) => Promise<{
 			success: boolean;
 		}>;
+		onRecorderProjectContextChanged: (
+			callback: (preserveProjectPath: boolean) => void,
+		) => () => void;
 		getLastNativeCaptureDiagnostics: () => Promise<{
 			success: boolean;
 			diagnostics?: NativeCaptureDiagnostics | null;
@@ -608,7 +621,10 @@ interface Window {
 			error?: string;
 		}>;
 		setRecordingState: (recording: boolean) => Promise<void>;
-		getCursorTelemetry: (videoPath?: string) => Promise<{
+		getCursorTelemetry: (
+			videoPath?: string,
+			telemetryPath?: string,
+		) => Promise<{
 			success: boolean;
 			samples: CursorTelemetryPoint[];
 			message?: string;
@@ -680,6 +696,7 @@ interface Window {
 		setCurrentVideoPath: (
 			path: string,
 			options?: {
+				captureId?:string;projectId?:string;
 				preserveProjectPath?: boolean;
 				hideOverlayCursorByDefault?: boolean;
 			},
@@ -691,11 +708,17 @@ interface Window {
 				timeOffsetMs?: number;
 				hideOverlayCursorByDefault?: boolean;
 			},
-			options?: { preserveProjectPath?: boolean },
+			options?: { preserveProjectPath?: boolean;captureId?:string;projectId?:string },
 		) => Promise<{ success: boolean }>;
+		getRecordingProjectContext: () => Promise<{captureId?:string;projectId?:string}>;
+		activateTimelineProject: (projectId:string,resetPath?:boolean) => Promise<{success:boolean}>;
+		getPathForFile: (file:File) => string;
+		importProjectMedia: (paths?:string[]) => Promise<{success:boolean;canceled?:boolean;paths?:string[];error?:string}>;
+		inspectRecordingSources: (videoPath:string) => Promise<{success:boolean;microphonePath?:string|null;systemPath?:string|null;cursorPath?:string|null;microphoneOffsetMs?:number;systemOffsetMs?:number;embeddedAudio?:boolean;diagnostics?:Record<string,unknown>;error?:string}>;
 		getCurrentRecordingSession: () => Promise<{
 			success: boolean;
 			session?: {
+				captureId?:string;projectId?:string;
 				videoPath: string;
 				webcamPath?: string | null;
 				timeOffsetMs?: number;
@@ -721,19 +744,8 @@ interface Window {
 			canceled?: boolean;
 			error?: string;
 		}>;
-		saveProjectFileNamed: (
-			projectData: unknown,
-			projectName: string,
-			thumbnailDataUrl?: string | null,
-		) => Promise<{
-			success: boolean;
-			path?: string;
-			projectId?: string;
-			message?: string;
-			canceled?: boolean;
-			error?: string;
-		}>;
 		loadProjectFile: () => Promise<{
+			conversionToken?: string;
 			success: boolean;
 			path?: string;
 			project?: unknown;
@@ -741,7 +753,10 @@ interface Window {
 			canceled?: boolean;
 			error?: string;
 		}>;
+		consumePendingProjectOpen: () => Promise<import("../src/components/editor/projectLifecycle").PendingProjectOpen|null>;
+		saveConvertedProjectCopy: (project:unknown,token:string) => Promise<{success:boolean;path?:string;projectId?:string;canceled?:boolean;error?:string}>;
 		loadCurrentProjectFile: () => Promise<{
+			conversionToken?: string;
 			success: boolean;
 			path?: string;
 			project?: unknown;
@@ -749,6 +764,7 @@ interface Window {
 			canceled?: boolean;
 			error?: string;
 		}>;
+		releaseLegacyProjectCandidate:(token:string)=>Promise<{success:boolean}>;
 		getProjectsDirectory: () => Promise<{
 			success: boolean;
 			path?: string;
@@ -761,6 +777,7 @@ interface Window {
 			error?: string;
 		}>;
 		openProjectFileAtPath: (filePath: string) => Promise<{
+			conversionToken?: string;
 			success: boolean;
 			path?: string;
 			project?: unknown;
@@ -776,22 +793,8 @@ interface Window {
 		}>;
 		inspectProjectFile: (filePath: string) => Promise<ProjectInspectionResult>;
 		pickAndInspectProjectFile: () => Promise<ProjectInspectionResult>;
-		importAssetToSlide: (
-			projectId: string,
-			slideId: string,
-			sourcePath: string,
-			subfolder?: string,
-		) => Promise<{
-			success: boolean;
-			absolutePath?: string;
-			bundleRelativePath?: string;
-			fileName?: string;
-			size?: number;
-			error?: string;
-		}>;
 		saveRecordedAudio?: (payload: {
 			audioBuffer: ArrayBuffer | Uint8Array | number[];
-			slideId?: string | null;
 			extension?: string;
 		}) => Promise<{
 			success: boolean;

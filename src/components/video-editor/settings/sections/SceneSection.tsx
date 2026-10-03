@@ -282,7 +282,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 		cn(
 			"group relative aspect-square w-full overflow-hidden rounded-[10px] border bg-editor-bg transition-colors duration-150",
 			isSelected
-				? "border-[#2563EB] bg-foreground/[0.08]"
+				? "border-[#6FA8FF] bg-foreground/[0.08]"
 				: "border-foreground/10 bg-foreground/[0.045] hover:border-foreground/20 hover:bg-foreground/[0.07]",
 		);
 
@@ -453,7 +453,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 					<button
 						type="button"
 						onClick={resetBackgroundSection}
-						className="text-[10px] text-[#2563EB] transition-opacity hover:opacity-80 cursor-pointer"
+						className="text-[10px] text-[#6FA8FF] transition-opacity hover:opacity-80 cursor-pointer"
 					>
 						{t("common.actions.reset", "Reset")}
 					</button>
@@ -497,7 +497,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 									{isActive ? (
 										<motion.span
 											layoutId="scene-background-picker-pill"
-											className="absolute inset-0 rounded-lg bg-[#2563EB]"
+											className="absolute inset-0 rounded-lg bg-[#6FA8FF]"
 											transition={{
 												type: "spring",
 												stiffness: 420,
@@ -660,7 +660,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 													className={cn(
 														"aspect-square rounded-[8px] border transition-all cursor-pointer",
 														isSelected
-															? "border-[#2563EB] ring-2 ring-[#2563EB]/40 scale-105"
+															? "border-[#6FA8FF] ring-2 ring-[#6FA8FF]/40 scale-105"
 															: "border-foreground/10 hover:scale-105",
 													)}
 													style={{ backgroundColor: color }}
@@ -684,7 +684,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 												className={cn(
 													"aspect-square rounded-[8px] border transition-all cursor-pointer",
 													isSelected
-														? "border-[#2563EB] ring-2 ring-[#2563EB]/40 scale-105"
+														? "border-[#6FA8FF] ring-2 ring-[#6FA8FF]/40 scale-105"
 														: "border-foreground/10 hover:scale-105",
 												)}
 												style={{ background: grad }}
@@ -705,7 +705,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 					<Switch
 						checked={removeBackgroundEnabled}
 						onCheckedChange={handleRemoveBackgroundToggle}
-						className="data-[state=checked]:bg-[#2563EB] scale-75"
+						className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 					/>
 				</div>
 
@@ -720,7 +720,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 								<button
 									type="button"
 									onClick={() => onFrameChange?.(null)}
-									className="text-[9px] text-[#2563EB] hover:opacity-80 cursor-pointer"
+									className="text-[9px] text-[#6FA8FF] hover:opacity-80 cursor-pointer"
 								>
 									Remove
 								</button>
@@ -737,7 +737,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 										className={cn(
 											"flex flex-col items-center gap-1 p-1.5 rounded-lg border transition-all text-center cursor-pointer",
 											isSelected
-												? "border-[#2563EB]/50 bg-[#2563EB]/10 ring-1 ring-[#2563EB]/30"
+												? "border-[#6FA8FF]/50 bg-[#6FA8FF]/10 ring-1 ring-[#6FA8FF]/30"
 												: "border-foreground/[0.06] bg-white/[0.02] hover:bg-foreground/[0.05]",
 										)}
 									>
@@ -767,7 +767,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 					<button
 						type="button"
 						onClick={resetFrameSection}
-						className="text-[10px] text-[#2563EB] transition-opacity hover:opacity-80 cursor-pointer"
+						className="text-[10px] text-[#6FA8FF] transition-opacity hover:opacity-80 cursor-pointer"
 					>
 						{t("common.actions.reset", "Reset")}
 					</button>
@@ -804,7 +804,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 								type="button"
 								onClick={togglePaddingLink}
 								aria-pressed={padding.linked === false}
-								className="text-[10px] text-[#2563EB] transition-opacity hover:opacity-80 cursor-pointer"
+								className="text-[10px] text-[#6FA8FF] transition-opacity hover:opacity-80 cursor-pointer"
 							>
 								{padding.linked === false
 									? tSettings("effects.paddingAdvancedHide", "Simple")
@@ -894,7 +894,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 						<button
 							type="button"
 							onClick={resetCropSection}
-							className="text-[10px] text-[#2563EB] transition-opacity hover:opacity-80 cursor-pointer"
+							className="text-[10px] text-[#6FA8FF] transition-opacity hover:opacity-80 cursor-pointer"
 						>
 							{t("common.actions.reset", "Reset")}
 						</button>

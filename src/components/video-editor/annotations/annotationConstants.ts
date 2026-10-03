@@ -29,7 +29,7 @@ export const COLOR_PALETTE = [
 	"#FF5722", // Deep Orange
 	"#8BC34A", // Light Green
 	"#FFC107", // Amber
-	"#2563EB", // Brand Blue
+	"#6FA8FF", // Brand Blue
 	"#000000", // Black
 	"#607D8B", // Blue Grey
 	"#795548", // Brown

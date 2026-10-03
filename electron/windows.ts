@@ -14,11 +14,24 @@ const APP_ROOT = path.join(electronWindowsDir, "..");
 const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
 const RENDERER_DIST = path.join(APP_ROOT, "dist");
 const WINDOW_ICON_FILENAME = process.platform === "darwin" ? "captrmac-512.png" : "captr-512.png";
-const WINDOW_ICON_PATH = path.join(
-	process.env.VITE_PUBLIC || RENDERER_DIST,
-	"app-icons",
-	WINDOW_ICON_FILENAME,
-);
+export function getWindowIconPath(): string {
+	if (process.platform === "win32") {
+		const winIco = path.join(APP_ROOT, "icons", "icons", "win", "icon.ico");
+		if (fs.existsSync(winIco)) {
+			return winIco;
+		}
+		const distIco = path.join(RENDERER_DIST, "favicon.ico");
+		if (fs.existsSync(distIco)) {
+			return distIco;
+		}
+	}
+	const publicDir = process.env.VITE_PUBLIC || path.join(APP_ROOT, "public");
+	const publicIcon = path.join(publicDir, "app-icons", WINDOW_ICON_FILENAME);
+	if (fs.existsSync(publicIcon)) {
+		return publicIcon;
+	}
+	return path.join(RENDERER_DIST, "app-icons", WINDOW_ICON_FILENAME);
+}
 
 let hudOverlayWindow: BrowserWindow | null = null;
 let hudOverlayHiddenFromCapture = true;
@@ -356,8 +369,9 @@ ipcMain.handle("set-hud-overlay-capture-protection", (_event, enabled: boolean) 
 	};
 });
 
-export function createHudOverlayWindow(): BrowserWindow {
+export function createHudOverlayWindow(options?: { preserveProjectPath?: boolean }): BrowserWindow {
 	loadHudOverlayCaptureProtectionSetting();
+	const preserveProjectPath = Boolean(options?.preserveProjectPath);
 	const initialBounds = getHudOverlayBounds();
 	let hasShownHudWindow = false;
 
@@ -501,10 +515,17 @@ export function createHudOverlayWindow(): BrowserWindow {
 	});
 
 	if (VITE_DEV_SERVER_URL) {
-		win.loadURL(VITE_DEV_SERVER_URL + "?windowType=hud-overlay");
+		const query = new URLSearchParams({ windowType: "hud-overlay" });
+		if (preserveProjectPath) {
+			query.set("preserveProjectPath", "1");
+		}
+		win.loadURL(`${VITE_DEV_SERVER_URL}?${query.toString()}`);
 	} else {
 		win.loadFile(path.join(RENDERER_DIST, "index.html"), {
-			query: { windowType: "hud-overlay" },
+			query: {
+				windowType: "hud-overlay",
+				...(preserveProjectPath ? { preserveProjectPath: "1" } : {}),
+			},
 		});
 	}
 
@@ -767,7 +788,7 @@ export function createEditorWindow(): BrowserWindow {
 		minWidth: hasInitialInput ? 800 : 680,
 		minHeight: hasInitialInput ? 600 : 520,
 		...(process.platform !== "darwin" && {
-			icon: WINDOW_ICON_PATH,
+			icon: getWindowIconPath(),
 		}),
 		...(isMac && {
 			titleBarStyle: "hiddenInset",
@@ -831,8 +852,8 @@ export function createEditorWindow(): BrowserWindow {
 		console.error("[editor-window] render-process-gone", details);
 	});
 
-	win.webContents.on("console-message", (_event, level, message, line, sourceId) => {
-		console.log(`[RENDERER-CONSOLE:${level}] ${message} (${sourceId}:${line})`);
+	win.webContents.on("console-message", (event) => {
+		console.log(`[RENDERER-CONSOLE:${event.level}] ${event.message} (${event.sourceId}:${event.lineNumber})`);
 	});
 
 	win.on("show", () => {
@@ -869,7 +890,7 @@ export function createSourceSelectorWindow(): BrowserWindow {
 		transparent: true,
 		show: false,
 		...(process.platform !== "darwin" && {
-			icon: WINDOW_ICON_PATH,
+			icon: getWindowIconPath(),
 		}),
 		backgroundColor: "#00000000",
 		webPreferences: {

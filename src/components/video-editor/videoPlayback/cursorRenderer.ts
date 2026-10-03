@@ -838,6 +838,9 @@ export class SmoothedCursorState {
 	private xSpring = createSpringState(0.5);
 	private ySpring = createSpringState(0.5);
 
+	checkpoint() { return structuredClone({x:this.x,y:this.y,trail:this.trail,initialized:this.initialized,lastTimeMs:this.lastTimeMs,xSpring:this.xSpring,ySpring:this.ySpring}); }
+	restore(value:ReturnType<SmoothedCursorState["checkpoint"]>) { Object.assign(this,structuredClone(value)); }
+
 	constructor(
 		config: Pick<CursorRenderConfig, "smoothingFactor" | "trailLength" | "springTuning">,
 	) {
@@ -929,6 +932,9 @@ export class PixiCursorOverlay {
 	private swayRotation = 0;
 	private swaySpring = createSpringState(0);
 
+	checkpoint() { return structuredClone({state:this.state.checkpoint(),lastRenderedPoint:this.lastRenderedPoint,lastRenderedTimeMs:this.lastRenderedTimeMs,swayRotation:this.swayRotation,swaySpring:this.swaySpring}); }
+	restore(value:ReturnType<PixiCursorOverlay["checkpoint"]>) {const {state,...rest}=structuredClone(value);this.state.restore(state);Object.assign(this,rest);}
+
 	constructor(config: Partial<CursorRenderConfig> = {}) {
 		this.config = {
 			...DEFAULT_CURSOR_CONFIG,
@@ -954,7 +960,7 @@ export class PixiCursorOverlay {
 		this.customCursorShadowSprite.tint = CURSOR_SHADOW_COLOR;
 		this.customCursorShadowSprite.alpha = CURSOR_SHADOW_ALPHA;
 		this.customCursorShadowFilter = new BlurFilter();
-		this.customCursorShadowFilter.blur = CURSOR_SHADOW_BLUR;
+		this.customCursorShadowFilter.strength = CURSOR_SHADOW_BLUR;
 		this.customCursorShadowFilter.quality = 4;
 		this.customCursorShadowFilter.padding = CURSOR_SHADOW_PADDING;
 		this.customCursorShadowSprite.filters = [this.customCursorShadowFilter];
@@ -973,7 +979,7 @@ export class PixiCursorOverlay {
 			shadowSprite.tint = CURSOR_SHADOW_COLOR;
 			shadowSprite.alpha = CURSOR_SHADOW_ALPHA;
 			const shadowFilter = new BlurFilter();
-			shadowFilter.blur = CURSOR_SHADOW_BLUR;
+			shadowFilter.strength = CURSOR_SHADOW_BLUR;
 			shadowFilter.quality = 4;
 			shadowFilter.padding = CURSOR_SHADOW_PADDING;
 			shadowSprite.filters = [shadowFilter];
@@ -986,7 +992,7 @@ export class PixiCursorOverlay {
 			this.cursorSprites[key] = sprite;
 		}
 
-		this.cursorMotionBlurFilter = new MotionBlurFilter([0, 0], 5, 0);
+		this.cursorMotionBlurFilter = new MotionBlurFilter({ velocity: [0, 0], kernelSize: 5, offset: 0 });
 		this.container.filters = null;
 
 		this.container.addChild(

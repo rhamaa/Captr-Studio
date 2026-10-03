@@ -33,7 +33,7 @@ export interface EditorMenuBarProps {
 	recentProjects: ProjectLibraryEntry[];
 	onSaveProject: () => void;
 	onSaveAsProject: () => void;
-	onImportMedia: () => void;
+	onImportMedia?: () => void;
 	onExportVideo: () => void;
 	onNavigateToWelcome: () => void;
 
@@ -176,14 +176,16 @@ export function EditorMenuBar({
 
 					<DropdownMenuSeparator className="bg-foreground/10 my-1" />
 
-					<DropdownMenuItem
-						onClick={onImportMedia}
-						className="cursor-pointer gap-2 py-1.5"
-					>
-						<PlusIcon className="w-4 h-4 text-muted-foreground" />
-						<span>Import Media...</span>
-						<DropdownMenuShortcut>{mod}I</DropdownMenuShortcut>
-					</DropdownMenuItem>
+					{onImportMedia && (
+						<DropdownMenuItem
+							onClick={onImportMedia}
+							className="cursor-pointer gap-2 py-1.5"
+						>
+							<PlusIcon className="w-4 h-4 text-muted-foreground" />
+							<span>Import Media...</span>
+							<DropdownMenuShortcut>{mod}I</DropdownMenuShortcut>
+						</DropdownMenuItem>
+					)}
 
 					<DropdownMenuItem
 						onClick={onExportVideo}
@@ -342,6 +344,14 @@ export function EditorMenuBar({
 						<GearIcon className="w-4 h-4 text-muted-foreground" />
 						<span>Preferences...</span>
 						<DropdownMenuShortcut>{mod},</DropdownMenuShortcut>
+					</DropdownMenuItem>
+
+					<DropdownMenuItem
+						onClick={() => onOpenSettings("storage")}
+						className="cursor-pointer gap-2 py-1.5"
+					>
+						<FolderIcon className="w-4 h-4 text-muted-foreground" />
+						<span>Storage & Folders...</span>
 					</DropdownMenuItem>
 
 					<DropdownMenuItem

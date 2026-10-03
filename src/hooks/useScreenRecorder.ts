@@ -319,6 +319,17 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	);
 	const requestedBrowserMicrophoneProfile = useRef<string | null>(null);
 	const hideEditorOverlayCursorByDefault = useRef(false);
+	const preserveProjectPathForRecording = useRef(false);
+	const captureProjectContext = useRef<{captureId?:string;projectId?:string}>({});
+
+	useEffect(() => {
+		preserveProjectPathForRecording.current =
+			new URLSearchParams(window.location.search).get("preserveProjectPath") === "1";
+
+		return window.electronAPI?.onRecorderProjectContextChanged?.((preserveProjectPath) => {
+			preserveProjectPathForRecording.current = preserveProjectPath;
+		});
+	}, []);
 
 	const notifyRecordingFinalizationFailure = useCallback(async (message: string) => {
 		setFinalizing(false);
@@ -632,16 +643,22 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			console.log("[PERF:RENDERER] Finalize Session & Switch to Editor: STARTED");
 			const shouldHideOverlayCursor = hideEditorOverlayCursorByDefault.current;
 			try {
+				const preserveProjectPath = preserveProjectPathForRecording.current;
 				if (webcamPath) {
-					await window.electronAPI.setCurrentRecordingSession({
-						videoPath,
-						webcamPath,
-						timeOffsetMs: webcamTimeOffsetMs.current,
-						hideOverlayCursorByDefault: shouldHideOverlayCursor,
-					});
+					await window.electronAPI.setCurrentRecordingSession(
+						{
+							videoPath,
+							webcamPath,
+							timeOffsetMs: webcamTimeOffsetMs.current,
+							hideOverlayCursorByDefault: shouldHideOverlayCursor,
+						},
+						{ preserveProjectPath, ...captureProjectContext.current },
+					);
 				} else {
 					await window.electronAPI.setCurrentVideoPath(videoPath, {
+						...captureProjectContext.current,
 						hideOverlayCursorByDefault: shouldHideOverlayCursor,
+						preserveProjectPath,
 					});
 				}
 			} catch (error) {
@@ -649,7 +666,9 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 				try {
 					await window.electronAPI.setCurrentVideoPath(videoPath, {
+						...captureProjectContext.current,
 						hideOverlayCursorByDefault: shouldHideOverlayCursor,
+						preserveProjectPath: preserveProjectPathForRecording.current,
 					});
 				} catch (fallbackError) {
 					console.error("Failed to persist fallback video path:", fallbackError);
@@ -1344,6 +1363,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		setStarting(true);
 
 		try {
+			captureProjectContext.current = await window.electronAPI.getRecordingProjectContext?.() ?? {};
 			const platform = cachedPlatform.current ?? (await window.electronAPI.getPlatform());
 			cachedPlatform.current = platform;
 			hideEditorOverlayCursorByDefault.current = false;

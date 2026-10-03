@@ -1,0 +1,38 @@
+import fs from "node:fs";
+
+export function generateCaptrSvg(size = 512, darkMode = false) {
+  const inkColor = darkMode ? "#E2E8F0" : "#344054";
+  return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Smooth curved split for play symbol -->
+    <clipPath id="play-clip">
+      <path d="M 28 35.5 C 28 33.2 30.2 31.8 32.5 33.2 L 52.5 45.2 C 54.8 46.6 54.8 49.4 52.5 50.8 L 32.5 62.8 C 30.2 64.2 28 62.8 28 60.5 Z" />
+    </clipPath>
+  </defs>
+
+  <!-- Viewfinder Frame Brackets -->
+  <path d="M 17 35 L 17 24 C 17 18.5 20.5 15 26 15 L 37 15" stroke="${inkColor}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 63 15 L 74 15 C 79.5 15 83 18.5 83 24 L 83 35" stroke="${inkColor}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 17 65 L 17 76 C 17 81.5 20.5 85 26 85 L 37 85" stroke="${inkColor}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 63 85 L 74 85 C 79.5 85 83 81.5 83 76 L 83 65" stroke="${inkColor}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Play Symbol: Dual-Tone Waveform Hybrid -->
+  <g clip-path="url(#play-clip)">
+    <!-- Top Blue Half -->
+    <rect x="25" y="30" width="35" height="40" fill="#6FA8FF" />
+    <!-- Bottom Purple Half with Wave Curve -->
+    <path d="M 26 50 C 33 46 41 54 56 46 L 56 66 L 26 66 Z" fill="#A879F5" />
+  </g>
+
+  <!-- Vertical Pastel Green Capsule -->
+  <rect x="57" y="36.5" width="5.5" height="27" rx="2.75" fill="#8DDB9B" />
+
+  <!-- Audio Waveform Bars (Pastel Purple) -->
+  <rect x="65" y="42" width="5" height="16" rx="2.5" fill="#A879F5" />
+  <rect x="72.5" y="44.5" width="4.5" height="11" rx="2.25" fill="#A879F5" />
+  <rect x="79.5" y="46.5" width="4" height="7" rx="2" fill="#A879F5" />
+</svg>`;
+}
+
+fs.writeFileSync("public/favicon.svg", generateCaptrSvg(64, false));
+console.log("Updated public/favicon.svg");

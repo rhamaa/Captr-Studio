@@ -5,7 +5,10 @@ $ErrorActionPreference = "Stop"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $rootDir = (Get-Item $scriptDir).Parent.FullName
-$iconPath = Join-Path $rootDir "icons\icons\win\icon.ico"
+$iconPath = Join-Path $rootDir "icons\icons\win\captr-project.ico"
+if (-not (Test-Path $iconPath)) {
+    $iconPath = Join-Path $rootDir "icons\icons\win\icon.ico"
+}
 
 if (-not (Test-Path $iconPath)) {
     Write-Error "Icon file not found at: $iconPath"

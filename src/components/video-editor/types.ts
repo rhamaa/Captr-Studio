@@ -53,7 +53,7 @@ export interface CursorVisualSettings {
 export type CursorStyle = "macos" | "tahoe" | "tahoe-inverted" | "dot" | "figma" | (string & {}); // extension-contributed cursor styles
 export const DEFAULT_CURSOR_STYLE: CursorStyle = "macos";
 
-export type SlideMode = "record" | "video";
+export type SlideMode = "record";
 
 export type EditorEffectSection =
 	| "scene"
@@ -67,36 +67,12 @@ export type EditorEffectSection =
 	| "extensions"
 	| "clip"
 	| "audio"
-	| "color-grading"
 	| "media"
 	| "audio-record"
 	| "video-adjust"
 	| "transitions"
+	| "motion"
 	| `ext:${string}`;
-
-export type ColorFilterPreset =
-	| "none"
-	| "clean-studio"
-	| "cyber-glow"
-	| "warm-editorial"
-	| "cool-minimalist"
-	| "black-white";
-
-export interface ColorGradingSettings {
-	preset: ColorFilterPreset;
-	exposure: number; // -100 to +100
-	contrast: number; // -100 to +100
-	saturation: number; // -100 to +100
-	vignette: number; // 0 to 100 (%)
-}
-
-export const DEFAULT_COLOR_GRADING: ColorGradingSettings = {
-	preset: "none",
-	exposure: 0,
-	contrast: 0,
-	saturation: 0,
-	vignette: 0,
-};
 
 export type ZoomTransitionEasing = "recordly" | "glide" | "smooth" | "snappy" | "linear";
 
@@ -109,6 +85,7 @@ export type WebcamPositionPreset =
 	| "center-right"
 	| "bottom-center"
 	| "custom";
+export type LayoutCameraPosition = Exclude<WebcamPositionPreset, "custom">;
 
 export interface WebcamOverlaySettings {
 	enabled: boolean;
@@ -116,6 +93,8 @@ export interface WebcamOverlaySettings {
 	timeOffsetMs: number;
 	mirror: boolean;
 	cropRegion: CropRegion;
+	/** Physical width/height ratio of the selected webcam crop. */
+	cropAspectRatio?: number;
 	corner: WebcamCorner;
 	positionPreset: WebcamPositionPreset;
 	positionX: number;
@@ -123,6 +102,8 @@ export interface WebcamOverlaySettings {
 	size: number;
 	reactToZoom: boolean;
 	cornerRadius: number;
+	/** Roundness as a fraction of half the webcam's shorter side. */
+	cornerRadiusPercent?: number;
 	shadow: number;
 	margin: number;
 }
@@ -137,6 +118,7 @@ export type LayoutScenePreset =
 	| "bubble-bottom-left"
 	| "bubble-top-right"
 	| "bubble-bottom-right-landscape"
+	/** Kept for reading older projects; these layouts normalize to Camera Bubble. */
 	| "presenter"
 	| "side-by-side"
 	| "split-right"
@@ -148,11 +130,22 @@ export type LayoutScenePreset =
 
 export type LayoutSceneEasing = "smooth" | "snappy" | "linear";
 
+export type LayoutBubbleShape = "circle" | "rectangle";
+
+export interface LayoutCameraSettings {
+	/** Legacy persisted field; current Record layouts use webcam roundness instead. */
+	shape?: LayoutBubbleShape;
+	position: LayoutCameraPosition;
+	/** Bubble width as a percentage of the canvas' shorter side. */
+	size: number;
+}
+
 export interface LayoutRegion {
 	id: string;
 	startMs: number;
 	endMs: number;
 	preset: LayoutScenePreset;
+	cameraSettings?: Partial<LayoutCameraSettings>;
 	transitionMs: number;
 	easing: LayoutSceneEasing;
 }
@@ -168,7 +161,6 @@ export const DEFAULT_CURSOR_MOTION_BLUR = 0.4;
 export const DEFAULT_CURSOR_CLICK_BOUNCE = 2.5;
 export const DEFAULT_CURSOR_CLICK_BOUNCE_DURATION = 350;
 export const DEFAULT_CURSOR_SWAY = 0.4;
-export const DEFAULT_CAMERA_PERSPECTIVE_TILT = 0;
 export const DEFAULT_ZOOM_SMOOTHNESS = 0.5;
 export const DEFAULT_ZOOM_MOTION_BLUR = 0.35;
 export interface ZoomMotionBlurTuning {
@@ -214,6 +206,7 @@ export const DEFAULT_WEBCAM_OVERLAY: WebcamOverlaySettings = {
 	timeOffsetMs: DEFAULT_WEBCAM_TIME_OFFSET_MS,
 	mirror: true,
 	cropRegion: { x: 0, y: 0, width: 1, height: 1 },
+	cropAspectRatio: 1,
 	corner: "bottom-right",
 	positionPreset: DEFAULT_WEBCAM_POSITION_PRESET,
 	positionX: DEFAULT_WEBCAM_POSITION_X,
@@ -221,6 +214,7 @@ export const DEFAULT_WEBCAM_OVERLAY: WebcamOverlaySettings = {
 	size: DEFAULT_WEBCAM_SIZE,
 	reactToZoom: DEFAULT_WEBCAM_REACT_TO_ZOOM,
 	cornerRadius: DEFAULT_WEBCAM_CORNER_RADIUS,
+	cornerRadiusPercent: DEFAULT_WEBCAM_CORNER_RADIUS / 160,
 	shadow: DEFAULT_WEBCAM_SHADOW,
 	margin: DEFAULT_WEBCAM_MARGIN,
 };
@@ -265,12 +259,46 @@ export type SceneVisualSettings = Pick<
 	| "borderRadius"
 	| "shadowIntensity"
 	| "backgroundBlur"
-	| "colorGrading"
 	| "frame"
 	| "audioDuckingSettings"
 >;
 
-export interface SlideAssetFile {
+/** Record-only controls stored with their owning clip/slide. */
+export type RecordClipSettings = Pick<
+	import("./projectPersistence").ProjectEditorState,
+	| "zoomMotionBlur"
+	| "zoomMotionBlurTuning"
+	| "zoomTemporalMotionBlur"
+	| "zoomMotionBlurSampleCount"
+	| "zoomMotionBlurShutterFraction"
+	| "connectZooms"
+	| "zoomInDurationMs"
+	| "zoomInOverlapMs"
+	| "zoomOutDurationMs"
+	| "connectedZoomGapMs"
+	| "connectedZoomDurationMs"
+	| "zoomInEasing"
+	| "zoomOutEasing"
+	| "connectedZoomEasing"
+	| "loopCursor"
+	| "cursorStyle"
+	| "cursorSize"
+	| "cursorSmoothing"
+	| "cursorSpringStiffnessMultiplier"
+	| "cursorSpringDampingMultiplier"
+	| "cursorSpringMassMultiplier"
+	| "cameraSpringStiffnessMultiplier"
+	| "cameraSpringDampingMultiplier"
+	| "cameraSpringMassMultiplier"
+	| "zoomSmoothness"
+	| "zoomClassicMode"
+	| "cursorMotionBlur"
+	| "cursorClickBounce"
+	| "cursorClickBounceDuration"
+	| "cursorSway"
+>;
+
+export interface MediaFileReference {
 	id: string;
 	name: string;
 	path: string;
@@ -281,8 +309,9 @@ export interface SlideAssetFile {
 	category?: "main" | "layer" | "audio" | "graphic" | "imported";
 }
 
-export interface ClipEntry {
+export interface LegacyClipEntry {
 	sceneSettings?: SceneVisualSettings;
+	recordSettings?: Partial<RecordClipSettings>;
 	id: string;
 	origin?: ClipOrigin; // "recorded" (internal screen/cam capture) vs "uploaded" (external media)
 	slideMode?: SlideMode; // "record" (screen/cam/telemetry) vs "video" (standard video editor mode)
@@ -316,8 +345,11 @@ export interface ClipEntry {
 	mediaTrackLayers?: MediaTrackLayer[];
 	keyframes?: PropertyKeyframe[];
 	/** Exclusive per-slide asset library for video and multimedia slides */
-	assetFiles?: SlideAssetFile[];
+	assetFiles?: MediaFileReference[];
 }
+
+/** Backward-compatible name for the editor's pre-V2 clip model. */
+export type ClipEntry = LegacyClipEntry;
 
 export function getClipSourceEndMs(clip: ClipRegion): number {
 	const displayDurationMs = Math.max(0, clip.endMs - clip.startMs);
@@ -650,7 +682,7 @@ export const DEFAULT_ANNOTATION_STYLE: AnnotationTextStyle = {
 
 export const DEFAULT_FIGURE_DATA: FigureData = {
 	arrowDirection: "right",
-	color: "#2563EB",
+	color: "#6FA8FF",
 	strokeWidth: 4,
 };
 

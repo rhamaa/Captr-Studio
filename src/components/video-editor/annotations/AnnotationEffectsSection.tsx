@@ -61,11 +61,11 @@ export function AnnotationEffectsSection({
 								type="checkbox"
 								checked={annotation.style.dropShadow ?? false}
 								onChange={(e) => onStyleChange({ dropShadow: e.target.checked })}
-								className="w-4 h-4 rounded border-foreground/20 text-[#2563EB] focus:ring-[#2563EB] focus:ring-offset-editor-panel bg-foreground/5 cursor-pointer"
+								className="w-4 h-4 rounded border-foreground/20 text-[#6FA8FF] focus:ring-[#6FA8FF] focus:ring-offset-editor-panel bg-foreground/5 cursor-pointer"
 							/>
 						</div>
 						{(annotation.style.dropShadow ?? false) && (
-							<div className="pl-2 border-l-2 border-[#2563EB]/20 space-y-4 ml-1">
+							<div className="pl-2 border-l-2 border-[#6FA8FF]/20 space-y-4 ml-1">
 								<div>
 									<label className="text-[10px] font-medium text-muted-foreground mb-2 block">
 										Blur ({annotation.style.dropShadowBlur ?? 8}px)
@@ -230,7 +230,7 @@ export function AnnotationEffectsSection({
 			<div className="mt-6 pt-4 border-t border-foreground/10 space-y-4">
 				<div className="flex items-center justify-between">
 					<span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-						<SlidersHorizontal className="w-3.5 h-3.5 text-[#2563EB]" />
+						<SlidersHorizontal className="w-3.5 h-3.5 text-[#6FA8FF]" />
 						Compositing & Transform
 					</span>
 				</div>

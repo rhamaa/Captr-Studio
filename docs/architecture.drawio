@@ -1,194 +1,168 @@
-<mxfile host="app.diagrams.net" modified="2026-09-24T12:50:00.000Z" agent="CaptrStudio" version="21.0.0" type="device">
-  <diagram id="captr-architecture" name="Captr Studio Architecture">
-    <mxGraphModel dx="1600" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1650" pageHeight="1100" math="0" shadow="0">
-      <root>
-        <mxCell id="0" />
-        <mxCell id="1" parent="0" />
-
-        <!-- Title -->
-        <mxCell id="title" value="Captr Studio — Architectural Diagram (Record, Edit, Render Pipelines)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=22;fontStyle=1;fontColor=#0f172a;" vertex="1" parent="1">
-          <mxGeometry x="40" y="20" width="800" height="40" as="geometry" />
-        </mxCell>
-        <mxCell id="subtitle" value="Pemisahan proses Electron Main vs Chromium Renderer serta alur data audio sidecar, timeline state, dan export muxer." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=13;fontColor=#64748b;" vertex="1" parent="1">
-          <mxGeometry x="40" y="55" width="850" height="25" as="geometry" />
-        </mxCell>
-
-        <!-- CONTAINER 1: ELECTRON MAIN PROCESS -->
-        <mxCell id="box-main" value="Electron Main Process (Node.js &amp; Native Layer)" style="swimlane;whiteSpace=wrap;html=1;startSize=32;rounded=1;arcSize=6;fillColor=#0f172a;strokeColor=#334155;fontColor=#f8fafc;fontStyle=1;fontSize=15;" vertex="1" parent="1">
-          <mxGeometry x="40" y="100" width="560" height="920" as="geometry" />
-        </mxCell>
-
-        <!-- Lifecycle & Windows -->
-        <mxCell id="main-core" value="&lt;b&gt;main.ts &amp;amp; windows.ts&lt;/b&gt;&lt;br/&gt;App Lifecycle, GPU switches, Window Manager&lt;br/&gt;&lt;i&gt;(Studio Window, Overlay, Countdown)&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e293b;strokeColor=#475569;fontColor=#e2e8f0;fontSize=12;" vertex="1" parent="box-main">
-          <mxGeometry x="30" y="50" width="500" height="60" as="geometry" />
-        </mxCell>
-
-        <!-- SUBSECTION: RECORDING IPC & NATIVE -->
-        <mxCell id="main-rec-group" value="1. MEREKAM (Native Capture Engine)" style="swimlane;whiteSpace=wrap;html=1;startSize=26;rounded=1;arcSize=6;fillColor=#064e3b;strokeColor=#047857;fontColor=#ecfdf5;fontStyle=1;fontSize=13;" vertex="1" parent="box-main">
-          <mxGeometry x="30" y="130" width="500" height="230" as="geometry" />
-        </mxCell>
-        <mxCell id="ipc-rec" value="&lt;b&gt;electron/ipc/register/recording.ts&lt;/b&gt;&lt;br/&gt;Handle: start-native-recording, stop, pause&lt;br/&gt;Display / Monitor Handle Matcher (HMONITOR)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#065f46;strokeColor=#10b981;fontColor=#ffffff;fontSize=11;" vertex="1" parent="main-rec-group">
-          <mxGeometry x="20" y="40" width="460" height="50" as="geometry" />
-        </mxCell>
-        <mxCell id="native-capture" value="&lt;b&gt;Native Capture Backends&lt;/b&gt;&lt;br/&gt;• Windows: Windows Graphics Capture (WGC / windows-capture.exe)&lt;br/&gt;• macOS: ScreenCaptureKitRecorder.swift" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#047857;strokeColor=#34d399;fontColor=#ffffff;fontSize=11;" vertex="1" parent="main-rec-group">
-          <mxGeometry x="20" y="105" width="460" height="45" as="geometry" />
-        </mxCell>
-        <mxCell id="audio-capture" value="&lt;b&gt;Audio Separator (WASAPI / CoreAudio)&lt;/b&gt;&lt;br/&gt;Output video + audio terpisah ke storage sidecar tanpa muxing berat" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#047857;strokeColor=#34d399;fontColor=#ffffff;fontSize=11;" vertex="1" parent="main-rec-group">
-          <mxGeometry x="20" y="165" width="460" height="45" as="geometry" />
-        </mxCell>
-
-        <!-- SUBSECTION: MEDIA SERVER & STORAGE -->
-        <mxCell id="main-edit-group" value="2. MEMBUAT (Local Streaming &amp; Workspace Storage)" style="swimlane;whiteSpace=wrap;html=1;startSize=26;rounded=1;arcSize=6;fillColor=#1e3a8a;strokeColor=#2563eb;fontColor=#eff6ff;fontStyle=1;fontSize=13;" vertex="1" parent="box-main">
-          <mxGeometry x="30" y="380" width="500" height="230" as="geometry" />
-        </mxCell>
-        <mxCell id="storage-files" value="&lt;b&gt;Workspace Disk Storage&lt;/b&gt;&lt;br/&gt;• &lt;code&gt;recording-[timestamp].mp4&lt;/code&gt; (Raw Video)&lt;br/&gt;• &lt;code&gt;recording-[timestamp].system.wav&lt;/code&gt; (System Audio)&lt;br/&gt;• &lt;code&gt;recording-[timestamp].mic.wav&lt;/code&gt; (Mic Audio)&lt;br/&gt;• &lt;code&gt;project.json&lt;/code&gt; (Saved Project Data)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e40af;strokeColor=#60a5fa;fontColor=#ffffff;fontSize=11;" vertex="1" parent="main-edit-group">
-          <mxGeometry x="20" y="40" width="460" height="80" as="geometry" />
-        </mxCell>
-        <mxCell id="media-server" value="&lt;b&gt;electron/mediaServer.ts&lt;/b&gt;&lt;br/&gt;Local HTTP Range Server (&lt;code&gt;http://127.0.0.1:port/...&lt;/code&gt;)&lt;br/&gt;Melayani streaming frame &amp;amp; scrubbing mulus ke &amp;lt;video&amp;gt; element" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1d4ed8;strokeColor=#93c5fd;fontColor=#ffffff;fontSize=11;" vertex="1" parent="main-edit-group">
-          <mxGeometry x="20" y="135" width="460" height="55" as="geometry" />
-        </mxCell>
-
-        <!-- SUBSECTION: EXPORT & FFMPEG -->
-        <mxCell id="main-exp-group" value="3. MERENDER (Native Export &amp; Muxer Engine)" style="swimlane;whiteSpace=wrap;html=1;startSize=26;rounded=1;arcSize=6;fillColor=#7c2d12;strokeColor=#ea580c;fontColor=#fff7ed;fontStyle=1;fontSize=13;" vertex="1" parent="box-main">
-          <mxGeometry x="30" y="630" width="500" height="260" as="geometry" />
-        </mxCell>
-        <mxCell id="ipc-export" value="&lt;b&gt;electron/ipc/register/export.ts&lt;/b&gt;&lt;br/&gt;Handle: init-video-export-session, push-chunk, mux-audio&lt;br/&gt;Kelola backpressure &amp;amp; child process lifecycle" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9a3412;strokeColor=#fb923c;fontColor=#ffffff;fontSize=11;" vertex="1" parent="main-exp-group">
-          <mxGeometry x="20" y="40" width="460" height="50" as="geometry" />
-        </mxCell>
-        <mxCell id="ffmpeg-proc" value="&lt;b&gt;FFmpeg Child Process (Static Binary)&lt;/b&gt;&lt;br/&gt;• Terima video stream via &lt;code&gt;stdin&lt;/code&gt; pipe&lt;br/&gt;• Mux track audio (cut, trim, gain, speed) via filtergraph / offline buffer&lt;br/&gt;• Final encode H.264 / AAC Container MP4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#c2410c;strokeColor=#fdba74;fontColor=#ffffff;fontSize=11;" vertex="1" parent="main-exp-group">
-          <mxGeometry x="20" y="105" width="460" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="gpu-probe" value="&lt;b&gt;Native Hardware Compositor (C++ / CUDA / DXGI)&lt;/b&gt;&lt;br/&gt;&lt;code&gt;electron/native/gpu-export-probe&lt;/code&gt; (Fast hardware export path)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9a3412;strokeColor=#fb923c;fontColor=#ffffff;fontSize=11;" vertex="1" parent="main-exp-group">
-          <mxGeometry x="20" y="190" width="460" height="45" as="geometry" />
-        </mxCell>
-
-
-        <!-- CONTAINER 2: IPC BRIDGE -->
-        <mxCell id="box-bridge" value="IPC Bridge" style="swimlane;whiteSpace=wrap;html=1;startSize=32;rounded=1;arcSize=6;fillColor=#334155;strokeColor=#64748b;fontColor=#f8fafc;fontStyle=1;fontSize=14;" vertex="1" parent="1">
-          <mxGeometry x="640" y="100" width="180" height="920" as="geometry" />
-        </mxCell>
-        <mxCell id="preload" value="&lt;b&gt;electron/preload.ts&lt;/b&gt;&lt;br/&gt;&lt;i&gt;contextBridge&lt;/i&gt;&lt;br/&gt;Exposes Safe API:&lt;br/&gt;• &lt;code&gt;startNative...&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;stopNative...&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;saveProject...&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;loadProject...&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;initExportSession&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;muxExported...&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#475569;strokeColor=#94a3b8;fontColor=#ffffff;fontSize=11;align=center;" vertex="1" parent="box-bridge">
-          <mxGeometry x="15" y="130" width="150" height="740" as="geometry" />
-        </mxCell>
-
-
-        <!-- CONTAINER 3: CHROMIUM RENDERER (REACT UI) -->
-        <mxCell id="box-renderer" value="Chromium Renderer Process (React 18 + Vite UI)" style="swimlane;whiteSpace=wrap;html=1;startSize=32;rounded=1;arcSize=6;fillColor=#0f172a;strokeColor=#334155;fontColor=#f8fafc;fontStyle=1;fontSize=15;" vertex="1" parent="1">
-          <mxGeometry x="860" y="100" width="750" height="920" as="geometry" />
-        </mxCell>
-
-        <!-- SUBSECTION: RECORDING UI -->
-        <mxCell id="ui-rec-group" value="1. MEREKAM (Capture Orchestrator &amp; Fallbacks)" style="swimlane;whiteSpace=wrap;html=1;startSize=26;rounded=1;arcSize=6;fillColor=#064e3b;strokeColor=#047857;fontColor=#ecfdf5;fontStyle=1;fontSize=13;" vertex="1" parent="box-renderer">
-          <mxGeometry x="30" y="50" width="690" height="230" as="geometry" />
-        </mxCell>
-        <mxCell id="launch-dialog" value="&lt;b&gt;src/components/launch/&lt;/b&gt;&lt;br/&gt;Launch Dialog: Pilih Display / Window, Mic, Webcam, Mode Area" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#065f46;strokeColor=#10b981;fontColor=#ffffff;fontSize=11;" vertex="1" parent="ui-rec-group">
-          <mxGeometry x="20" y="40" width="310" height="60" as="geometry" />
-        </mxCell>
-        <mxCell id="countdown-ui" value="&lt;b&gt;src/components/countdown/&lt;/b&gt;&lt;br/&gt;Overlay hitung mundur &amp;amp; telemetry pointer mouse" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#065f46;strokeColor=#10b981;fontColor=#ffffff;fontSize=11;" vertex="1" parent="ui-rec-group">
-          <mxGeometry x="360" y="40" width="310" height="60" as="geometry" />
-        </mxCell>
-        <mxCell id="hook-recorder" value="&lt;b&gt;src/hooks/useScreenRecorder.ts&lt;/b&gt;&lt;br/&gt;• Orchestrator status rekam (idle, preparing, recording, paused, finalizing)&lt;br/&gt;• Panggil native recording via IPC&lt;br/&gt;• Fallback: browser &lt;code&gt;MediaRecorder&lt;/code&gt; jika native mic tidak tersedia&lt;br/&gt;• Mouse telemetry &amp;amp; click tracking untuk auto-zoom" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#047857;strokeColor=#34d399;fontColor=#ffffff;fontSize=11;" vertex="1" parent="ui-rec-group">
-          <mxGeometry x="20" y="115" width="650" height="90" as="geometry" />
-        </mxCell>
-
-        <!-- SUBSECTION: EDITING & COMPOSING UI -->
-        <mxCell id="ui-edit-group" value="2. MEMBUAT (Video Editor &amp; Multi-Track Timeline)" style="swimlane;whiteSpace=wrap;html=1;startSize=26;rounded=1;arcSize=6;fillColor=#1e3a8a;strokeColor=#2563eb;fontColor=#eff6ff;fontStyle=1;fontSize=13;" vertex="1" parent="box-renderer">
-          <mxGeometry x="30" y="300" width="690" height="310" as="geometry" />
-        </mxCell>
-        <mxCell id="editor-main" value="&lt;b&gt;src/components/video-editor/VideoEditor.tsx&lt;/b&gt;&lt;br/&gt;Root Studio State, Media Synchronization, Layout Switcher" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e40af;strokeColor=#60a5fa;fontColor=#ffffff;fontSize=11;" vertex="1" parent="ui-edit-group">
-          <mxGeometry x="20" y="40" width="650" height="40" as="geometry" />
-        </mxCell>
-        <mxCell id="timeline-runtime" value="&lt;b&gt;Timeline Runtime &amp;amp; Tracks (timelineModel.ts)&lt;/b&gt;&lt;br/&gt;• &lt;b&gt;clipRegions:&lt;/b&gt; Video source split, trim, speed multiplier, transitions&lt;br/&gt;• &lt;b&gt;zoomRegions:&lt;/b&gt; Dynamic pan &amp;amp; zoom blocks, auto-zoom on click telemetry&lt;br/&gt;• &lt;b&gt;layoutRegions:&lt;/b&gt; Webcam PiP, side-by-side, full screen framing&lt;br/&gt;• &lt;b&gt;annotationRegions:&lt;/b&gt; Callouts, texts, shapes, blur, custom keyframes&lt;br/&gt;• &lt;b&gt;audioRegions:&lt;/b&gt; Multi-track BGM, separate system/mic audio gain &amp;amp; ducking" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1d4ed8;strokeColor=#93c5fd;fontColor=#ffffff;fontSize=11;align=left;" vertex="1" parent="ui-edit-group">
-          <mxGeometry x="20" y="90" width="650" height="110" as="geometry" />
-        </mxCell>
-        <mxCell id="preview-canvas" value="&lt;b&gt;Viewport &amp;amp; Canvas Player (videoPlayback/)&lt;/b&gt;&lt;br/&gt;• Spring physics smoothing (&lt;code&gt;motionSmoothing.ts&lt;/code&gt;) untuk zoom halus&lt;br/&gt;• Background wallpaper &amp;amp; frame shadow styling (&lt;code&gt;wallpapers.ts&lt;/code&gt;)&lt;br/&gt;• Realtime HTML5 Canvas2D / WebGL compositing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2563eb;strokeColor=#bfdbfe;fontColor=#ffffff;fontSize=11;" vertex="1" parent="ui-edit-group">
-          <mxGeometry x="20" y="215" width="310" height="75" as="geometry" />
-        </mxCell>
-        <mxCell id="project-persistence" value="&lt;b&gt;Project Persistence (projectPersistence.ts)&lt;/b&gt;&lt;br/&gt;• Schema validation &amp;amp; normalisasi backward compatible&lt;br/&gt;• Mapping relative media paths (&lt;code&gt;convertProjectToWorkspaceAbsolute&lt;/code&gt;)&lt;br/&gt;• Autosave &amp;amp; restore state saat reload" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2563eb;strokeColor=#bfdbfe;fontColor=#ffffff;fontSize=11;" vertex="1" parent="ui-edit-group">
-          <mxGeometry x="360" y="215" width="310" height="75" as="geometry" />
-        </mxCell>
-
-        <!-- SUBSECTION: EXPORT UI & RENDER PIPELINE -->
-        <mxCell id="ui-exp-group" value="3. MERENDER (Frame Generator &amp; Encoder Engine)" style="swimlane;whiteSpace=wrap;html=1;startSize=26;rounded=1;arcSize=6;fillColor=#7c2d12;strokeColor=#ea580c;fontColor=#fff7ed;fontStyle=1;fontSize=13;" vertex="1" parent="box-renderer">
-          <mxGeometry x="30" y="630" width="690" height="260" as="geometry" />
-        </mxCell>
-        <mxCell id="exporter-core" value="&lt;b&gt;src/lib/exporter/modernVideoExporter.ts&lt;/b&gt;&lt;br/&gt;Frame-by-frame loop: hitung timestamp, terapkan zoom spring, draw clip + webcam + anotasi" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9a3412;strokeColor=#fb923c;fontColor=#ffffff;fontSize=11;" vertex="1" parent="ui-exp-group">
-          <mxGeometry x="20" y="40" width="650" height="50" as="geometry" />
-        </mxCell>
-        <mxCell id="webcodecs-enc" value="&lt;b&gt;WebCodecs VideoEncoder&lt;/b&gt;&lt;br/&gt;GPU Accelerated H.264/HEVC encoding&lt;br/&gt;Stream chunk bytes ke Electron IPC" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#c2410c;strokeColor=#fdba74;fontColor=#ffffff;fontSize=11;" vertex="1" parent="ui-exp-group">
-          <mxGeometry x="20" y="110" width="310" height="60" as="geometry" />
-        </mxCell>
-        <mxCell id="audio-processor" value="&lt;b&gt;Web Audio OfflineAudioContext&lt;/b&gt;&lt;br/&gt;Render offline audio track (mix mic, system, BGM)&lt;br/&gt;Kirim buffer audio untuk final muxing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#c2410c;strokeColor=#fdba74;fontColor=#ffffff;fontSize=11;" vertex="1" parent="ui-exp-group">
-          <mxGeometry x="360" y="110" width="310" height="60" as="geometry" />
-        </mxCell>
-        <mxCell id="export-dialog" value="&lt;b&gt;Export Settings &amp;amp; Progress Dialog&lt;/b&gt;&lt;br/&gt;Pilihan resolusi (1080p, 4K), bitrate, framerate (30/60 FPS), status encoding" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ea580c;strokeColor=#ffedd5;fontColor=#ffffff;fontSize=11;" vertex="1" parent="ui-exp-group">
-          <mxGeometry x="20" y="185" width="650" height="50" as="geometry" />
-        </mxCell>
-
-
-        <!-- CONNECTORS / DATA FLOW EDGES -->
-
-        <!-- Flow 1: Recording Trigger (Renderer -> Main) -->
-        <mxCell id="edge-rec-1" value="1a. Trigger Record" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10b981;strokeWidth=2;fontColor=#059669;fontStyle=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="hook-recorder" target="ipc-rec">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="830" y="275" />
-              <mxPoint x="830" y="295" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-
-        <!-- Flow 1b: Native capture to Disk -->
-        <mxCell id="edge-rec-2" value="1b. Write Raw Video + Audio Sidecars (.wav)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10b981;strokeWidth=2;fontColor=#059669;fontStyle=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="audio-capture" target="storage-files">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-        <!-- Flow 2: Playback / Edit (Storage -> Media Server -> Viewport) -->
-        <mxCell id="edge-edit-1" value="2a. Range HTTP Stream" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3b82f6;strokeWidth=2;fontColor=#2563eb;fontStyle=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="media-server" target="preview-canvas">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="750" y="543" />
-              <mxPoint x="750" y="553" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-
-        <!-- Flow 2b: Project Persistence -->
-        <mxCell id="edge-edit-2" value="2b. Save / Load JSON" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#3b82f6;strokeWidth=2;fontColor=#2563eb;fontStyle=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.8;entryDx=0;entryDy=0;" edge="1" parent="1" source="project-persistence" target="storage-files">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="830" y="553" />
-              <mxPoint x="830" y="484" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-
-        <!-- Flow 3: Export Stream (Renderer -> IPC Export) -->
-        <mxCell id="edge-exp-1" value="3a. Push Video Frame Chunks" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#ea580c;strokeWidth=2;fontColor=#c2410c;fontStyle=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="webcodecs-enc" target="ipc-export">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="830" y="770" />
-              <mxPoint x="830" y="695" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-
-        <!-- Flow 3b: Audio Muxing -->
-        <mxCell id="edge-exp-2" value="3b. Audio Plan &amp; Buffer" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#ea580c;strokeWidth=2;fontColor=#c2410c;fontStyle=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.8;entryDx=0;entryDy=0;" edge="1" parent="1" source="audio-processor" target="ipc-export">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="840" y="770" />
-              <mxPoint x="840" y="710" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-
-        <!-- Flow 3c: FFmpeg execution -->
-        <mxCell id="edge-exp-3" value="3c. Pipe stdin &amp; Audio Filtergraph Mux" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#ea580c;strokeWidth=2;fontColor=#c2410c;fontStyle=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ipc-export" target="ffmpeg-proc">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-      </root>
-    </mxGraphModel>
-  </diagram>
+<mxfile host="65bd71144e">
+    <diagram id="captr-slide-architecture" name="Slide-Based Multi-Workspace Architecture">
+        <mxGraphModel dx="1737" dy="1357" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1850" pageHeight="1300" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="Captr Studio — Slide-Based Multi-Workspace Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=22;fontStyle=1;fontColor=#0f172a;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="20" width="850" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="subtitle" value="Arsitektur modular video editor: isolasi per-slide workspace (Record, Video NLE, Keyframe, Remotion), container .captr terstruktur, dan global transition stitcher." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=13;fontColor=#64748b;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="55" width="1050" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="box-deck-ui" value="Presentation &amp; Workspace Switcher Layer (React UI)" style="swimlane;whiteSpace=wrap;html=1;startSize=28;rounded=1;arcSize=6;fillColor=#1e293b;strokeColor=#475569;fontColor=#f8fafc;fontStyle=1;fontSize=14;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="95" width="1770" height="235" as="geometry"/>
+                </mxCell>
+                <mxCell id="deck-bar" value="&lt;b&gt;Slide Deck Bar (src/components/deck/SlideDeckBar.tsx)&lt;/b&gt;&lt;br/&gt;Navigator bawah visual: urutan slide, durasi per slide, drag-and-drop reorder, dan pemilih transisi" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0f172a;strokeColor=#3b82f6;fontColor=#ffffff;fontSize=12;align=center;" parent="box-deck-ui" vertex="1">
+                    <mxGeometry x="30" y="40" width="1710" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="thumb-slide-1" value="&lt;b&gt;Slide 1: [Record]&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#34d399&quot;&gt;Intro Screen Recording&lt;/font&gt;&lt;br/&gt;Durasi: 12.5s" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#064e3b;strokeColor=#10b981;fontColor=#ffffff;fontSize=11;" parent="box-deck-ui" vertex="1">
+                    <mxGeometry x="100" y="95" width="220" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="trans-1" value="&lt;b&gt;Transisi 1&lt;/b&gt;&lt;br/&gt;Type: &lt;code&gt;crossfade&lt;/code&gt;&lt;br/&gt;Durasi: 0.5s" style="shape=rhombus;whiteSpace=wrap;html=1;fillColor=#475569;strokeColor=#94a3b8;fontColor=#ffffff;fontSize=10;" parent="box-deck-ui" vertex="1">
+                    <mxGeometry x="370" y="105" width="110" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="thumb-slide-2" value="&lt;b&gt;Slide 2: [Video NLE]&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#60a5fa&quot;&gt;B-Roll Showcase &amp;amp; Text&lt;/font&gt;&lt;br/&gt;Durasi: 8.0s" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e3a8a;strokeColor=#3b82f6;fontColor=#ffffff;fontSize=11;" parent="box-deck-ui" vertex="1">
+                    <mxGeometry x="530" y="95" width="220" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="trans-2" value="&lt;b&gt;Transisi 2&lt;/b&gt;&lt;br/&gt;Type: &lt;code&gt;wipe-left&lt;/code&gt;&lt;br/&gt;Durasi: 0.4s" style="shape=rhombus;whiteSpace=wrap;html=1;fillColor=#475569;strokeColor=#94a3b8;fontColor=#ffffff;fontSize=10;" parent="box-deck-ui" vertex="1">
+                    <mxGeometry x="800" y="105" width="110" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="thumb-slide-3" value="&lt;b&gt;Slide 3: [Remotion]&lt;/b&gt;&lt;br/&gt;&lt;font color=&quot;#f472b6&quot;&gt;Outro Animated Motion&lt;/font&gt;&lt;br/&gt;Durasi: 5.0s" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#831843;strokeColor=#ec4899;fontColor=#ffffff;fontSize=11;" parent="box-deck-ui" vertex="1">
+                    <mxGeometry x="960" y="95" width="220" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="add-slide-btn" value="&lt;b&gt;[+] Add Slide&lt;/b&gt;&lt;br/&gt;Pilih: Record / Video /&lt;br/&gt;Keyframe / Remotion" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e293b;strokeColor=#64748b;strokeStyle=dashed;fontColor=#cbd5e1;fontSize=11;" parent="box-deck-ui" vertex="1">
+                    <mxGeometry x="1230" y="105" width="140" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="deck-edge-1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#94a3b8;strokeWidth=2;" parent="box-deck-ui" source="thumb-slide-1" target="trans-1" edge="1"/>
+                <mxCell id="deck-edge-2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#94a3b8;strokeWidth=2;" parent="box-deck-ui" source="trans-1" target="thumb-slide-2" edge="1"/>
+                <mxCell id="deck-edge-3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#94a3b8;strokeWidth=2;" parent="box-deck-ui" source="thumb-slide-2" target="trans-2" edge="1"/>
+                <mxCell id="deck-edge-4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#94a3b8;strokeWidth=2;" parent="box-deck-ui" source="trans-2" target="thumb-slide-3" edge="1"/>
+                <mxCell id="box-core" value="Core Slide Engine (src/core/slides/)" style="swimlane;whiteSpace=wrap;html=1;startSize=28;rounded=1;arcSize=6;fillColor=#0f172a;strokeColor=#334155;fontColor=#f8fafc;fontStyle=1;fontSize=13;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="350" width="360" height="520" as="geometry"/>
+                </mxCell>
+                <mxCell id="slide-registry" value="&lt;b&gt;SlideRegistry (registry.ts)&lt;/b&gt;&lt;br/&gt;Singleton module catalog:&lt;br/&gt;&lt;code&gt;register(type, module)&lt;/code&gt;&lt;br/&gt;&lt;code&gt;get(type)&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e293b;strokeColor=#3b82f6;fontColor=#ffffff;fontSize=11;" parent="box-core" vertex="1">
+                    <mxGeometry x="20" y="45" width="320" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="slide-contract" value="&lt;b&gt;Interface SlideModule&amp;lt;TMeta&amp;gt;&lt;/b&gt;&lt;br/&gt;&lt;div align=&quot;left&quot;&gt;• &lt;code&gt;type: SlideType&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;WorkspaceComponent&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;generateThumbnail()&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;renderFrame(canvas)&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;renderAudioTrack()&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;schema: ZodSchema&lt;/code&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e293b;strokeColor=#64748b;fontColor=#e2e8f0;fontSize=11;" parent="box-core" vertex="1">
+                    <mxGeometry x="20" y="125" width="320" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="slide-context" value="&lt;b&gt;SlideDeckContext (SlideDeckContext.tsx)&lt;/b&gt;&lt;br/&gt;Global State Management:&lt;br/&gt;• &lt;code&gt;slides: SlideData[]&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;activeSlideId: string&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;transitions: SlideTransition[]&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;globalAudioTracks: AudioTrack[]&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e293b;strokeColor=#64748b;fontColor=#e2e8f0;fontSize=11;" parent="box-core" vertex="1">
+                    <mxGeometry x="20" y="275" width="320" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="workspace-host" value="&lt;b&gt;Dynamic Workspace Host&lt;/b&gt;&lt;br/&gt;&lt;code&gt;&amp;lt;SlideWorkspaceHost /&amp;gt;&lt;/code&gt;&lt;br/&gt;Mounting otomatis UI workspace sesuai tipe slide yang aktif" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#3b82f6;strokeColor=#93c5fd;fontColor=#ffffff;fontSize=11;" parent="box-core" vertex="1">
+                    <mxGeometry x="20" y="395" width="320" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="box-slides" value="Modular Slide Plugins (src/slides/)" style="swimlane;whiteSpace=wrap;html=1;startSize=28;rounded=1;arcSize=6;fillColor=#0f172a;strokeColor=#334155;fontColor=#f8fafc;fontStyle=1;fontSize=13;" parent="1" vertex="1">
+                    <mxGeometry x="430" y="350" width="1380" height="520" as="geometry"/>
+                </mxCell>
+                <mxCell id="mod-rec" value="1. Record Slide (src/slides/record/)" style="swimlane;whiteSpace=wrap;html=1;startSize=26;rounded=1;arcSize=6;fillColor=#064e3b;strokeColor=#047857;fontColor=#ecfdf5;fontStyle=1;fontSize=12;" parent="box-slides" vertex="1">
+                    <mxGeometry x="30" y="45" width="310" height="445" as="geometry"/>
+                </mxCell>
+                <mxCell id="rec-ui" value="&lt;b&gt;RecordSlideWorkspace.tsx&lt;/b&gt;&lt;br/&gt;Paradigma: &lt;i&gt;Screen Studio / Recordly&lt;/i&gt;&lt;br/&gt;• Auto-zoom ke kursor mouse&lt;br/&gt;• Spring motion smoothing&lt;br/&gt;• Wallpaper backdrop &amp;amp; border radius&lt;br/&gt;• Webcam bubble (PiP) position" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#065f46;strokeColor=#10b981;fontColor=#ffffff;fontSize=11;" parent="mod-rec" vertex="1">
+                    <mxGeometry x="15" y="40" width="280" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="rec-schema" value="&lt;b&gt;RecordMeta Schema (schema.ts)&lt;/b&gt;&lt;br/&gt;• &lt;code&gt;screenVideoPath&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;systemAudioPath&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;micAudioPath&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;zoomRegions: ZoomRegion[]&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;cursorTelemetry: Point[]&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#047857;strokeColor=#34d399;fontColor=#ffffff;fontSize=11;" parent="mod-rec" vertex="1">
+                    <mxGeometry x="15" y="165" width="280" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="rec-render" value="&lt;b&gt;RecordSlideRenderer.ts&lt;/b&gt;&lt;br/&gt;Render frame canvas per tick:&lt;br/&gt;Background + Screen + Zoom Spring + Webcam overlay" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#047857;strokeColor=#34d399;fontColor=#ffffff;fontSize=11;" parent="mod-rec" vertex="1">
+                    <mxGeometry x="15" y="300" width="280" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="rec-contract-bind" value="&lt;code&gt;recordSlideModule: SlideModule&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#064e3b;strokeColor=#6ee7b7;fontColor=#ecfdf5;fontSize=10;fontStyle=1;" parent="mod-rec" vertex="1">
+                    <mxGeometry x="15" y="385" width="280" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="mod-vid" value="2. Video Slide (src/slides/video/)" style="swimlane;whiteSpace=wrap;html=1;startSize=26;rounded=1;arcSize=6;fillColor=#1e3a8a;strokeColor=#2563eb;fontColor=#eff6ff;fontStyle=1;fontSize=12;" parent="box-slides" vertex="1">
+                    <mxGeometry x="370" y="45" width="310" height="445" as="geometry"/>
+                </mxCell>
+                <mxCell id="vid-ui" value="&lt;b&gt;VideoSlideWorkspace.tsx&lt;/b&gt;&lt;br/&gt;Paradigma: &lt;i&gt;CapCut / Filmora NLE&lt;/i&gt;&lt;br/&gt;• Multi-track timeline (Video, B-Roll, SFX)&lt;br/&gt;• Clip split (razor), trim, playback speed&lt;br/&gt;• Media pool / Asset drawer&lt;br/&gt;• Text &amp;amp; subtitle overlay track" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e40af;strokeColor=#60a5fa;fontColor=#ffffff;fontSize=11;" parent="mod-vid" vertex="1">
+                    <mxGeometry x="15" y="40" width="280" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="vid-schema" value="&lt;b&gt;VideoMeta Schema (schema.ts)&lt;/b&gt;&lt;br/&gt;• &lt;code&gt;videoTracks: VideoTrack[]&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;audioTracks: AudioTrack[]&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;overlayTracks: TextTrack[]&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;clips: ClipItem[]&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1d4ed8;strokeColor=#93c5fd;fontColor=#ffffff;fontSize=11;" parent="mod-vid" vertex="1">
+                    <mxGeometry x="15" y="165" width="280" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="vid-render" value="&lt;b&gt;NleSlideRenderer.ts&lt;/b&gt;&lt;br/&gt;Multi-layer compositor:&lt;br/&gt;Layer Base + B-Roll + Transform Scale/Position + Text Canvas" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1d4ed8;strokeColor=#93c5fd;fontColor=#ffffff;fontSize=11;" parent="mod-vid" vertex="1">
+                    <mxGeometry x="15" y="300" width="280" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="vid-contract-bind" value="&lt;code&gt;videoSlideModule: SlideModule&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e3a8a;strokeColor=#93c5fd;fontColor=#eff6ff;fontSize=10;fontStyle=1;" parent="mod-vid" vertex="1">
+                    <mxGeometry x="15" y="385" width="280" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="mod-key" value="3. Keyframing Slide (Future)" style="swimlane;whiteSpace=wrap;html=1;startSize=26;rounded=1;arcSize=6;fillColor=#4c1d95;strokeColor=#7c3aed;fontColor=#f5f3ff;fontStyle=1;fontSize=12;" parent="box-slides" vertex="1">
+                    <mxGeometry x="710" y="45" width="300" height="445" as="geometry"/>
+                </mxCell>
+                <mxCell id="key-info" value="&lt;b&gt;KeyframingSlideWorkspace.tsx&lt;/b&gt;&lt;br/&gt;Paradigma: &lt;i&gt;After Effects Lite&lt;/i&gt;&lt;br/&gt;• Properti kurva Bezier (posisi, rotasi, opasitas)&lt;br/&gt;• Easing presets (ease-in-out, bounce)&lt;br/&gt;• Vektor shape &amp;amp; logo animation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#5b21b6;strokeColor=#a78bfa;fontColor=#ffffff;fontSize=11;" parent="mod-key" vertex="1">
+                    <mxGeometry x="15" y="40" width="270" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="key-contract-bind" value="&lt;code&gt;keyframeSlideModule: SlideModule&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4c1d95;strokeColor=#c4b5fd;fontColor=#f5f3ff;fontSize=10;fontStyle=1;" parent="mod-key" vertex="1">
+                    <mxGeometry x="15" y="385" width="270" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="mod-rem" value="4. Remotion Slide (Future)" style="swimlane;whiteSpace=wrap;html=1;startSize=26;rounded=1;arcSize=6;fillColor=#831843;strokeColor=#db2777;fontColor=#fdf2f8;fontStyle=1;fontSize=12;" parent="box-slides" vertex="1">
+                    <mxGeometry x="1040" y="45" width="310" height="445" as="geometry"/>
+                </mxCell>
+                <mxCell id="rem-info" value="&lt;b&gt;RemotionSlideWorkspace.tsx&lt;/b&gt;&lt;br/&gt;Paradigma: &lt;i&gt;Code-Driven React Video&lt;/i&gt;&lt;br/&gt;• Live code editor / JSON props tuning&lt;br/&gt;• React component animation preview&lt;br/&gt;• Headless frame grabber via Remotion API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9d174d;strokeColor=#f472b6;fontColor=#ffffff;fontSize=11;" parent="mod-rem" vertex="1">
+                    <mxGeometry x="15" y="40" width="280" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="rem-contract-bind" value="&lt;code&gt;remotionSlideModule: SlideModule&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#831843;strokeColor=#fbcfe8;fontColor=#fdf2f8;fontSize=10;fontStyle=1;" parent="mod-rem" vertex="1">
+                    <mxGeometry x="15" y="385" width="280" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="box-storage" value="Project Container (.captr bundle directory)" style="swimlane;whiteSpace=wrap;html=1;startSize=28;rounded=1;arcSize=6;fillColor=#0f172a;strokeColor=#334155;fontColor=#f8fafc;fontStyle=1;fontSize=13;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="895" width="850" height="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="captr-root" value="&lt;b&gt;project.json (Root Orchestrator)&lt;/b&gt;&lt;br/&gt;• &lt;code&gt;version: &quot;2.0.0&quot;&lt;/code&gt;, canvas dimensions &amp;amp; FPS&lt;br/&gt;• &lt;code&gt;slides: [{ id, type, dirName, durationMs, title }]&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;transitions: [{ fromSlideId, toSlideId, type, durationMs }]&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;globalAudioTracks: [{ path, volume, fadeIn, fadeOut }]&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e293b;strokeColor=#60a5fa;fontColor=#ffffff;fontSize=11;" parent="box-storage" vertex="1">
+                    <mxGeometry x="20" y="45" width="810" height="75" as="geometry"/>
+                </mxCell>
+                <mxCell id="captr-sub-rec" value="&lt;b&gt;slides/slide_01_rec/&lt;/b&gt;&lt;br/&gt;• &lt;code&gt;slide.json&lt;/code&gt; (Record meta)&lt;br/&gt;• &lt;code&gt;screen.mp4&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;system.wav&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;mic.wav&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#064e3b;strokeColor=#10b981;fontColor=#ffffff;fontSize=11;" parent="box-storage" vertex="1">
+                    <mxGeometry x="20" y="135" width="250" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="captr-sub-vid" value="&lt;b&gt;slides/slide_02_vid/&lt;/b&gt;&lt;br/&gt;• &lt;code&gt;slide.json&lt;/code&gt; (NLE tracks meta)&lt;br/&gt;• &lt;code&gt;media/broll.mp4&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;media/overlay.png&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;media/sfx.wav&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e3a8a;strokeColor=#3b82f6;fontColor=#ffffff;fontSize=11;" parent="box-storage" vertex="1">
+                    <mxGeometry x="300" y="135" width="250" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="captr-sub-rem" value="&lt;b&gt;slides/slide_03_rem/&lt;/b&gt;&lt;br/&gt;• &lt;code&gt;slide.json&lt;/code&gt; (Props meta)&lt;br/&gt;• &lt;code&gt;src/Composition.tsx&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;assets/logo.svg&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#831843;strokeColor=#ec4899;fontColor=#ffffff;fontSize=11;" parent="box-storage" vertex="1">
+                    <mxGeometry x="580" y="135" width="250" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="captr-ipc-handler" value="&lt;b&gt;packageHandler.ts (Electron IPC)&lt;/b&gt;: Membaca / menulis format paket .captr serta menjamin backward-compatibility project v1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#334155;strokeColor=#94a3b8;fontColor=#f8fafc;fontSize=11;" parent="box-storage" vertex="1">
+                    <mxGeometry x="20" y="265" width="810" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="box-render-pipeline" value="Global Multi-Slide Render &amp; Transition Pipeline" style="swimlane;whiteSpace=wrap;html=1;startSize=28;rounded=1;arcSize=6;fillColor=#0f172a;strokeColor=#334155;fontColor=#f8fafc;fontStyle=1;fontSize=13;" parent="1" vertex="1">
+                    <mxGeometry x="930" y="895" width="880" height="360" as="geometry"/>
+                </mxCell>
+                <mxCell id="render-phase-1" value="&lt;b&gt;Tahap 1: Per-Slide Export Loop (WebCodecs / Canvas)&lt;/b&gt;&lt;br/&gt;Setiap slide merender framenya sendiri secara modular via &lt;code&gt;SlideModule.renderFrame&lt;/code&gt;&lt;br/&gt;Output video parsial: &lt;code&gt;temp_slide_01.mp4&lt;/code&gt;, &lt;code&gt;temp_slide_02.mp4&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#7c2d12;strokeColor=#ea580c;fontColor=#ffffff;fontSize=11;" parent="box-render-pipeline" vertex="1">
+                    <mxGeometry x="20" y="45" width="840" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="render-phase-2" value="&lt;b&gt;Tahap 2: FFmpeg Transition Stitcher (globalStitcher.ts)&lt;/b&gt;&lt;br/&gt;Menerapkan filter transisi dinamis antar part video &amp;amp; audio:&lt;br/&gt;&lt;code&gt;filter_complex &quot;[0:v][1:v]xfade=transition=fade:duration=0.5:offset=12.0[vout]; [0:a][1:a]acrossfade=d=0.5[aout]&quot;&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9a3412;strokeColor=#f97316;fontColor=#ffffff;fontSize=11;" parent="box-render-pipeline" vertex="1">
+                    <mxGeometry x="20" y="125" width="840" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="render-bgm" value="&lt;b&gt;Tahap 3: Global Audio &amp;amp; BGM Overlay&lt;/b&gt;&lt;br/&gt;Filter &lt;code&gt;amix&lt;/code&gt; / &lt;code&gt;volume&lt;/code&gt; untuk menyatukan background music global dari &lt;code&gt;project.json&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#c2410c;strokeColor=#fb923c;fontColor=#ffffff;fontSize=11;" parent="box-render-pipeline" vertex="1">
+                    <mxGeometry x="20" y="205" width="840" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="render-final" value="&lt;b&gt;FINAL RENDERED MP4 OUTPUT FILE&lt;/b&gt;&lt;br/&gt;Satu file video utuh beresolusi tinggi (1080p / 4K 60FPS) siap di-share" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#10b981;strokeColor=#34d399;fontColor=#ffffff;fontSize=12;fontStyle=1;" parent="box-render-pipeline" vertex="1">
+                    <mxGeometry x="20" y="275" width="840" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="flow-edge-1" value="Active Slide ID" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#3b82f6;strokeWidth=2;fontColor=#3b82f6;fontStyle=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="deck-bar" target="workspace-host" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="flow-edge-2" value="Mount Record Workspace" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#10b981;strokeWidth=2;fontColor=#10b981;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="workspace-host" target="rec-ui" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="400" y="775"/>
+                            <mxPoint x="400" y="450"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="flow-edge-3" value="Mount Video Workspace" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#3b82f6;strokeWidth=2;fontColor=#3b82f6;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="workspace-host" target="vid-ui" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="415" y="775"/>
+                            <mxPoint x="415" y="450"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="flow-edge-4" value="Export chunks" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#ea580c;strokeWidth=2;fontColor=#ea580c;fontStyle=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="box-slides" target="render-phase-1" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="flow-edge-5" value="Read raw media &amp; transitions" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#60a5fa;strokeWidth=2;fontColor=#60a5fa;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="box-storage" target="render-phase-2" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
 </mxfile>

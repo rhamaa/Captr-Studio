@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils";
 import { SliderControl } from "../../SliderControl";
 import type { CursorStyle } from "../../types";
 import {
-	DEFAULT_CAMERA_PERSPECTIVE_TILT,
 	DEFAULT_CURSOR_CLICK_BOUNCE,
 	DEFAULT_CURSOR_CLICK_BOUNCE_DURATION,
 	DEFAULT_CURSOR_MOTION_BLUR,
@@ -42,8 +41,6 @@ export interface CursorSectionProps {
 	onCursorClickBounceDurationChange?: (duration: number) => void;
 	cursorSway: number;
 	onCursorSwayChange?: (sway: number) => void;
-	cameraPerspectiveTilt?: number;
-	onCameraPerspectiveTiltChange?: (tilt: number) => void;
 	resetCursorSection: () => void;
 	showDevMotionControls?: boolean;
 	renderExtensionPanelsForSections?: (...sections: string[]) => React.ReactNode;
@@ -74,8 +71,6 @@ export function CursorSection({
 	onCursorClickBounceDurationChange,
 	cursorSway,
 	onCursorSwayChange,
-	cameraPerspectiveTilt,
-	onCameraPerspectiveTiltChange,
 	resetCursorSection,
 	showDevMotionControls,
 	renderExtensionPanelsForSections,
@@ -91,7 +86,7 @@ export function CursorSection({
 					<button
 						type="button"
 						onClick={resetCursorSection}
-						className="text-[10px] text-[#2563EB] transition-opacity hover:opacity-80"
+						className="text-[10px] text-[#6FA8FF] transition-opacity hover:opacity-80"
 					>
 						{t("common.actions.reset", "Reset")}
 					</button>
@@ -102,7 +97,7 @@ export function CursorSection({
 						<Switch
 							checked={showCursor}
 							onCheckedChange={onShowCursorChange}
-							className="data-[state=checked]:bg-[#2563EB] scale-75"
+							className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 						/>
 					</label>
 					<label className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
@@ -110,7 +105,7 @@ export function CursorSection({
 						<Switch
 							checked={loopCursor}
 							onCheckedChange={onLoopCursorChange}
-							className="data-[state=checked]:bg-[#2563EB] scale-75"
+							className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 						/>
 					</label>
 				</div>
@@ -136,7 +131,7 @@ export function CursorSection({
 								aria-label={option.label}
 								className={cn(
 									"group aspect-square h-auto min-w-0 rounded-[10px] border border-foreground/10 bg-foreground/[0.03] p-3 text-left text-foreground shadow-none transition-all hover:border-foreground/20 hover:bg-foreground/[0.06]",
-									"data-[state=on]:border-[#2563EB]/70 data-[state=on]:bg-[#2563EB]/12 data-[state=on]:text-foreground",
+									"data-[state=on]:border-[#6FA8FF]/70 data-[state=on]:bg-[#6FA8FF]/12 data-[state=on]:text-foreground",
 								)}
 							>
 								<div className="flex h-full flex-col items-center justify-between gap-3">
@@ -223,23 +218,6 @@ export function CursorSection({
 						const normalized = text.trim().toLowerCase();
 						if (normalized === "off") return 0;
 						return parseFloat(text.replace(/×$/, ""));
-					}}
-				/>
-				<SliderControl
-					label={tSettings("effects.perspectiveTilt", "3D Perspective Tilt")}
-					value={Math.round((cameraPerspectiveTilt ?? 0) * 100)}
-					defaultValue={Math.round(DEFAULT_CAMERA_PERSPECTIVE_TILT * 100)}
-					min={0}
-					max={100}
-					step={5}
-					onChange={(v: number) => onCameraPerspectiveTiltChange?.(v / 100)}
-					formatValue={(v: number) =>
-						v <= 0 ? tSettings("effects.off", "Off") : `${Math.round(v)}%`
-					}
-					parseInput={(text: string) => {
-						const normalized = text.trim().toLowerCase();
-						if (normalized === "off") return 0;
-						return parseFloat(text.replace(/%$/, ""));
 					}}
 				/>
 				{showDevMotionControls ? (

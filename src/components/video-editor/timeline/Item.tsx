@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLocalMediaUrl } from "@/hooks/useLocalMediaUrl";
 import { cn } from "@/lib/utils";
-import type { AudioPeaksData, SlideMedia4in1 } from "./core/timelineTypes";
+import type { AudioPeaksData, RecordingMediaStreams } from "./core/timelineTypes";
 import glassStyles from "./ItemGlass.module.css";
 import { ClipTimelineItem } from "./items/ClipTimelineItem";
 import { formatMs, getGlassClass } from "./items/itemUtils";
@@ -28,7 +28,7 @@ export interface ItemProps {
 	waveformNormalize?: boolean;
 	muted?: boolean;
 	transitionIn?: import("../types").ClipTransitionType;
-	media4in1?: SlideMedia4in1;
+	media4in1?: RecordingMediaStreams;
 	keyframes?: import("../types").PropertyKeyframe[];
 	locked?: boolean;
 	variant?: "zoom" | "trim" | "clip" | "annotation" | "speed" | "audio" | "layout";

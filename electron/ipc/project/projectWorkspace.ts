@@ -18,125 +18,8 @@ export function getProjectWorkspaceDir(projectId: string): string {
 
 export async function ensureProjectWorkspace(projectId: string): Promise<string> {
 	const workspaceDir = getProjectWorkspaceDir(projectId);
-	await fs.mkdir(path.join(workspaceDir, "slides"), { recursive: true });
+	await fs.mkdir(path.join(workspaceDir, "assets"), { recursive: true });
 	return workspaceDir;
-}
-
-export function getSlideDir(workspaceDir: string, slideId: string): string {
-	const safeSlideId = slideId.replace(/[^a-zA-Z0-9_-]/g, "_");
-	return path.join(workspaceDir, "slides", safeSlideId);
-}
-
-export async function ensureSlideDir(workspaceDir: string, slideId: string): Promise<string> {
-	const slideDir = getSlideDir(workspaceDir, slideId);
-	await fs.mkdir(slideDir, { recursive: true });
-	return slideDir;
-}
-
-export function getSlideAssetsDir(
-	workspaceDir: string,
-	slideId: string,
-	subfolder?: string,
-): string {
-	const slideDir = getSlideDir(workspaceDir, slideId);
-	if (subfolder && subfolder.trim().length > 0) {
-		const safeSubfolder = subfolder.trim().replace(/[^a-zA-Z0-9_\- &]/g, "_");
-		return path.join(slideDir, "assets", safeSubfolder);
-	}
-	return path.join(slideDir, "assets");
-}
-
-export async function ensureSlideAssetsDir(
-	workspaceDir: string,
-	slideId: string,
-	subfolder?: string,
-): Promise<string> {
-	const assetsDir = getSlideAssetsDir(workspaceDir, slideId, subfolder);
-	await fs.mkdir(assetsDir, { recursive: true });
-	return assetsDir;
-}
-
-/**
- * Copies an external media file into the dedicated assets directory for the specified slide.
- * Returns both the absolute local path (for immediate UI playback) and the bundle-relative path (for serialization).
- */
-export async function copyAssetToSlideWorkspace(
-	workspaceDir: string,
-	slideId: string,
-	sourceFilePath: string,
-	subfolder?: string,
-): Promise<{ absolutePath: string; bundleRelativePath: string; fileName: string; size: number }> {
-	const assetsDir = await ensureSlideAssetsDir(workspaceDir, slideId, subfolder);
-
-	const parsed = path.parse(sourceFilePath);
-	const baseName = parsed.name.replace(/[^a-zA-Z0-9_\-. ]/g, "_");
-	const ext = parsed.ext.toLowerCase();
-
-	let fileName = `${baseName}${ext}`;
-	let targetPath = path.join(assetsDir, fileName);
-
-	// Avoid overwriting existing files with the same name by adding a timestamp suffix
-	try {
-		await fs.access(targetPath);
-		fileName = `${baseName}-${Date.now().toString(36)}${ext}`;
-		targetPath = path.join(assetsDir, fileName);
-	} catch {
-		// Target does not exist, can use fileName
-	}
-
-	await fs.copyFile(sourceFilePath, targetPath);
-	const stats = await fs.stat(targetPath);
-
-	const normWorkspace = normalizePath(workspaceDir);
-	let bundleRelativePath = normalizePath(targetPath);
-	if (bundleRelativePath.toLowerCase().startsWith(normWorkspace.toLowerCase())) {
-		bundleRelativePath = bundleRelativePath.slice(normWorkspace.length);
-		bundleRelativePath = bundleRelativePath.replace(/^[/\\]+/, "").replace(/\\/g, "/");
-	}
-
-	return {
-		absolutePath: normalizePath(targetPath),
-		bundleRelativePath,
-		fileName,
-		size: stats.size,
-	};
-}
-
-/**
- * Moves or copies a recording file directly into the slide's directory (e.g. main.mp4, webcam.mp4, cursor.json).
- */
-export async function assignRecordingToSlide(
-	workspaceDir: string,
-	slideId: string,
-	sourcePath: string,
-	kind: "main" | "webcam" | "cursor",
-): Promise<{ absolutePath: string; bundleRelativePath: string }> {
-	const slideDir = await ensureSlideDir(workspaceDir, slideId);
-	const ext = path.extname(sourcePath).toLowerCase();
-
-	const fileName =
-		kind === "cursor" ? "cursor.json" : kind === "webcam" ? `webcam${ext}` : `main${ext}`;
-	const targetPath = path.join(slideDir, fileName);
-
-	try {
-		await fs.copyFile(sourcePath, targetPath);
-	} catch (error) {
-		throw new Error(
-			`Failed to assign recording to slide ${slideId}: ${error instanceof Error ? error.message : String(error)}`,
-		);
-	}
-
-	const normWorkspace = normalizePath(workspaceDir);
-	let bundleRelativePath = normalizePath(targetPath);
-	if (bundleRelativePath.toLowerCase().startsWith(normWorkspace.toLowerCase())) {
-		bundleRelativePath = bundleRelativePath.slice(normWorkspace.length);
-		bundleRelativePath = bundleRelativePath.replace(/^[/\\]+/, "").replace(/\\/g, "/");
-	}
-
-	return {
-		absolutePath: normalizePath(targetPath),
-		bundleRelativePath,
-	};
 }
 
 /**
@@ -328,6 +211,8 @@ export function convertProjectToBundleRelative(
 			mapEntryMediaPaths(clip, toRelative);
 		}
 	}
+	if(Array.isArray(cloned.slides)){for(const entry of cloned.slides){mapEntryMediaPaths(entry.meta??entry,toRelative);}}
+	if(Array.isArray(cloned.globalAudioTracks)){for(const audio of cloned.globalAudioTracks){if(typeof audio.path==="string")audio.path=toRelative(audio.path);}}
 
 	return cloned;
 }
@@ -361,6 +246,9 @@ export function convertProjectToWorkspaceAbsolute(
 			mapEntryMediaPaths(clip, toAbsolute);
 		}
 	}
+
+	if(Array.isArray(cloned.slides)){for(const entry of cloned.slides){mapEntryMediaPaths(entry.meta??entry,toAbsolute);}}
+	if(Array.isArray(cloned.globalAudioTracks)){for(const audio of cloned.globalAudioTracks){if(typeof audio.path==="string")audio.path=toAbsolute(audio.path);}}
 
 	return cloned;
 }

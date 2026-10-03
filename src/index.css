@@ -30,99 +30,124 @@
 	}
 
 	:root {
-		--app-font-sans: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
-		--brand-accent: #6366f1;
-		--brand-accent-rgb: 99, 102, 241;
-		--brand-cyan: #06b6d4;
-		--brand-crimson: #ff3358;
-		--background: 220 33% 98%;
-		--foreground: 222 47% 11%;
-		--card: 0 0% 100%;
-		--card-foreground: 222 47% 11%;
+		--app-font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+		
+		/* Captr Studio Brand Tokens */
+		--captr-blue: #6FA8FF;
+		--captr-purple: #A879F5;
+		--captr-green: #8DDB9B;
+		--captr-ink: #344054;
+		--captr-red: #FF6B81;
+		--captr-yellow: #F6C768;
+
+		--brand-accent: #6FA8FF;
+		--brand-accent-rgb: 111, 168, 255;
+		--brand-cyan: #6FA8FF;
+		--brand-crimson: #FF6B81;
+
+		/* Light Mode */
+		--background: 225 43% 98%;      /* #F8F9FC */
+		--foreground: 218 24% 27%;      /* #344054 */
+		--card: 0 0% 100%;             /* #FFFFFF */
+		--card-foreground: 218 24% 27%;
 		--popover: 0 0% 100%;
-		--popover-foreground: 222 47% 11%;
-		--primary: 239 84% 67%;
-		--primary-foreground: 0 0% 100%;
-		--secondary: 220 25% 94%;
-		--secondary-foreground: 222 47% 11%;
-		--muted: 220 25% 94%;
-		--muted-foreground: 220 16% 46%;
-		--accent: 189 94% 43%;
+		--popover-foreground: 218 24% 27%;
+		--primary: 216 100% 72%;       /* #6FA8FF */
+		--primary-foreground: 218 24% 27%;
+		--secondary: 220 23% 96%;      /* #F1F3F7 */
+		--secondary-foreground: 218 24% 27%;
+		--muted: 220 23% 96%;          /* #F1F3F7 */
+		--muted-foreground: 220 13% 46%; /* #667085 */
+		--accent: 263 87% 72%;         /* #A879F5 */
 		--accent-foreground: 0 0% 100%;
-		--destructive: 349 100% 60%;
+		--destructive: 351 100% 71%;   /* #FF6B81 */
 		--destructive-foreground: 0 0% 100%;
-		--border: 220 20% 90%;
-		--input: 220 20% 90%;
-		--ring: 239 84% 67%;
-		--chart-1: 239 84% 67%;
-		--chart-2: 189 94% 43%;
-		--chart-3: 160 84% 39%;
-		--chart-4: 38 92% 50%;
-		--chart-5: 349 100% 60%;
-		--radius: 0.5rem;
+		--border: 218 17% 91%;         /* #E4E7EC */
+		--input: 218 17% 91%;
+		--ring: 216 100% 72%;
+		--chart-1: 216 100% 72%;       /* Blue */
+		--chart-2: 263 87% 72%;        /* Purple */
+		--chart-3: 131 53% 71%;        /* Green */
+		--chart-4: 40 89% 69%;         /* Yellow */
+		--chart-5: 351 100% 71%;       /* Red */
+		--radius: 0.5rem;              /* 8px default */
 
 		/* Editor surface colors — light mode */
-		--editor-bg: 220 33% 98%;
+		--editor-bg: 225 43% 98%;
 		--editor-header: 0 0% 100%;
 		--editor-panel: 0 0% 100%;
-		--editor-surface: 220 25% 94%;
-		--editor-surface-alt: 220 25% 91%;
+		--editor-surface: 220 23% 96%;
+		--editor-surface-alt: 223 23% 93%;
 		--editor-dialog: 0 0% 100%;
-		--editor-dialog-alt: 220 25% 94%;
-		--editor-timeline: 220 33% 98%;
+		--editor-dialog-alt: 220 23% 96%;
+		--editor-timeline: 225 43% 98%;
 		--editor-row: 0 0% 100%;
-		--editor-subrow: 220 25% 94%;
+		--editor-subrow: 220 23% 96%;
 
 		/* Slider track colors — light mode */
-		--slider-track: 220 16% 22% / 0.15;
-		--slider-thumb: 239 84% 67%;
-		--slider-thumb-shadow: 239 84% 67% / 0.35;
-		--slider-glow: 189 94% 43% / 0.45;
+		--slider-track: 218 24% 27% / 0.15;
+		--slider-thumb: 216 100% 72%;
+		--slider-thumb-shadow: 216 100% 72% / 0.35;
+		--slider-glow: 263 87% 72% / 0.35;
+
+		/* Timeline colors */
+		--timeline-video: #6FA8FF;
+		--timeline-audio: #8DDB9B;
+		--timeline-text: #A879F5;
+		--timeline-overlay: #F6C768;
+		--timeline-playhead: #FF6B81;
 	}
 
 	.dark {
-		--background: 222 47% 7%;
-		--foreground: 210 40% 98%;
-		--card: 223 38% 11%;
-		--card-foreground: 210 40% 98%;
-		--popover: 223 38% 11%;
-		--popover-foreground: 210 40% 98%;
-		--primary: 239 84% 67%;
-		--primary-foreground: 0 0% 100%;
-		--secondary: 224 25% 18%;
-		--secondary-foreground: 210 40% 96%;
-		--muted: 224 25% 18%;
-		--muted-foreground: 217 19% 65%;
-		--accent: 189 94% 43%;
+		--background: 223 14% 10%;     /* #15171C */
+		--foreground: 220 20% 97%;     /* #F5F6F8 */
+		--card: 222 15% 13%;           /* #1C1F26 */
+		--card-foreground: 220 20% 97%;
+		--popover: 222 15% 13%;
+		--popover-foreground: 220 20% 97%;
+		--primary: 216 100% 72%;       /* #6FA8FF */
+		--primary-foreground: 222 47% 11%;
+		--secondary: 223 16% 17%;      /* #242832 */
+		--secondary-foreground: 220 20% 97%;
+		--muted: 223 16% 17%;          /* #242832 */
+		--muted-foreground: 220 12% 70%; /* #A8AFBD */
+		--accent: 263 87% 72%;         /* #A879F5 */
 		--accent-foreground: 0 0% 100%;
-		--destructive: 349 100% 60%;
+		--destructive: 351 100% 71%;   /* #FF6B81 */
 		--destructive-foreground: 0 0% 100%;
-		--border: 224 25% 18%;
-		--input: 224 25% 18%;
-		--ring: 239 84% 67%;
-		--chart-1: 239 84% 67%;
-		--chart-2: 189 94% 43%;
-		--chart-3: 160 84% 39%;
-		--chart-4: 38 92% 50%;
-		--chart-5: 349 100% 60%;
+		--border: 219 15% 24%;         /* #343A46 */
+		--input: 219 15% 24%;
+		--ring: 216 100% 72%;
+		--chart-1: 216 100% 72%;
+		--chart-2: 263 87% 72%;
+		--chart-3: 131 53% 71%;
+		--chart-4: 40 89% 69%;
+		--chart-5: 351 100% 71%;
 
-		/* Editor surface colors — dark mode (Obsidian studio palette) */
-		--editor-bg: 222 47% 7%;
-		--editor-header: 223 38% 11%;
-		--editor-panel: 223 38% 10%;
-		--editor-surface: 224 25% 16%;
-		--editor-surface-alt: 224 25% 20%;
-		--editor-dialog: 223 38% 11%;
-		--editor-dialog-alt: 224 25% 16%;
-		--editor-timeline: 222 47% 7%;
-		--editor-row: 223 38% 11%;
-		--editor-subrow: 224 25% 16%;
+		/* Editor surface colors — Dark Editor Palette (#15171C, #1C1F26, #242832, #2C313C, #343A46) */
+		--editor-bg: 223 14% 10%;       /* #15171C */
+		--editor-header: 222 15% 13%;   /* #1C1F26 */
+		--editor-panel: 222 15% 13%;    /* #1C1F26 */
+		--editor-surface: 223 16% 17%;  /* #242832 */
+		--editor-surface-alt: 221 15% 21%; /* #2C313C */
+		--editor-dialog: 222 15% 13%;   /* #1C1F26 */
+		--editor-dialog-alt: 223 16% 17%; /* #242832 */
+		--editor-timeline: 223 14% 10%; /* #15171C */
+		--editor-row: 222 15% 13%;      /* #1C1F26 */
+		--editor-subrow: 223 16% 17%;   /* #242832 */
 
 		/* Slider track colors — dark mode */
-		--slider-track: 224 25% 25% / 0.45;
-		--slider-thumb: 239 84% 72%;
-		--slider-thumb-shadow: 239 84% 67% / 0.5;
-		--slider-glow: 189 94% 43% / 0.6;
+		--slider-track: 219 15% 24% / 0.65;
+		--slider-thumb: 216 100% 72%;
+		--slider-thumb-shadow: 216 100% 72% / 0.4;
+		--slider-glow: 263 87% 72% / 0.5;
+
+		/* Timeline colors */
+		--timeline-video: #6FA8FF;
+		--timeline-audio: #8DDB9B;
+		--timeline-text: #A879F5;
+		--timeline-overlay: #F6C768;
+		--timeline-playhead: #FF6B81;
 	}
 }
 

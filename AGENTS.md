@@ -39,3 +39,13 @@ re-read whole files.
 After big code changes, refresh the graph with `graft build` (deterministic,
 no API key, $0).
 <!-- graft:end -->
+
+## Regression checklist untuk Record slide dan project `.captr`
+
+Sebelum mengubah pembuatan slide Record, Recorder HUD, finalisasi rekaman, project save/autosave, atau bundling `.captr`:
+
+1. Baca issue log dan checklist **“Menambahkan Record slide meminta project baru”** di `ISSUE.md`.
+2. Rekaman tambahan masuk ke Assets project aktif saja, tanpa penempatan timeline otomatis. `videoSourcePath` kosong atau tidak ada clip terpilih bukan penentu project baru.
+3. Pastikan `currentProjectPath` tetap terjaga sepanjang Recorder HUD dan finalisasi native/browser bila rekaman berasal dari project aktif. Jangan mengasumsikan jalur Windows melewati finalizer macOS: handler sesi harus mengonsumsi konteks `preserveProjectPath` tertunda sebelum memutuskan reset path. Jika state Electron dan renderer berbeda, Ctrl+S hanya boleh memulihkan path dari bundle yang `projectId`-nya sama dengan data yang akan disimpan. Alur project baru harus tetap dapat meminta lokasi save baru.
+4. Satu file `.captr` per project V3; `project.json` indeks authoritative, sumber dan sidecar di `assets/<assetId>/`, komposisi terpisah. Semua aset library termasuk yang belum ditempatkan harus tersimpan. Jangan menulis `slides/` atau `slide.json` baru.
+5. Perbarui `ISSUE.md` saat kontrak berubah. Verifikasi Ctrl+S setelah Record berulang, import video/gambar/audio, Assets-only save/reopen, dan placement Record ganda dengan edit independen. Konversi V1/V2 Record harus eksplisit ke salinan dengan identitas/path baru; metadata tidak didukung menolak keseluruhan tanpa mengubah file asli. Video/Motion legacy tetap ditolak.

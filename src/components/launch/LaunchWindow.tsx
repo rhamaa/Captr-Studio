@@ -324,7 +324,7 @@ function LaunchWindowContent() {
 						}
 						className={`relative transition-all duration-150 rounded-[11px] ${
 							webcamEnabled
-								? "text-blue-400 bg-blue-500/15 border border-blue-500/35 shadow-[0_0_12px_rgba(59,130,246,0.25)] hover:bg-blue-500/25 hover:text-blue-300"
+								? "text-[#6FA8FF] bg-[#6FA8FF]/15 border border-[#6FA8FF]/35 shadow-[0_0_12px_rgba(111,168,255,0.25)] hover:bg-[#6FA8FF]/25 hover:text-[#8bbaff]"
 								: "text-[var(--launch-text-muted)] bg-transparent border border-transparent hover:bg-[var(--launch-hover)] hover:text-[var(--launch-text)]"
 						}`}
 						aria-label={
@@ -336,7 +336,7 @@ function LaunchWindowContent() {
 						{webcamEnabled ? (
 							<>
 								<VideoCameraIcon size={18} weight="fill" />
-								<span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-blue-400 ring-2 ring-[var(--launch-bar-bg,#121215)] shadow-[0_0_6px_rgba(96,165,250,0.9)] animate-pulse" />
+								<span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#6FA8FF] ring-2 ring-[var(--launch-bar-bg,#121215)] shadow-[0_0_6px_rgba(111,168,255,0.9)] animate-pulse" />
 							</>
 						) : (
 							<VideoCameraSlashIcon size={18} />

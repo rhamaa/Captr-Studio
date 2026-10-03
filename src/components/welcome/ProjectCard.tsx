@@ -3,7 +3,6 @@ import {
 	FolderOpen as FolderOpenIcon,
 	Play as PlayIcon,
 	Trash as TrashIcon,
-	Video as VideoIcon,
 } from "@phosphor-icons/react";
 import { useState } from "react";
 import { CaptrLogo } from "@/components/brand/CaptrLogo";
@@ -227,8 +226,8 @@ export function ProjectCard({
 
 				<div className="flex items-center justify-between pt-3 mt-2 border-t border-foreground/5 text-[11px] text-muted-foreground">
 					<span>{formatRelativeTime(entry.updatedAt)}</span>
-					<span className="flex items-center gap-1 text-[10px] text-primary/80 font-medium">
-						<VideoIcon className="w-3 h-3" />
+					<span className="flex items-center gap-1.5 text-[10px] text-primary font-semibold px-2 py-0.5 rounded-md bg-primary/10 border border-primary/20">
+						<CaptrLogo variant="mark" size={12} />
 						.captr
 					</span>
 				</div>

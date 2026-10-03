@@ -1,4 +1,6 @@
 import { existsSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { getActiveRecordingProjectId, setRecordingProjectContext } from "./ipc/project/recordingContext";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,9 +28,12 @@ import {
 	killWindowsCaptureProcess,
 	registerIpcHandlers,
 } from "./ipc/handlers";
-import { loadProjectFromPath, rememberApprovedLocalReadPath } from "./ipc/project/manager";
+import { rememberApprovedLocalReadPath } from "./ipc/project/manager";
+import { currentProjectPath, setPreserveProjectPathForNextNativeRecording } from "./ipc/state";
 import { getScreen } from "./ipc/utils";
 import { ensureMediaServer } from "./mediaServer";
+import { openStartupProject } from "./startupProject";
+import { queueProjectOpen } from "./pendingProjectOpen";
 import { ensurePackagedRendererServer } from "./rendererServer";
 import type { UpdateToastPayload } from "./updater";
 import {
@@ -279,14 +284,21 @@ function createWindow() {
 	isCreatingMainWindow = false;
 }
 
-function openHudRecorder(): BrowserWindow {
+function openHudRecorder(preserveProjectPath = false, context?: {projectId?:string;captureId?:string}): BrowserWindow {
+	setRecordingProjectContext(context??{projectId:getActiveRecordingProjectId(),captureId:randomUUID()});
+	// The editor can open the recorder through more than one UI path. Preserve
+	// the active project whenever main-process state knows one is open, even if
+	// the caller did not pass the context flag.
+	const shouldPreserveProjectPath = preserveProjectPath || Boolean(currentProjectPath);
+	setPreserveProjectPathForNextNativeRecording(shouldPreserveProjectPath);
 	const existingHud = getHudOverlayWindow();
 	if (existingHud && !existingHud.isDestroyed()) {
+		existingHud.webContents.send("recorder-project-context-changed", shouldPreserveProjectPath);
 		restoreWindowSafely(existingHud);
 		return existingHud;
 	}
 
-	return createHudOverlayWindow();
+	return createHudOverlayWindow({ preserveProjectPath: shouldPreserveProjectPath });
 }
 
 function focusOrCreateMainWindow() {
@@ -709,6 +721,14 @@ ipcMain.handle("show-open-dialog", async (_event, options: Electron.OpenDialogOp
 	return result;
 });
 
+ipcMain.handle("show-save-dialog", async (_event, options: Electron.SaveDialogOptions) => {
+	const result = await dialog.showSaveDialog(options);
+	if (!result.canceled && result.filePath) {
+		await rememberApprovedLocalReadPath(result.filePath);
+	}
+	return result;
+});
+
 ipcMain.handle("read-file-as-data-url", async (_event, filePath: string) => {
 	try {
 		const buffer = await fs.readFile(filePath);
@@ -725,9 +745,9 @@ ipcMain.handle("read-file-as-data-url", async (_event, filePath: string) => {
 	}
 });
 
-ipcMain.handle("open-recorder-hud", async () => {
+ipcMain.handle("open-recorder-hud", async (_event, options?: { preserveProjectPath?: boolean; projectId?:string;captureId?:string }) => {
 	console.log("[main] IPC: open-recorder-hud invoked");
-	const hud = openHudRecorder();
+	const hud = openHudRecorder(Boolean(options?.preserveProjectPath),options?.captureId?options:undefined);
 	return { success: Boolean(hud) };
 });
 
@@ -1032,7 +1052,7 @@ app.on("second-instance", async (_event, commandLine) => {
 	const captrPath = extractCaptrFilePath(commandLine);
 	if (captrPath) {
 		try {
-			await loadProjectFromPath(captrPath);
+			await queueProjectOpen({ path: captrPath });
 			const win = createEditorWindowWrapper();
 			if (win && !win.isDestroyed()) {
 				win.webContents.send("open-project-file-request", captrPath);
@@ -1050,7 +1070,7 @@ app.on("open-file", async (event, filePath) => {
 	if (filePath && filePath.toLowerCase().endsWith(".captr")) {
 		if (app.isReady()) {
 			try {
-				await loadProjectFromPath(filePath);
+				await queueProjectOpen({ path: filePath });
 				const win = createEditorWindowWrapper();
 				if (win && !win.isDestroyed()) {
 					win.webContents.send("open-project-file-request", filePath);
@@ -1146,7 +1166,7 @@ app.whenReady().then(async () => {
 	}
 
 	registerIpcHandlers(
-		createEditorWindowWrapper,
+		focusOrCreateMainWindow,
 		createSourceSelectorWindowWrapper,
 		() => mainWindow,
 		() => sourceSelectorWindow,
@@ -1189,11 +1209,7 @@ app.whenReady().then(async () => {
 	const startupCaptrPath = pendingCaptrFilePathToOpen || extractCaptrFilePath(process.argv);
 	if (startupCaptrPath) {
 		console.log(`[main] Opening project from startup argument: ${startupCaptrPath}`);
-		try {
-			await loadProjectFromPath(startupCaptrPath);
-		} catch (error) {
-			console.error(`[main] Failed to load startup project: ${startupCaptrPath}`, error);
-		}
+		await openStartupProject(startupCaptrPath);
 		createEditorWindowWrapper();
 		setupAutoUpdates(getUpdateDialogWindow, sendUpdateToastToWindows);
 		return;

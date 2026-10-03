@@ -3,6 +3,7 @@ import { registerProjectLoadHandlers } from "./load";
 import { registerProjectMediaHandlers } from "./media";
 import { registerProjectSaveHandlers } from "./save";
 import { registerProjectSessionHandlers } from "./session";
+import { registerRecordingSourceHandlers } from "./recordingSources";
 
 /**
  * Registers every project-domain IPC handler.
@@ -15,4 +16,5 @@ export function registerProjectHandlers() {
 	registerProjectLoadHandlers();
 	registerProjectMediaHandlers();
 	registerProjectSessionHandlers();
+	registerRecordingSourceHandlers();
 }

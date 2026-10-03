@@ -160,7 +160,7 @@ export const GeneralPreferencesSection: React.FC<GeneralPreferencesSectionProps>
 					<Switch
 						checked={autoApplyFreshRecordingAutoZooms}
 						onCheckedChange={onAutoApplyFreshRecordingAutoZoomsChange}
-						className="data-[state=checked]:bg-[#2563EB] scale-75"
+						className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 					/>
 				</div>
 				<div className="flex items-center justify-between gap-3 rounded-lg bg-foreground/[0.03] px-2.5 py-2">
@@ -178,7 +178,7 @@ export const GeneralPreferencesSection: React.FC<GeneralPreferencesSectionProps>
 					<Switch
 						checked={connectZooms}
 						onCheckedChange={onConnectZoomsChange}
-						className="data-[state=checked]:bg-[#2563EB] scale-75"
+						className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 					/>
 				</div>
 			</section>
@@ -201,7 +201,7 @@ export const GeneralPreferencesSection: React.FC<GeneralPreferencesSectionProps>
 			</section>
 
 			{showDevMotionControls ? (
-				<section className="flex flex-col gap-2 rounded-xl border border-[#2563EB]/15 bg-[#2563EB]/5 p-3">
+				<section className="flex flex-col gap-2 rounded-xl border border-[#6FA8FF]/20 bg-[#6FA8FF]/5 p-3">
 					<div className="flex items-center justify-between gap-3">
 						<div>
 							<SectionLabel>{tSettings("effects.devSection", "Dev")}</SectionLabel>
@@ -212,7 +212,7 @@ export const GeneralPreferencesSection: React.FC<GeneralPreferencesSectionProps>
 								)}
 							</div>
 						</div>
-						<span className="rounded-full bg-[#2563EB]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[#2563EB]">
+						<span className="rounded-full bg-[#6FA8FF]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#6FA8FF]">
 							DEV
 						</span>
 					</div>
@@ -243,7 +243,7 @@ export const GeneralPreferencesSection: React.FC<GeneralPreferencesSectionProps>
 								variant="outline"
 								size="sm"
 								onClick={() => onOpenNativeCaptureUnavailableModal?.()}
-								className="h-8 shrink-0 border-[#2563EB]/20 bg-[#2563EB]/10 text-[#2563EB] hover:bg-[#2563EB]/15"
+								className="h-8 shrink-0 border-[#6FA8FF]/25 bg-[#6FA8FF]/10 text-[#6FA8FF] hover:bg-[#6FA8FF]/20 font-medium"
 							>
 								{tSettings("effects.openNativeCaptureWarning", "Open warning")}
 							</Button>

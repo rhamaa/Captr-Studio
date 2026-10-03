@@ -3,7 +3,6 @@ import type {
 	AudioDuckingSettings,
 	AudioRegion,
 	ClipRegion,
-	ColorGradingSettings,
 	CropRegion,
 	CursorStyle,
 	CursorTelemetryPoint,
@@ -66,7 +65,6 @@ interface VideoExporterConfig extends ExportConfig {
 	zoomOutEasing?: ZoomTransitionEasing;
 	connectedZoomEasing?: ZoomTransitionEasing;
 	borderRadius?: number;
-	colorGrading?: ColorGradingSettings;
 	padding?: Padding | number;
 	videoPadding?: number;
 	cropRegion: CropRegion;

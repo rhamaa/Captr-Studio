@@ -39,8 +39,25 @@ module.exports = {
 				lg: "var(--radius)",
 				md: "calc(var(--radius) - 2px)",
 				sm: "calc(var(--radius) - 4px)",
+				xl: "18px",
+				"2xl": "22px",
 			},
 			colors: {
+				/* Captr Studio Brand Palette */
+				"captr-blue": "#6FA8FF",
+				"captr-purple": "#A879F5",
+				"captr-green": "#8DDB9B",
+				"captr-ink": "#344054",
+				"captr-red": "#FF6B81",
+				"captr-yellow": "#F6C768",
+
+				/* App Background Tokens */
+				"bg-app": "#F8F9FC",
+				"bg-panel": "#FFFFFF",
+				"bg-subtle": "#F1F3F7",
+				"bg-hover": "#EAECF2",
+				"bg-dark": "#181A20",
+
 				background: "hsl(var(--background))",
 				foreground: "hsl(var(--foreground))",
 				card: {

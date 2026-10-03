@@ -33,11 +33,9 @@ import { SectionLabel } from "./settings/components/SettingsSectionLabel";
 import { AudioRecordSection } from "./settings/sections/AudioRecordSection";
 import { AudioTrackSection } from "./settings/sections/AudioTrackSection";
 import { ClipItemSection } from "./settings/sections/ClipItemSection";
-import { ColorGradingSection } from "./settings/sections/ColorGradingSection";
 import { CursorSection } from "./settings/sections/CursorSection";
 import { GeneralPreferencesSection } from "./settings/sections/GeneralPreferencesSection";
-import { LayoutItemSection } from "./settings/sections/LayoutItemSection";
-import { MediaSection } from "./settings/sections/MediaSection";
+import { RecordLayoutSection } from "@/recording/components/RecordLayoutSection";
 import { SceneSection } from "./settings/sections/SceneSection";
 import { TransitionsSection } from "./settings/sections/TransitionsSection";
 import { VideoAdjustSection } from "./settings/sections/VideoAdjustSection";
@@ -54,13 +52,12 @@ import type {
 	AnnotationRegion,
 	AnnotationType,
 	AudioDuckingSettings,
-	ClipEntry,
 	ClipTransitionType,
-	ColorGradingSettings,
 	CropRegion,
 	CursorStyle,
 	EditorEffectSection,
 	FigureData,
+	LayoutCameraSettings,
 	LayoutSceneEasing,
 	LayoutScenePreset,
 	Padding,
@@ -72,7 +69,6 @@ import type {
 	ZoomTransitionEasing,
 } from "./types";
 import {
-	DEFAULT_CAMERA_PERSPECTIVE_TILT,
 	DEFAULT_CURSOR_CLICK_BOUNCE_DURATION,
 	DEFAULT_CURSOR_MOTION_BLUR,
 	DEFAULT_CURSOR_STYLE,
@@ -98,14 +94,6 @@ interface SettingsPanelProps {
 	panelMode?: "editor" | "background";
 	activeEffectSection?: EditorEffectSection;
 	recordToolsEnabled?: boolean;
-	slides?: ClipEntry[];
-	onAddAsSlide?: (filePath: string, label?: string) => void;
-	onImportMedia?: (subfolder?: string) => void;
-	onUseAsset?: (
-		asset: import("./types").SlideAssetFile,
-		action: "set-main" | "add-video-layer" | "add-audio" | "add-overlay",
-	) => void;
-	onRemoveAsset?: (assetId: string) => void;
 	onAudioAdded?: (span: { start: number; end: number }, audioPath: string) => void;
 	currentTime?: number;
 	selected: string;
@@ -138,7 +126,9 @@ interface SettingsPanelProps {
 	selectedLayoutPreset?: LayoutScenePreset | null;
 	selectedLayoutTransitionMs?: number | null;
 	selectedLayoutEasing?: LayoutSceneEasing | null;
+	selectedLayoutCameraSettings?: LayoutCameraSettings | null;
 	onLayoutPresetChange?: (preset: LayoutScenePreset) => void;
+	onLayoutCameraSettingsChange?: (settings: Partial<LayoutCameraSettings>) => void;
 	onLayoutTransitionChange?: (transitionMs: number) => void;
 	onLayoutEasingChange?: (easing: LayoutSceneEasing) => void;
 	onLayoutDelete?: (id: string) => void;
@@ -152,8 +142,6 @@ interface SettingsPanelProps {
 	onAudioDelete?: (id: string) => void;
 	audioDuckingSettings?: AudioDuckingSettings;
 	onAudioDuckingSettingsChange?: (settings: AudioDuckingSettings) => void;
-	colorGrading?: ColorGradingSettings;
-	onColorGradingChange?: (colorGrading: ColorGradingSettings) => void;
 
 	shadowIntensity?: number;
 	onShadowChange?: (intensity: number) => void;
@@ -219,8 +207,6 @@ interface SettingsPanelProps {
 	onCursorClickBounceDurationChange?: (duration: number) => void;
 	cursorSway?: number;
 	onCursorSwayChange?: (amount: number) => void;
-	cameraPerspectiveTilt?: number;
-	onCameraPerspectiveTiltChange?: (tilt: number) => void;
 	borderRadius?: number;
 	onBorderRadiusChange?: (radius: number) => void;
 	webcam?: WebcamOverlaySettings;
@@ -266,11 +252,6 @@ export function SettingsPanel({
 	panelMode = "editor",
 	activeEffectSection: activeEffectSectionProp,
 	recordToolsEnabled = true,
-	slides = [],
-	onAddAsSlide,
-	onImportMedia,
-	onUseAsset,
-	onRemoveAsset,
 	onAudioAdded,
 	currentTime = 0,
 	selected,
@@ -303,7 +284,9 @@ export function SettingsPanel({
 	selectedLayoutPreset,
 	selectedLayoutTransitionMs,
 	selectedLayoutEasing,
+	selectedLayoutCameraSettings,
 	onLayoutPresetChange,
+	onLayoutCameraSettingsChange,
 	onLayoutTransitionChange,
 	onLayoutEasingChange,
 	onLayoutDelete,
@@ -317,8 +300,6 @@ export function SettingsPanel({
 	onAudioDelete,
 	audioDuckingSettings,
 	onAudioDuckingSettingsChange,
-	colorGrading,
-	onColorGradingChange,
 	shadowIntensity = 0.67,
 	onShadowChange,
 	backgroundBlur = 0,
@@ -365,8 +346,6 @@ export function SettingsPanel({
 	onCursorClickBounceDurationChange,
 	cursorSway = DEFAULT_CURSOR_SWAY,
 	onCursorSwayChange,
-	cameraPerspectiveTilt = DEFAULT_CAMERA_PERSPECTIVE_TILT,
-	onCameraPerspectiveTiltChange,
 	borderRadius = 12.5,
 	onBorderRadiusChange,
 	webcam,
@@ -518,7 +497,7 @@ export function SettingsPanel({
 		"#FF5722",
 		"#8BC34A",
 		"#FFC107",
-		"#2563EB",
+		"#6FA8FF",
 		"#000000",
 		"#607D8B",
 		"#795548",
@@ -559,7 +538,9 @@ export function SettingsPanel({
 
 	const defaultWebcam = initialEditorPreferences.webcam;
 	const [internalActiveEffectSection] = useState<EditorEffectSection>("scene");
-	const rawActiveEffectSection = activeEffectSectionProp ?? internalActiveEffectSection;
+	const requestedEffectSection = activeEffectSectionProp ?? internalActiveEffectSection;
+	const rawActiveEffectSection =
+		requestedEffectSection === "webcam" ? "layout" : requestedEffectSection;
 	const activeEffectSection: EditorEffectSection =
 		!recordToolsEnabled &&
 		["scene", "layout", "zoom", "cursor", "webcam", "frame", "crop"].includes(
@@ -664,9 +645,6 @@ export function SettingsPanel({
 		onCursorClickBounceChange?.(initialEditorPreferences.cursorClickBounce);
 		onCursorClickBounceDurationChange?.(DEFAULT_CURSOR_CLICK_BOUNCE_DURATION);
 		onCursorSwayChange?.(initialEditorPreferences.cursorSway);
-		onCameraPerspectiveTiltChange?.(
-			initialEditorPreferences.cameraPerspectiveTilt ?? DEFAULT_CAMERA_PERSPECTIVE_TILT,
-		);
 	};
 
 	const activeMotionPresetId = useMemo(() => {
@@ -836,7 +814,7 @@ export function SettingsPanel({
 					style={{ scrollbarGutter: "stable" }}
 				>
 					<div className="mb-4 flex items-center gap-2">
-						<Palette className="w-4 h-4 text-[#2563EB]" />
+						<Palette className="w-4 h-4 text-[#6FA8FF]" />
 						<span className="text-sm font-medium text-foreground">
 							{tSettings("background.title")}
 						</span>
@@ -851,21 +829,13 @@ export function SettingsPanel({
 		switch (activeEffectSection) {
 			case "media":
 				return (
-					<MediaSection
-						slides={slides}
-						selectedClipId={selectedClipId}
-						onAddAsSlide={onAddAsSlide}
-						onImportMedia={onImportMedia}
-						onUseAsset={onUseAsset}
-						onRemoveAsset={onRemoveAsset}
-						tSettings={tSettings}
-					/>
+					null
 				);
 			case "audio-record":
 				return (
 					<AudioRecordSection
 						currentTime={currentTime}
-						activeSlideId={selectedClipId}
+						compositionId={selectedClipId}
 						onAudioAdded={onAudioAdded}
 						selectedAudioId={selectedAudioId}
 						selectedAudioVolume={selectedAudioVolume}
@@ -969,14 +939,6 @@ export function SettingsPanel({
 				);
 			case "scene":
 				return sceneSectionContent;
-			case "color-grading":
-				return (
-					<ColorGradingSection
-						colorGrading={colorGrading}
-						onColorGradingChange={onColorGradingChange}
-						tSettings={tSettings}
-					/>
-				);
 			case "zoom":
 				return (
 					<ZoomItemSection
@@ -1020,14 +982,39 @@ export function SettingsPanel({
 				);
 			case "layout":
 				return (
-					<LayoutItemSection
+					<RecordLayoutSection
 						selectedLayoutId={selectedLayoutId}
 						selectedLayoutPreset={selectedLayoutPreset}
 						selectedLayoutTransitionMs={selectedLayoutTransitionMs}
 						selectedLayoutEasing={selectedLayoutEasing}
+						selectedLayoutCameraSettings={selectedLayoutCameraSettings}
 						onLayoutPresetChange={onLayoutPresetChange}
+						onLayoutCameraSettingsChange={onLayoutCameraSettingsChange}
 						onLayoutTransitionChange={onLayoutTransitionChange}
 						onLayoutEasingChange={onLayoutEasingChange}
+						webcam={webcam}
+						bubbleWebcamSettings={
+							<WebcamSection
+								webcam={webcam}
+								webcamPreviewSrc={webcamPreviewSrc}
+								webcamPreviewCurrentTime={webcamPreviewCurrentTime}
+								webcamPreviewPlaying={webcamPreviewPlaying}
+								onUploadWebcam={onUploadWebcam}
+								onClearWebcam={onClearWebcam}
+								resetWebcamSection={resetWebcamSection}
+								updateWebcam={updateWebcam}
+								applyWebcamPositionPreset={applyWebcamPositionPreset}
+								webcamCrop={webcamCrop}
+								webcamPositionPreset={webcamPositionPreset}
+								webcamPositionX={webcamPositionX}
+								webcamPositionY={webcamPositionY}
+								webcamFileName={webcamFileName}
+								renderExtensionPanelsForSections={renderExtensionPanelsForSections}
+								tSettings={tSettings}
+								t={t}
+								embeddedInCameraBubble
+							/>
+						}
 						tSettings={tSettings}
 						t={t}
 					/>
@@ -1075,32 +1062,8 @@ export function SettingsPanel({
 						onCursorClickBounceDurationChange={onCursorClickBounceDurationChange}
 						cursorSway={cursorSway}
 						onCursorSwayChange={onCursorSwayChange}
-						cameraPerspectiveTilt={cameraPerspectiveTilt}
-						onCameraPerspectiveTiltChange={onCameraPerspectiveTiltChange}
 						initialEditorPreferences={initialEditorPreferences}
 						resetCursorSection={resetCursorSection}
-						renderExtensionPanelsForSections={renderExtensionPanelsForSections}
-						tSettings={tSettings}
-						t={t}
-					/>
-				);
-			case "webcam":
-				return (
-					<WebcamSection
-						webcam={webcam}
-						webcamPreviewSrc={webcamPreviewSrc}
-						webcamPreviewCurrentTime={webcamPreviewCurrentTime}
-						webcamPreviewPlaying={webcamPreviewPlaying}
-						onUploadWebcam={onUploadWebcam}
-						onClearWebcam={onClearWebcam}
-						resetWebcamSection={resetWebcamSection}
-						updateWebcam={updateWebcam}
-						applyWebcamPositionPreset={applyWebcamPositionPreset}
-						webcamCrop={webcamCrop}
-						webcamPositionPreset={webcamPositionPreset}
-						webcamPositionX={webcamPositionX}
-						webcamPositionY={webcamPositionY}
-						webcamFileName={webcamFileName}
 						renderExtensionPanelsForSections={renderExtensionPanelsForSections}
 						tSettings={tSettings}
 						t={t}
@@ -1130,15 +1093,7 @@ export function SettingsPanel({
 				}
 				if (!recordToolsEnabled) {
 					return (
-						<MediaSection
-							slides={slides}
-							selectedClipId={selectedClipId}
-							onAddAsSlide={onAddAsSlide}
-							onImportMedia={onImportMedia}
-							onUseAsset={onUseAsset}
-							onRemoveAsset={onRemoveAsset}
-							tSettings={tSettings}
-						/>
+						null
 					);
 				}
 				return sceneSectionContent;

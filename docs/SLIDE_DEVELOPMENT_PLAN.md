@@ -1,0 +1,123 @@
+# Rencana Pengembangan: Slide-Based Multi-Workspace (Captr Studio)
+
+Rencana aksi bertahap (phased implementation plan) untuk implementasi arsitektur slide baru tanpa merusak stabilitas aplikasi yang berjalan saat ini.
+
+---
+
+## Ringkasan Roadmap & Milestone
+
+```
+[Phase 1] ──> [Phase 2] ──> [Phase 3] ──> [Phase 4] ──> [Phase 5] ──> [Phase 6]
+Core Data     Slide Deck    Modularisasi   Pembuatan     Global Render   Future Slides
+& .captr      Bar & Host    RecordSlide    VideoSlide    & Transisi      (Keyframe & Remotion)
+```
+
+---
+
+## Phase 1: Core Data Model & Container `.captr`
+**Tujuan**: Fondasi data layer multi-slide dan container penyimpanan modular.
+
+- [x] **1.1. Definisikan Interface & Registry Core**
+  - Buat `src/core/slides/types.ts`: `SlideType`, `SlideData`, `SlideModule`, `SlideTransition`.
+  - Buat `src/core/slides/registry.ts`: Singleton `SlideRegistry` dengan registrasi modul dinamis.
+- [x] **1.2. Refactor Paket Penyimpanan `.captr` (Electron IPC)**
+  - Buat `electron/ipc/project/packageHandler.ts` untuk membaca dan menulis format direktori/bundle `.captr`:
+    - Root `project.json`
+    - Subfolder `slides/{slide_id}/` beserta aset raw media & `slide.json`.
+- [x] **1.3. Adapter Backward Compatibility (v1 ke v2)**
+  - Buat converter otomatis di [backwardCompat.ts](file:///d:/Projects/Captr%20Studio/src/core/project/backwardCompat.ts):
+    - Jika project lama (`v1` monolitik) dibuka, otomatis dibungkus menjadi single slide ber-tipe `record` di dalam array `slides[0]`.
+
+---
+
+## Phase 2: Slide Deck Navigator UI & Adaptive Workspace
+**Tujuan**: Pengalaman visual multi-slide di frontend.
+
+- [x] **2.1. SlideDeckContext & State Management**
+  - Buat `src/core/slides/SlideDeckContext.tsx`:
+    - State: `slides[]`, `activeSlideId`, `transitions[]`.
+    - Action: `addSlide(type)`, `deleteSlide(id)`, `reorderSlides(newOrder)`, `setTransition(from, to, type)`.
+- [x] **2.2. Komponen Slide Deck Bar**
+  - Buat `src/components/deck/SlideDeckBar.tsx` di bagian bawah layar:
+    - Thumbnail card tiap slide.
+    - Drag-and-drop reordering.
+    - Tombol `[+] Add Slide` (dropdown pilih tipe: Record / Video).
+    - Tombol pemilih transisi di antara 2 slide.
+- [x] **2.3. Dynamic Workspace Host**
+  - Buat `src/core/slides/SlideWorkspaceHost.tsx`:
+    - Mengambil instance `SlideModule` dari `SlideRegistry` sesuai `activeSlide.type`.
+    - Me-mount `module.WorkspaceComponent` secara isolatif dengan passing data slide aktif.
+
+---
+
+## Phase 3: Modularisasi `RecordSlide` (Screen Studio Mode)
+**Tujuan**: Isolasi fitur Screen Studio yang sudah ada ke dalam modul slide pertama.
+
+- [x] **3.1. Reorganisasi Kode ke `src/slides/record/`**
+  - Buat `src/slides/record/schema.ts` (schema zoomRegions, cursor smoothing, styling).
+  - Buat `src/slides/record/components/RecordSlideWorkspace.tsx` (Screen Studio workspace).
+- [x] **3.2. Implementasi Kontrak `SlideModule` untuk Record**
+  - Buat `src/slides/record/index.ts`:
+    - Export object `recordSlideModule: SlideModule<RecordSlideMeta>`.
+    - Daftarkan ke `slideRegistry`.
+- [x] **3.3. Isolasi Aset Media Rekaman**
+  - Dukungan penyimpanan media per slide ke subfolder `slides/slide_xx/` via `packageHandler.ts`.
+
+---
+
+## Phase 4: Pembuatan Modul `VideoSlide` (CapCut / Filmora NLE Mode)
+**Tujuan**: Menyediakan workspace pengeditan multi-track konvensional untuk slide bertipe video.
+
+- [x] **4.1. Data Schema NLE**
+  - Buat `src/slides/video/schema.ts`:
+    - Schema track: `VideoTrack`, `AudioTrack`, `TextOverlayItem`.
+    - Schema clip: `VideoClipItem` (source, offset, duration, speedMultiplier, volume).
+- [x] **4.2. Workspace UI NLE**
+  - Buat `src/slides/video/components/VideoSlideWorkspace.tsx`:
+    - Media Pool: Panel import B-roll, media drawer.
+    - Multi-Track Timeline: Track V1, Track V2 (overlay), Track A1 (audio).
+    - Split tool, Clip deletion, Clip selection.
+- [x] **4.3. Implementasi Kontrak `SlideModule` untuk Video**
+  - Buat `src/slides/video/index.ts` dan daftarkan ke `slideRegistry`.
+
+---
+
+## Phase 5: Global Render Stitcher & Transition Engine
+**Tujuan**: Merender semua slide beserta transisinya menjadi satu file video utuh.
+
+- [x] **5.1. Per-Slide Chunk Exporter**
+  - Buat `src/core/export/slideChunkExporter.ts`:
+    - Delegasi ke `module.exportChunk` atau render frame sekuensial dengan WebCodecs `VideoEncoder` & `OffscreenCanvas`.
+    - Fallback cerdas ke metadata video source (`RecordSlide` & `VideoSlide`).
+    - Unit tests terverifikasi di `src/core/export/slideChunkExporter.test.ts`.
+- [x] **5.2. FFmpeg Transition Stitcher (Electron IPC)**
+  - Buat `electron/ipc/export/globalStitcher.ts`:
+    - Menghasilkan filtergraph FFmpeg dinamis untuk `xfade` (video) dan `acrossfade` (audio).
+    - Menerapkan transisi (crossfade, wipe, slide, zoom) antar slide berdasarkan konfigurasi `transitions[]`.
+    - Menambahkan global BGM dengan filter `amix`.
+    - Unit tests terverifikasi di `electron/ipc/export/globalStitcher.test.ts`.
+- [x] **5.3. Export Progress UI & Integration**
+  - Buat orchestrator pipeline di `src/core/export/multiSlideExporter.ts`.
+  - Buat dialog progress terpadu di `src/components/deck/MultiSlideExportDialog.tsx`:
+    - Step 1: Render Slide 1/N ... N/N
+    - Step 2: Stitching & Applying Transitions (FFmpeg)
+    - Step 3: Selesai & tombol "Buka Folder" via `window.electronAPI.revealInFolder`.
+  - Terintegrasi langsung ke tombol `Export Video` di `src/components/deck/SlideDeckBar.tsx`.
+  - Unit tests terverifikasi di `src/core/export/multiSlideExporter.test.ts`.
+
+---
+
+## Phase 6 (Future Extensions): Keyframing & Remotion
+**Tujuan**: Membuka kapabilitas video baru secara plug-and-play.
+
+- [ ] **Keyframing Slide (`keyframe`)**: Canvas animasi dengan grafik kurva bezier untuk teks & ikon gerak.
+- [ ] **Remotion Slide (`remotion`)**: Embed React composition code untuk animasi terprogram.
+
+---
+
+## Strategi Backward Compatibility & Testing
+1. **Zero Regression**: File `.json` atau workspace lama harus otomatis dibuka tanpa prompt error (otomatis dikonversi ke schema single-slide Record).
+2. **Sidecar Integrity**: File audio sidecar `.system.wav` dan `.mic.wav` dipindahkan rapi ke dalam folder slide masing-masing.
+3. **Automated Smoke Tests**:
+   - `scripts/smoke-slide-package.mjs`: Test simpan dan muat file bundle `.captr`.
+   - `scripts/smoke-slide-export.mjs`: Test export 2 slide berbeda dengan transisi fade.

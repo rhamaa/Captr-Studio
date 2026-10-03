@@ -22,11 +22,11 @@ import {
 import {
 	convertProjectToBundleRelative,
 	convertProjectToWorkspaceAbsolute,
-	copyAssetToSlideWorkspace,
-	ensureSlideDir,
 } from "./projectWorkspace";
 
-describe("Project Bundle (ZIP) & Per-Slide Isolation", () => {
+async function ensureAssetDir(workspace:string,id:string){const dir=path.join(workspace,"assets",id);await fs.mkdir(dir,{recursive:true});return dir;}
+
+describe("Project Bundle (ZIP) & Asset Isolation", () => {
 	let tempRoot: string;
 
 	beforeEach(async () => {
@@ -58,10 +58,10 @@ describe("Project Bundle (ZIP) & Per-Slide Isolation", () => {
 		expect(await isProjectBundle(bundleFile)).toBe(true);
 	});
 
-	it("packs workspace and unpacks with slide subdirectories intact", async () => {
+	it("packs workspace and unpacks with asset subdirectories intact", async () => {
 		const workspace = path.join(tempRoot, "source-workspace");
-		const slide1Dir = await ensureSlideDir(workspace, "slide-1");
-		const slide2Dir = await ensureSlideDir(workspace, "slide-2");
+		const slide1Dir = await ensureAssetDir(workspace, "slide-1");
+		const slide2Dir = await ensureAssetDir(workspace, "slide-2");
 
 		// Put slide 1 video & assets
 		await fs.writeFile(path.join(slide1Dir, "main.mp4"), "fake-mp4-slide-1", "utf-8");
@@ -83,8 +83,8 @@ describe("Project Bundle (ZIP) & Per-Slide Isolation", () => {
 			JSON.stringify({
 				version: 1,
 				clips: [
-					{ id: "slide-1", videoPath: "slides/slide-1/main.mp4" },
-					{ id: "slide-2", videoPath: "slides/slide-2/main.mp4" },
+					{ id: "slide-1", videoPath: "assets/slide-1/main.mp4" },
+					{ id: "slide-2", videoPath: "assets/slide-2/main.mp4" },
 				],
 			}),
 			"utf-8",
@@ -99,48 +99,27 @@ describe("Project Bundle (ZIP) & Per-Slide Isolation", () => {
 
 		// Verify slide 1 contents
 		const s1Video = await fs.readFile(
-			path.join(unpackedWorkspace, "slides", "slide-1", "main.mp4"),
+			path.join(unpackedWorkspace, "assets", "slide-1", "main.mp4"),
 			"utf-8",
 		);
 		expect(s1Video).toBe("fake-mp4-slide-1");
 		const s1Asset = await fs.readFile(
-			path.join(unpackedWorkspace, "slides", "slide-1", "assets", "logo.png"),
+			path.join(unpackedWorkspace, "assets", "slide-1", "assets", "logo.png"),
 			"utf-8",
 		);
 		expect(s1Asset).toBe("fake-png-slide-1");
 
 		// Verify slide 2 contents
 		const s2Video = await fs.readFile(
-			path.join(unpackedWorkspace, "slides", "slide-2", "main.mp4"),
+			path.join(unpackedWorkspace, "assets", "slide-2", "main.mp4"),
 			"utf-8",
 		);
 		expect(s2Video).toBe("fake-mp4-slide-2");
 		const s2Asset = await fs.readFile(
-			path.join(unpackedWorkspace, "slides", "slide-2", "assets", "broll.mp4"),
+			path.join(unpackedWorkspace, "assets", "slide-2", "assets", "broll.mp4"),
 			"utf-8",
 		);
 		expect(s2Asset).toBe("fake-broll-slide-2");
-	});
-
-	it("copies imported assets directly into the designated slide assets folder", async () => {
-		const workspace = path.join(tempRoot, "workspace");
-		const externalFile = path.join(tempRoot, "external-sound.mp3");
-		await fs.writeFile(externalFile, "audio-bytes", "utf-8");
-
-		const result = await copyAssetToSlideWorkspace(
-			workspace,
-			"slide-intro",
-			externalFile,
-			"Audio & Voiceovers",
-		);
-
-		expect(result.fileName).toBe("external-sound.mp3");
-		expect(result.bundleRelativePath).toContain(
-			"slides/slide-intro/assets/Audio & Voiceovers/external-sound.mp3",
-		);
-
-		const content = await fs.readFile(result.absolutePath, "utf-8");
-		expect(content).toBe("audio-bytes");
 	});
 
 	it("converts paths between workspace absolute and bundle relative", () => {
@@ -183,7 +162,7 @@ describe("Project Bundle (ZIP) & Per-Slide Isolation", () => {
 
 	it("inspects ZIP bundle returning projectData, thumbnail, and categorized slide entries without full extraction", async () => {
 		const workspace = path.join(tempRoot, "inspect-workspace");
-		const slideDir = await ensureSlideDir(workspace, "slide-intro");
+		const slideDir = await ensureAssetDir(workspace, "slide-intro");
 		await fs.writeFile(path.join(slideDir, "clip.mp4"), "fake-video-bytes", "utf-8");
 		await fs.mkdir(path.join(slideDir, "assets", "audio"), { recursive: true });
 		await fs.writeFile(
@@ -223,16 +202,20 @@ describe("Project Bundle (ZIP) & Per-Slide Isolation", () => {
 		// Check entries breakdown
 		const videoEntry = inspection.entries.find((e) => e.category === "video");
 		expect(videoEntry).toBeDefined();
-		expect(videoEntry?.slideId).toBe("slide-intro");
-		expect(videoEntry?.path).toBe("slides/slide-intro/clip.mp4");
+		expect(videoEntry?.assetId).toBe("slide-intro");
+		expect(videoEntry?.path).toBe("assets/slide-intro/clip.mp4");
 
 		const audioEntry = inspection.entries.find((e) => e.category === "audio");
 		expect(audioEntry).toBeDefined();
-		expect(audioEntry?.slideId).toBe("slide-intro");
+		expect(audioEntry?.assetId).toBe("slide-intro");
 
 		const configEntry = inspection.entries.find((e) => e.category === "config");
 		expect(configEntry).toBeDefined();
 		expect(configEntry?.path).toBe("project.json");
+	});
+	it("failed atomic installation preserves existing bytes and removes staging output",async()=>{
+		const workspace=path.join(tempRoot,"atomic");await fs.mkdir(workspace);await fs.writeFile(path.join(workspace,"project.json"),"{}");const target=path.join(tempRoot,"existing.captr");await fs.writeFile(target,"original");const rename=vi.spyOn(fs,"rename").mockRejectedValueOnce(new Error("destination locked"));
+		try{await expect(packProjectWorkspace(workspace,target)).rejects.toThrow("destination locked");expect(await fs.readFile(target,"utf8")).toBe("original");expect((await fs.readdir(tempRoot)).filter(p=>p.includes(".tmp-"))).toEqual([]);}finally{rename.mockRestore();}
 	});
 
 	it("rejects legacy plain JSON project file with a clear error", async () => {

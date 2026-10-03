@@ -42,13 +42,11 @@ type PersistedEditorControls = Pick<
 	| "cursorClickBounce"
 	| "cursorClickBounceDuration"
 	| "cursorSway"
-	| "cameraPerspectiveTilt"
 	| "borderRadius"
 	| "padding"
 	| "frame"
 	| "webcam"
 	| "aspectRatio"
-	| "colorGrading"
 	| "exportEncodingMode"
 	| "exportBackendPreference"
 	| "exportPipelineModel"
@@ -117,13 +115,11 @@ export const DEFAULT_EDITOR_PREFERENCES: EditorPreferences = {
 	cursorClickBounce: DEFAULT_EDITOR_CONTROLS.cursorClickBounce,
 	cursorClickBounceDuration: DEFAULT_EDITOR_CONTROLS.cursorClickBounceDuration,
 	cursorSway: DEFAULT_EDITOR_CONTROLS.cursorSway,
-	cameraPerspectiveTilt: DEFAULT_EDITOR_CONTROLS.cameraPerspectiveTilt,
 	borderRadius: DEFAULT_EDITOR_CONTROLS.borderRadius,
 	padding: DEFAULT_EDITOR_CONTROLS.padding,
 	frame: DEFAULT_EDITOR_CONTROLS.frame,
 	webcam: DEFAULT_EDITOR_CONTROLS.webcam,
 	aspectRatio: DEFAULT_EDITOR_CONTROLS.aspectRatio,
-	colorGrading: DEFAULT_EDITOR_CONTROLS.colorGrading,
 	exportEncodingMode: DEFAULT_EDITOR_CONTROLS.exportEncodingMode,
 	exportBackendPreference: DEFAULT_EDITOR_CONTROLS.exportBackendPreference,
 	exportPipelineModel: DEFAULT_EDITOR_CONTROLS.exportPipelineModel,
@@ -276,13 +272,11 @@ function normalizeEditorControls(
 		cursorClickBounceDuration:
 			sanitizedRaw.cursorClickBounceDuration ?? fallback.cursorClickBounceDuration,
 		cursorSway: sanitizedRaw.cursorSway ?? fallback.cursorSway,
-		cameraPerspectiveTilt: sanitizedRaw.cameraPerspectiveTilt ?? fallback.cameraPerspectiveTilt,
 		borderRadius: sanitizedRaw.borderRadius ?? fallback.borderRadius,
 		padding: sanitizedRaw.padding ?? fallback.padding,
 		frame: sanitizedRaw.frame !== undefined ? sanitizedRaw.frame : fallback.frame,
 		webcam: sanitizedRaw.webcam ?? fallback.webcam,
 		aspectRatio: sanitizedRaw.aspectRatio ?? fallback.aspectRatio,
-		colorGrading: sanitizedRaw.colorGrading ?? fallback.colorGrading,
 		exportEncodingMode: sanitizedRaw.exportEncodingMode ?? fallback.exportEncodingMode,
 		exportBackendPreference:
 			sanitizedRaw.exportBackendPreference === undefined
@@ -338,13 +332,11 @@ function normalizeEditorControls(
 		cursorClickBounce: normalized.cursorClickBounce,
 		cursorClickBounceDuration: normalized.cursorClickBounceDuration,
 		cursorSway: normalized.cursorSway,
-		cameraPerspectiveTilt: normalized.cameraPerspectiveTilt,
 		borderRadius: normalized.borderRadius,
 		padding: normalized.padding,
 		frame: normalized.frame,
 		webcam: normalized.webcam,
 		aspectRatio: normalized.aspectRatio,
-		colorGrading: normalized.colorGrading,
 		exportEncodingMode: normalized.exportEncodingMode,
 		exportBackendPreference: normalized.exportBackendPreference,
 		exportPipelineModel: normalized.exportPipelineModel,

@@ -133,3 +133,57 @@ export function drawSquircleOnGraphics(graphics: Graphics, rect: SquircleRect) {
 	}
 	graphics.closePath();
 }
+
+export function isFullyRoundedWebcam(rect: SquircleRect): boolean {
+	return (
+		rect.width > 0 &&
+		rect.height > 0 &&
+		Math.abs(rect.width - rect.height) < 0.01 &&
+		rect.radius >= Math.min(rect.width, rect.height) / 2 - 0.01
+	);
+}
+
+export function drawWebcamMaskOnCanvas(ctx: CanvasRenderingContext2D, rect: SquircleRect) {
+	if (isFullyRoundedWebcam(rect)) {
+		ctx.beginPath();
+		ctx.ellipse(
+			rect.x + rect.width / 2,
+			rect.y + rect.height / 2,
+			rect.width / 2,
+			rect.height / 2,
+			0,
+			0,
+			Math.PI * 2,
+		);
+		ctx.closePath();
+		return;
+	}
+	ctx.beginPath();
+	ctx.roundRect(
+		rect.x,
+		rect.y,
+		rect.width,
+		rect.height,
+		getClampedRadius(rect.width, rect.height, rect.radius),
+	);
+	ctx.closePath();
+}
+
+export function drawWebcamMaskOnGraphics(graphics: Graphics, rect: SquircleRect) {
+	if (isFullyRoundedWebcam(rect)) {
+		graphics.ellipse(
+			rect.x + rect.width / 2,
+			rect.y + rect.height / 2,
+			rect.width / 2,
+			rect.height / 2,
+		);
+		return;
+	}
+	graphics.roundRect(
+		rect.x,
+		rect.y,
+		rect.width,
+		rect.height,
+		getClampedRadius(rect.width, rect.height, rect.radius),
+	);
+}

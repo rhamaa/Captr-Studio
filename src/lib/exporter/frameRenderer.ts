@@ -52,7 +52,9 @@ import {
 	type MotionBlurState,
 } from "@/components/video-editor/videoPlayback/zoomTransform";
 import {
+	getWebcamCornerRadiusPx,
 	getWebcamCropSourceRect,
+	getWebcamOverlayDimensions,
 	getWebcamOverlayPosition,
 	getWebcamOverlaySizePx,
 } from "@/components/video-editor/webcamOverlay";
@@ -68,7 +70,11 @@ import {
 	notifyCursorInteraction,
 } from "@/lib/extensions/renderHooks";
 import { applyCanvasSceneTransform } from "@/lib/extensions/sceneTransform";
-import { drawSquircleOnCanvas, drawSquircleOnGraphics } from "@/lib/geometry/squircle";
+import {
+	drawSquircleOnCanvas,
+	drawSquircleOnGraphics,
+	drawWebcamMaskOnCanvas,
+} from "@/lib/geometry/squircle";
 import {
 	clampMediaTimeToDuration,
 	getEffectiveVideoStreamDurationSeconds,
@@ -87,6 +93,8 @@ import { buildTemporalSamplePlanUs, getTemporalMotionBlurConfig } from "./tempor
 const TEMPORAL_ZOOM_MOTION_BLUR_ENABLED = false;
 
 interface FrameRenderConfig {
+	/** Evaluate animation on a canonical 60 Hz source clock, independent of seek history. */
+	projectClock?: boolean;
 	width: number;
 	height: number;
 	preferredRenderBackend?: "webgl" | "webgpu";
@@ -138,7 +146,6 @@ interface FrameRenderConfig {
 	cursorClickBounce?: number;
 	cursorClickBounceDuration?: number;
 	cursorSway?: number;
-	cameraPerspectiveTilt?: number;
 	clipRegions?: ClipRegion[];
 	frame?: string | null;
 }
@@ -296,6 +303,26 @@ export class FrameRenderer {
 	private springY: SpringState;
 	private cursorFollowCamera: CursorFollowCameraState;
 	private lastContentTimeMs: number | null = null;
+	private projectCheckpoints = new Map<number, ReturnType<FrameRenderer["animationCheckpoint"]>>();
+	private animationCheckpoint() {return {animationState:structuredClone(this.animationState),motionBlurState:structuredClone(this.motionBlurState),springScale:structuredClone(this.springScale),springX:structuredClone(this.springX),springY:structuredClone(this.springY),cursorFollowCamera:structuredClone(this.cursorFollowCamera),lastContentTimeMs:this.lastContentTimeMs,cursor:this.cursorOverlay?.checkpoint()};}
+	private restoreAnimation(checkpoint:ReturnType<FrameRenderer["animationCheckpoint"]>) {const {cursor,...state}=structuredClone(checkpoint);Object.assign(this,state);if(cursor)this.cursorOverlay?.restore(cursor);else this.cursorOverlay?.reset();}
+	private prepareProjectAnimation(timeMs:number) {
+		const targetTick=Math.max(0,Math.floor(timeMs*60/1000));
+		if(!this.projectCheckpoints.has(-1))this.projectCheckpoints.set(-1,this.animationCheckpoint());
+		const key=Math.max(...Array.from(this.projectCheckpoints.keys()).filter(t=>t<targetTick));
+		this.restoreAnimation(this.projectCheckpoints.get(key)!);
+		for(let tick=key+1;tick<=targetTick;tick++){
+			const previousBlur=structuredClone(this.motionBlurState);
+			const sampleMs=tick*1000/60;
+			if(this.layoutCache)this.cursorOverlay?.update(this.config.cursorTelemetry??[],sampleMs,this.layoutCache.maskRect,this.config.showCursor??true,false);
+			this.updateAnimationState(sampleMs);
+			Object.assign(this.motionBlurState,{prevCamX:this.animationState.x,prevCamY:this.animationState.y,prevCamScale:this.animationState.appliedScale,lastFrameTimeMs:sampleMs,initialized:tick>0});
+			if(tick%60===0){this.projectCheckpoints.set(tick,this.animationCheckpoint());if(this.projectCheckpoints.size>122){const oldest=this.projectCheckpoints.keys().next().value;if(oldest!==undefined&&oldest!==-1)this.projectCheckpoints.delete(oldest);else {const next=Array.from(this.projectCheckpoints.keys())[1];this.projectCheckpoints.delete(next);}}}
+			if(tick===targetTick)this.motionBlurState=previousBlur;
+		}
+	}
+	/** Takes ownership of the webcam frame sampled by the project source decoder. */
+	setProjectWebcamFrame(frame:VideoFrame|null):void {this.closeWebcamDecodedFrame();this.webcamDecodedFrame=frame;if(!frame){this.webcamFrameCacheCanvas=null;this.webcamFrameCacheCtx=null;}}
 	private cursorOverlay: PixiCursorOverlay | null = null;
 	private webcamForwardFrameSource: ForwardFrameSource | null = null;
 	private webcamDecodedFrame: VideoFrame | null = null;
@@ -466,7 +493,11 @@ export class FrameRenderer {
 
 		if ((this.config.zoomMotionBlur ?? 0) > 0) {
 			this.zoomBlurFilter = new ZoomBlurFilter({ strength: 0, maxKernelSize: 13 });
-			this.motionBlurFilter = new MotionBlurFilter([0, 0], 5, 0);
+			this.motionBlurFilter = new MotionBlurFilter({
+				velocity: [0, 0],
+				kernelSize: 5,
+				offset: 0,
+			});
 			this.videoContainer.filterArea = new Rectangle(
 				0,
 				0,
@@ -1619,8 +1650,9 @@ export class FrameRenderer {
 
 		const timeMs = this.currentVideoTime * 1000;
 		const cursorTimeMs = cursorTimestamp / 1000;
+		if(this.config.projectClock)this.prepareProjectAnimation(timeMs);
 
-		if (this.cursorOverlay) {
+		if (this.cursorOverlay && !this.config.projectClock) {
 			this.cursorOverlay.update(
 				this.config.cursorTelemetry ?? [],
 				cursorTimeMs,
@@ -1651,7 +1683,7 @@ export class FrameRenderer {
 
 		const TICKS_PER_FRAME = 1;
 
-		for (let i = 0; i < TICKS_PER_FRAME; i++) {
+		for (let i = 0; i < TICKS_PER_FRAME && !this.config.projectClock; i++) {
 			this.updateAnimationState(timeMs);
 		}
 
@@ -2092,8 +2124,9 @@ export class FrameRenderer {
 
 		const timeMs = this.currentVideoTime * 1000;
 		const cursorTimeMs = cursorTimestamp / 1000;
+		if(this.config.projectClock)this.prepareProjectAnimation(timeMs);
 
-		if (this.cursorOverlay) {
+		if (this.cursorOverlay && !this.config.projectClock) {
 			this.cursorOverlay.update(
 				this.config.cursorTelemetry ?? [],
 				cursorTimeMs,
@@ -2112,7 +2145,7 @@ export class FrameRenderer {
 			},
 		);
 
-		this.updateAnimationState(timeMs);
+		if(!this.config.projectClock)this.updateAnimationState(timeMs);
 
 		applyZoomTransform({
 			cameraContainer: this.cameraContainer,
@@ -2221,20 +2254,15 @@ export class FrameRenderer {
 		const ctx = this.compositeCtx;
 		const w = this.compositeCanvas.width;
 		const h = this.compositeCanvas.height;
-		const layoutScene =
-			(this.config.layoutRegions ?? []).length > 0
-				? resolveLayoutSceneAtTime({
-						timeMs: this.currentVideoTime * 1000,
-						layoutRegions: this.config.layoutRegions ?? [],
-						stageWidth: w,
-						stageHeight: h,
-						webcam: this.config.webcam ?? DEFAULT_WEBCAM_OVERLAY,
-						zoomScale: this.animationState.appliedScale || 1,
-						hasWebcam: Boolean(
-							this.config.webcam?.enabled && this.config.webcam?.sourcePath,
-						),
-					})
-				: null;
+		const layoutScene = resolveLayoutSceneAtTime({
+			timeMs: this.currentVideoTime * 1000,
+			layoutRegions: this.config.layoutRegions ?? [],
+			stageWidth: w,
+			stageHeight: h,
+			webcam: this.config.webcam ?? DEFAULT_WEBCAM_OVERLAY,
+			zoomScale: this.animationState.appliedScale || 1,
+			hasWebcam: Boolean(this.config.webcam?.enabled && this.config.webcam?.sourcePath),
+		});
 		const screen = layoutScene?.screen ?? {
 			x: 0,
 			y: 0,
@@ -2408,21 +2436,18 @@ export class FrameRenderer {
 			return;
 		}
 
-		const layoutScene =
-			(this.config.layoutRegions ?? []).length > 0
-				? resolveLayoutSceneAtTime({
-						timeMs: this.currentVideoTime * 1000,
-						layoutRegions: this.config.layoutRegions ?? [],
-						stageWidth: width,
-						stageHeight: height,
-						webcam,
-						zoomScale: this.animationState.appliedScale || 1,
-						hasWebcam: true,
-					})
-				: null;
+		const layoutScene = resolveLayoutSceneAtTime({
+			timeMs: this.currentVideoTime * 1000,
+			layoutRegions: this.config.layoutRegions ?? [],
+			stageWidth: width,
+			stageHeight: height,
+			webcam,
+			zoomScale: this.animationState.appliedScale || 1,
+			hasWebcam: true,
+		});
 
 		const margin = webcam.margin ?? 24;
-		const size = layoutScene
+		const requestedSize = layoutScene
 			? layoutScene.webcam.width
 			: getWebcamOverlaySizePx({
 					containerWidth: width,
@@ -2432,13 +2457,25 @@ export class FrameRenderer {
 					zoomScale: this.animationState.appliedScale || 1,
 					reactToZoom: webcam.reactToZoom ?? true,
 				});
-		const webcamHeight = layoutScene ? layoutScene.webcam.height : size;
+		const webcamAspectRatio = Math.max(0.05, Math.min(20, webcam.cropAspectRatio ?? 1));
+		const webcamDimensions = layoutScene
+			? { width: layoutScene.webcam.width, height: layoutScene.webcam.height }
+			: getWebcamOverlayDimensions({
+					containerWidth: width,
+					containerHeight: height,
+					size: requestedSize,
+					aspectRatio: webcamAspectRatio,
+					margin,
+				});
+		const size = webcamDimensions.width;
+		const webcamHeight = webcamDimensions.height;
 		const { x, y } = layoutScene
 			? { x: layoutScene.webcam.x, y: layoutScene.webcam.y }
 			: getWebcamOverlayPosition({
 					containerWidth: width,
 					containerHeight: height,
 					size,
+					height: webcamHeight,
 					margin,
 					positionPreset: webcam.positionPreset ?? webcam.corner,
 					positionX: webcam.positionX ?? 1,
@@ -2449,7 +2486,14 @@ export class FrameRenderer {
 		if (opacity <= 0.001) {
 			return;
 		}
-		const radius = Math.max(0, layoutScene?.webcam.borderRadius ?? webcam.cornerRadius ?? 18);
+		const radius = layoutScene
+			? layoutScene.webcam.borderRadius
+			: getWebcamCornerRadiusPx({
+					width: size,
+					height: webcamHeight,
+					cornerRadius: webcam.cornerRadius,
+					cornerRadiusPercent: webcam.cornerRadiusPercent,
+				});
 
 		const bubbleCanvas = this.webcamBubbleCanvas ?? document.createElement("canvas");
 		const bubbleWidth = Math.max(1, Math.ceil(size));
@@ -2546,7 +2590,13 @@ export class FrameRenderer {
 		const drawY = (webcamHeight - drawHeight) / 2;
 
 		bubbleCtx.save();
-		drawSquircleOnCanvas(bubbleCtx, { x: 0, y: 0, width: size, height: webcamHeight, radius });
+		drawWebcamMaskOnCanvas(bubbleCtx, {
+			x: 0,
+			y: 0,
+			width: size,
+			height: webcamHeight,
+			radius,
+		});
 		bubbleCtx.clip();
 		if (webcam.mirror) {
 			bubbleCtx.save();

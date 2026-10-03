@@ -1,46 +1,46 @@
 .launch-theme {
 	/* Captr Studio — Ultra-Refined Light Mode (Luminous Glass) */
-	--launch-surface: rgba(255, 255, 255, 0.96);
-	--launch-panel: rgba(248, 250, 252, 0.92);
-	--launch-border: rgba(15, 23, 42, 0.08);
-	--launch-border-strong: rgba(99, 102, 241, 0.25);
-	--launch-text: #0f172a;
-	--launch-text-muted: #64748b;
+	--launch-surface: rgba(255, 255, 255, 0.98);
+	--launch-panel: rgba(248, 249, 252, 0.95);
+	--launch-border: rgba(52, 64, 84, 0.08);
+	--launch-border-strong: rgba(111, 168, 255, 0.35);
+	--launch-text: #344054;
+	--launch-text-muted: #667085;
 	--launch-label: #475569;
-	--launch-hover: rgba(15, 23, 42, 0.05);
-	--launch-selected: rgba(99, 102, 241, 0.12);
-	--launch-accent: #6366f1;
-	--launch-accent-soft: rgba(99, 102, 241, 0.08);
+	--launch-hover: rgba(52, 64, 84, 0.05);
+	--launch-selected: rgba(111, 168, 255, 0.14);
+	--launch-accent: #6FA8FF;
+	--launch-accent-soft: rgba(111, 168, 255, 0.1);
 	--launch-popover-blur: 32px;
 	--launch-popover-saturate: 190%;
-	--launch-bar-bg: rgba(255, 255, 255, 0.88);
-	--launch-bar-border: rgba(15, 23, 42, 0.1);
+	--launch-bar-bg: rgba(255, 255, 255, 0.92);
+	--launch-bar-border: rgba(52, 64, 84, 0.1);
 	--launch-bar-shadow:
-		0 20px 48px -10px rgba(15, 23, 42, 0.15), 0 0 0 1px rgba(15, 23, 42, 0.05),
-		inset 0 1px 0 rgba(255, 255, 255, 0.8);
+		0 20px 48px -10px rgba(52, 64, 84, 0.12), 0 0 0 1px rgba(52, 64, 84, 0.05),
+		inset 0 1px 0 rgba(255, 255, 255, 0.9);
 
 	color: var(--launch-text);
 }
 
 .dark .launch-theme,
 .launch-theme.dark {
-	/* Captr Studio — Premium Dark Mode (Obsidian Glass + Luminous Indigo Core) */
-	--launch-surface: rgba(13, 18, 30, 0.94);
-	--launch-panel: rgba(20, 27, 44, 0.88);
-	--launch-border: rgba(255, 255, 255, 0.09);
-	--launch-border-strong: rgba(99, 102, 241, 0.35);
-	--launch-text: #f8fafc;
-	--launch-text-muted: rgba(203, 213, 225, 0.72);
-	--launch-label: rgba(148, 163, 184, 0.85);
-	--launch-hover: rgba(255, 255, 255, 0.07);
-	--launch-selected: rgba(99, 102, 241, 0.22);
-	--launch-accent: #818cf8;
-	--launch-accent-soft: rgba(99, 102, 241, 0.15);
+	/* Captr Studio — Premium Dark Recorder HUD (rgba(24, 26, 32, 0.92) + Pastel Accents) */
+	--launch-surface: rgba(24, 26, 32, 0.95);
+	--launch-panel: rgba(28, 31, 38, 0.92);
+	--launch-border: rgba(255, 255, 255, 0.08);
+	--launch-border-strong: rgba(111, 168, 255, 0.35);
+	--launch-text: #F5F6F8;
+	--launch-text-muted: #A8AFBD;
+	--launch-label: #707887;
+	--launch-hover: rgba(255, 255, 255, 0.06);
+	--launch-selected: rgba(111, 168, 255, 0.18);
+	--launch-accent: #6FA8FF;
+	--launch-accent-soft: rgba(111, 168, 255, 0.12);
 	--launch-popover-blur: 36px;
 	--launch-popover-saturate: 190%;
-	--launch-bar-bg: rgba(11, 15, 25, 0.88);
-	--launch-bar-border: rgba(255, 255, 255, 0.12);
+	--launch-bar-bg: rgba(24, 26, 32, 0.92);
+	--launch-bar-border: rgba(255, 255, 255, 0.08);
 	--launch-bar-shadow:
-		0 24px 64px -12px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08),
-		inset 0 1px 0 rgba(255, 255, 255, 0.14);
+		0 24px 64px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06),
+		inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }

@@ -5,13 +5,13 @@ import { AudioTrackSection, type AudioTrackSectionProps } from "./AudioTrackSect
 export interface AudioRecordSectionProps extends AudioTrackSectionProps {
 	currentTime?: number;
 	onAudioAdded?: (span: { start: number; end: number }, audioPath: string) => void;
-	activeSlideId?: string | null;
+	compositionId?: string | null;
 }
 
 export function AudioRecordSection({
 	currentTime = 0,
 	onAudioAdded,
-	activeSlideId,
+	compositionId,
 	tSettings,
 	...audioTrackProps
 }: AudioRecordSectionProps) {
@@ -32,7 +32,7 @@ export function AudioRecordSection({
 			<VoiceoverStudio
 				onAudioRecorded={onAudioAdded}
 				currentTime={currentTime}
-				activeSlideId={activeSlideId}
+				compositionId={compositionId}
 			/>
 
 			<div className="pt-2 border-t border-foreground/10">

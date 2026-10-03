@@ -1,5 +1,6 @@
 export { default as PlaybackControls } from "./PlaybackControls";
 export { SettingsPanel } from "./SettingsPanel";
+export { RecordingTimeline } from "@/recording";
 export type {
 	TimelineEditorHandle,
 	TimelineEditorProps,
@@ -7,3 +8,4 @@ export type {
 export { default as TimelineEditor } from "./timeline/TimelineEditor";
 export { default as VideoEditor } from "./VideoEditor";
 export { default as VideoPlayback } from "./VideoPlayback";
+

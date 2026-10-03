@@ -1,5 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { timelineMediaPaths } from "../../../src/core/timeline/mediaPaths";
+import { validateTimelineProject } from "../../../src/core/timeline/validation";
 
 type DataObject = Record<string, unknown>;
 
@@ -24,6 +26,9 @@ export interface ProjectMediaReference {
  * Do not recursively approve arbitrary strings from a project file.
  */
 export function collectProjectMediaRefs(project: unknown): ProjectMediaReference[] {
+	if (object(project).version === 3) {
+		return timelineMediaPaths(validateTimelineProject(project)).map((path, index) => ({ location: `assets/media[${index}]`, path }));
+	}
 	const refs: ProjectMediaReference[] = [];
 	const push = (location: string, value: unknown) => {
 		if (typeof value === "string" && value.trim() && !/^(data|blob|https?):/i.test(value)) {

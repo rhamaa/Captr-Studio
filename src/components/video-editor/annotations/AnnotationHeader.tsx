@@ -85,7 +85,7 @@ export function AnnotationHeader({ annotation, onLayerChange, t }: AnnotationHea
 						)}
 					</button>
 				)}
-				<span className="text-[10px] uppercase tracking-wider font-medium text-[#2563EB] bg-[#2563EB]/10 px-2 py-1 rounded-full">
+				<span className="text-[10px] uppercase tracking-wider font-semibold text-[#6FA8FF] bg-[#6FA8FF]/15 px-2 py-1 rounded-full">
 					{t("annotations.active")}
 				</span>
 			</div>

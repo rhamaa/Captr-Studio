@@ -1,13 +1,4 @@
-import {
-	Application,
-	ColorMatrixFilter,
-	Container,
-	Graphics,
-	Rectangle,
-	Sprite,
-	Texture,
-	VideoSource,
-} from "pixi.js";
+import { Application, Container, Graphics, Rectangle, Sprite, Texture, VideoSource } from "pixi.js";
 import { MotionBlurFilter } from "pixi-filters/motion-blur";
 import { ZoomBlurFilter } from "pixi-filters/zoom-blur";
 import type React from "react";
@@ -32,7 +23,6 @@ import {
 	isVideoWallpaperSource,
 } from "@/lib/wallpapers";
 import { computeDuckingGain } from "./audio/audioDucking";
-import { applyColorGradingToFilter, getVignetteTexture } from "./colorGrading";
 import { resolveLayoutSceneAtTime } from "./layoutScenes";
 import { toFileUrl } from "./projectPersistence";
 import { SocialSafeZoneOverlay } from "./SocialSafeZoneOverlay";
@@ -41,9 +31,7 @@ import {
 	type AudioDuckingSettings,
 	type AudioRegion,
 	type ClipRegion,
-	type ColorGradingSettings,
 	type CursorStyle,
-	DEFAULT_CAMERA_PERSPECTIVE_TILT,
 	type LayoutRegion,
 	type Padding,
 	type SpeedRegion,
@@ -133,7 +121,6 @@ import {
 	notifyCursorInteraction,
 } from "@/lib/extensions/renderHooks";
 import { applyCanvasSceneTransform } from "@/lib/extensions/sceneTransform";
-import { getSquircleSvgPath } from "@/lib/geometry/squircle";
 import { type AspectRatio, formatAspectRatioForCSS } from "@/utils/aspectRatioUtils";
 import { AnnotationOverlay } from "./AnnotationOverlay";
 import {
@@ -171,12 +158,6 @@ import {
 import { clampFocusToStage as clampFocusToStageUtil } from "./videoPlayback/focusUtils";
 import { layoutVideoContent as layoutVideoContentUtil } from "./videoPlayback/layoutUtils";
 import { updateOverlayIndicator } from "./videoPlayback/overlayUtils";
-import {
-	applyPerspectiveTilt,
-	computePerspectiveTilt,
-	createPerspectiveTiltState,
-	resetPerspectiveTiltState,
-} from "./videoPlayback/perspectiveTilt";
 import { createVideoEventHandlers } from "./videoPlayback/videoEventHandlers";
 import { getWebcamMediaTargetTimeSeconds } from "./videoPlayback/webcamSync";
 import { findDominantRegion } from "./videoPlayback/zoomRegionUtils";
@@ -188,7 +169,9 @@ import {
 	type MotionBlurState,
 } from "./videoPlayback/zoomTransform";
 import {
+	getWebcamCornerRadiusPx,
 	getWebcamCropSourceRect,
+	getWebcamOverlayDimensions,
 	getWebcamOverlayPosition,
 	getWebcamOverlaySizePx,
 } from "./webcamOverlay";
@@ -393,8 +376,6 @@ interface VideoPlaybackProps {
 	cursorClickBounce?: number;
 	cursorClickBounceDuration?: number;
 	cursorSway?: number;
-	cameraPerspectiveTilt?: number;
-	colorGrading?: ColorGradingSettings;
 	volume?: number;
 	suspendRendering?: boolean;
 }
@@ -476,8 +457,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			cursorClickBounce = DEFAULT_CURSOR_CLICK_BOUNCE,
 			cursorClickBounceDuration = DEFAULT_CURSOR_CLICK_BOUNCE_DURATION,
 			cursorSway = DEFAULT_CURSOR_SWAY,
-			cameraPerspectiveTilt = DEFAULT_CAMERA_PERSPECTIVE_TILT,
-			colorGrading,
 			volume = 1,
 			suspendRendering = false,
 		},
@@ -492,9 +471,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const cursorContainerRef = useRef<Container | null>(null);
 		const zoomBlurFilterRef = useRef<ZoomBlurFilter | null>(null);
 		const motionBlurFilterRef = useRef<MotionBlurFilter | null>(null);
-		const colorMatrixFilterRef = useRef<ColorMatrixFilter | null>(null);
-		const vignetteSpriteRef = useRef<Sprite | null>(null);
-		const colorGradingRef = useRef<ColorGradingSettings | undefined>(colorGrading);
 		const cameraContainerRef = useRef<Container | null>(null);
 
 		const timeUpdateAnimationRef = useRef<number | null>(null);
@@ -605,8 +581,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const cursorClickBounceRef = useRef(cursorClickBounce);
 		const cursorClickBounceDurationRef = useRef(cursorClickBounceDuration);
 		const cursorSwayRef = useRef(cursorSway);
-		const cameraPerspectiveTiltRef = useRef(cameraPerspectiveTilt);
-		const perspectiveTiltStateRef = useRef(createPerspectiveTiltState());
 		const zoomMotionBlurRef = useRef(zoomMotionBlur);
 		const zoomMotionBlurTuningRef = useRef(zoomMotionBlurTuning);
 		const lastEmittedClickTimeMsRef = useRef(-1);
@@ -709,6 +683,8 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const webcamPositionY = webcam?.positionY ?? 1;
 		const webcamCorner = webcam?.corner ?? "bottom-right";
 		const webcamCornerRadius = webcam?.cornerRadius ?? DEFAULT_WEBCAM_CORNER_RADIUS;
+		const webcamCornerRadiusPercent = webcam?.cornerRadiusPercent;
+		const webcamCropAspectRatio = Math.max(0.05, Math.min(20, webcam?.cropAspectRatio ?? 1));
 		const webcamShadow = webcam?.shadow ?? DEFAULT_WEBCAM_SHADOW;
 		const webcamTimeOffsetMs = webcam?.timeOffsetMs;
 		const webcamCropRegion = webcam?.cropRegion;
@@ -723,21 +699,22 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				webcamVideoDimensions.width,
 				webcamVideoDimensions.height,
 			);
-			const coverScale = Math.max(1 / sw, 1 / sh);
+			const targetHeight = 1 / webcamCropAspectRatio;
+			const coverScale = Math.max(1 / sw, targetHeight / sh);
 			const drawWidth = webcamVideoDimensions.width * coverScale;
 			const drawHeight = webcamVideoDimensions.height * coverScale;
 			const drawX = (1 - sw * coverScale) / 2 - sx * coverScale;
-			const drawY = (1 - sh * coverScale) / 2 - sy * coverScale;
+			const drawY = (targetHeight - sh * coverScale) / 2 - sy * coverScale;
 
 			return {
 				left: `${drawX * 100}%`,
-				top: `${drawY * 100}%`,
+				top: `${(drawY / targetHeight) * 100}%`,
 				width: `${drawWidth * 100}%`,
-				height: `${drawHeight * 100}%`,
+				height: `${(drawHeight / targetHeight) * 100}%`,
 				maxWidth: "none",
 				willChange: "left, top, width, height",
 			};
-		}, [webcamCropRegion, webcamVideoDimensions]);
+		}, [webcamCropAspectRatio, webcamCropRegion, webcamVideoDimensions]);
 
 		const applyWebcamBubbleLayout = useCallback(
 			(zoomScale: number) => {
@@ -759,20 +736,17 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					return;
 				}
 
-				const layoutScene =
-					layoutRegions.length > 0
-						? resolveLayoutSceneAtTime({
-								timeMs: currentTimeRef.current,
-								layoutRegions,
-								stageWidth: overlay.clientWidth,
-								stageHeight: overlay.clientHeight,
-								webcam: webcam ?? DEFAULT_WEBCAM_OVERLAY,
-								zoomScale,
-								hasWebcam: webcamEnabled && Boolean(webcamVideoPath),
-							})
-						: null;
+				const layoutScene = resolveLayoutSceneAtTime({
+					timeMs: currentTimeRef.current,
+					layoutRegions,
+					stageWidth: overlay.clientWidth,
+					stageHeight: overlay.clientHeight,
+					webcam: webcam ?? DEFAULT_WEBCAM_OVERLAY,
+					zoomScale,
+					hasWebcam: webcamEnabled && Boolean(webcamVideoPath),
+				});
 
-				if (layoutScene && screenContainer) {
+				if (!layoutScene.isDefault && screenContainer) {
 					const screen = layoutScene.screen;
 					const stageW = Math.max(1, overlay.clientWidth);
 					const stageH = Math.max(1, overlay.clientHeight);
@@ -834,7 +808,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 							: "none";
 				}
 
-				const scaledSize = layoutScene
+				const requestedSize = layoutScene
 					? layoutScene.webcam.width
 					: getWebcamOverlaySizePx({
 							containerWidth: overlay.clientWidth,
@@ -844,20 +818,39 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 							zoomScale,
 							reactToZoom: webcamReactToZoom,
 						});
+				const webcamDimensions = layoutScene
+					? { width: layoutScene.webcam.width, height: layoutScene.webcam.height }
+					: getWebcamOverlayDimensions({
+							containerWidth: overlay.clientWidth,
+							containerHeight: overlay.clientHeight,
+							size: requestedSize,
+							aspectRatio: webcamCropAspectRatio,
+							margin: webcamMargin,
+						});
+				const scaledSize = webcamDimensions.width;
+				const scaledHeight = webcamDimensions.height;
 				const { x, y } = layoutScene
 					? { x: layoutScene.webcam.x, y: layoutScene.webcam.y }
 					: getWebcamOverlayPosition({
 							containerWidth: overlay.clientWidth,
 							containerHeight: overlay.clientHeight,
 							size: scaledSize,
+							height: scaledHeight,
 							margin: webcamMargin,
 							positionPreset: webcamPositionPreset,
 							positionX: webcamPositionX,
 							positionY: webcamPositionY,
 							legacyCorner: webcamCorner,
 						});
-				const scaledHeight = layoutScene ? layoutScene.webcam.height : scaledSize;
-				const radius = layoutScene ? layoutScene.webcam.borderRadius : webcamCornerRadius;
+				const radius = layoutScene
+					? layoutScene.webcam.borderRadius
+					: getWebcamCornerRadiusPx({
+							width: scaledSize,
+							height: scaledHeight,
+							cornerRadius: webcamCornerRadius,
+							cornerRadiusPercent: webcamCornerRadiusPercent,
+							fallback: DEFAULT_WEBCAM_CORNER_RADIUS,
+						});
 
 				bubble.style.display = layoutScene?.webcam.opacity === 0 ? "none" : "block";
 				bubble.style.left = `${x}px`;
@@ -865,14 +858,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				bubble.style.width = `${scaledSize}px`;
 				bubble.style.height = `${scaledHeight}px`;
 				bubble.style.opacity = `${layoutScene?.webcam.opacity ?? 1}`;
-				bubble.style.aspectRatio = layoutScene ? "auto" : "1 / 1";
-				const squirclePath = getSquircleSvgPath({
-					x: 0,
-					y: 0,
-					width: scaledSize,
-					height: scaledHeight,
-					radius,
-				});
+				bubble.style.aspectRatio = `${scaledSize} / ${scaledHeight}`;
 				const shadow = layoutScene ? layoutScene.webcam.shadow : webcamShadow;
 				bubble.style.filter = `drop-shadow(0 ${Math.round(scaledHeight * 0.06)}px ${Math.round(
 					scaledHeight * 0.22,
@@ -883,12 +869,15 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				bubbleInner.style.borderRadius = "0px";
 				bubbleInner.style.overflow = "hidden";
 				bubbleInner.style.contain = "paint";
-				bubbleInner.style.clipPath = `path('${squirclePath}')`;
-				bubbleInner.style.setProperty("-webkit-clip-path", `path('${squirclePath}')`);
+				const mask = `inset(0px round ${radius}px)`;
+				bubbleInner.style.clipPath = mask;
+				bubbleInner.style.setProperty("-webkit-clip-path", mask);
 			},
 			[
 				webcamCorner,
 				webcamCornerRadius,
+				webcamCornerRadiusPercent,
+				webcamCropAspectRatio,
 				webcamEnabled,
 				webcamMargin,
 				webcamPositionPreset,
@@ -1025,11 +1014,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				baseScaleRef.current = result.baseScale;
 				baseOffsetRef.current = result.baseOffset;
 				baseMaskRef.current = result.maskRect;
-				if (vignetteSpriteRef.current && result.maskRect) {
-					vignetteSpriteRef.current.position.set(result.maskRect.x, result.maskRect.y);
-					vignetteSpriteRef.current.width = result.maskRect.width;
-					vignetteSpriteRef.current.height = result.maskRect.height;
-				}
 				cropBoundsRef.current = result.cropBounds;
 
 				// Sync extension cursor effects canvas resolution with renderer
@@ -1090,6 +1074,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 				// Reset camera container to identity
 				cameraContainer.scale.set(1);
+				cameraContainer.skew.set(0, 0);
 				cameraContainer.position.set(0, 0);
 
 				const selectedId = selectedZoomIdRef.current;
@@ -1241,7 +1226,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			containerRef,
 			play: async () => {
 				const vid = videoRef.current;
-				if (!vid) return;
+				if (!vid || !videoPath) return;
 				try {
 					allowPlaybackRef.current = true;
 					await vid.play();
@@ -1672,28 +1657,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		}, [cursorSway]);
 
 		useEffect(() => {
-			cameraPerspectiveTiltRef.current = cameraPerspectiveTilt;
-		}, [cameraPerspectiveTilt]);
-
-		useEffect(() => {
-			colorGradingRef.current = colorGrading;
-			const filter = colorMatrixFilterRef.current;
-			const videoContainer = videoContainerRef.current;
-			const vignetteSprite = vignetteSpriteRef.current;
-
-			if (filter && videoContainer) {
-				const hasActiveFilter = applyColorGradingToFilter(filter, colorGrading);
-				videoContainer.filters = hasActiveFilter ? [filter] : null;
-			}
-
-			if (vignetteSprite) {
-				const vig = (colorGrading?.vignette ?? 0) / 100;
-				vignetteSprite.alpha = vig;
-				vignetteSprite.visible = vig > 0;
-			}
-		}, [colorGrading, pixiReady]);
-
-		useEffect(() => {
 			const timeMs = currentTime * 1000;
 			currentTimeRef.current = timeMs;
 			const videoInfo = extensionHost.getVideoInfoSnapshot();
@@ -1725,7 +1688,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 			animationStateRef.current = createPlaybackAnimationState();
 			cursorOverlayRef.current?.reset();
-			resetPerspectiveTiltState(perspectiveTiltStateRef.current);
 			motionBlurStateRef.current = createMotionBlurState();
 
 			requestAnimationFrame(() => {
@@ -2017,7 +1979,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				const videoEffectsContainer = new Container();
 				videoEffectsContainerRef.current = videoEffectsContainer;
 				zoomBlurFilterRef.current = new ZoomBlurFilter({ strength: 0, maxKernelSize: 13 });
-				motionBlurFilterRef.current = new MotionBlurFilter([0, 0], 5, 0);
+				motionBlurFilterRef.current = new MotionBlurFilter({
+					velocity: [0, 0],
+					kernelSize: 5,
+					offset: 0,
+				});
 				videoEffectsContainer.filters = [
 					motionBlurFilterRef.current,
 					zoomBlurFilterRef.current,
@@ -2029,20 +1995,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				const videoContainer = new Container();
 				videoContainerRef.current = videoContainer;
 				videoEffectsContainer.addChild(videoContainer);
-
-				const colorMatrixFilter = new ColorMatrixFilter();
-				colorMatrixFilterRef.current = colorMatrixFilter;
-				const hasActiveColorFilter = applyColorGradingToFilter(
-					colorMatrixFilter,
-					colorGradingRef.current,
-				);
-				videoContainer.filters = hasActiveColorFilter ? [colorMatrixFilter] : null;
-
-				const vignetteSprite = new Sprite(getVignetteTexture());
-				vignetteSprite.alpha = (colorGradingRef.current?.vignette ?? 0) / 100;
-				vignetteSprite.visible = (colorGradingRef.current?.vignette ?? 0) > 0;
-				vignetteSpriteRef.current = vignetteSprite;
-				videoContainer.addChild(vignetteSprite);
 
 				// Device frame overlay container - sits above video but below cursor
 				const frameContainer = new Container();
@@ -2541,28 +2493,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					extensionHost.setSmoothedCursor(null);
 				}
 
-				const cameraContainer = cameraContainerRef.current;
-				const perspectiveTiltIntensity = cameraPerspectiveTiltRef.current;
-				if (cameraContainer && perspectiveTiltIntensity > 0) {
-					const cursorSnapshot = cursorOverlay?.getSmoothedCursorSnapshot();
-					const tilt = computePerspectiveTilt(perspectiveTiltStateRef.current, {
-						cursor: cursorSnapshot
-							? { cx: cursorSnapshot.cx, cy: cursorSnapshot.cy }
-							: null,
-						intensity: perspectiveTiltIntensity,
-						deltaMs: Math.min(80, Math.max(1, app.ticker?.deltaMS ?? 16.6)),
-						stageSize: stageSizeRef.current,
-						baseMask: baseMaskRef.current,
-					});
-					applyPerspectiveTilt(cameraContainer, tilt);
-				} else if (
-					cameraContainer &&
-					(cameraContainer.skew.x !== 0 || cameraContainer.skew.y !== 0)
-				) {
-					resetPerspectiveTiltState(perspectiveTiltStateRef.current);
-					cameraContainer.skew.set(0, 0);
-				}
-
 				if (effectsCanvas && effectsCanvas.width > 0 && effectsCanvas.height > 0) {
 					const ctx2d = effectsCanvas.getContext("2d");
 					if (ctx2d) {
@@ -3009,7 +2939,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					>
 						<div
 							ref={focusIndicatorRef}
-							className="absolute rounded-md border border-[#2563EB]/80 bg-[#2563EB]/20 shadow-[0_0_0_1px_rgba(37,99,235,0.35)]"
+							className="absolute rounded-md border border-[#6FA8FF]/80 bg-[#6FA8FF]/20 shadow-[0_0_0_1px_rgba(111,168,255,0.35)]"
 							style={{ display: "none", pointerEvents: "none" }}
 						/>
 						{webcam && webcamVideoPath ? (
@@ -3114,7 +3044,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				<video
 					crossOrigin="anonymous"
 					ref={videoRef}
-					src={videoPath}
+					src={videoPath || undefined}
 					className={fallbackVideoClassName}
 					preload="metadata"
 					playsInline
@@ -3124,6 +3054,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						onDurationChange(e.currentTarget.duration);
 					}}
 					onError={(e) => {
+						if (!videoPath) return;
 						const mediaError = e.currentTarget.error;
 						const code = mediaError?.code;
 						const msg = mediaError?.message;
