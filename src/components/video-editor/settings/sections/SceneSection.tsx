@@ -274,7 +274,8 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 			if (previewPath && clean(previewPath).endsWith(clean(selected))) return true;
 			const baseName = (p: string) => clean(p).split("/").pop()?.replace(/^\d+-/, "") ?? "";
 			if (baseName(selected) && baseName(selected) === baseName(candidateValue)) return true;
-			if (previewPath && baseName(selected) && baseName(selected) === baseName(previewPath)) return true;
+			if (previewPath && baseName(selected) && baseName(selected) === baseName(previewPath))
+				return true;
 		} catch {
 			return false;
 		}
@@ -524,7 +525,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 					</div>
 				</LayoutGroup>
 
-				<div className="pt-2">
+				<div className="pt-2 overflow-x-hidden">
 					<AnimatePresence mode="wait" initial={false}>
 						<motion.div
 							key={backgroundTab}
@@ -532,10 +533,11 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 							animate={{ opacity: 1, y: 0 }}
 							exit={{ opacity: 0, y: -3 }}
 							transition={{ duration: 0.15 }}
+							className="overflow-x-hidden"
 						>
 							{backgroundTab === "image" && (
 								<div className="flex flex-col gap-2">
-									<div className="grid grid-cols-5 gap-1.5">
+									<div className="grid grid-cols-4 gap-2">
 										<label
 											className={cn(
 												wallpaperTileClass(false),
@@ -595,7 +597,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 
 							{backgroundTab === "video" && (
 								<div className="flex flex-col gap-2">
-									<div className="grid grid-cols-5 gap-1.5">
+									<div className="grid grid-cols-4 gap-2">
 										<button
 											type="button"
 											onClick={handleVideoUpload}
@@ -651,7 +653,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 											{selected.startsWith("#") ? selected : "#000000"}
 										</span>
 									</div>
-									<div className="grid grid-cols-5 gap-1.5">
+									<div className="grid grid-cols-4 gap-2">
 										{visibleColorPalette.map((color) => {
 											const isSelected =
 												selected.toLowerCase() === color.toLowerCase();
@@ -676,7 +678,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 							)}
 
 							{backgroundTab === "gradient" && (
-								<div className="grid grid-cols-5 gap-1.5">
+								<div className="grid grid-cols-4 gap-2">
 									{GRADIENTS.map((grad, idx) => {
 										const isSelected = selected === grad;
 										return (
