@@ -838,6 +838,9 @@ export class SmoothedCursorState {
 	private xSpring = createSpringState(0.5);
 	private ySpring = createSpringState(0.5);
 
+	checkpoint() { return structuredClone({x:this.x,y:this.y,trail:this.trail,initialized:this.initialized,lastTimeMs:this.lastTimeMs,xSpring:this.xSpring,ySpring:this.ySpring}); }
+	restore(value:ReturnType<SmoothedCursorState["checkpoint"]>) { Object.assign(this,structuredClone(value)); }
+
 	constructor(
 		config: Pick<CursorRenderConfig, "smoothingFactor" | "trailLength" | "springTuning">,
 	) {
@@ -928,6 +931,9 @@ export class PixiCursorOverlay {
 	private lastRenderedTimeMs: number | null = null;
 	private swayRotation = 0;
 	private swaySpring = createSpringState(0);
+
+	checkpoint() { return structuredClone({state:this.state.checkpoint(),lastRenderedPoint:this.lastRenderedPoint,lastRenderedTimeMs:this.lastRenderedTimeMs,swayRotation:this.swayRotation,swaySpring:this.swaySpring}); }
+	restore(value:ReturnType<PixiCursorOverlay["checkpoint"]>) {const {state,...rest}=structuredClone(value);this.state.restore(state);Object.assign(this,rest);}
 
 	constructor(config: Partial<CursorRenderConfig> = {}) {
 		this.config = {

@@ -1,7 +1,6 @@
 export { default as PlaybackControls } from "./PlaybackControls";
 export { SettingsPanel } from "./SettingsPanel";
-export { default as SlideTimelineHost } from "./SlideTimelineHost";
-export { RecordSlideTimeline } from "@/slides/record";
+export { RecordingTimeline } from "@/recording";
 export type {
 	TimelineEditorHandle,
 	TimelineEditorProps,

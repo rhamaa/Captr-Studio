@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { RecordingSessionData } from "./ipc/types";
 
 type NativeVideoExportWriteResult = { success: boolean; error?: string };
@@ -476,18 +476,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	discardExportedTemp: (tempPath: string) => {
 		return ipcRenderer.invoke("discard-exported-temp", tempPath);
 	},
-	stitchProjectSlides: (options: {
-		slides: Array<{ filePath: string; durationSec: number; audioPaths?: string[] }>;
-		transitions?: Array<{ type: string; durationSec: number }>;
-		globalAudio?: { path: string; volume?: number; loop?: boolean };
-		outputPath: string;
-	}) => {
-		return ipcRenderer.invoke("stitch-project-slides", options) as Promise<{
-			success: boolean;
-			outputPath?: string;
-			error?: string;
-		}>;
-	},
 	getVideoAudioFallbackPaths: (videoPath: string) => {
 		return ipcRenderer.invoke("get-video-audio-fallback-paths", videoPath);
 	},
@@ -537,15 +525,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	stitchVideoClips: (clipPaths: string[]) => {
 		return ipcRenderer.invoke("stitch-video-clips", clipPaths);
 	},
-	renderMotionSlide: (options: {
-		htmlDocument: string;
-		durationMs: number;
-		width?: number;
-		height?: number;
-		fps?: number;
-	}) => {
-		return ipcRenderer.invoke("render-motion-slide", options);
-	},
 	onRenderMotionSlideProgress: (
 		callback: (progress: {
 			currentFrame: number;
@@ -565,7 +544,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	recordAdditionalClip: () => {
 		return ipcRenderer.invoke("record-additional-clip");
 	},
-	openRecorderHud: (options?: { preserveProjectPath?: boolean }) => {
+	openRecorderHud: (options?: { preserveProjectPath?: boolean;projectId?:string;captureId?:string }) => {
 		return ipcRenderer.invoke("open-recorder-hud", options);
 	},
 	onRecorderProjectContextChanged: (callback: (preserveProjectPath: boolean) => void) => {
@@ -714,6 +693,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	setCurrentVideoPath: (
 		path: string,
 		options?: {
+			captureId?:string;projectId?:string;
 			preserveProjectPath?: boolean;
 			hideOverlayCursorByDefault?: boolean;
 		},
@@ -727,10 +707,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
 			timeOffsetMs?: number;
 			hideOverlayCursorByDefault?: boolean;
 		},
-		options?: { preserveProjectPath?: boolean },
+		options?: { preserveProjectPath?: boolean;captureId?:string;projectId?:string },
 	) => {
 		return ipcRenderer.invoke("set-current-recording-session", session, options);
 	},
+	getRecordingProjectContext: () => ipcRenderer.invoke("get-recording-project-context"),
+	activateTimelineProject: (projectId:string,resetPath=false) => ipcRenderer.invoke("activate-timeline-project",projectId,resetPath),
+	getPathForFile: (file:File) => webUtils.getPathForFile(file),
+	importProjectMedia: (paths?:string[]) => ipcRenderer.invoke("import-project-media",paths),
+	inspectRecordingSources: (videoPath:string) => ipcRenderer.invoke("inspect-recording-sources",videoPath),
 	onRecordingSessionChanged: (callback: (session: RecordingSessionData | null) => void) => {
 		const listener = (
 			_event: Electron.IpcRendererEvent,
@@ -775,21 +760,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
 			thumbnailDataUrl,
 		);
 	},
-	saveProjectFileNamed: (
-		projectData: unknown,
-		projectName: string,
-		thumbnailDataUrl?: string | null,
-	) => {
-		return ipcRenderer.invoke(
-			"save-project-file-named",
-			projectData,
-			projectName,
-			thumbnailDataUrl,
-		);
-	},
 	loadProjectFile: () => {
 		return ipcRenderer.invoke("load-project-file");
 	},
+	consumePendingProjectOpen: () => ipcRenderer.invoke("consume-pending-project-open"),
+	saveConvertedProjectCopy: (project:unknown, token:string) => ipcRenderer.invoke("save-converted-project-copy", project, token),
+	releaseLegacyProjectCandidate:(token:string)=>ipcRenderer.invoke("release-legacy-project-candidate",token),
 	loadCurrentProjectFile: () => {
 		return ipcRenderer.invoke("load-current-project-file");
 	},
@@ -811,23 +787,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	pickAndInspectProjectFile: () => {
 		return ipcRenderer.invoke("pick-and-inspect-project-file");
 	},
-	importAssetToSlide: (
-		projectId: string,
-		slideId: string,
-		sourcePath: string,
-		subfolder?: string,
-	) => {
-		return ipcRenderer.invoke(
-			"import-asset-to-slide",
-			projectId,
-			slideId,
-			sourcePath,
-			subfolder,
-		);
-	},
 	saveRecordedAudio: (payload: {
 		audioBuffer: ArrayBuffer | Uint8Array | number[];
-		slideId?: string | null;
 		extension?: string;
 	}) => {
 		return ipcRenderer.invoke("save-recorded-audio", payload);

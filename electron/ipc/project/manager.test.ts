@@ -12,6 +12,7 @@ async function makeBundle(
 	tmpDir: string,
 	captrPath: string,
 	projectData: Record<string, unknown>,
+	media:Record<string,string>={},
 ): Promise<string> {
 	const workspaceDir = path.join(
 		tmpDir,
@@ -23,6 +24,7 @@ async function makeBundle(
 		JSON.stringify(projectData),
 		"utf-8",
 	);
+	for(const [name,bytes] of Object.entries(media)){const target=path.resolve(workspaceDir,name);if(!target.startsWith(path.resolve(workspaceDir)+path.sep))throw new Error("Unsafe fixture");await fs.mkdir(path.dirname(target),{recursive:true});await fs.writeFile(target,bytes);}
 	await packProjectWorkspace(workspaceDir, captrPath);
 	await fs.rm(workspaceDir, { recursive: true, force: true });
 	return captrPath;
@@ -300,6 +302,30 @@ describe("local media path policy", () => {
 		await expect(fs.readFile(thumbnailPath, "utf8")).resolves.toBe("png-thumbnail");
 	});
 
+	it("rejects retired slides before replacing the active project or its workspace", async () => {
+		const projectPath = path.join(tempPath, "retired.captr");
+		await makeBundle(tempPath, projectPath, {
+			projectId: "active-id",
+			slides: [{ id: "old-motion", type: "motion" }],
+		});
+		const state = await import("../state");
+		state.setCurrentProjectPath("active.captr");
+		state.setCurrentVideoPath("active.mp4");
+		const { getProjectWorkspaceDir } = await import("./projectWorkspace");
+		const workspace = getProjectWorkspaceDir("active-id");
+		await fs.mkdir(workspace, { recursive: true });
+		await fs.writeFile(path.join(workspace, "sentinel.txt"), "keep");
+		const before = await fs.readFile(projectPath);
+		const { loadProjectFromPath } = await import("./manager");
+		const result = await loadProjectFromPath(projectPath);
+		expect(result.success).toBe(false);
+		expect(result.message).toMatch(/previous version/i);
+		expect(state.currentProjectPath).toBe("active.captr");
+		expect(state.currentVideoPath).toBe("active.mp4");
+		expect(await fs.readFile(projectPath)).toEqual(before);
+		expect(await fs.readFile(path.join(workspace, "sentinel.txt"), "utf8")).toBe("keep");
+	});
+
 	it("rejects legacy plain JSON .captr files with a clear error message", async () => {
 		const videoPath = path.join(tempPath, "recording.mp4");
 		const projectPath = path.join(tempPath, "recording.captr");
@@ -402,6 +428,38 @@ describe("local media path policy", () => {
 		);
 		// No loose sidecar exists — the preview comes from inside the bundle.
 		expect(entry?.thumbnailPath).toBeNull();
+	});
+
+	it("validates a V3 library before installing it and approves unused media", async () => {
+		const { createTimelineProject, registerMedia } = await import("../../../src/core/timeline/commands");
+		const { stageTimelineProject } = await import("./timelineBundle");
+		const { loadProjectFromPath, isAllowedLocalMediaPath } = await import("./manager");
+		const { getProjectWorkspaceDir } = await import("./projectWorkspace");
+		const source = path.join(tempRoot, "unused.mp4"); await fs.writeFile(source, "unused media");
+		const project = registerMedia(createTimelineProject("library", "Library"), { id: "asset", kind: "video", name: "Unused", durationUs: 1_000_000, width: 1920, height: 1080, source: { path: source, durationUs: 1_000_000, offsetUs: 0 } });
+		const workspace = path.join(tempPath, "v3-stage");
+		const staged = await stageTimelineProject(project, workspace);
+		const bundle = path.join(tempPath, "library.captr"); await packProjectWorkspace(workspace, bundle);
+		const loaded = await loadProjectFromPath(bundle);
+		expect(loaded.success).toBe(true);
+		const active = loaded.project as typeof project;
+		expect(await fs.readFile(active.assets[0].source!.path, "utf8")).toBe("unused media");
+		expect(await isAllowedLocalMediaPath(active.assets[0].source!.path)).toBe(true);
+		expect(await fs.readdir(getProjectWorkspaceDir("library"))).not.toContain("slides");
+		const emptyBundle = path.join(tempPath, "empty-v3.captr");
+		await makeBundle(tempPath, emptyBundle, createTimelineProject("empty", "Empty") as unknown as Record<string, unknown>);
+		expect((await loadProjectFromPath(emptyBundle)).success).toBe(true);
+		const brokenBundle = path.join(tempPath, "broken-v3.captr");
+		await makeBundle(tempPath, brokenBundle, { ...staged, title: "Broken", assets: [{ ...staged.assets[0], source: { ...staged.assets[0].source, path: "assets/asset/missing.mp4" } }] });
+		expect((await loadProjectFromPath(brokenBundle)).success).toBe(false);
+		expect(JSON.parse(await fs.readFile(path.join(getProjectWorkspaceDir("library"), "project.json"), "utf8")).title).toBe("Library");
+	});
+
+	it("legacy conversion candidates preserve the active destination and original bytes",async()=>{
+		const legacy=path.join(tempPath,"convert.captr");await makeBundle(tempPath,legacy,{version:1,projectId:"old",videoPath:"screen.mp4",editor:{},clips:[{id:"record",videoPath:"screen.mp4",durationMs:1000}]},{"screen.mp4":"source"});
+		const bytes=await fs.readFile(legacy);const state=await import("../state");state.setCurrentProjectPath("active.captr");
+		const {loadProjectFromPath}=await import("./manager");const result=await loadProjectFromPath(legacy);
+		expect(result.success).toBe(true);expect(result).toMatchObject({conversionRequired:true});expect(state.currentProjectPath).toBe("active.captr");expect(await fs.readFile(legacy)).toEqual(bytes);
 	});
 
 	it("rejects bundle projects that reference media missing from the bundle", async () => {

@@ -35,8 +35,7 @@ import { AudioTrackSection } from "./settings/sections/AudioTrackSection";
 import { ClipItemSection } from "./settings/sections/ClipItemSection";
 import { CursorSection } from "./settings/sections/CursorSection";
 import { GeneralPreferencesSection } from "./settings/sections/GeneralPreferencesSection";
-import { RecordLayoutSection } from "@/slides/record/components/RecordLayoutSection";
-import { MediaSection } from "./settings/sections/MediaSection";
+import { RecordLayoutSection } from "@/recording/components/RecordLayoutSection";
 import { SceneSection } from "./settings/sections/SceneSection";
 import { TransitionsSection } from "./settings/sections/TransitionsSection";
 import { VideoAdjustSection } from "./settings/sections/VideoAdjustSection";
@@ -53,7 +52,6 @@ import type {
 	AnnotationRegion,
 	AnnotationType,
 	AudioDuckingSettings,
-	ClipEntry,
 	ClipTransitionType,
 	CropRegion,
 	CursorStyle,
@@ -96,14 +94,6 @@ interface SettingsPanelProps {
 	panelMode?: "editor" | "background";
 	activeEffectSection?: EditorEffectSection;
 	recordToolsEnabled?: boolean;
-	slides?: ClipEntry[];
-	onAddAsSlide?: (filePath: string, label?: string) => void;
-	onImportMedia?: (subfolder?: string) => void;
-	onUseAsset?: (
-		asset: import("./types").SlideAssetFile,
-		action: "set-main" | "add-video-layer" | "add-audio" | "add-overlay",
-	) => void;
-	onRemoveAsset?: (assetId: string) => void;
 	onAudioAdded?: (span: { start: number; end: number }, audioPath: string) => void;
 	currentTime?: number;
 	selected: string;
@@ -262,11 +252,6 @@ export function SettingsPanel({
 	panelMode = "editor",
 	activeEffectSection: activeEffectSectionProp,
 	recordToolsEnabled = true,
-	slides = [],
-	onAddAsSlide,
-	onImportMedia,
-	onUseAsset,
-	onRemoveAsset,
 	onAudioAdded,
 	currentTime = 0,
 	selected,
@@ -844,21 +829,13 @@ export function SettingsPanel({
 		switch (activeEffectSection) {
 			case "media":
 				return (
-					<MediaSection
-						slides={slides}
-						selectedClipId={selectedClipId}
-						onAddAsSlide={onAddAsSlide}
-						onImportMedia={onImportMedia}
-						onUseAsset={onUseAsset}
-						onRemoveAsset={onRemoveAsset}
-						tSettings={tSettings}
-					/>
+					null
 				);
 			case "audio-record":
 				return (
 					<AudioRecordSection
 						currentTime={currentTime}
-						activeSlideId={selectedClipId}
+						compositionId={selectedClipId}
 						onAudioAdded={onAudioAdded}
 						selectedAudioId={selectedAudioId}
 						selectedAudioVolume={selectedAudioVolume}
@@ -1116,15 +1093,7 @@ export function SettingsPanel({
 				}
 				if (!recordToolsEnabled) {
 					return (
-						<MediaSection
-							slides={slides}
-							selectedClipId={selectedClipId}
-							onAddAsSlide={onAddAsSlide}
-							onImportMedia={onImportMedia}
-							onUseAsset={onUseAsset}
-							onRemoveAsset={onRemoveAsset}
-							tSettings={tSettings}
-						/>
+						null
 					);
 				}
 				return sceneSectionContent;

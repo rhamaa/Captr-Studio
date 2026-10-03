@@ -44,6 +44,8 @@ export type NativeCaptureDiagnostics = {
 };
 
 export type RecordingSessionData = {
+	captureId?: string;
+	projectId?: string;
 	videoPath: string;
 	webcamPath?: string | null;
 	timeOffsetMs?: number;
@@ -56,6 +58,8 @@ export type PauseSegment = {
 };
 
 export type RecordingSessionManifest = {
+	captureId?: string;
+	projectId?: string;
 	version: 1 | 2;
 	videoFileName: string;
 	webcamFileName?: string | null;

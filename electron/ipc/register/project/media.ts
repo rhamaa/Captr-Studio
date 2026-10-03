@@ -7,35 +7,19 @@ import {
 	rememberApprovedLocalReadPath,
 	resolveApprovedLocalMediaPath,
 } from "../../project/manager";
-import { copyAssetToSlideWorkspace, ensureProjectWorkspace } from "../../project/projectWorkspace";
-import { currentProjectPath } from "../../state";
 import { getRecordingsDir, normalizePath } from "../../utils";
 
 export function registerProjectMediaHandlers() {
-	ipcMain.handle(
-		"import-asset-to-slide",
-		async (_, projectId: string, slideId: string, sourcePath: string, subfolder?: string) => {
-			try {
-				const workspaceDir = await ensureProjectWorkspace(projectId);
-				const result = await copyAssetToSlideWorkspace(
-					workspaceDir,
-					slideId,
-					sourcePath,
-					subfolder,
-				);
-				await rememberApprovedLocalReadPath(result.absolutePath);
-				return {
-					success: true,
-					...result,
-				};
-			} catch (error) {
-				return {
-					success: false,
-					error: String(error),
-				};
-			}
-		},
-	);
+	ipcMain.handle("import-project-media", async (_, suppliedPaths?:string[]) => {
+		try {
+			const result=suppliedPaths?{canceled:false,filePaths:suppliedPaths}:await dialog.showOpenDialog({title:"Import media",properties:["openFile","multiSelections"],filters:[{name:"Media",extensions:["mp4","webm","mov","mkv","png","jpg","jpeg","webp","gif","wav","mp3","m4a","ogg","aac","flac"]}]});
+			if(result.canceled)return {success:false,canceled:true,paths:[]};
+			const paths:string[]=[];
+			for(const file of result.filePaths){if(!/\.(mp4|webm|mov|mkv|png|jpe?g|webp|gif|wav|mp3|m4a|ogg|aac|flac)$/i.test(file))throw new Error("Unsupported media type");const real=await fs.realpath(file);if(!(await fs.stat(real)).isFile())throw new Error("Media source must be a file");paths.push(real);}
+			for(const file of paths)await rememberApprovedLocalReadPath(file);
+			return {success:true,paths};
+		} catch(error){return {success:false,error:String(error),paths:[]};}
+	});
 
 	ipcMain.handle("get-local-media-url", async (_, filePath: string) => {
 		const baseUrl = getMediaServerBaseUrl();
@@ -95,7 +79,6 @@ export function registerProjectMediaHandlers() {
 			_,
 			payload: {
 				audioBuffer: ArrayBuffer | Uint8Array | number[];
-				slideId?: string | null;
 				extension?: string;
 			},
 		) => {
@@ -105,20 +88,10 @@ export function registerProjectMediaHandlers() {
 				}
 
 				const ext = payload.extension ? payload.extension.replace(/^\./, "") : "webm";
-				const fileName = `voiceover-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
+				if (!/^(webm|wav|mp3|m4a|ogg)$/i.test(ext)) return {success:false,error:"Unsupported audio extension"};
+                const fileName = `voiceover-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
 
-				let targetDir: string;
-				if (currentProjectPath) {
-					const workspaceDir = await ensureProjectWorkspace(currentProjectPath);
-					if (payload.slideId) {
-						targetDir = path.join(workspaceDir, "slides", payload.slideId, "audio");
-					} else {
-						targetDir = path.join(workspaceDir, "audio");
-					}
-				} else {
-					const recordingsDir = await getRecordingsDir();
-					targetDir = path.join(recordingsDir, "voiceovers");
-				}
+				const targetDir=path.join(await getRecordingsDir(), "voiceovers");
 
 				await fs.mkdir(targetDir, { recursive: true });
 				const filePath = path.join(targetDir, fileName);

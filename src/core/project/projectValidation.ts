@@ -4,17 +4,15 @@ import {
 	isObjectRecord,
 	isOptional,
 	isString,
-} from "@/core/slides/validation";
-import { isValidMotionSlideMeta } from "@/slides/motion/schema";
-import { isValidRecordSlideMeta } from "@/slides/record/schema";
-import { isValidVideoSlideMeta } from "@/slides/video/schema";
+} from "@/core/validation";
+import { isValidRecordingSettings } from "@/recording/schema";
 import type {
 	GlobalAudioTrack,
 	ProjectSlideData,
 	ProjectV2Data,
 	SlideTransition,
 	TransitionType,
-} from "@/core/slides/types";
+} from "@/core/project/legacyTypes";
 
 const transitionTypes: readonly TransitionType[] = [
 	"none",
@@ -46,11 +44,7 @@ function isProjectSlide(value: unknown): value is ProjectSlideData {
 
 	switch (value.type) {
 		case "record":
-			return isValidRecordSlideMeta(value.meta);
-		case "video":
-			return isValidVideoSlideMeta(value.meta);
-		case "motion":
-			return isValidMotionSlideMeta(value.meta);
+			return isValidRecordingSettings(value.meta);
 		case "keyframe":
 			// Keyframe remains an extension slot; its owning module validates its schema.
 			return true;

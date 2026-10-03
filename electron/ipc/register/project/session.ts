@@ -23,14 +23,22 @@ import {
 	normalizeVideoSourcePath,
 } from "../../utils";
 import { normalizeBoolean, normalizeRecordingTimeOffsetMs } from "./shared";
+import { getRecordingProjectContext, setActiveRecordingProjectId } from "../../project/recordingContext";
 
 export function registerProjectSessionHandlers() {
+	ipcMain.handle("activate-timeline-project", (_, projectId:string, resetPath:boolean) => {
+		if (!/^[a-zA-Z0-9_-]+$/.test(projectId)) throw new Error("Invalid project identity");
+		setActiveRecordingProjectId(projectId);
+		if (resetPath) {setCurrentProjectPath(null);setCurrentVideoPath(null);setCurrentRecordingSession(null);}
+		return {success:true};
+	});
+	ipcMain.handle("get-recording-project-context", () => getRecordingProjectContext());
 	ipcMain.handle(
 		"set-current-video-path",
 		async (
 			_,
 			path: string,
-			options?: { preserveProjectPath?: boolean; hideOverlayCursorByDefault?: boolean },
+			options?: { preserveProjectPath?: boolean; hideOverlayCursorByDefault?: boolean;captureId?:string;projectId?:string },
 		) => {
 			const pendingProjectPathPreservation =
 				consumePreserveProjectPathForNextNativeRecording();
@@ -46,6 +54,8 @@ export function registerProjectSessionHandlers() {
 
 			const nextSession = {
 				...resolvedSession,
+				captureId: options?.captureId ?? resolvedSession.captureId,
+				projectId: options?.projectId ?? resolvedSession.projectId,
 				hideOverlayCursorByDefault:
 					normalizeBoolean(options?.hideOverlayCursorByDefault) ||
 					normalizeBoolean(resolvedSession.hideOverlayCursorByDefault),
@@ -57,7 +67,7 @@ export function registerProjectSessionHandlers() {
 				preserveProjectPath,
 			);
 
-			if (nextSession.webcamPath) {
+			if (nextSession.webcamPath || nextSession.captureId) {
 				await persistRecordingSessionManifest(nextSession);
 			}
 
@@ -85,7 +95,7 @@ export function registerProjectSessionHandlers() {
 				timeOffsetMs?: number;
 				hideOverlayCursorByDefault?: boolean;
 			},
-			options?: { preserveProjectPath?: boolean },
+			options?: { preserveProjectPath?: boolean;captureId?:string;projectId?:string },
 		) => {
 			const pendingProjectPathPreservation =
 				consumePreserveProjectPathForNextNativeRecording();
@@ -95,6 +105,8 @@ export function registerProjectSessionHandlers() {
 				normalizeVideoSourcePath(session.videoPath) ?? session.videoPath;
 			setCurrentVideoPath(normalizedVideoPath);
 			setCurrentRecordingSession({
+				captureId:options?.captureId,
+				projectId:options?.projectId,
 				videoPath: normalizedVideoPath,
 				webcamPath: normalizeVideoSourcePath(session.webcamPath ?? null),
 				timeOffsetMs: normalizeRecordingTimeOffsetMs(session.timeOffsetMs),

@@ -1,5 +1,6 @@
+import { assertSupportedLegacyProject, getRetiredSlideIssues } from "@/core/project/legacySupport";
 import type { SourceAudioTrackSettings } from "@/components/video-editor/audio/audioTypes";
-import { isObjectRecord as isSchemaObjectRecord } from "@/core/slides/validation";
+import { isObjectRecord as isSchemaObjectRecord } from "@/core/validation";
 import type {
 	ExportBackendPreference,
 	ExportEncodingMode,
@@ -20,9 +21,7 @@ import {
 	TEMPORAL_MOTION_BLUR_MIN_SHUTTER_FRACTION,
 } from "@/lib/exporter/temporalMotionBlur";
 import { DEFAULT_WALLPAPER_PATH } from "@/lib/wallpapers";
-import { isValidMotionSlideMeta } from "@/slides/motion/schema";
-import { recordMetadataGuards } from "@/slides/record/schema";
-import { isValidVideoSlideMeta } from "@/slides/video/schema";
+import { recordMetadataGuards } from "@/recording/schema";
 import { ASPECT_RATIOS, type AspectRatio, isCustomAspectRatio } from "@/utils/aspectRatioUtils";
 import { normalizePropertyKeyframes } from "./annotationKeyframes";
 import { CURSOR_MOTION_PRESETS, resolveCursorMotionPresetId } from "./cursorMotionPresets";
@@ -73,7 +72,7 @@ import {
 	type LayoutRegion,
 	type Padding,
 	type RecordClipSettings,
-	type SlideAssetFile,
+	type MediaFileReference,
 	type SpeedRegion,
 	type TrimRegion,
 	type WebcamOverlaySettings,
@@ -203,7 +202,7 @@ function normalizeLegacySceneSettings(
 	return normalizeSceneVisualSettings(partial);
 }
 
-function parseLegacyAssetFiles(value: unknown, clipIndex: number): SlideAssetFile[] | undefined {
+function parseLegacyAssetFiles(value: unknown, clipIndex: number): MediaFileReference[] | undefined {
 	if (!Array.isArray(value)) return undefined;
 	return value.flatMap((candidate, assetIndex) => {
 		if (!isSchemaObjectRecord(candidate) || typeof candidate.path !== "string") return [];
@@ -211,7 +210,7 @@ function parseLegacyAssetFiles(value: unknown, clipIndex: number): SlideAssetFil
 			candidate.type === "audio" || candidate.type === "image" || candidate.type === "video"
 				? candidate.type
 				: "video";
-		const category: SlideAssetFile["category"] =
+		const category: MediaFileReference["category"] =
 			candidate.category === "main" ||
 			candidate.category === "layer" ||
 			candidate.category === "audio" ||
@@ -347,15 +346,8 @@ export function normalizeClipEntries(
 	legacyEditorSettings?: Partial<ProjectEditorState>,
 ): ClipEntry[] {
 	if (!Array.isArray(candidateClips)) return [];
-	const legacyRecordCount = candidateClips
-		.filter(isSchemaObjectRecord)
-		.filter(
-			(clip) =>
-				clip.slideMode === "record" ||
-				(clip.slideMode !== "video" &&
-					clip.slideMode !== "motion" &&
-					clip.origin !== "uploaded"),
-		).length;
+	assertSupportedLegacyProject({ clips: candidateClips });
+	const legacyRecordCount = candidateClips.filter(isSchemaObjectRecord).length;
 	const legacyWebcamPath =
 		legacyRecordCount === 1 ? (legacyEditorSettings?.webcam?.sourcePath ?? null) : null;
 	return candidateClips.filter(isSchemaObjectRecord).map((raw, index) => {
@@ -379,12 +371,7 @@ export function normalizeClipEntries(
 					? `Video ${index + 1}`
 					: `Take ${index + 1}`;
 
-		const slideMode: import("./types").SlideMode =
-			raw.slideMode === "video" || raw.slideMode === "record" || raw.slideMode === "motion"
-				? raw.slideMode
-				: origin === "uploaded"
-					? "video"
-					: "record";
+		const slideMode = "record" as const;
 		const isRecord = slideMode === "record";
 		const webcamPath = isRecord
 			? hasRawWebcamPath
@@ -483,14 +470,6 @@ export function normalizeClipEntries(
 			keyframes: normalizePropertyKeyframes(raw.keyframes),
 			transitionIn: normalizeClipTransition(raw.transitionIn ?? raw.transitionToNext),
 			assetFiles: parseLegacyAssetFiles(raw.assetFiles, index),
-			videoMeta:
-				slideMode === "video" && isValidVideoSlideMeta(raw.videoMeta)
-					? raw.videoMeta
-					: undefined,
-			motionMeta:
-				slideMode === "motion" && isValidMotionSlideMeta(raw.motionMeta)
-					? raw.motionMeta
-					: undefined,
 			...(isRecord && (isSchemaObjectRecord(raw.recordSettings) || legacyEditorSettings)
 				? {
 						recordSettings: normalizeRecordClipSettings(
@@ -505,6 +484,7 @@ export function normalizeClipEntries(
 
 export function validateProjectData(candidate: unknown): candidate is EditorProjectData {
 	if (!isSchemaObjectRecord(candidate)) return false;
+	if (getRetiredSlideIssues(candidate).length) return false;
 	const project = candidate;
 	if (!isFiniteNumber(project.version) || !Number.isInteger(project.version)) return false;
 	if (project.projectId !== undefined && typeof project.projectId !== "string") return false;

@@ -27,7 +27,7 @@ export interface TimelineShortcutBindings {
 	deleteSelected: ShortcutBinding;
 }
 
-export interface SlideMedia4in1 {
+export interface RecordingMediaStreams {
 	videoPath?: string | null;
 	webcamPath?: string | null;
 	webcamEnabled?: boolean;
@@ -53,7 +53,7 @@ export interface TimelineRenderItem {
 	showSourceAudio?: boolean;
 	muted?: boolean;
 	transitionIn?: import("../../types").ClipTransitionType;
-	media4in1?: SlideMedia4in1;
+	media4in1?: RecordingMediaStreams;
 	keyframes?: import("../../types").PropertyKeyframe[];
 	locked?: boolean;
 	variant: "zoom" | "trim" | "clip" | "annotation" | "speed" | "audio" | "layout";

@@ -7,15 +7,14 @@ import { cn } from "@/lib/utils";
 export interface VoiceoverStudioProps {
 	onAudioRecorded?: (span: { start: number; end: number }, audioPath: string) => void;
 	currentTime?: number;
-	slideDurationMs?: number;
-	activeSlideId?: string | null;
+	recordingDurationMs?: number;
+	compositionId?: string | null;
 }
 
 export function VoiceoverStudio({
 	onAudioRecorded,
 	currentTime = 0,
-	slideDurationMs: _slideDurationMs,
-	activeSlideId,
+	recordingDurationMs: _recordingDurationMs,
 }: VoiceoverStudioProps) {
 	const [isRecording, setIsRecording] = useState(false);
 	const [countdown, setCountdown] = useState<number | null>(null);
@@ -145,7 +144,6 @@ export function VoiceoverStudio({
 							const arrayBuffer = await blob.arrayBuffer();
 							const result = await window.electronAPI.saveRecordedAudio({
 								audioBuffer: arrayBuffer,
-								slideId: activeSlideId ?? null,
 								extension: "webm",
 							});
 							if (result.success && result.filePath) {

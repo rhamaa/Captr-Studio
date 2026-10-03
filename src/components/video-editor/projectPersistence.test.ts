@@ -29,7 +29,7 @@ describe("projectPersistence - Multi-Clip Persistence", () => {
 		expect(normalizeClipEntries([])).toEqual([]);
 	});
 
-	it("normalizes recorded take and uploaded clips with correct defaults", () => {
+	it("normalizes recorded takes with correct defaults", () => {
 		const rawClips = [
 			{
 				id: "clip-1",
@@ -45,7 +45,7 @@ describe("projectPersistence - Multi-Clip Persistence", () => {
 			},
 			{
 				id: "clip-2",
-				origin: "uploaded",
+				origin: "recorded",
 				videoPath: "D:/videos/external.mp4",
 				startMsOffset: 4500,
 				durationMs: 12000,
@@ -75,7 +75,7 @@ describe("projectPersistence - Multi-Clip Persistence", () => {
 
 		const take2 = normalized[1];
 		expect(take2.id).toBe("clip-2");
-		expect(take2.origin).toBe("uploaded");
+		expect(take2.origin).toBe("recorded");
 		expect(take2.videoPath).toBe("D:/videos/external.mp4");
 		expect(take2.webcamPath).toBeNull();
 		expect(take2.showCursor).toBe(false);
@@ -118,18 +118,18 @@ describe("projectPersistence - Multi-Clip Persistence", () => {
 			},
 			{
 				id: "clip-2",
-				origin: "uploaded",
+				origin: "recorded",
 				videoPath: "C:/recordings/take2.mp4",
 				startMsOffset: 5000,
 				durationMs: 6000,
-				label: "Video 2",
+				label: "Take 2",
 			},
 		];
 
 		const project = createProjectData("", {}, "proj-abc", clips);
 		expect(project.videoPath).toBe("C:/recordings/take1.mp4");
 		expect(project.clips).toHaveLength(2);
-		expect(project.clips?.[1].label).toBe("Video 2");
+		expect(project.clips?.[1].label).toBe("Take 2");
 	});
 
 	it("detects unsaved project changes when multi-clip properties are modified", () => {

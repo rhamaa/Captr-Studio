@@ -12,13 +12,13 @@ import React from "react";
 import { cn } from "@/lib/utils";
 import type { ClipTransitionType } from "../../types";
 import AudioWaveform from "../components/waveform/AudioWaveform";
-import type { SlideMedia4in1 } from "../core/timelineTypes";
+import type { RecordingMediaStreams } from "../core/timelineTypes";
 import glassStyles from "../ItemGlass.module.css";
 
 export interface ClipTimelineItemProps {
 	videoSrc: string | null;
 	webcamSrc: string | null;
-	media4in1?: SlideMedia4in1;
+	media4in1?: RecordingMediaStreams;
 	transitionIn?: ClipTransitionType;
 	children?: React.ReactNode;
 	timeLabel: string;
