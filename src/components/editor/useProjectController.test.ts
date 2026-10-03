@@ -72,3 +72,19 @@ it("Save As retains undo history under the new project identity", async () => {
 	expect(c.snapshot.project.title).toBe("Before");
 	expect(c.snapshot.project.projectId).toBe(id);
 });
+
+it("syncs project title with opened .captr file name when title is New project", () => {
+	const c = new ProjectController(createTimelineProject("init", "New project"), vi.fn());
+	c.open(createTimelineProject("proj-1", "New project"), "/path/to/Tutorial React.captr");
+	expect(c.snapshot.project.title).toBe("Tutorial React");
+});
+
+it("syncs project title with saved file name when saving a project with default New project title", async () => {
+	const c = new ProjectController(createTimelineProject("init", "New project"), async (p) => ({
+		success: true,
+		path: "C:\\Users\\User\\Videos\\My Presentation.captr",
+		projectId: p.projectId,
+	}));
+	await c.save();
+	expect(c.snapshot.project.title).toBe("My Presentation");
+});

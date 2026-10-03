@@ -51,6 +51,19 @@ export class ProjectController {
 					this.generation = this.importSession.beginProject(saved.projectId);
 					this.persistence.beginProject(saved.projectId);
 				}
+				const fileName = path
+					.split(/[\\/]/)
+					.pop()
+					?.replace(/\.(captr|json)$/i, "")
+					?.trim();
+				if (
+					fileName &&
+					(this.history.project.title === "New project" ||
+						!this.history.project.title?.trim() ||
+						this.history.project.title.toLowerCase() === "new project")
+				) {
+					this.history.setTitle(fileName);
+				}
 				this.publish({ savedRevision: revision, path });
 			},
 		});
@@ -109,9 +122,25 @@ export class ProjectController {
 		this.publish({ revision: this.state.revision + 1 });
 	}
 	open(project: TimelineProject, path: string | null): void {
-		this.history = new ProjectHistory(validateTimelineProject(project));
-		this.generation = this.importSession.beginProject(project.projectId);
-		this.persistence.beginProject(project.projectId);
+		const next = structuredClone(validateTimelineProject(project));
+		if (path) {
+			const fileName = path
+				.split(/[\\/]/)
+				.pop()
+				?.replace(/\.(captr|json)$/i, "")
+				?.trim();
+			if (
+				fileName &&
+				(next.title === "New project" ||
+					!next.title?.trim() ||
+					next.title.toLowerCase() === "new project")
+			) {
+				next.title = fileName;
+			}
+		}
+		this.history = new ProjectHistory(next);
+		this.generation = this.importSession.beginProject(next.projectId);
+		this.persistence.beginProject(next.projectId);
 		this.publish({
 			revision: 0,
 			savedRevision: 0,

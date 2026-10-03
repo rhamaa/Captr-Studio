@@ -120,6 +120,13 @@ export function applyClipGesture(
 		Math.min(duration, clip.sourceOutUs + sourceDelta),
 	);
 }
+export function findClipsAtPlayhead(project: TimelineProject, playheadUs: number): string[] {
+	return project.tracks
+		.filter((t) => !t.locked)
+		.flatMap((t) => t.clips)
+		.filter((c) => c.startUs < playheadUs && playheadUs < c.startUs + clipDurationUs(c))
+		.map((c) => c.id);
+}
 export type TimelineAction = "split" | "delete" | "duplicate" | "rate";
 export function timelineActionCommand(
 	action: TimelineAction,
@@ -128,8 +135,12 @@ export function timelineActionCommand(
 	ids?: { clipId: string; compositionId?: string },
 	rate = 1,
 ): ProjectCommand {
-	return (project) =>
-		selection.reduce((p, id, index) => {
+	return (project) => {
+		const targetIds =
+			selection.length > 0 || action !== "split"
+				? selection
+				: findClipsAtPlayhead(project, playheadUs);
+		return targetIds.reduce((p, id, index) => {
 			const clip = p.tracks.flatMap((t) => t.clips).find((c) => c.id === id);
 			if (!clip) return p;
 			if (action === "delete") return removeClip(p, id);
@@ -145,4 +156,5 @@ export function timelineActionCommand(
 				rightCompositionId: generated.compositionId,
 			});
 		}, project);
+	};
 }

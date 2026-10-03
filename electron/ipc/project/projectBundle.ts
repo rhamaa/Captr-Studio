@@ -1,7 +1,6 @@
 import { createWriteStream } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { PassThrough } from "node:stream";
 import { ZipArchive } from "archiver";
 import yauzl from "yauzl";
 
@@ -102,7 +101,9 @@ export async function unpackProjectBundle(
 					// Directory entry
 					if (rawName.endsWith("/")) {
 						await fs.mkdir(targetPath, { recursive: true });
-						zipfile.readEntry();
+						setImmediate(() => {
+							zipfile.readEntry();
+						});
 						return;
 					}
 
@@ -120,21 +121,17 @@ export async function unpackProjectBundle(
 						}
 
 						const writeStream = createWriteStream(targetPath);
-						const pass = new PassThrough();
-						readStream.on("error", (err) => {
-							pass.destroy();
-							writeStream.destroy();
-							reject(err);
+						readStream.on("data", (chunk) => {
+							writeStream.write(chunk);
 						});
-						writeStream.on("error", (err) => {
-							pass.destroy();
-							(readStream as unknown as { destroy?: () => void }).destroy?.();
-							reject(err);
+						readStream.on("end", () => {
+							writeStream.end();
 						});
-						writeStream.on("close", () => {
+						readStream.on("error", reject);
+						writeStream.on("error", reject);
+						writeStream.on("finish", () => {
 							zipfile.readEntry();
 						});
-						readStream.pipe(pass).pipe(writeStream);
 					});
 				} catch (processErr) {
 					reject(processErr);

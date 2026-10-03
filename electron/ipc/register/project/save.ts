@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { dialog, ipcMain } from "electron";
-import { PROJECT_FILE_EXTENSION } from "../../constants";
+import { LEGACY_PROJECT_FILE_EXTENSIONS, PROJECT_FILE_EXTENSION } from "../../constants";
 import { stageTimelineProject } from "../../project/timelineBundle";
 import { validateTimelineProject } from "../../../../src/core/timeline/validation";
 import {
@@ -86,6 +86,19 @@ export function registerProjectSaveHandlers() {
 				throw new Error(
 					"Choose a different destination; the original project cannot be overwritten by conversion",
 				);
+			const convertedTitle = path
+				.basename(result.filePath)
+				.replace(
+					new RegExp(
+						`\\.(${[PROJECT_FILE_EXTENSION, ...LEGACY_PROJECT_FILE_EXTENSIONS].join("|")})$`,
+						"i",
+					),
+					"",
+				)
+				.trim();
+			if (convertedTitle) {
+				project.title = convertedTitle;
+			}
 			await saveAndBundleProject(result.filePath, ensureProjectDataHasProjectId(project));
 			return { success: true, path: result.filePath, projectId: project.projectId };
 		} catch (error) {
@@ -130,6 +143,26 @@ export function registerProjectSaveHandlers() {
 							"[save-project-file] Restoring active project path after matching the saved project ID.",
 						);
 					}
+					const existingTitle = path
+						.basename(targetProjectPath)
+						.replace(
+							new RegExp(
+								`\\.(${[PROJECT_FILE_EXTENSION, ...LEGACY_PROJECT_FILE_EXTENSIONS].join("|")})$`,
+								"i",
+							),
+							"",
+						)
+						.trim();
+					if (
+						existingTitle &&
+						preparedProject.projectData &&
+						((preparedProject.projectData as Record<string, unknown>).title ===
+							"New project" ||
+							!(preparedProject.projectData as Record<string, unknown>).title)
+					) {
+						(preparedProject.projectData as Record<string, unknown>).title =
+							existingTitle;
+					}
 					await saveAndBundleProject(
 						targetProjectPath,
 						preparedProject,
@@ -161,6 +194,29 @@ export function registerProjectSaveHandlers() {
 						canceled: true,
 						message: "Save project canceled",
 					};
+				}
+
+				const chosenTitle = path
+					.basename(result.filePath)
+					.replace(
+						new RegExp(
+							`\\.(${[PROJECT_FILE_EXTENSION, ...LEGACY_PROJECT_FILE_EXTENSIONS].join("|")})$`,
+							"i",
+						),
+						"",
+					)
+					.trim();
+
+				if (
+					chosenTitle &&
+					preparedProject.projectData &&
+					((preparedProject.projectData as Record<string, unknown>).title ===
+						"New project" ||
+						!(preparedProject.projectData as Record<string, unknown>).title ||
+						(preparedProject.projectData as Record<string, unknown>).title !==
+							chosenTitle)
+				) {
+					(preparedProject.projectData as Record<string, unknown>).title = chosenTitle;
 				}
 
 				await saveAndBundleProject(result.filePath, preparedProject, thumbnailDataUrl);

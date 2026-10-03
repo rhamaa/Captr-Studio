@@ -5,6 +5,7 @@ import {
 	FloppyDisk,
 	Folder,
 	FolderOpen,
+	Keyboard,
 	Minus,
 	Pause,
 	Play,
@@ -15,7 +16,9 @@ import {
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { useShortcuts } from "@/contexts/ShortcutsContext";
 import {
+	addTextOverlay,
 	createTimelineProject,
 	placeAsset,
 	registerMedia,
@@ -37,6 +40,7 @@ import { ProjectInspector } from "./ProjectInspector";
 import { ProjectPreview } from "./ProjectPreview";
 import { ProjectTimeline } from "./ProjectTimeline";
 import { ProjectWelcome } from "./ProjectWelcome";
+import { timelineActionCommand } from "./timelineInteractions";
 import { useProjectController } from "./useProjectController";
 import { useProjectMessages } from "./useProjectMessages";
 import { useRecordingAssets } from "./useRecordingAssets";
@@ -51,6 +55,7 @@ import {
 
 export function ProjectEditor() {
 	const m = useProjectMessages();
+	const { openConfig } = useShortcuts();
 	const initial = useMemo(() => createTimelineProject(crypto.randomUUID(), "New project"), []);
 	const { controller, state } = useProjectController(initial);
 	const [error, setError] = useState<string | null>(null),
@@ -59,6 +64,9 @@ export function ProjectEditor() {
 		[editingClipId, setEditingClipId] = useState<string | null>(null),
 		[legacy, setLegacy] = useState<unknown | null>(null),
 		[pendingNew, setPendingNew] = useState(false);
+	const [scale, setScale] = useState(65);
+	const playingRef = useRef(playing);
+	playingRef.current = playing;
 	const [exportProgress, setExportProgress] = useState<number | null>(null);
 	const exportAbort = useRef<AbortController | null>(null);
 	const [pendingOpen, setPendingOpen] = useState(false);
@@ -178,6 +186,21 @@ export function ProjectEditor() {
 	};
 	const install = async (value: unknown, path: string | null) => {
 		const project = validateTimelineProject(value);
+		if (path) {
+			const fileName = path
+				.split(/[\\/]/)
+				.pop()
+				?.replace(/\.(captr|json)$/i, "")
+				?.trim();
+			if (
+				fileName &&
+				(project.title === "New project" ||
+					!project.title?.trim() ||
+					project.title.toLowerCase() === "new project")
+			) {
+				project.title = fileName;
+			}
+		}
 		controller.open(project, path);
 		setEditingClipId(null);
 		setPlaying(false);
@@ -339,24 +362,159 @@ export function ProjectEditor() {
 	useEffect(() => {
 		const keydown = (e: KeyboardEvent) => {
 			if (modalOpen.current) return;
+			const target = e.target;
 			if (
-				(e.target as HTMLElement)?.matches?.("input,textarea,select,[contenteditable=true]")
+				target instanceof HTMLElement &&
+				(target.matches("input,textarea,select,[contenteditable=true]") ||
+					target.isContentEditable)
 			)
 				return;
+
 			if (e.ctrlKey || e.metaKey) {
-				if (e.key.toLowerCase() === "s") {
+				const key = e.key.toLowerCase();
+				if (key === "s") {
 					e.preventDefault();
 					void save(e.shiftKey);
-				} else if (e.key.toLowerCase() === "z") {
+				} else if (key === "z") {
 					e.preventDefault();
 					if (e.shiftKey) controller.redo();
 					else controller.undo();
-				} else if (e.key.toLowerCase() === "y") {
+				} else if (key === "y") {
 					e.preventDefault();
 					controller.redo();
-				} else if (e.key.toLowerCase() === "o") {
+				} else if (key === "o") {
 					e.preventDefault();
 					void open();
+				} else if (key === "n" && !e.shiftKey) {
+					e.preventDefault();
+					void newProject();
+				} else if (key === "e") {
+					e.preventDefault();
+					if (
+						projectDurationUs(controller.snapshot.project) > 0 &&
+						exportProgress === null
+					) {
+						void exportProject();
+					}
+				} else if (key === "d") {
+					if (controller.snapshot.selection.length > 0) {
+						e.preventDefault();
+						run(
+							timelineActionCommand(
+								"duplicate",
+								controller.snapshot.selection,
+								controller.snapshot.playheadUs,
+							),
+						);
+					}
+				} else if (key === "a") {
+					e.preventDefault();
+					const allClipIds = controller.snapshot.project.tracks.flatMap((t) =>
+						t.clips.map((c) => c.id),
+					);
+					controller.select(allClipIds);
+				} else if (key === "b" && !e.shiftKey && !e.altKey) {
+					e.preventDefault();
+					run(
+						timelineActionCommand(
+							"split",
+							controller.snapshot.selection,
+							controller.snapshot.playheadUs,
+						),
+					);
+				} else if (key === "=" || key === "+") {
+					e.preventDefault();
+					setScale((s) => Math.min(250, s * 1.25));
+				} else if (key === "-") {
+					e.preventDefault();
+					setScale((s) => Math.max(8, s / 1.25));
+				} else if (key === "0") {
+					e.preventDefault();
+					setScale(65);
+				} else if (key === "/" || key === "?") {
+					e.preventDefault();
+					openConfig();
+				}
+				return;
+			}
+
+			if (!e.altKey && !e.ctrlKey && !e.metaKey) {
+				const key = e.key;
+				if (key === " ") {
+					e.preventDefault();
+					const proj = controller.snapshot.project;
+					if (projectDurationUs(proj) > 0) {
+						controller.preview(null);
+						if (controller.snapshot.playheadUs >= projectDurationUs(proj)) {
+							controller.seek(0);
+						}
+						setPlaying((v) => !v);
+					}
+				} else if (key.toLowerCase() === "s" || key.toLowerCase() === "c") {
+					e.preventDefault();
+					run(
+						timelineActionCommand(
+							"split",
+							controller.snapshot.selection,
+							controller.snapshot.playheadUs,
+						),
+					);
+				} else if (key === "Delete" || key === "Backspace") {
+					if (controller.snapshot.selection.length > 0) {
+						e.preventDefault();
+						run(
+							timelineActionCommand(
+								"delete",
+								controller.snapshot.selection,
+								controller.snapshot.playheadUs,
+							),
+						);
+						controller.select([]);
+					}
+				} else if (key === "Escape") {
+					if (controller.snapshot.selection.length > 0) {
+						e.preventDefault();
+						controller.select([]);
+					} else if (playingRef.current) {
+						e.preventDefault();
+						setPlaying(false);
+					}
+				} else if (key === "ArrowLeft" || key === "ArrowRight") {
+					e.preventDefault();
+					setPlaying(false);
+					controller.preview(null);
+					const fps = controller.snapshot.project.canvas.fps || 30;
+					const frameUs = Math.round(1_000_000 / fps);
+					const stepUs = e.shiftKey ? 1_000_000 : frameUs;
+					const dir = key === "ArrowLeft" ? -1 : 1;
+					const maxUs = projectDurationUs(controller.snapshot.project);
+					const nextUs = Math.max(
+						0,
+						Math.min(maxUs, controller.snapshot.playheadUs + dir * stepUs),
+					);
+					controller.seek(nextUs);
+				} else if (key === "Home") {
+					e.preventDefault();
+					setPlaying(false);
+					controller.preview(null);
+					controller.seek(0);
+				} else if (key === "End") {
+					e.preventDefault();
+					setPlaying(false);
+					controller.preview(null);
+					controller.seek(projectDurationUs(controller.snapshot.project));
+				} else if (key.toLowerCase() === "t" && !e.shiftKey) {
+					e.preventDefault();
+					const ids = {
+						assetId: crypto.randomUUID(),
+						trackId: crypto.randomUUID(),
+						clipId: crypto.randomUUID(),
+					};
+					run((p) => addTextOverlay(p, controller.snapshot.playheadUs, ids));
+					controller.select([ids.clipId]);
+				} else if (key === "?") {
+					e.preventDefault();
+					openConfig();
 				}
 			}
 		};
@@ -490,11 +648,18 @@ export function ProjectEditor() {
 				</button>
 				<button
 					aria-label="Save project"
-					title="Save project"
+					title="Save project (Ctrl+S)"
 					disabled={state.saving}
 					onClick={() => void save()}
 				>
 					<FloppyDisk size={18} />
+				</button>
+				<button
+					aria-label="Keyboard shortcuts"
+					title="Keyboard shortcuts (? / Ctrl+/)"
+					onClick={() => openConfig()}
+				>
+					<Keyboard size={18} />
 				</button>
 				{window.electronAPI && (
 					<div className="project-window-controls">
@@ -649,6 +814,8 @@ export function ProjectEditor() {
 							setPlaying(false);
 							setEditingClipId(id);
 						}}
+						scale={scale}
+						onScaleChange={setScale}
 					/>
 					<footer className="project-footer">
 						<span>

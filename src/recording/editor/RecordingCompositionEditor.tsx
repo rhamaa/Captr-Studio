@@ -108,7 +108,11 @@ export function RecordingCompositionEditor({
 			start = performance.now();
 		let frame = 0;
 		const tick = () => {
-			const output = playbackOutputTimeUs(base, performance.now() - start, composition.durationUs);
+			const output = playbackOutputTimeUs(
+				base,
+				performance.now() - start,
+				composition.durationUs,
+			);
 			if (output === null) {
 				setPlaying(false);
 				return;
@@ -205,6 +209,107 @@ export function RecordingCompositionEditor({
 	};
 	const currentMs = Math.round(sourceSeconds * 1000),
 		durationMs = pkg.durationUs / 1000;
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			const target = e.target;
+			if (
+				target instanceof HTMLElement &&
+				(target.matches("input,textarea,select,[contenteditable=true]") ||
+					target.isContentEditable)
+			) {
+				return;
+			}
+
+			if (e.key === " ") {
+				e.preventDefault();
+				setPlaying((v) => !v);
+				return;
+			}
+
+			if (e.key === "Escape") {
+				e.preventDefault();
+				if (selectedZoomId || selectedAnnotationId || selectedLayoutId || selectedAudioId) {
+					setSelectedZoomId(null);
+					setSelectedAnnotationId(null);
+					setSelectedLayoutId(null);
+					setSelectedAudioId(null);
+				} else {
+					onClose();
+				}
+				return;
+			}
+
+			if (e.key === "Delete" || e.key === "Backspace") {
+				if (selectedZoomId) {
+					e.preventDefault();
+					update({
+						zoomRegions: settings.zoomRegions.filter((z) => z.id !== selectedZoomId),
+					});
+					setSelectedZoomId(null);
+				} else if (selectedAnnotationId) {
+					e.preventDefault();
+					update({
+						annotationRegions: settings.annotationRegions.filter(
+							(a) => a.id !== selectedAnnotationId,
+						),
+					});
+					setSelectedAnnotationId(null);
+				} else if (selectedLayoutId) {
+					e.preventDefault();
+					update({
+						layoutRegions: settings.layoutRegions.filter(
+							(l) => l.id !== selectedLayoutId,
+						),
+					});
+					setSelectedLayoutId(null);
+				} else if (selectedAudioId) {
+					e.preventDefault();
+					update({
+						audioRegions: settings.audioRegions.filter((a) => a.id !== selectedAudioId),
+					});
+					setSelectedAudioId(null);
+				}
+				return;
+			}
+
+			if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+				e.preventDefault();
+				setPlaying(false);
+				const stepSeconds = e.shiftKey ? 1 : 1 / 60;
+				const dir = e.key === "ArrowLeft" ? -1 : 1;
+				const durationSec = pkg.durationUs / 1_000_000;
+				setSourceSeconds((curr) =>
+					Math.max(0, Math.min(durationSec, curr + dir * stepSeconds)),
+				);
+				return;
+			}
+
+			if (e.key === "Home") {
+				e.preventDefault();
+				setPlaying(false);
+				setSourceSeconds(0);
+				return;
+			}
+
+			if (e.key === "End") {
+				e.preventDefault();
+				setPlaying(false);
+				setSourceSeconds(pkg.durationUs / 1_000_000);
+				return;
+			}
+		};
+
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [
+		pkg.durationUs,
+		onClose,
+		selectedZoomId,
+		selectedAnnotationId,
+		selectedLayoutId,
+		selectedAudioId,
+		settings,
+	]);
 	const addSpeed = (speed: PlaybackSpeed) => {
 		const startMs = Math.max(0, currentMs),
 			endMs = Math.min(durationMs, startMs + 3000);

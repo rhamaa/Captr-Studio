@@ -3,6 +3,7 @@ import { createTimelineProject, registerMedia, updateTrack } from "@/core/timeli
 import {
 	applyClipGesture,
 	assetDropCommand,
+	findClipsAtPlayhead,
 	snapTimelineTime,
 	timelineActionCommand,
 } from "./timelineInteractions";
@@ -53,4 +54,24 @@ it("snaps playhead and clip edges within eight screen pixels at each zoom scale"
 	expect(snapTimelineTime(4_800_000, p, 2_000_000, 100)).toBe(4_800_000);
 	expect(snapTimelineTime(1_800_000, p, 2_000_000, 20)).toBe(2_000_000);
 	expect(snapTimelineTime(4_950_000, p, 2_000_000, 100, "c")).toBe(4_950_000);
+});
+
+it("finds clips under playhead and splits them when selection is empty", () => {
+	const p = assetDropCommand("a", "visual-1", 1_000_000, {
+		clipId: "clip-1",
+		compositionId: "comp-1",
+	})(project());
+
+	// At 5s, clip-1 is from 1s to 11s, so it should be found
+	expect(findClipsAtPlayhead(p, 5_000_000)).toEqual(["clip-1"]);
+	// Before clip (at 0.5s), should not find
+	expect(findClipsAtPlayhead(p, 500_000)).toEqual([]);
+	// After clip (at 12s), should not find
+	expect(findClipsAtPlayhead(p, 12_000_000)).toEqual([]);
+
+	// Splitting with empty selection at 5s splits clip-1 under playhead
+	const split = timelineActionCommand("split", [], 5_000_000)(p);
+	expect(split.tracks[0].clips).toHaveLength(2);
+	expect(split.tracks[0].clips[0].startUs).toBe(1_000_000);
+	expect(split.tracks[0].clips[1].startUs).toBe(5_000_000);
 });

@@ -124,9 +124,7 @@ describe("V3 Lifecycle & Regression Verification Suite", () => {
 		mock.saveDialog.mockResolvedValueOnce({ filePath: test2Path, canceled: false });
 
 		const saveHandler = mock.handlers.get("save-project-file")!;
-		console.log("MARK 1: init save");
 		const initSaveResult = await saveHandler(null, initialProject, "Test 2");
-		console.log("MARK 2: take 1 session");
 		expect(initSaveResult.success).toBe(true);
 		expect(state.currentProjectPath).toBe(test2Path);
 
@@ -140,7 +138,6 @@ describe("V3 Lifecycle & Regression Verification Suite", () => {
 			{ videoPath: sources1.screenPath, webcamPath: sources1.webcamPath },
 			{ preserveProjectPath: true, captureId: "take-1", projectId: "test-2-proj" },
 		);
-		console.log("MARK 3: take 1 registered");
 
 		// currentProjectPath is preserved!
 		expect(state.currentProjectPath).toBe(test2Path);
@@ -161,7 +158,6 @@ describe("V3 Lifecycle & Regression Verification Suite", () => {
 			{ videoPath: sources2.screenPath, webcamPath: sources2.webcamPath },
 			{ preserveProjectPath: true, captureId: "take-2", projectId: "test-2-proj" },
 		);
-		console.log("MARK 4: take 2 registered");
 
 		// currentProjectPath still preserved!
 		expect(state.currentProjectPath).toBe(test2Path);
@@ -180,14 +176,12 @@ describe("V3 Lifecycle & Regression Verification Suite", () => {
 
 		// 4. Ctrl+S: save-project-file with existingProjectPath = state.currentProjectPath
 		mock.saveDialog.mockReset(); // Should NEVER be called during in-place save
-		console.log("MARK 5: ctrl+s save");
 		const ctrlSSaveResult = await saveHandler(
 			null,
 			currentProject,
 			"Test 2",
 			state.currentProjectPath,
 		);
-		console.log("MARK 6: loadProjectFromPath");
 
 		expect(ctrlSSaveResult.success).toBe(true);
 		expect(ctrlSSaveResult.path).toBe(test2Path);
@@ -195,7 +189,6 @@ describe("V3 Lifecycle & Regression Verification Suite", () => {
 
 		// 5. Reopen the saved bundle and verify all assets and sidecars are intact
 		const loadedResult = await loadProjectFromPath(test2Path);
-		console.log("MARK 7: assertions");
 		expect(loadedResult.success).toBe(true);
 		const reopened = loadedResult.project as TimelineProject;
 
@@ -223,9 +216,7 @@ describe("V3 Lifecycle & Regression Verification Suite", () => {
 		expect(await fs.readFile(pkg2.cursorPath!, "utf8")).toContain("take-2");
 
 		// Inspect bundle ZIP to ensure no slides directory
-		console.log("MARK 8: inspectProjectBundle");
 		const inspection = await inspectProjectBundle(test2Path);
-		console.log("MARK 9: done");
 		expect(inspection.success).toBe(true);
 		expect(inspection.projectData).not.toHaveProperty("slides");
 	}, 20_000);

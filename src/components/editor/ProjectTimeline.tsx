@@ -30,6 +30,8 @@ export interface ProjectTimelineProps {
 	onSelect: (ids: string[]) => void;
 	onSeek: (timeUs: number) => void;
 	onOpenRecording: (id: string) => void;
+	scale?: number;
+	onScaleChange?: (scale: number | ((prev: number) => number)) => void;
 }
 export function ProjectTimeline({
 	project,
@@ -39,8 +41,12 @@ export function ProjectTimeline({
 	onSelect,
 	onSeek,
 	onOpenRecording,
+	scale: externalScale,
+	onScaleChange,
 }: ProjectTimelineProps) {
-	const [scale, setScale] = useState(65);
+	const [internalScale, setInternalScale] = useState(65);
+	const scale = externalScale ?? internalScale;
+	const setScale = onScaleChange ?? setInternalScale;
 	const [dropPreview, setDropPreview] = useState<{
 		trackId: string;
 		startUs: number;
@@ -59,11 +65,21 @@ export function ProjectTimeline({
 			aria-label="Project timeline"
 			tabIndex={0}
 			onKeyDown={(event) => {
-				if ((event.target as HTMLElement).matches("input,textarea,select")) return;
+				if (
+					(event.target as HTMLElement).matches(
+						"input,textarea,select,[contenteditable=true]",
+					)
+				)
+					return;
 				if (event.key === "Delete" || event.key === "Backspace") {
 					event.preventDefault();
 					onCommand(timelineActionCommand("delete", selection, playheadUs));
-				} else if (event.key.toLowerCase() === "s" && !event.ctrlKey && !event.metaKey) {
+				} else if (
+					(!event.ctrlKey &&
+						!event.metaKey &&
+						(event.key.toLowerCase() === "s" || event.key.toLowerCase() === "c")) ||
+					((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b")
+				) {
 					event.preventDefault();
 					onCommand(timelineActionCommand("split", selection, playheadUs));
 				} else if (event.key.toLowerCase() === "d" && (event.ctrlKey || event.metaKey)) {

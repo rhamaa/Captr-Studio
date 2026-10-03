@@ -460,6 +460,27 @@ export async function loadProjectFromPath(projectPath: string) {
 			const content = await fs.readFile(projectJsonPath, "utf-8");
 			const rawProject = parseJsonWithByteOrderMark(content) as Record<string, unknown>;
 			if(rawProject.version===undefined&&(Array.isArray(rawProject.clips)||typeof rawProject.videoPath==="string"))rawProject.version=1;
+
+			const fileName = path
+				.basename(normalizedPath)
+				.replace(
+					new RegExp(
+						`\\.(${[PROJECT_FILE_EXTENSION, ...LEGACY_PROJECT_FILE_EXTENSIONS].join("|")})$`,
+						"i",
+					),
+					"",
+				)
+				.trim();
+
+			if (fileName && rawProject.version === 3) {
+				if (
+					typeof rawProject.title !== "string" ||
+					!rawProject.title.trim() ||
+					rawProject.title.toLowerCase() === "new project"
+				) {
+					rawProject.title = fileName;
+				}
+			}
 			try {
 				assertSupportedLegacyProject(rawProject);
 			} catch (error) {

@@ -34,7 +34,7 @@ export function TimelineToolbar({
 	return (
 		<div className="project-timeline-toolbar">
 			<button
-				title="Split at playhead (S)"
+				title="Split at playhead (S / C)"
 				aria-label="Split at playhead"
 				disabled={disabled}
 				onClick={() => onCommand(timelineActionCommand("split", selection, playheadUs))}
@@ -50,7 +50,7 @@ export function TimelineToolbar({
 				<Copy size={17} />
 			</button>
 			<button
-				title="Delete clip (Delete)"
+				title="Delete clip (Del / Backspace)"
 				aria-label="Delete clip"
 				disabled={disabled}
 				onClick={() => onCommand(timelineActionCommand("delete", selection, playheadUs))}
@@ -65,7 +65,7 @@ export function TimelineToolbar({
 				<Plus size={15} />
 				Video
 			</button>
-			<button title="Add text overlay" aria-label="Add text overlay" onClick={onAddText}>
+			<button title="Add text overlay (T)" aria-label="Add text overlay" onClick={onAddText}>
 				<Plus size={15} />
 				<TextT size={15} />
 				Text
@@ -85,7 +85,7 @@ export function TimelineToolbar({
 			)}
 			<span style={{ flex: 1 }} />
 			<button
-				title="Zoom out timeline"
+				title="Zoom out timeline (Ctrl + -)"
 				aria-label="Zoom out timeline"
 				onClick={() => onScale(Math.max(8, scale / 1.3))}
 			>
@@ -100,7 +100,7 @@ export function TimelineToolbar({
 				onChange={(e) => onScale(Number(e.target.value))}
 			/>
 			<button
-				title="Zoom in timeline"
+				title="Zoom in timeline (Ctrl + =)"
 				aria-label="Zoom in timeline"
 				onClick={() => onScale(Math.min(250, scale * 1.3))}
 			>
