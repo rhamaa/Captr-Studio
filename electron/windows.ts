@@ -16,6 +16,10 @@ const RENDERER_DIST = path.join(APP_ROOT, "dist");
 const WINDOW_ICON_FILENAME = process.platform === "darwin" ? "captrmac-512.png" : "captr-512.png";
 export function getWindowIconPath(): string {
 	if (process.platform === "win32") {
+		const resourcesIco = path.join(process.resourcesPath, "icon.ico");
+		if (fs.existsSync(resourcesIco)) {
+			return resourcesIco;
+		}
 		const winIco = path.join(APP_ROOT, "icons", "icons", "win", "icon.ico");
 		if (fs.existsSync(winIco)) {
 			return winIco;

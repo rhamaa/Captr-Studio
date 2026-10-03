@@ -59,6 +59,7 @@ import {
 	isHudOverlayMousePassthroughSupported,
 	showUpdateToastWindow,
 } from "./windows";
+import { setupWindowsIntegration } from "./windowsIntegration";
 
 const electronMainDir = path.dirname(fileURLToPath(import.meta.url));
 const IS_SMOKE_EXPORT = process.env.RECORDLY_SMOKE_EXPORT === "1";
@@ -1088,6 +1089,7 @@ app.on("open-file", async (event, filePath) => {
 app.whenReady().then(async () => {
 	if (process.platform === "win32") {
 		app.setAppUserModelId("studio.captr.app");
+		void setupWindowsIntegration();
 	}
 
 	session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
