@@ -38,6 +38,11 @@ function cleanMediaValue(v: string): string {
 	return v;
 }
 
+export function isBundledWallpaperReference(v: string): boolean {
+	const normalized = v.replace(/\\/g, "/").replace(/^\/+/, "").toLowerCase();
+	return ["wallpapers/", "app-icons/"].some((prefix) => normalized.startsWith(prefix));
+}
+
 function settingsPaths(value: unknown, visit: (path: string, set: (path: string) => void) => void) {
 	if (!value || typeof value !== "object") return;
 	for (const [key, rawValue] of Object.entries(value)) {

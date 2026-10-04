@@ -9,7 +9,10 @@ import {
 	projectTitleFromPath,
 	validateProjectBaseName,
 } from "../../../src/core/project/projectNames";
-import { visitTimelineMediaPaths } from "../../../src/core/timeline/mediaPaths";
+import {
+	isBundledWallpaperReference,
+	visitTimelineMediaPaths,
+} from "../../../src/core/timeline/mediaPaths";
 import { validateTimelineProject } from "../../../src/core/timeline/validation";
 import { inspectProjectBundle, packProjectWorkspace } from "./projectBundle";
 import { enqueueProjectFileOperation } from "./projectFileQueue";
@@ -110,6 +113,7 @@ export async function performProjectFileOperation(
 				throw new Error("Save As requires a separate project identity.");
 			const activeId = ports.getProjectId(),
 				activePath = ports.getCurrentPath();
+			let existingThumbnailDataUrl: string | null = null;
 			if (activeId !== request.ownerProjectId)
 				throw new Error("The active project changed; retry from the current project.");
 			if (
@@ -128,6 +132,7 @@ export async function performProjectFileOperation(
 					original.projectData?.projectId !== request.ownerProjectId
 				)
 					throw new Error("The active project file identity could not be verified.");
+				existingThumbnailDataUrl = original.thumbnailDataUrl ?? null;
 			}
 			const draft =
 				request.name === undefined ? project.title : validateProjectBaseName(request.name);
@@ -163,18 +168,19 @@ export async function performProjectFileOperation(
 				const media: string[] = [];
 				visitTimelineMediaPaths(project, (file) => media.push(file));
 				for (const file of media)
-					if (!(await ports.validateMedia(file)))
+					if (!isBundledWallpaperReference(file) && !(await ports.validateMedia(file)))
 						throw new Error("Project media path is not approved.");
 			}
 			project.title = projectTitleFromPath(target);
+			const thumbnailDataUrl = request.thumbnailDataUrl ?? existingThumbnailDataUrl;
 			let cleanupWarning: string | undefined;
 			const staging = await fs.mkdtemp(path.join(os.tmpdir(), "captr-save-v3-"));
 			try {
 				await stageTimelineProject(project, staging);
-				if (request.thumbnailDataUrl?.startsWith("data:image/png;base64,"))
+				if (thumbnailDataUrl?.startsWith("data:image/png;base64,"))
 					await fs.writeFile(
 						path.join(staging, "thumbnail.png"),
-						Buffer.from(request.thumbnailDataUrl.split(",")[1], "base64"),
+						Buffer.from(thumbnailDataUrl.split(",")[1], "base64"),
 					);
 				if (
 					ports.isBusy() ||

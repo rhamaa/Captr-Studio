@@ -41,6 +41,7 @@ export function ProjectPreview({
 					canvas.current.width = rendered.width;
 					canvas.current.height = rendered.height;
 					canvas.current.getContext("2d")?.drawImage(rendered, 0, 0);
+					canvas.current.dataset.projectPreviewReady = "true";
 				}
 			},
 			(error) =>
@@ -53,6 +54,7 @@ export function ProjectPreview({
 		};
 	}, []);
 	useEffect(() => {
+		if (canvas.current) canvas.current.dataset.projectPreviewReady = "false";
 		queue.current?.request({ project, timeUs, playing }, { continuousPlayback: playing });
 	}, [project, timeUs, playing]);
 	useEffect(() => {
@@ -102,6 +104,7 @@ export function ProjectPreview({
 			ref={canvas}
 			aria-label="Project video preview"
 			className="project-rendered-preview"
+			data-project-preview-ready="false"
 		/>
 	);
 }

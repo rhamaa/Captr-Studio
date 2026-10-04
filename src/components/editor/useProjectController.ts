@@ -32,6 +32,7 @@ export class ProjectController {
 	private state: ProjectControllerState;
 	private exited = false;
 	private verified: boolean;
+	private thumbnailProvider: (() => Promise<string | null> | string | null) | null = null;
 	private work = new Map<string, number>();
 	constructor(project: TimelineProject, save: SaveProject | { persist: ProjectPersistencePort }) {
 		this.verified = typeof save !== "function";
@@ -185,6 +186,9 @@ export class ProjectController {
 			};
 		return this.fileOperation(this.state.path ? "rename" : "save", valid);
 	}
+	setThumbnailProvider(provider: (() => Promise<string | null> | string | null) | null): void {
+		this.thumbnailProvider = provider;
+	}
 	private async fileOperation(
 		intent: "save" | "save-as" | "rename",
 		name?: string,
@@ -205,6 +209,7 @@ export class ProjectController {
 		if (intent === "save-as") project.projectId = crypto.randomUUID();
 		this.publish({ saving: true, fileOperation: intent });
 		try {
+			const thumbnailDataUrl = (await this.thumbnailProvider?.()) ?? undefined;
 			if (this.verified)
 				return await this.persistence.run({
 					operationId: crypto.randomUUID(),
@@ -215,6 +220,7 @@ export class ProjectController {
 					intent,
 					project,
 					name,
+					thumbnailDataUrl,
 				});
 			if (intent === "rename")
 				return { success: false, error: "Rename requires the verified file service." };
@@ -252,6 +258,7 @@ export class ProjectController {
 		this.dispose();
 	}
 	dispose(): void {
+		this.thumbnailProvider = null;
 		this.persistence.dispose();
 		this.importSession.dispose();
 		this.listeners.clear();

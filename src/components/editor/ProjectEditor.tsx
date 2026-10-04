@@ -37,6 +37,7 @@ import { AssetSourcePreview } from "./AssetSourcePreview";
 import { ProjectEditorPanel } from "./ProjectEditorPanel";
 import { ProjectInspector } from "./ProjectInspector";
 import { ProjectPreview } from "./ProjectPreview";
+import { captureProjectThumbnail } from "./projectThumbnail";
 import { ProjectTimeline } from "./ProjectTimeline";
 import { ProjectWelcome } from "./ProjectWelcome";
 import { timelineActionCommand } from "./timelineInteractions";
@@ -70,6 +71,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	const [snappingEnabled, setSnappingEnabled] = useState(true);
 	const playingRef = useRef(playing);
 	playingRef.current = playing;
+	const previewStage = useRef<HTMLDivElement>(null);
 	const [exportProgress, setExportProgress] = useState<number | null>(null);
 	const exportAbort = useRef<AbortController | null>(null);
 	const [recordingPending, setRecordingPending] = useState(0);
@@ -77,6 +79,21 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		[draftName, setDraftName] = useState(""),
 		[nameError, setNameError] = useState<string | null>(null);
 	const modalOpen = useRef(false);
+	useEffect(() => {
+		controller.setThumbnailProvider(() => {
+			const project = controller.snapshot.project;
+			const visualAsset = project.assets.find(
+				(asset) =>
+					asset.kind === "recording" || asset.kind === "video" || asset.kind === "image",
+			);
+			const fallbackMediaPath = visualAsset
+				? (visualAsset.source?.path ??
+					project.packages.find((pkg) => pkg.id === visualAsset.packageId)?.screen.path)
+				: undefined;
+			return captureProjectThumbnail(previewStage.current, fallbackMediaPath);
+		});
+		return () => controller.setThumbnailProvider(null);
+	}, [controller]);
 	modalOpen.current = Boolean(
 		editingClipId || exportProgress !== null || nameDialog || props.navigationBlocked,
 	);
@@ -700,7 +717,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 									</button>
 								)}
 							</header>
-							<div className="project-preview-stage">
+							<div className="project-preview-stage" ref={previewStage}>
 								{sourceAsset ? (
 									<AssetSourcePreview
 										key={sourceAsset.id}
