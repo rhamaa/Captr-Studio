@@ -74,32 +74,80 @@ it("Save As retains undo history under the new project identity", async () => {
 });
 
 it("normalizes stale names without dirtying and preserves rename through history", async () => {
-	const c = new ProjectController(createTimelineProject("p", "Stale"), { persist: async r => ({ success: true, operationId:r.operationId, generation:r.generation, revision:r.revision, projectId:r.project.projectId, path:"D:/Demo.captr", title:"Demo" }) });
+	const c = new ProjectController(createTimelineProject("p", "Stale"), {
+		persist: async (r) => ({
+			success: true,
+			operationId: r.operationId,
+			generation: r.generation,
+			revision: r.revision,
+			projectId: r.project.projectId,
+			path: "D:/Demo.captr",
+			title: "Demo",
+		}),
+	});
 	c.open(createTimelineProject("p", "Stale"), "D:/Tutorial.captr");
 	expect(c.snapshot.project.title).toBe("Tutorial");
 	expect(c.snapshot.dirty).toBe(false);
-	c.execute(p => ({...p, width:1280}));
+	c.execute((p) => ({ ...p, width: 1280 }));
 	await c.rename("Demo");
-	c.undo(); expect(c.snapshot.project.title).toBe("Demo");
-	c.redo(); expect(c.snapshot.project.title).toBe("Demo");
+	c.undo();
+	expect(c.snapshot.project.title).toBe("Demo");
+	c.redo();
+	expect(c.snapshot.project.title).toBe("Demo");
 });
 it("rejects mismatched results and invalidates delayed saves after exit", async () => {
-	let finish!: (r:any)=>void;
-	const c = new ProjectController(createTimelineProject("p", "P"), {persist:r => new Promise(resolve => {finish = result => resolve({...result, operationId:r.operationId, generation:r.generation, revision:r.revision});})});
-	const job=c.save(); await Promise.resolve(); c.exit();
-	finish({success:true, path:"D:/Late.captr", projectId:"p", title:"Late"}); await job;
+	let finish!: (r: any) => void;
+	const c = new ProjectController(createTimelineProject("p", "P"), {
+		persist: (r) =>
+			new Promise((resolve) => {
+				finish = (result) =>
+					resolve({
+						...result,
+						operationId: r.operationId,
+						generation: r.generation,
+						revision: r.revision,
+					});
+			}),
+	});
+	const job = c.save();
+	await Promise.resolve();
+	c.exit();
+	finish({ success: true, path: "D:/Late.captr", projectId: "p", title: "Late" });
+	await job;
 	expect(c.snapshot.path).toBe(null);
-	const other = new ProjectController(createTimelineProject("p", "P"), {persist:async r => ({success:true,operationId:"wrong",generation:r.generation,revision:r.revision,path:"bad.captr",projectId:"p",title:"bad"})});
-	expect((await other.save()).success).toBe(false); expect(other.snapshot.path).toBe(null);
+	const other = new ProjectController(createTimelineProject("p", "P"), {
+		persist: async (r) => ({
+			success: true,
+			operationId: "wrong",
+			generation: r.generation,
+			revision: r.revision,
+			path: "bad.captr",
+			projectId: "p",
+			title: "bad",
+		}),
+	});
+	expect((await other.save()).success).toBe(false);
+	expect(other.snapshot.path).toBe(null);
 });
 it("blocks edits during rename and leaves state intact on cancel", async () => {
-	let finish!: (r:any)=>void; let request:any;
-	const c=new ProjectController(createTimelineProject("p","P"), {persist:r => {request=r;return new Promise(resolve => {finish=resolve;});}});
-	c.open(createTimelineProject("p","P"),"P.captr");
-	const job=c.rename("Demo"); await Promise.resolve();
-	expect(()=>c.execute(p=>({...p,width:1280}))).toThrow();
-	finish({success:false,operationId:request.operationId,canceled:true}); await job;
-	expect(c.snapshot.path).toBe("P.captr"); expect(c.snapshot.fileOperation).toBe(null);
+	let finish!: (r: any) => void;
+	let request: any;
+	const c = new ProjectController(createTimelineProject("p", "P"), {
+		persist: (r) => {
+			request = r;
+			return new Promise((resolve) => {
+				finish = resolve;
+			});
+		},
+	});
+	c.open(createTimelineProject("p", "P"), "P.captr");
+	const job = c.rename("Demo");
+	await Promise.resolve();
+	expect(() => c.execute((p) => ({ ...p, width: 1280 }))).toThrow();
+	finish({ success: false, operationId: request.operationId, canceled: true });
+	await job;
+	expect(c.snapshot.path).toBe("P.captr");
+	expect(c.snapshot.fileOperation).toBe(null);
 });
 
 it("syncs project title with opened .captr file name when title is New project", () => {

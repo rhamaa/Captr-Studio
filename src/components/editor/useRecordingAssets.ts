@@ -9,7 +9,7 @@ interface RecordingAssetOptions {
 	getProject: () => TimelineProject;
 	update: (next: TimelineProject) => void;
 	onError: (error: unknown) => void;
-	onPendingChange?: (count:number)=>void;
+	onPendingChange?: (count: number) => void;
 	probe?: (input: CompletedRecording) => Promise<void>;
 	ids?: () => { assetId: string; packageId: string };
 }
@@ -81,13 +81,18 @@ export function useRecordingAssets(
 		const ownerGeneration = captures.current.get(session.captureId) ?? expectedGeneration;
 		if (!controller.current!.isCurrent(ownerGeneration, session.projectId)) return;
 		captures.current.set(session.captureId, ownerGeneration);
-		pending.current++; latest.current.onPendingChange?.(pending.current);
+		pending.current++;
+		latest.current.onPendingChange?.(pending.current);
 		void completedRecordingFromSession(session)
 			.then((input) => controller.current!.acceptCompleted(ownerGeneration, input))
 			.catch((error) => {
 				if (controller.current!.isCurrent(ownerGeneration, session.projectId))
 					latest.current.onError(error);
-			}).finally(()=>{pending.current--;latest.current.onPendingChange?.(pending.current);});
+			})
+			.finally(() => {
+				pending.current--;
+				latest.current.onPendingChange?.(pending.current);
+			});
 	};
 	useEffect(() => {
 		generation.current = controller.current!.beginProject(projectId);
@@ -103,7 +108,11 @@ export function useRecordingAssets(
 			.catch((error) => {
 				if (controller.current!.isCurrent(ownerGeneration, projectId))
 					latest.current.onError(error);
-			}).finally(()=>{pending.current--;latest.current.onPendingChange?.(pending.current);});
+			})
+			.finally(() => {
+				pending.current--;
+				latest.current.onPendingChange?.(pending.current);
+			});
 	}, [projectId, openingKey, restoredSession]);
 	useEffect(() => {
 		const unsubscribe = window.electronAPI?.onRecordingSessionChanged?.((session) =>

@@ -1,3 +1,4 @@
+vi.mock("@/components/settings/AppSettingsDialog",()=>({AppSettingsDialog:()=>null}));
 import React from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import {expect,it,vi} from "vitest";

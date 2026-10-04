@@ -19,7 +19,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
 import {
 	addTextOverlay,
-	
 	placeAsset,
 	registerMedia,
 	removeAsset,
@@ -41,26 +40,28 @@ import { ProjectPreview } from "./ProjectPreview";
 import { ProjectTimeline } from "./ProjectTimeline";
 import { ProjectWelcome } from "./ProjectWelcome";
 import { timelineActionCommand } from "./timelineInteractions";
-import { projectFileName } from "@/core/project/projectNames";
+import { projectFileName, projectTitleFromPath } from "@/core/project/projectNames";
+import { ProjectNameDialog } from "./ProjectNameDialog";
 import { type ProjectController, useProjectController } from "./useProjectController";
 import { useProjectMessages } from "./useProjectMessages";
 import { useRecordingAssets } from "./useRecordingAssets";
 import "./projectEditor.css";
 import type { RecordingSessionData } from "../../../electron/ipc/types";
-import {bindProjectClose} from "./projectLifecycle";
+import { bindProjectClose } from "./projectLifecycle";
 export interface ProjectEditorProps {
- controller:ProjectController;
- recordingSession?:RecordingSessionData|null;
- onRequestHome:()=>void;
- onProjectChanged:()=>void;
- onRequestNew:()=>void;
- onRequestOpen:()=>void;
- onBusyChange?:(busy:boolean)=>void;
+	controller: ProjectController;
+	recordingSession?: RecordingSessionData | null;
+	onRequestHome: () => void;
+	onProjectChanged: () => void;
+	onRequestNew: () => void;
+	onRequestOpen: () => void;
+	onBusyChange?: (busy: boolean) => void;
+	navigationBlocked?: boolean;
 }
-export function ProjectEditor(props:ProjectEditorProps) {
+export function ProjectEditor(props: ProjectEditorProps) {
 	const m = useProjectMessages();
 	const { openConfig } = useShortcuts();
-	const {controller,state}=useProjectController(props.controller);
+	const { controller, state } = useProjectController(props.controller);
 	const [error, setError] = useState<string | null>(null),
 		[busy, setBusy] = useState(false),
 		[playing, setPlaying] = useState(false),
@@ -71,10 +72,13 @@ export function ProjectEditor(props:ProjectEditorProps) {
 	playingRef.current = playing;
 	const [exportProgress, setExportProgress] = useState<number | null>(null);
 	const exportAbort = useRef<AbortController | null>(null);
-	const [recordingPending,setRecordingPending]=useState(0);
+	const [recordingPending, setRecordingPending] = useState(0);
+	const [nameDialog, setNameDialog] = useState(false),
+		[draftName, setDraftName] = useState(""),
+		[nameError, setNameError] = useState<string | null>(null);
 	const modalOpen = useRef(false);
 	modalOpen.current = Boolean(
-		editingClipId || exportProgress !== null,
+		editingClipId || exportProgress !== null || nameDialog || props.navigationBlocked,
 	);
 	useEffect(() => {
 		if (!editingClipId) return;
@@ -133,7 +137,7 @@ export function ProjectEditor(props:ProjectEditorProps) {
 	const save = async (saveAs = false) => {
 		try {
 			const result = await controller.save(saveAs);
-			if(result.success) props.onProjectChanged();
+			if (result.success) props.onProjectChanged();
 			if (!result.success && !result.canceled)
 				throw new Error(result.error ?? result.message ?? "Could not save project");
 			if (result.success)
@@ -144,6 +148,28 @@ export function ProjectEditor(props:ProjectEditorProps) {
 			errorMessage(e);
 		}
 	};
+	const commitName = async (intent: "save" | "save-as" | "rename") => {
+		try {
+			const result =
+				intent === "rename"
+					? await controller.rename(draftName)
+					: await controller.save(intent === "save-as", draftName);
+			if (result.success) {
+				setNameDialog(false);
+				props.onProjectChanged();
+				if ("warning" in result && result.warning) setError(String(result.warning));
+			} else if (!result.canceled)
+				setNameError(
+					result.error ??
+						"Could not change project name. Choose another name or use Save As.",
+				);
+		} catch (e) {
+			setNameError(e instanceof Error ? e.message : String(e));
+		}
+	};
+	useEffect(() => {
+		document.title = `${projectFileName(state.path)} — Captr Studio`;
+	}, [state.path]);
 	const open = async () => props.onRequestOpen();
 	const newProject = async () => props.onRequestNew();
 	const importMedia = async (paths?: string[]) => {
@@ -225,11 +251,15 @@ export function ProjectEditor(props:ProjectEditorProps) {
 			errorMessage(e);
 		}
 	};
-	useEffect(()=>{props.onBusyChange?.(busy || recordingPending>0 || exportProgress!==null || Boolean(state.fileOperation));},[busy,recordingPending,exportProgress,state.fileOperation,props.onBusyChange]);
+	useEffect(() => {
+		props.onBusyChange?.(
+			busy || recordingPending > 0 || exportProgress !== null || Boolean(state.fileOperation),
+		);
+	}, [busy, recordingPending, exportProgress, state.fileOperation, props.onBusyChange]);
 	useEffect(() => bindProjectClose(controller, window.electronAPI, errorMessage), [controller]);
 	useEffect(() => {
 		const keydown = (e: KeyboardEvent) => {
-			if (modalOpen.current) return;
+			if (modalOpen.current || document.querySelector("[role=dialog]")) return;
 			const target = e.target;
 			if (
 				target instanceof HTMLElement &&
@@ -411,9 +441,12 @@ export function ProjectEditor(props:ProjectEditorProps) {
 		};
 		window.addEventListener("keydown", keydown);
 		const unsub = [
-			window.electronAPI?.onMenuSaveProject?.(() => void save()),
-			window.electronAPI?.onMenuSaveProjectAs?.(() => void save(true)),
-			
+			window.electronAPI?.onMenuSaveProject?.(() => {
+				if (!modalOpen.current) void save();
+			}),
+			window.electronAPI?.onMenuSaveProjectAs?.(() => {
+				if (!modalOpen.current) void save(true);
+			}),
 		];
 		return () => {
 			window.removeEventListener("keydown", keydown);
@@ -450,7 +483,15 @@ export function ProjectEditor(props:ProjectEditorProps) {
 	return (
 		<main className="project-editor dark">
 			<header className="project-header">
-<button aria-label='Back to Home' disabled={busy || recordingPending>0 || exportProgress!==null || state.saving} onClick={props.onRequestHome}>Home</button>
+				<button
+					aria-label="Back to Home"
+					disabled={
+						busy || recordingPending > 0 || exportProgress !== null || state.saving
+					}
+					onClick={props.onRequestHome}
+				>
+					Home
+				</button>
 				<div className="project-brand" aria-label="Captr Studio">
 					<VideoCamera size={22} weight="duotone" />
 				</div>
@@ -493,18 +534,24 @@ export function ProjectEditor(props:ProjectEditorProps) {
 				>
 					<ArrowClockwise size={17} />
 				</button>
-				<input
+				<button
 					className="project-title"
-					aria-label="Project name"
-					value={state.project.title}
-					onChange={(e) =>
-						run((p) => ({
-							...p,
-							title: e.target.value,
-							updatedAt: new Date().toISOString(),
-						}))
+					aria-label={m("projectName")}
+					disabled={
+						state.saving ||
+						busy ||
+						recordingPending > 0 ||
+						exportProgress !== null ||
+						props.navigationBlocked
 					}
-				/>
+					onClick={() => {
+						setDraftName(state.path ? projectTitleFromPath(state.path) : "Untitled");
+						setNameError(null);
+						setNameDialog(true);
+					}}
+				>
+					{projectFileName(state.path)}
+				</button>
 				<span className="project-save-status">
 					{state.saving
 						? m("saving")
@@ -713,6 +760,23 @@ export function ProjectEditor(props:ProjectEditorProps) {
 					</footer>
 				</>
 			</ProjectEditorPanel>
+			{nameDialog && (
+				<ProjectNameDialog
+					fileName={projectFileName(state.path)}
+					draftName={draftName}
+					saved={Boolean(state.path)}
+					busy={state.saving}
+					error={nameError}
+					onDraftChange={(name) => {
+						setDraftName(name.replace(/\.captr$/i, ""));
+						setNameError(null);
+					}}
+					onClose={() => setNameDialog(false)}
+					onRename={() => void commitName("rename")}
+					onSaveAs={() => void commitName("save-as")}
+					onSave={() => void commitName("save")}
+				/>
+			)}
 			<Toaster />
 		</main>
 	);

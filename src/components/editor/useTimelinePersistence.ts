@@ -1,6 +1,10 @@
 import { ProjectSession } from "@/core/timeline/projectSession";
 import type { TimelineProject } from "@/core/timeline/types";
-import type { ProjectFileRequest, ProjectFileResult, ProjectPersistencePort } from "@/core/project/fileOperationTypes";
+import type {
+	ProjectFileRequest,
+	ProjectFileResult,
+	ProjectPersistencePort,
+} from "@/core/project/fileOperationTypes";
 export interface ProjectSaveResult {
 	success: boolean;
 	path?: string;
@@ -31,16 +35,31 @@ export class TimelinePersistence {
 		this.generation = this.session.beginProject(projectId);
 	}
 	run(request: ProjectFileRequest): Promise<ProjectFileResult> {
-		const snapshot=structuredClone(request), generation=this.generation, owner=this.projectId;
-		const job=this.queue.then(async ():Promise<ProjectFileResult> => {
-			if(!this.session.isCurrent(generation,owner)) return {success:false,operationId:request.operationId,canceled:true};
-			const result=await this.options.persist!(snapshot);
-			if(result.success && (result.operationId!==snapshot.operationId || result.generation!==snapshot.generation || result.revision!==snapshot.revision || result.projectId!==snapshot.project.projectId))
-				return {success:false,operationId:snapshot.operationId,error:"Project operation result ownership mismatch."};
-			if(result.success && this.session.isCurrent(generation,owner)) this.options.onSaved(snapshot.revision,result.path,snapshot.project);
+		const snapshot = structuredClone(request),
+			generation = this.generation,
+			owner = this.projectId;
+		const job = this.queue.then(async (): Promise<ProjectFileResult> => {
+			if (!this.session.isCurrent(generation, owner))
+				return { success: false, operationId: request.operationId, canceled: true };
+			const result = await this.options.persist!(snapshot);
+			if (
+				result.success &&
+				(result.operationId !== snapshot.operationId ||
+					result.generation !== snapshot.generation ||
+					result.revision !== snapshot.revision ||
+					result.projectId !== snapshot.project.projectId)
+			)
+				return {
+					success: false,
+					operationId: snapshot.operationId,
+					error: "Project operation result ownership mismatch.",
+				};
+			if (result.success && this.session.isCurrent(generation, owner))
+				this.options.onSaved(snapshot.revision, result.path, snapshot.project);
 			return result;
 		});
-		this.queue=job.catch(()=>undefined); return job;
+		this.queue = job.catch(() => undefined);
+		return job;
 	}
 	save(
 		project: TimelineProject,
