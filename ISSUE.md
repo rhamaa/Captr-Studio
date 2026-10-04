@@ -61,3 +61,12 @@
 **Verifikasi engine V3 (1 Oktober 2026):** bundle nyata menguji seluruh library dan sidecar, atomic save/load serta konversi sebagai copy. Uji browser memakai screen/webcam MP4 dan mic/system WAV nyata: completion duplikat menghasilkan satu Asset tanpa clip, seek acak dan rate 0.5×/2× mempertahankan frame efek pada source time yang sama, offset mic 500 ms terukur tepat. MP4 dari frame hasil edit dan mixer yang sama memiliki selisih rata-rata preview/export 1.51 dari 255 per channel, sesuai kompresi H.264. Tidak ada error console.
 
 **Verifikasi integrasi & siklus V3 (3 Oktober 2026):** implementasi test suite `electron/ipc/register/project/v3LifecycleVerification.test.ts` memverifikasi seluruh skenario lifecycle V3: multi-record berurutan pada bundle aktif `Test 2.captr` mempertahankan path dan lolos in-place Ctrl+S tanpa Save As; sidecar screen, webcam, mic, system audio, dan cursor utuh di `assets/<assetId>/` saat dibuka ulang; penempatan ganda dengan trim/rate/split independen dan import media lolos validasi bundler; penolakan aman bundle legacy Video/Motion mempertahankan active project path; serta konversi copy dan New Project menjaga perbedaan identitas secara ketat. Seluruh 91 tests project di Vitest dan pemeriksaan linter Biome lulus tanpa error.
+
+## Project Home dan penamaan file (4 Oktober 2026)
+
+- Startup normal membuka Home tanpa proyek aktif. New/Open masuk editor setelah validasi; intent Explorer dan pemulihan capture tetap memiliki identitas proyeknya.
+- Nama terlihat mengikuti basename file `.captr`, termasuk ekstensi; title internal tanpa ekstensi. Undo/redo tidak mengubah nama file yang sudah committed.
+- Rename mempertahankan projectId dan folder, publikasi eksklusif menolak tabrakan, recovery journal melindungi file yang berubah di luar aplikasi. Save As membuat projectId baru dan mempertahankan file asli.
+- Back to Home: Save/Discard/Cancel, deactivation hanya setelah guard berhasil. Capture/finalisasi, import, export dan transaksi file memblokir perpindahan.
+- Rekaman tambahan tetap Assets-only; seluruh sumber/sidecar termasuk asset tanpa placement tersimpan dalam V3. Dua placement memakai sumber bersama dengan komposisi independen.
+- Verifikasi otomatis/browser tercatat di `docs/verification/2026-10-04-project-home-and-naming.md`. QA native Windows (Explorer, file lock, case-only/Unicode, capture berulang dan relaunch recovery) belum dijalankan.

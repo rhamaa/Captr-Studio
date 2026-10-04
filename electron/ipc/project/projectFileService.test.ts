@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, it } from "vitest";
-import { createTimelineProject, registerRecording } from "../../../src/core/timeline/commands";
+import { createTimelineProject, registerRecording, placeAsset, updateComposition } from "../../../src/core/timeline/commands";
 import type { ProjectFileRequest } from "../../../src/core/project/fileOperationTypes";
 import { inspectProjectBundle } from "./projectBundle";
 import { performProjectFileOperation, type ProjectFileServicePorts } from "./projectFileService";
@@ -27,6 +27,36 @@ it("first save returns the actual chosen title rather than stale metadata", asyn
 	const f = await setup(), result = await performProjectFileOperation(f.request, f.ports);
 	expect(result).toMatchObject({ success: true, title: "Tutorial", projectId: "project", generation: 1, revision: 0 });
 	expect((await inspectProjectBundle(f.context.path!)).projectData?.title).toBe("Tutorial");
+});
+
+it("Rename then repeated Record then Save preserves library and independent placements in Save As", async()=>{
+ const f=await setup();await performProjectFileOperation(f.request,f.ports);
+ const renamed=await performProjectFileOperation({...f.request,operationId:"rename",expectedPath:f.context.path,intent:"rename",name:"Demo"},f.ports);expect(renamed.success).toBe(true);
+ let project=f.request.project;
+ for(let take=1;take<=2;take++){
+  const names=["screen.mp4","webcam.mp4","mic.wav","system.wav","cursor.json"];
+  for(const name of names)await fs.writeFile(path.join(f.root,`${take}-${name}`),`${take}:${name}`);
+  const src=(name:string)=>({path:path.join(f.root,`${take}-${name}`),durationUs:1_000_000,offsetUs:0});
+  project=registerRecording(project,{captureId:`take-${take}`,name:`Take ${take}`,durationUs:1_000_000,width:1920,height:1080,screen:src("screen.mp4"),webcam:src("webcam.mp4"),microphone:src("mic.wav"),system:src("system.wav"),cursorPath:src("cursor.json").path,settings:{}},{assetId:`a${take}`,packageId:`p${take}`});
+ }
+ expect(project.tracks.flatMap(t=>t.clips)).toEqual([]);
+ expect((await performProjectFileOperation({...f.request,operationId:"save-recordings",expectedPath:f.context.path,project},f.ports)).success).toBe(true);
+ const saved=await inspectProjectBundle(f.context.path!);expect((saved.projectData!.assets as unknown[]).length).toBe(2);expect(saved.entries.filter(e=>e.path.startsWith("assets/")).length).toBeGreaterThanOrEqual(10);
+ project=placeAsset(project,"a1","visual-1",0,{clipId:"c1",compositionId:"e1"});project=placeAsset(project,"a1","visual-1",1_000_000,{clipId:"c2",compositionId:"e2"});
+ const first=project.compositions[0];project=updateComposition(project,first.id,{...first,settings:{...first.settings,cursorScale:2}});
+ const original=f.context.path!,originalBytes=await fs.readFile(original);f.choose(path.join(f.root,"Copy.captr"));
+ expect((await performProjectFileOperation({...f.request,operationId:"copy",expectedPath:original,intent:"save-as",project:{...project,projectId:"copy"}},f.ports)).success).toBe(true);
+ expect(await fs.readFile(original)).toEqual(originalBytes);
+ const copy=await inspectProjectBundle(f.context.path!);const compositions=copy.projectData!.compositions as typeof project.compositions;
+ expect(compositions[0].settings.cursorScale).toBe(2);expect(compositions[1].settings.cursorScale).not.toBe(2);expect(copy.projectData!.projectId).toBe("copy");
+});
+it("rejects unapproved renderer media and a capture started while choosing the destination",async()=>{
+ const f=await setup();f.ports.validateMedia=async()=>false;
+ await fs.writeFile(path.join(f.root,"screen.mp4"),"screen");const source={path:path.join(f.root,"screen.mp4"),durationUs:1_000_000,offsetUs:0};
+ const project=registerRecording(f.request.project,{captureId:"take",name:"Take",durationUs:1_000_000,width:1,height:1,screen:source,settings:{}},{assetId:"a",packageId:"p"});
+ expect((await performProjectFileOperation({...f.request,project},f.ports)).success).toBe(false);expect(f.context.path).toBe(null);
+ let busy=false;f.ports.isBusy=()=>busy;f.ports.chooseSavePath=async()=>{busy=true;return path.join(f.root,"Busy.captr");};
+ expect((await performProjectFileOperation(f.request,f.ports)).success).toBe(false);expect(f.context.path).toBe(null);
 });
 it("renames a saved bundle without changing its project identity", async () => {
 	const f = await setup(); await performProjectFileOperation(f.request, f.ports);
