@@ -15,7 +15,7 @@ import {
 	VideoCamera,
 	Waveform,
 } from "@phosphor-icons/react";
-import { type ComponentProps, useEffect, useMemo, useRef, useState } from "react";
+import { type ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ProjectPreview } from "@/components/editor/ProjectPreview";
 import { SettingsPanel } from "@/components/video-editor/SettingsPanel";
 import { buildInteractionZoomSuggestions } from "@/components/video-editor/timeline/zoomSuggestionUtils";
@@ -27,6 +27,7 @@ function formatTimecode(seconds: number): string {
 	const centis = Math.floor((totalSecs % 1) * 100);
 	return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${String(centis).padStart(2, "0")}`;
 }
+
 import type {
 	AnnotationRegion,
 	EditorEffectSection,
@@ -169,14 +170,17 @@ export function RecordingCompositionEditor({
 		frame = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(frame);
 	}, [playing, composition]);
-	const update = (patch: Partial<RecordingSettings>) => {
-		try {
-			onChange(changeRecordingSettings(pkg, composition, patch));
-			setError(null);
-		} catch (e) {
-			setError(e instanceof Error ? e.message : String(e));
-		}
-	};
+	const update = useCallback(
+		(patch: Partial<RecordingSettings>) => {
+			try {
+				onChange(changeRecordingSettings(pkg, composition, patch));
+				setError(null);
+			} catch (e) {
+				setError(e instanceof Error ? e.message : String(e));
+			}
+		},
+		[pkg, composition, onChange],
+	);
 	const callbacks = Object.fromEntries(
 		Object.entries(settingCallbacks).map(([key, callback]) => [
 			callback,
@@ -255,6 +259,37 @@ export function RecordingCompositionEditor({
 	};
 	const currentMs = Math.round(sourceSeconds * 1000),
 		durationMs = pkg.durationUs / 1000;
+
+	const handleCutAtPlayhead = useCallback(() => {
+		const startMs = Math.max(0, currentMs);
+		const endMs = Math.min(durationMs, startMs + 1000);
+		if (endMs > startMs) {
+			update({
+				trimRegions: [...settings.trimRegions, { id: crypto.randomUUID(), startMs, endMs }],
+			});
+		}
+	}, [currentMs, durationMs, settings.trimRegions, update]);
+
+	const handleAddZoomAtCurrent = useCallback(() => {
+		const id = crypto.randomUUID();
+		const startMs = Math.max(0, currentMs);
+		const endMs = Math.min(durationMs, startMs + 2500);
+		update({
+			zoomRegions: [
+				...settings.zoomRegions,
+				{
+					id,
+					startMs,
+					endMs,
+					depth: 2,
+					focus: { cx: 0.5, cy: 0.5 },
+					mode: "manual",
+				},
+			],
+		});
+		setSelectedZoomId(id);
+	}, [currentMs, durationMs, settings.zoomRegions, update]);
+
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			const target = e.target;
@@ -318,6 +353,29 @@ export function RecordingCompositionEditor({
 				return;
 			}
 
+			if (
+				(e.key.toLowerCase() === "s" || e.key.toLowerCase() === "c") &&
+				!e.ctrlKey &&
+				!e.metaKey &&
+				!e.altKey
+			) {
+				e.preventDefault();
+				handleCutAtPlayhead();
+				return;
+			}
+
+			if (e.key.toLowerCase() === "t" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+				e.preventDefault();
+				timeline.current?.addAnnotation();
+				return;
+			}
+
+			if (e.key.toLowerCase() === "z" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+				e.preventDefault();
+				handleAddZoomAtCurrent();
+				return;
+			}
+
 			if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
 				e.preventDefault();
 				setPlaying(false);
@@ -355,6 +413,9 @@ export function RecordingCompositionEditor({
 		selectedLayoutId,
 		selectedAudioId,
 		settings,
+		update,
+		handleAddZoomAtCurrent,
+		handleCutAtPlayhead,
 	]);
 	const addSpeed = (speed: PlaybackSpeed) => {
 		const startMs = Math.max(0, currentMs),
@@ -420,7 +481,7 @@ export function RecordingCompositionEditor({
 						/>
 					</div>
 					<div className="recording-editor-transport">
-						<div className="recording-transport-left">
+						<div className="recording-transport-center">
 							<button
 								type="button"
 								className="recording-step-button"
@@ -471,73 +532,6 @@ export function RecordingCompositionEditor({
 									{formatTimecode(durationMs / 1000)}
 								</span>
 							</div>
-						</div>
-
-						<div className="recording-transport-divider" />
-
-						<div className="recording-transport-actions">
-							<button
-								type="button"
-								className="recording-action-btn"
-								onClick={suggestZooms}
-								title="Auto-detect zooms based on mouse clicks"
-							>
-								<Sparkle size={14} weight="fill" />
-								<span>Auto zoom</span>
-							</button>
-							<button
-								type="button"
-								className="recording-action-btn"
-								onClick={() => timeline.current?.addAnnotation()}
-								title="Add text overlay"
-							>
-								<Plus size={14} weight="bold" />
-								<span>Text</span>
-							</button>
-							<button
-								type="button"
-								className="recording-action-btn"
-								onClick={() => timeline.current?.addLayout()}
-								title="Add layout region"
-							>
-								<Plus size={14} weight="bold" />
-								<span>Layout</span>
-							</button>
-							<div className="recording-speed-wrapper">
-								<select
-									aria-label="Add internal speed region"
-									value=""
-									onChange={(event) =>
-										addSpeed(Number(event.target.value) as PlaybackSpeed)
-									}
-									className="recording-speed-select"
-								>
-									<option value="" disabled>
-										Speed
-									</option>
-									<option value="0.5">0.5×</option>
-									<option value="2">2×</option>
-								</select>
-							</div>
-							<button
-								type="button"
-								className="recording-action-btn recording-action-cut"
-								title="Remove a 1s source range from the recording"
-								onClick={() => {
-									const startMs = Math.max(0, currentMs),
-										endMs = Math.min(durationMs, startMs + 1000);
-									if (endMs > startMs)
-										update({
-											trimRegions: [
-												...settings.trimRegions,
-												{ id: crypto.randomUUID(), startMs, endMs },
-											],
-										});
-								}}
-							>
-								<Scissors size={14} />
-								<span>Cut 1s</span>
-							</button>
 						</div>
 					</div>
 				</div>
@@ -815,6 +809,82 @@ export function RecordingCompositionEditor({
 				</aside>
 			</div>
 			<div className="recording-timeline-container">
+				<div className="recording-timeline-toolbar">
+					<div className="recording-timeline-tools-left">
+						<button
+							type="button"
+							className="recording-tb-btn recording-tb-btn-cut"
+							title="Cut / trim 1s at playhead (S / C)"
+							onClick={handleCutAtPlayhead}
+						>
+							<Scissors size={13} />
+							<span>Cut</span>
+							<kbd className="recording-tb-kbd">S</kbd>
+						</button>
+						<span className="recording-tb-separator" />
+						<button
+							type="button"
+							className="recording-tb-btn"
+							onClick={suggestZooms}
+							title="Auto-detect zooms based on mouse clicks"
+						>
+							<Sparkle size={13} weight="fill" />
+							<span>Auto zoom</span>
+						</button>
+						<button
+							type="button"
+							className="recording-tb-btn"
+							onClick={handleAddZoomAtCurrent}
+							title="Add zoom region at playhead (Z)"
+						>
+							<MagnifyingGlassPlus size={13} />
+							<span>Zoom</span>
+							<kbd className="recording-tb-kbd">Z</kbd>
+						</button>
+						<button
+							type="button"
+							className="recording-tb-btn"
+							onClick={() => timeline.current?.addAnnotation()}
+							title="Add text overlay (T)"
+						>
+							<Plus size={13} weight="bold" />
+							<span>Text</span>
+							<kbd className="recording-tb-kbd">T</kbd>
+						</button>
+						<button
+							type="button"
+							className="recording-tb-btn"
+							onClick={() => timeline.current?.addLayout()}
+							title="Add camera layout region"
+						>
+							<SquaresFour size={13} />
+							<span>Layout</span>
+						</button>
+						<span className="recording-tb-separator" />
+						<div className="recording-speed-wrapper">
+							<select
+								aria-label="Add internal speed region"
+								value=""
+								onChange={(event) =>
+									addSpeed(Number(event.target.value) as PlaybackSpeed)
+								}
+								className="recording-speed-select"
+							>
+								<option value="" disabled>
+									Speed
+								</option>
+								<option value="0.5">0.5×</option>
+								<option value="2">2×</option>
+							</select>
+						</div>
+					</div>
+					<div className="recording-timeline-tools-right">
+						<span className="recording-tb-hint">
+							<kbd>Space</kbd> Play · <kbd>S</kbd> Cut · <kbd>Z</kbd> Zoom ·{" "}
+							<kbd>T</kbd> Text · <kbd>Esc</kbd> Back
+						</span>
+					</div>
+				</div>
 				<RecordingTimeline
 					ref={timeline}
 					videoDuration={durationMs / 1000}
