@@ -56,6 +56,14 @@
 - [x] Native QA: tempatkan Record dua kali, split/trim/rate/edit independen; import video/gambar/audio, preview/export parity, Ctrl+S/reopen.
 - [x] Native QA: Save As dan New Project mempertahankan perbedaan path/identitas; konversi eksplisit memakai file baru dan bundle asli tidak berubah.
 
+**Audio Recorder Project Editor (5 Oktober 2026):**
+
+- [x] Audio Recorder menangkap mikrofon saja, di luar Screen Record, dan mengunci posisi klip ke playhead saat rekaman dimulai.
+- [x] Take yang selesai didaftarkan sebagai audio Asset terpisah lalu ditempatkan di track audio; undo placement mempertahankan Asset dan redo memulihkan clip ID yang sama.
+- [x] Perpindahan Home/New/Open dan penutupan window menawarkan Finish and keep, Discard and continue, atau Stay; take lama tidak dapat masuk ke project baru dan file sementara dibersihkan lewat IPC terbatas.
+- [x] Bundle/reopen V3 mempertahankan file audio Asset di `assets/<assetId>/`, termasuk Asset yang tidak ditempatkan, dan clip audio tetap merujuk ke Asset yang benar.
+- [ ] Native QA Audio Recorder: record/discard, rekam sambil preview berjalan, playhead anchor, track audio penuh, undo/redo, save/reopen, dan pilihan Finish/Discard/Stay untuk Home/Open/New/window close.
+
 **Instruksi berikutnya:** pertahankan preservasi path native/browser/Windows dan pemeriksaan identitas. Jangan menentukan project kosong dari source aktif. Aset milik library, penghapusan clip tidak menghapus source; seluruh library harus ikut save meskipun timeline kosong. Perbarui checklist ini dan `AGENTS.md` saat kontrak berubah.
 
 **Verifikasi engine V3 (1 Oktober 2026):** bundle nyata menguji seluruh library dan sidecar, atomic save/load serta konversi sebagai copy. Uji browser memakai screen/webcam MP4 dan mic/system WAV nyata: completion duplikat menghasilkan satu Asset tanpa clip, seek acak dan rate 0.5×/2× mempertahankan frame efek pada source time yang sama, offset mic 500 ms terukur tepat. MP4 dari frame hasil edit dan mixer yang sama memiliki selisih rata-rata preview/export 1.51 dari 255 per channel, sesuai kompresi H.264. Tidak ada error console.

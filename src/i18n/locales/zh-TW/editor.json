@@ -177,6 +177,23 @@
     "firstSaveHint": "Choose a name for your first save.",
     "cancel": "Cancel",
     "renameProject": "Rename project",
-    "saveProject": "Save project"
+    "saveProject": "Save project",
+    "recordAudio": "錄製音訊",
+    "audioRecorderTitle": "錄製旁白",
+    "audioRecorderDescription": "僅錄製麥克風音訊。錄音會加入素材庫和時間軸。",
+    "microphoneInput": "麥克風",
+    "microphoneLevel": "麥克風輸入音量",
+    "loadingMicrophones": "正在尋找麥克風…",
+    "defaultMicrophone": "系統預設",
+    "noMicrophones": "找不到麥克風；仍可使用系統預設裝置。",
+    "recording": "錄製中",
+    "elapsedTime": "經過時間",
+    "savingAudio": "正在儲存音訊…",
+    "stopAudioRecording": "停止錄製",
+    "discardAudioTake": "捨棄錄音",
+    "retryAudioSave": "重試儲存",
+    "finishAndKeep": "完成並保留",
+    "discardAndContinue": "捨棄並繼續",
+    "stayInProject": "留在專案中"
   }
 }

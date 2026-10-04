@@ -182,6 +182,23 @@
     "firstSaveHint": "Choose a name for your first save.",
     "cancel": "Cancel",
     "renameProject": "Rename project",
-    "saveProject": "Save project"
+    "saveProject": "Save project",
+    "recordAudio": "Grabar audio",
+    "audioRecorderTitle": "Grabar narración",
+    "audioRecorderDescription": "Graba solo el micrófono. Se añadirá a Recursos y a la línea de tiempo.",
+    "microphoneInput": "Micrófono",
+    "microphoneLevel": "Nivel de entrada del micrófono",
+    "loadingMicrophones": "Buscando micrófonos…",
+    "defaultMicrophone": "Predeterminado del sistema",
+    "noMicrophones": "No se encontró un micrófono; puedes usar el predeterminado del sistema.",
+    "recording": "Grabando",
+    "elapsedTime": "Tiempo transcurrido",
+    "savingAudio": "Guardando audio…",
+    "stopAudioRecording": "Detener grabación",
+    "discardAudioTake": "Descartar toma",
+    "retryAudioSave": "Reintentar guardado",
+    "finishAndKeep": "Finalizar y conservar",
+    "discardAndContinue": "Descartar y continuar",
+    "stayInProject": "Permanecer en el proyecto"
   }
 }

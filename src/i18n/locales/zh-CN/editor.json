@@ -177,6 +177,23 @@
     "firstSaveHint": "Choose a name for your first save.",
     "cancel": "Cancel",
     "renameProject": "Rename project",
-    "saveProject": "Save project"
+    "saveProject": "Save project",
+    "recordAudio": "录制音频",
+    "audioRecorderTitle": "录制旁白",
+    "audioRecorderDescription": "仅录制麦克风声音。录音将添加到素材库和时间线。",
+    "microphoneInput": "麦克风",
+    "microphoneLevel": "麦克风输入音量",
+    "loadingMicrophones": "正在查找麦克风…",
+    "defaultMicrophone": "系统默认",
+    "noMicrophones": "未找到麦克风；仍可使用系统默认设备。",
+    "recording": "正在录制",
+    "elapsedTime": "已用时间",
+    "savingAudio": "正在保存音频…",
+    "stopAudioRecording": "停止录制",
+    "discardAudioTake": "丢弃录音",
+    "retryAudioSave": "重试保存",
+    "finishAndKeep": "完成并保留",
+    "discardAndContinue": "丢弃并继续",
+    "stayInProject": "留在项目中"
   }
 }

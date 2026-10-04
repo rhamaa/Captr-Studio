@@ -177,6 +177,23 @@
     "firstSaveHint": "Choose a name for your first save.",
     "cancel": "Cancel",
     "renameProject": "Rename project",
-    "saveProject": "Save project"
+    "saveProject": "Save project",
+    "recordAudio": "Audio opnemen",
+    "audioRecorderTitle": "Voice-over opnemen",
+    "audioRecorderDescription": "Neem alleen de microfoon op. De opname wordt toegevoegd aan Assets en de tijdlijn.",
+    "microphoneInput": "Microfoon",
+    "microphoneLevel": "Microfooningangsniveau",
+    "loadingMicrophones": "Microfoons zoeken…",
+    "defaultMicrophone": "Systeemstandaard",
+    "noMicrophones": "Geen microfoon gevonden; je kunt de systeemstandaard gebruiken.",
+    "recording": "Opnemen",
+    "elapsedTime": "Verstreken tijd",
+    "savingAudio": "Audio opslaan…",
+    "stopAudioRecording": "Opname stoppen",
+    "discardAudioTake": "Opname verwijderen",
+    "retryAudioSave": "Opslaan opnieuw proberen",
+    "finishAndKeep": "Voltooien en bewaren",
+    "discardAndContinue": "Verwijderen en doorgaan",
+    "stayInProject": "In project blijven"
   }
 }

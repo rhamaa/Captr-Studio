@@ -177,6 +177,23 @@
     "firstSaveHint": "Choose a name for your first save.",
     "cancel": "Cancel",
     "renameProject": "Rename project",
-    "saveProject": "Save project"
+    "saveProject": "Save project",
+    "recordAudio": "오디오 녹음",
+    "audioRecorderTitle": "내레이션 녹음",
+    "audioRecorderDescription": "마이크만 녹음합니다. 녹음본은 에셋과 타임라인에 추가됩니다.",
+    "microphoneInput": "마이크",
+    "microphoneLevel": "마이크 입력 레벨",
+    "loadingMicrophones": "마이크 검색 중…",
+    "defaultMicrophone": "시스템 기본값",
+    "noMicrophones": "마이크를 찾을 수 없습니다. 시스템 기본 장치를 사용할 수 있습니다.",
+    "recording": "녹음 중",
+    "elapsedTime": "경과 시간",
+    "savingAudio": "오디오 저장 중…",
+    "stopAudioRecording": "녹음 중지",
+    "discardAudioTake": "녹음 삭제",
+    "retryAudioSave": "저장 재시도",
+    "finishAndKeep": "완료하고 유지",
+    "discardAndContinue": "삭제하고 계속",
+    "stayInProject": "프로젝트에 머무르기"
   }
 }

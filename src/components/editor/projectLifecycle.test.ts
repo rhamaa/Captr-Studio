@@ -61,6 +61,45 @@ it.each([
 	expect(await request()).toBe(false);
 	expect(c.snapshot.dirty).toBe(true);
 });
+it("resolves an active audio take before asking to save for Electron close", async () => {
+	const save = vi.fn(async () => ({ success: true, path: "p.captr" }));
+	const controller = new ProjectController(createTimelineProject("p", "P"), save);
+	controller.execute((project) => ({ ...project, title: "Dirty" }));
+	let resolveTake!: (keep: boolean) => void;
+	let request!: () => Promise<boolean>;
+	const beforeClose = vi.fn(
+		() =>
+			new Promise<boolean>((resolve) => {
+				resolveTake = resolve;
+			}),
+	);
+	bindProjectClose(
+		controller,
+		{
+			setHasUnsavedChanges: vi.fn(),
+			onRequestSaveBeforeClose: (fn) => {
+				request = fn;
+				return vi.fn();
+			},
+		},
+		vi.fn(),
+		beforeClose,
+	);
+
+	const canceled = request();
+	await vi.waitFor(() => expect(beforeClose).toHaveBeenCalledTimes(1));
+	expect(save).not.toHaveBeenCalled();
+	resolveTake(false);
+	expect(await canceled).toBe(false);
+	expect(save).not.toHaveBeenCalled();
+
+	const continued = request();
+	await vi.waitFor(() => expect(beforeClose).toHaveBeenCalledTimes(2));
+	resolveTake(true);
+	await vi.waitFor(() => expect(save).toHaveBeenCalledOnce());
+	expect(await continued).toBe(true);
+});
+
 it("bootstraps a completed capture before resetting a new project path", async () => {
 	const session = {
 		projectId: "record-project",

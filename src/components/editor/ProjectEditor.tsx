@@ -14,7 +14,7 @@ import {
 	VideoCamera,
 	X,
 } from "@phosphor-icons/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
 import {
@@ -49,6 +49,9 @@ import { useRecordingAssets } from "./useRecordingAssets";
 import "./projectEditor.css";
 import type { RecordingSessionData } from "../../../electron/ipc/types";
 import { bindProjectClose } from "./projectLifecycle";
+import { AudioRecorderDialog } from "./AudioRecorderDialog";
+import { useAudioRecordingAssets } from "./useAudioRecordingAssets";
+import { createProjectAudioRecorderNavigation } from "./projectAudioRecorderNavigation";
 export interface ProjectEditorProps {
 	controller: ProjectController;
 	recordingSession?: RecordingSessionData | null;
@@ -75,6 +78,24 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	const [exportProgress, setExportProgress] = useState<number | null>(null);
 	const exportAbort = useRef<AbortController | null>(null);
 	const [recordingPending, setRecordingPending] = useState(0);
+	const audioAssets = useAudioRecordingAssets(controller);
+	const audioTakeToken = useRef<ReturnType<typeof audioAssets.begin> | null>(null);
+	const [audioRecorderOpen, setAudioRecorderOpen] = useState(false);
+	const [audioNavigationRequested, setAudioNavigationRequested] = useState(false);
+	const [audioStartUs, setAudioStartUs] = useState(0);
+	const audioStartUsRef = useRef(0);
+	const audioNavigationRequestedRef = useRef(audioNavigationRequested);
+	audioNavigationRequestedRef.current = audioNavigationRequested;
+	const audioCaptureActive = audioAssets.isActive();
+	const audioNavigation = useMemo(
+		() =>
+			createProjectAudioRecorderNavigation({
+				isActive: audioAssets.isActive,
+				setChoiceRequested: setAudioNavigationRequested,
+				closeRecorder: () => setAudioRecorderOpen(false),
+			}),
+		[audioAssets],
+	);
 	const [nameDialog, setNameDialog] = useState(false),
 		[draftName, setDraftName] = useState(""),
 		[nameError, setNameError] = useState<string | null>(null);
@@ -95,7 +116,11 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		return () => controller.setThumbnailProvider(null);
 	}, [controller]);
 	modalOpen.current = Boolean(
-		editingClipId || exportProgress !== null || nameDialog || props.navigationBlocked,
+		editingClipId ||
+			exportProgress !== null ||
+			nameDialog ||
+			audioRecorderOpen ||
+			props.navigationBlocked,
 	);
 	useEffect(() => {
 		if (!editingClipId) return;
@@ -190,8 +215,44 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	useEffect(() => {
 		document.title = `${projectFileName(state.path)} — Captr Studio`;
 	}, [state.path]);
-	const open = async () => props.onRequestOpen();
-	const newProject = async () => props.onRequestNew();
+	const navigate = (action: () => void) =>
+		audioNavigation.request(() => {
+			props.onBusyChange?.(false);
+			action();
+		});
+	const open = async () => navigate(props.onRequestOpen);
+	const newProject = async () => navigate(props.onRequestNew);
+	const openAudioRecorder = () => {
+		setPlaying(false);
+		controller.preview(null);
+		audioStartUsRef.current = controller.snapshot.playheadUs;
+		setAudioStartUs(audioStartUsRef.current);
+		setAudioRecorderOpen(true);
+	};
+	const beginAudioCapture = () => {
+		if (!audioTakeToken.current)
+			audioTakeToken.current = audioAssets.begin(audioStartUsRef.current);
+	};
+	const finalizeAudioTake = async (take: import("@/recording/audioRecorder").RecordedAudioTake) => {
+		const token = audioTakeToken.current ?? audioAssets.begin(take.startUs);
+		audioTakeToken.current = token;
+		const result = await audioAssets.finalize(token, take);
+		if (!result) return;
+		audioTakeToken.current = null;
+		if (!audioNavigationRequestedRef.current) setAudioRecorderOpen(false);
+	};
+	const discardAudioTake = async () => {
+		await audioAssets.discard(audioTakeToken.current);
+		audioTakeToken.current = null;
+		if (!audioNavigationRequestedRef.current) setAudioRecorderOpen(false);
+	};
+	const closeAudioRecorder = () => {
+		if (audioAssets.isActive()) {
+			audioNavigation.request(() => setAudioRecorderOpen(false));
+			return;
+		}
+		setAudioRecorderOpen(false);
+	};
 	const importMedia = async (paths?: string[]) => {
 		controller.setPendingWork("import", 1);
 		const token = controller.importToken();
@@ -277,6 +338,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		props.onBusyChange?.(
 			busy ||
 				recordingPending > 0 ||
+			audioCaptureActive ||
 				exportProgress !== null ||
 				Boolean(state.fileOperation) ||
 				state.navigationPending,
@@ -284,12 +346,16 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	}, [
 		busy,
 		recordingPending,
+		audioCaptureActive,
 		exportProgress,
 		state.fileOperation,
 		state.navigationPending,
 		props.onBusyChange,
 	]);
-	useEffect(() => bindProjectClose(controller, window.electronAPI, errorMessage), [controller]);
+	useEffect(
+		() => bindProjectClose(controller, window.electronAPI, errorMessage, audioNavigation.beforeClose),
+		[controller, audioNavigation, errorMessage],
+	);
 	useEffect(() => {
 		const keydown = (e: KeyboardEvent) => {
 			if (modalOpen.current || document.querySelector("[role=dialog]")) return;
@@ -526,7 +592,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					disabled={
 						busy || recordingPending > 0 || exportProgress !== null || state.saving
 					}
-					onClick={props.onRequestHome}
+					onClick={() => navigate(props.onRequestHome)}
 				>
 					Home
 				</button>
@@ -698,6 +764,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 							selectedAssetId={state.selectedAssetId}
 							onImport={(paths) => void importMedia(paths)}
 							onRecord={() => void startRecord()}
+							onRecordAudio={openAudioRecorder}
 							onPreview={(id) => {
 								setPlaying(false);
 								controller.preview(id);
@@ -819,6 +886,27 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					onRename={() => void commitName("rename")}
 					onSaveAs={() => void commitName("save-as")}
 					onSave={() => void commitName("save")}
+				/>
+			)}
+			{audioRecorderOpen && (
+				<AudioRecorderDialog
+					startUs={audioStartUs}
+					navigationRequested={audioNavigationRequested}
+				onNavigationRequest={() => setAudioNavigationRequested(true)}
+					onPreviewStart={() => {
+						beginAudioCapture();
+						controller.preview(null);
+						controller.seek(audioTakeToken.current?.startUs ?? audioStartUs);
+						setPlaying(true);
+					}}
+					onPreviewPause={() => setPlaying(false)}
+					onTakeRecorded={finalizeAudioTake}
+					onDiscard={discardAudioTake}
+					onNavigationChoice={(choice) => audioNavigation.resolve(choice)}
+					onRecordingChange={(recording) => {
+						if (recording) beginAudioCapture();
+					}}
+					onClose={closeAudioRecorder}
 				/>
 			)}
 			<Toaster />

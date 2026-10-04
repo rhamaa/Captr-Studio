@@ -21,12 +21,14 @@ export function bindProjectClose(
 		onRequestSaveBeforeClose?: (request: () => Promise<boolean>) => () => void;
 	},
 	onError: (error: unknown) => void,
+	beforeClose?: () => Promise<boolean>,
 ): () => void {
 	const sync = () => api.setHasUnsavedChanges?.(controller.snapshot.dirty);
 	sync();
 	const unsubscribe = controller.subscribe(sync);
 	const release = api.onRequestSaveBeforeClose?.(async () => {
 		try {
+			if (beforeClose && !(await beforeClose())) return false;
 			const result = await controller.save();
 			if (!result.success) {
 				if (!result.canceled)

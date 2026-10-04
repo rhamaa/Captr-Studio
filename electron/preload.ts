@@ -797,6 +797,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	}) => {
 		return ipcRenderer.invoke("save-recorded-audio", payload);
 	},
+	discardRecordedAudio: (filePath: string) => {
+		return ipcRenderer.invoke("discard-recorded-audio", filePath);
+	},
 	installDownloadedUpdate: () => {
 		return ipcRenderer.invoke("install-downloaded-update");
 	},

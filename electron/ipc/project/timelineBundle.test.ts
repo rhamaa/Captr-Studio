@@ -2,8 +2,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, it } from "vitest";
-import { addTextOverlay, createTimelineProject, registerRecording, placeAsset } from "../../../src/core/timeline/commands";
-import { stageTimelineProject, resolveTimelineProject } from "./timelineBundle";
+import { addTextOverlay, createTimelineProject, registerMedia, registerRecording, placeAsset } from "../../../src/core/timeline/commands";
+import { resolveTimelineProject, stageTimelineProject } from "./timelineBundle";
 import { packProjectWorkspace, unpackProjectBundle } from "./projectBundle";
 
 const roots:string[]=[];afterEach(async()=>{for(const r of roots.splice(0))await fs.rm(r,{recursive:true,force:true});});
@@ -32,4 +32,59 @@ it("saves and reopens text overlays as project data without staging fake media",
  await packProjectWorkspace(workspace,bundle);await unpackProjectBundle(bundle,loaded);
  const reopened=resolveTimelineProject(JSON.parse(await fs.readFile(path.join(loaded,"project.json"),"utf8")),loaded);
  expect(reopened.tracks.find(t=>t.id==="title-track")?.clips[0].text?.content).toBe("Your text");
+});
+it("stages an unplaced voiceover Asset and reopens it alongside a placed audio clip", async () => {
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-voiceover-bundle-"));
+	roots.push(root);
+	const sourceDir = path.join(root, "sources");
+	await fs.mkdir(sourceDir);
+	const unplacedSource = path.join(sourceDir, "unplaced-voiceover.webm");
+	const placedSource = path.join(sourceDir, "placed-voiceover.webm");
+	await fs.writeFile(unplacedSource, "unplaced voice bytes");
+	await fs.writeFile(placedSource, "placed voice bytes");
+	let project = createTimelineProject("voiceover-project", "Narration project");
+	project = registerMedia(project, {
+		id: "voice-unplaced",
+		kind: "audio",
+		name: "Unplaced voiceover",
+		durationUs: 2_500_000,
+		width: 0,
+		height: 0,
+		source: { path: unplacedSource, durationUs: 2_500_000, offsetUs: 0 },
+	});
+	project = registerMedia(project, {
+		id: "voice-placed",
+		kind: "audio",
+		name: "Placed voiceover",
+		durationUs: 3_000_000,
+		width: 0,
+		height: 0,
+		source: { path: placedSource, durationUs: 3_000_000, offsetUs: 0 },
+	});
+	project = placeAsset(project, "voice-placed", "audio-1", 4_000_000, { clipId: "voice-clip" });
+	const workspace = path.join(root, "workspace");
+	const staged = await stageTimelineProject(project, workspace);
+	expect(staged.assets.find((asset) => asset.id === "voice-unplaced")?.source?.path).toMatch(
+		/^assets\/voice-unplaced\//,
+	);
+	expect(staged.tracks.find((track) => track.id === "audio-1")?.clips.map((clip) => clip.assetId)).toEqual([
+		"voice-placed",
+	]);
+	const bundle = path.join(root, "voiceover.captr");
+	const unpacked = path.join(root, "unpacked");
+	await packProjectWorkspace(workspace, bundle);
+	await unpackProjectBundle(bundle, unpacked);
+	const reopened = resolveTimelineProject(
+		JSON.parse(await fs.readFile(path.join(unpacked, "project.json"), "utf8")),
+		unpacked,
+	);
+	const unplaced = reopened.assets.find((asset) => asset.id === "voice-unplaced");
+	const placed = reopened.assets.find((asset) => asset.id === "voice-placed");
+	expect(unplaced?.source).toBeDefined();
+	expect(placed?.source).toBeDefined();
+	expect(reopened.tracks.flatMap((track) => track.clips).map((clip) => clip.assetId)).toEqual([
+		"voice-placed",
+	]);
+	expect(await fs.readFile(unplaced!.source!.path, "utf8")).toBe("unplaced voice bytes");
+	expect(await fs.readFile(placed!.source!.path, "utf8")).toBe("placed voice bytes");
 });

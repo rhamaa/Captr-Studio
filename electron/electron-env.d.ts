@@ -806,6 +806,11 @@ interface Window {
 			filePath?: string;
 			error?: string;
 		}>;
+		discardRecordedAudio?: (filePath: string) => Promise<{
+			success: boolean;
+			deleted?: boolean;
+			error?: string;
+		}>;
 		installDownloadedUpdate: () => Promise<{ success: boolean }>;
 		downloadAvailableUpdate: (
 			installAfterDownload?: boolean,

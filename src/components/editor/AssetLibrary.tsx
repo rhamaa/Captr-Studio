@@ -3,6 +3,7 @@ import {
 	ArrowUp,
 	CloudArrowUp,
 	List,
+	Microphone,
 	SquaresFour,
 	VideoCamera,
 } from "@phosphor-icons/react";
@@ -16,6 +17,7 @@ export interface AssetLibraryProps {
 	selectedAssetId: string | null;
 	onImport: (paths?: string[]) => void;
 	onRecord: () => void;
+	onRecordAudio: () => void;
 	onPreview: (id: string) => void;
 	onPlace: (id: string) => void;
 	onRemove: (id: string) => void;
@@ -26,6 +28,7 @@ export function AssetLibrary({
 	selectedAssetId,
 	onImport,
 	onRecord,
+	onRecordAudio,
 	onPreview,
 	onPlace,
 	onRemove,
@@ -82,6 +85,14 @@ export function AssetLibrary({
 				<button className="project-import-button" onClick={() => onImport()}>
 					<CloudArrowUp size={18} />
 					{m("import")}
+				</button>
+				<button
+					className="project-import-button"
+					aria-label={m("recordAudio")}
+					onClick={onRecordAudio}
+				>
+					<Microphone size={18} />
+					{m("recordAudio")}
 				</button>
 			</header>
 			{!!assets.length && (
