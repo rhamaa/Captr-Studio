@@ -846,11 +846,27 @@ export function RecordingCompositionEditor({
 				)}
 				<RecordingTimeline
 					ref={timeline}
+					showClipRow={false}
+					showSourceAudioTrack
 					videoDuration={durationMs / 1000}
 					currentTime={sourceSeconds}
 					onSeek={setSourceSeconds}
 					videoPath={sourceUrl}
 					videoSourcePath={pkg.screen.path}
+					microphoneAudioPath={settings.microphoneAudioPath}
+					microphoneAudioOffsetMs={(pkg.microphone?.offsetUs ?? 0) / 1000}
+					microphoneAudioDurationMs={
+						pkg.microphone?.durationUs === undefined
+							? undefined
+							: pkg.microphone.durationUs / 1000
+					}
+					systemAudioPath={settings.systemAudioPath}
+					systemAudioOffsetMs={(pkg.system?.offsetUs ?? 0) / 1000}
+					systemAudioDurationMs={
+						pkg.system?.durationUs === undefined
+							? undefined
+							: pkg.system.durationUs / 1000
+					}
 					webcamPath={pkg.webcam?.path}
 					webcamEnabled={settings.webcam.enabled}
 					cursorTelemetry={settings.cursorTelemetry ?? []}
@@ -896,6 +912,11 @@ export function RecordingCompositionEditor({
 						update({ zoomRegions: settings.zoomRegions.filter((z) => z.id !== id) })
 					}
 					trimRegions={settings.trimRegions}
+					onTrimDelete={(id) =>
+						update({
+							trimRegions: settings.trimRegions.filter((trim) => trim.id !== id),
+						})
+					}
 					onTrimSpanChange={(id, span) =>
 						update({
 							trimRegions: settings.trimRegions.map((t) =>

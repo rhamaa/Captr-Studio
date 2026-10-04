@@ -59,6 +59,24 @@ describe("timeline model", () => {
 		expect(items.find((i) => i.id === "au1")?.label).toBe("foo");
 	});
 
+	it("maps cut regions into the dedicated cut track", () => {
+		const items = buildTimelineItems({
+			zoomRegions: [],
+			clipRegions: [],
+			trimRegions: [{ id: "cut-1", startMs: 1250, endMs: 2750 }],
+			annotationRegions: [],
+			audioRegions: [],
+		});
+
+		expect(items).toContainEqual({
+			id: "cut-1",
+			rowId: "row-trim",
+			span: { start: 1250, end: 2750 },
+			label: "Cut",
+			variant: "trim",
+		});
+	});
+
 	it("builds all variant labels for annotation and audio", () => {
 		expect(getAnnotationLabel({ ...BASE_ANNOTATION, type: "text", content: "   " })).toBe(
 			"Empty text",
@@ -97,6 +115,7 @@ describe("timeline model", () => {
 				{ id: "z1", startMs: 0, endMs: 1000, depth: 2, focus: { cx: 0.5, cy: 0.5 } },
 			],
 			clipRegions: [{ id: "c1", startMs: 0, endMs: 4000, speed: 1 }],
+			trimRegions: [{ id: "cut-1", startMs: 1000, endMs: 1500 }],
 			audioRegions: [
 				{
 					id: "au1",
@@ -108,7 +127,12 @@ describe("timeline model", () => {
 				},
 			],
 		});
-		expect(spans.map((s) => s.rowId)).toEqual(["row-zoom", "row-clip", "row-audio-2"]);
+		expect(spans.map((s) => s.rowId)).toEqual([
+			"row-zoom",
+			"row-clip",
+			"row-trim",
+			"row-audio-2",
+		]);
 	});
 
 	it("keeps items in their domain rows during dnd", () => {

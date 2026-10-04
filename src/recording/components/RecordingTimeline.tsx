@@ -31,6 +31,7 @@ import { useShortcuts } from "@/contexts/ShortcutsContext";
 
 export interface RecordingTimelineProps {
 	recordToolsEnabled?: boolean;
+	showClipRow?: boolean;
 	videoDuration: number;
 	currentTime: number;
 	playheadTime?: number;
@@ -48,6 +49,7 @@ export interface RecordingTimelineProps {
 	onSelectZoom: (id: string | null) => void;
 	trimRegions?: TrimRegion[];
 	onTrimSpanChange?: (id: string, span: Span) => void;
+	onTrimDelete?: (id: string) => void;
 	clipRegions?: ClipRegion[];
 	onClipSplit?: (splitMs: number) => void;
 	onClipSpanChange?: (id: string, span: Span) => void;
@@ -80,6 +82,12 @@ export interface RecordingTimelineProps {
 	onSelectAudio?: (id: string | null) => void;
 	videoPath?: string | null;
 	videoSourcePath?: string | null;
+	microphoneAudioPath?: string | null;
+	microphoneAudioOffsetMs?: number;
+	microphoneAudioDurationMs?: number;
+	systemAudioPath?: string | null;
+	systemAudioOffsetMs?: number;
+	systemAudioDurationMs?: number;
 	webcamPath?: string | null;
 	webcamEnabled?: boolean;
 	cursorTelemetrySourcePath?: string | null;
@@ -110,6 +118,7 @@ export const RecordingTimeline = forwardRef<RecordingTimelineHandle, RecordingTi
 	function RecordingTimeline(
 		{
 			recordToolsEnabled = true,
+			showClipRow = true,
 			videoDuration,
 			currentTime,
 			playheadTime,
@@ -127,6 +136,7 @@ export const RecordingTimeline = forwardRef<RecordingTimelineHandle, RecordingTi
 			onSelectZoom,
 			trimRegions = [],
 			onTrimSpanChange,
+			onTrimDelete,
 			clipRegions = [],
 			onClipSplit,
 			onClipSpanChange,
@@ -156,6 +166,12 @@ export const RecordingTimeline = forwardRef<RecordingTimelineHandle, RecordingTi
 			onSelectAudio,
 			videoPath,
 			videoSourcePath,
+			microphoneAudioPath,
+			microphoneAudioOffsetMs = 0,
+			microphoneAudioDurationMs,
+			systemAudioPath,
+			systemAudioOffsetMs = 0,
+			systemAudioDurationMs,
 			webcamPath,
 			webcamEnabled,
 			cursorTelemetrySourcePath,
@@ -246,39 +262,89 @@ export const RecordingTimeline = forwardRef<RecordingTimelineHandle, RecordingTi
 		const { peaks: sourceAudioPeaks, loading: sourceAudioLoading } = useTimelineAudioPeaks(
 			videoPath,
 			{
-				enableSourceSidecarFallback: true,
+				enableSourceSidecarFallback: !microphoneAudioPath && !systemAudioPath,
 			},
 		);
+		const separateSystemAudioPath =
+			systemAudioPath && systemAudioPath !== videoSourcePath ? systemAudioPath : null;
+		const { peaks: separateSystemAudioPeaks, loading: separateSystemAudioLoading } =
+			useTimelineAudioPeaks(separateSystemAudioPath);
+		const { peaks: microphoneAudioPeaks, loading: microphoneAudioLoading } =
+			useTimelineAudioPeaks(microphoneAudioPath);
+		const resolvedSystemAudioPeaks = separateSystemAudioPath
+			? separateSystemAudioPeaks
+			: sourceAudioPeaks;
 
 		const sourceAudioTracks = useMemo<SourceAudioTrackWithPeaks[]>(() => {
-			return sourceAudioPeaks
-				? [
-						{
-							id: "mixed",
-							label: t("audio.mixedLabel", "Source"),
-							peaks: sourceAudioPeaks,
-						},
-					]
-				: [];
-		}, [sourceAudioPeaks, t]);
+			const tracks: SourceAudioTrackWithPeaks[] = [];
+			if (resolvedSystemAudioPeaks) {
+				const isIndependentSystemTrack = Boolean(
+					microphoneAudioPath || separateSystemAudioPath,
+				);
+				tracks.push({
+					id: isIndependentSystemTrack ? "system" : "mixed",
+					label: isIndependentSystemTrack
+						? "System audio"
+						: t("audio.mixedLabel", "Source"),
+					peaks: resolvedSystemAudioPeaks,
+					offsetMs: separateSystemAudioPath ? systemAudioOffsetMs : 0,
+					durationMs: separateSystemAudioPath ? systemAudioDurationMs : totalMs,
+				});
+			}
+			if (microphoneAudioPeaks) {
+				tracks.push({
+					id: "mic",
+					label: "Microphone",
+					peaks: microphoneAudioPeaks,
+					offsetMs: microphoneAudioOffsetMs,
+					durationMs: microphoneAudioDurationMs,
+				});
+			}
+			return tracks;
+		}, [
+			microphoneAudioDurationMs,
+			microphoneAudioOffsetMs,
+			microphoneAudioPath,
+			microphoneAudioPeaks,
+			resolvedSystemAudioPeaks,
+			separateSystemAudioPath,
+			systemAudioDurationMs,
+			systemAudioOffsetMs,
+			t,
+			totalMs,
+		]);
 
 		const media4in1 = useMemo<RecordingMediaStreams>(() => {
 			return {
 				videoPath: videoPath ?? null,
 				webcamPath: webcamPath ?? null,
 				webcamEnabled: webcamEnabled ?? Boolean(webcamPath),
-				micPeaks: sourceAudioPeaks ?? null,
-				systemPeaks: null,
+				micPeaks: microphoneAudioPeaks ?? null,
+				systemPeaks: resolvedSystemAudioPeaks ?? null,
 				micMuted: false,
 				systemMuted: false,
 			};
-		}, [videoPath, webcamPath, webcamEnabled, sourceAudioPeaks]);
+		}, [videoPath, webcamPath, webcamEnabled, microphoneAudioPeaks, resolvedSystemAudioPeaks]);
 
 		const isLoading = useMemo(() => {
-			if (videoPath && sourceAudioLoading) return true;
+			if (
+				(videoPath && sourceAudioLoading) ||
+				(microphoneAudioPath && microphoneAudioLoading) ||
+				(separateSystemAudioPath && separateSystemAudioLoading)
+			)
+				return true;
 			if (videoSourcePath && cursorTelemetrySourcePath !== videoSourcePath) return true;
 			return false;
-		}, [videoPath, videoSourcePath, cursorTelemetrySourcePath, sourceAudioLoading]);
+		}, [
+			videoPath,
+			videoSourcePath,
+			cursorTelemetrySourcePath,
+			sourceAudioLoading,
+			microphoneAudioPath,
+			microphoneAudioLoading,
+			separateSystemAudioPath,
+			separateSystemAudioLoading,
+		]);
 
 		useEffect(() => {
 			onSourceAudioTracksMetaChange?.(
@@ -383,7 +449,10 @@ export const RecordingTimeline = forwardRef<RecordingTimelineHandle, RecordingTi
 			<div className="flex-1 min-h-0 flex flex-col bg-editor-bg overflow-hidden">
 				<div
 					ref={timelineContainerRef}
-					className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden bg-editor-bg relative"
+					className="flex-1 min-h-0 overflow-auto bg-editor-bg relative"
+					role="region"
+					aria-label="Recording timeline"
+					style={{ scrollbarWidth: "thin", scrollbarGutter: "stable" }}
 					tabIndex={0}
 					onFocus={() => {
 						isTimelineFocusedRef.current = true;
@@ -441,6 +510,7 @@ export const RecordingTimeline = forwardRef<RecordingTimelineHandle, RecordingTi
 						/>
 						<TimelineCanvas
 							recordToolsEnabled={recordToolsEnabled}
+							showClipRow={showClipRow}
 							items={timelineItems}
 							videoDurationMs={totalMs}
 							currentTimeMs={currentTimeMs}
@@ -450,6 +520,7 @@ export const RecordingTimeline = forwardRef<RecordingTimelineHandle, RecordingTi
 							onAddLayoutAtMs={recordToolsEnabled ? addLayoutAtMs : undefined}
 							canPlaceLayoutAtMs={canPlaceLayoutAtMs}
 							onSelectZoom={handleSelectZoom}
+							onTrimDelete={onTrimDelete}
 							onSelectClip={handleSelectClip}
 							onSelectLayout={handleSelectLayout}
 							onSelectAnnotation={handleSelectAnnotation}

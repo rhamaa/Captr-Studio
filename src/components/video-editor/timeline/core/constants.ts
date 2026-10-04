@@ -1,5 +1,6 @@
 export const ZOOM_ROW_ID = "row-zoom";
 export const CLIP_ROW_ID = "row-clip";
+export const TRIM_ROW_ID = "row-trim";
 export const LAYOUT_ROW_ID = "row-layout";
 export const ANNOTATION_ROW_ID = "row-annotation";
 export const AUDIO_ROW_ID = "row-audio";
