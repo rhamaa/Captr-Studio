@@ -14,7 +14,11 @@ import {
 import { inspectProjectBundle, packProjectWorkspace } from "../../project/projectBundle";
 import { setCurrentProjectPath } from "../../state";
 import { ensureProjectDataHasProjectId, normalizeProjectSaveName } from "./shared";
+import { performProjectFileOperation } from "../../project/projectFileService";
+import { enqueueProjectFileOperation } from "../../project/projectFileQueue";
+import type { ProjectFileRequest } from "../../../../src/core/project/fileOperationTypes";
 export function registerProjectSaveHandlers() {
+	ipcMain.handle("operate-timeline-project-file", (_, request: ProjectFileRequest) => performProjectFileOperation(request));
 	async function saveAndBundleProject(
 		targetPath: string,
 		preparedProject: { projectId: string; projectData: Record<string, unknown> },
@@ -42,7 +46,7 @@ export function registerProjectSaveHandlers() {
 		}
 		throw new Error("Legacy project must be converted to an Assets project before saving");
 	}
-	ipcMain.handle("save-converted-project-copy", async (_, value: unknown, token: string) => {
+	ipcMain.handle("save-converted-project-copy", async (_, value: unknown, token: string) => enqueueProjectFileOperation(async () => {
 		try {
 			const origin = getLegacyConversionOrigin(token);
 			if (!origin)
@@ -104,7 +108,7 @@ export function registerProjectSaveHandlers() {
 		} catch (error) {
 			return { success: false, error: String(error) };
 		}
-	});
+	}));
 
 	ipcMain.handle(
 		"save-project-file",
@@ -114,7 +118,7 @@ export function registerProjectSaveHandlers() {
 			suggestedName?: string,
 			existingProjectPath?: string,
 			thumbnailDataUrl?: string | null,
-		) => {
+		) => enqueueProjectFileOperation(async () => {
 			try {
 				const projectsDir = await getProjectsDir();
 				const preparedProject = ensureProjectDataHasProjectId(projectData);
@@ -171,6 +175,7 @@ export function registerProjectSaveHandlers() {
 					return {
 						success: true,
 						path: targetProjectPath,
+						title: path.basename(targetProjectPath).replace(/\.captr$/i, ""),
 						projectId: preparedProject.projectId,
 						message: "Project saved successfully",
 					};
@@ -224,6 +229,7 @@ export function registerProjectSaveHandlers() {
 				return {
 					success: true,
 					path: result.filePath,
+					title: chosenTitle,
 					projectId: preparedProject.projectId,
 					message: "Project saved successfully",
 				};
@@ -235,6 +241,6 @@ export function registerProjectSaveHandlers() {
 					error: String(error),
 				};
 			}
-		},
+		}),
 	);
 }

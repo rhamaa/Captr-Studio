@@ -41,6 +41,7 @@ import {
 	getSystemCursorHelperSourcePath,
 	getWindowsCaptureExePath,
 } from "../paths/binaries";
+import { trackProjectFinalization } from "../project/projectActivity";
 import { isAllowedLocalMediaPath, rememberApprovedLocalReadPath } from "../project/manager";
 import {
 	getBrowserMicSidecarFilters,
@@ -395,6 +396,9 @@ async function resolveExistingPath(...candidates: Array<string | null | undefine
 export function registerRecordingHandlers(
 	onRecordingStateChange?: (recording: boolean, sourceName: string) => void,
 ) {
+	const handleFinalization: typeof ipcMain.handle = (channel, listener) =>
+		ipcMain.handle(channel, (event, ...args) => trackProjectFinalization(async () => listener(event, ...args)));
+
 	ipcMain.handle(
 		"start-native-screen-recording",
 		async (_, source: SelectedSource, options?: NativeMacRecordingOptions) => {
@@ -903,7 +907,7 @@ export function registerRecordingHandlers(
 		},
 	);
 
-	ipcMain.handle("stop-native-screen-recording", async () => {
+	handleFinalization("stop-native-screen-recording", async () => {
 		const start = Date.now();
 		console.log("[PERF:MAIN] Handler: stop-native-screen-recording: STARTED");
 		try {
@@ -1254,7 +1258,7 @@ export function registerRecordingHandlers(
 		}
 	});
 
-	ipcMain.handle("recover-native-screen-recording", async () => {
+	handleFinalization("recover-native-screen-recording", async () => {
 		if (process.platform !== "darwin") {
 			return {
 				success: false,
@@ -1410,7 +1414,7 @@ export function registerRecordingHandlers(
 		}
 	});
 
-	ipcMain.handle("mux-native-windows-recording", async (_event, expectedDurationMs?: number) => {
+	handleFinalization("mux-native-windows-recording", async (_event, expectedDurationMs?: number) => {
 		const start = Date.now();
 		console.log("[PERF:MAIN] Handler: mux-native-windows-recording: STARTED");
 		try {
@@ -1566,7 +1570,7 @@ export function registerRecordingHandlers(
 		}
 	});
 
-	ipcMain.handle("stop-ffmpeg-recording", async () => {
+	handleFinalization("stop-ffmpeg-recording", async () => {
 		if (!ffmpegScreenRecordingActive) {
 			return { success: false, message: "No FFmpeg recording is active." };
 		}
@@ -1604,7 +1608,7 @@ export function registerRecordingHandlers(
 		}
 	});
 
-	ipcMain.handle(
+	handleFinalization(
 		"store-microphone-sidecar",
 		async (
 			_,
@@ -1755,7 +1759,7 @@ export function registerRecordingHandlers(
 		},
 	);
 
-	ipcMain.handle("store-recorded-video", async (_, videoData: ArrayBuffer, fileName: string) => {
+	handleFinalization("store-recorded-video", async (_, videoData: ArrayBuffer, fileName: string) => {
 		try {
 			const recordingsDir = await getRecordingsDir();
 			const videoPath = path.join(recordingsDir, fileName);

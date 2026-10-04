@@ -741,9 +741,13 @@ interface Window {
 			path?: string;
 			projectId?: string;
 			message?: string;
+			title?: string;
 			canceled?: boolean;
 			error?: string;
 		}>;
+		operateTimelineProjectFile: (request: import("../src/core/project/fileOperationTypes").ProjectFileRequest) => Promise<import("../src/core/project/fileOperationTypes").ProjectFileResult>;
+		deactivateTimelineProject: (expectedProjectId: string) => Promise<{success:boolean;error?:string}>;
+		getTimelineProjectActivity: (expectedProjectId: string) => Promise<{recording:boolean;finalizing:boolean}>;
 		loadProjectFile: () => Promise<{
 			conversionToken?: string;
 			success: boolean;

@@ -45,6 +45,9 @@ import { isProjectBundle, readBundleThumbnailDataUrl, unpackProjectBundle } from
 import { convertProjectToWorkspaceAbsolute, getProjectWorkspaceDir, getWorkspacesRoot } from "./projectWorkspace";
 
 import { getAssetRootPath } from "./assetPaths";
+import { enqueueProjectFileOperation } from "./projectFileQueue";
+import { recoverProjectRenameTransactions } from "./projectRenameTransaction";
+import { getTimelineProjectActivity } from "./projectActivity";
 
 export { normalizePath, normalizeVideoSourcePath, getAssetRootPath };
 
@@ -349,6 +352,40 @@ export async function rememberRecentProject(projectPath: string) {
 	await saveRecentProjectPaths([projectPath, ...existingPaths]);
 }
 
+const pendingRecentRenamesFile = `${RECENT_PROJECTS_FILE}.pending-renames.json`;
+function comparableRecentPath(value: string): string {
+	const normalized = normalizePath(value);
+	return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+async function readPendingRecentRenames(): Promise<Array<{ oldPath: string; newPath: string }>> {
+	try {
+		const data: unknown = JSON.parse(await fs.readFile(pendingRecentRenamesFile, "utf8"));
+		if (!Array.isArray(data) || data.some((v) => typeof v?.oldPath !== "string" || typeof v?.newPath !== "string")) throw new Error("Invalid pending project-list update.");
+		return data;
+	} catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return []; throw error; }
+}
+export async function replaceRecentProjectPath(oldPath: string, newPath: string): Promise<void> {
+	try {
+		const recent = await loadRecentProjectPaths();
+		await saveRecentProjectPaths([newPath, ...recent.filter((p) => comparableRecentPath(p) !== comparableRecentPath(oldPath) && comparableRecentPath(p) !== comparableRecentPath(newPath))]);
+	} catch (error) {
+		const pending = await readPendingRecentRenames();
+		pending.push({ oldPath, newPath });
+		const temp = `${pendingRecentRenamesFile}.tmp`;
+		await fs.writeFile(temp, JSON.stringify(pending), "utf8");
+		await fs.rename(temp, pendingRecentRenamesFile);
+		throw error;
+	}
+}
+async function repairRecentProjectRenames(): Promise<void> {
+	const pending = await readPendingRecentRenames();
+	if (!pending.length) return;
+	let recent = await loadRecentProjectPaths();
+	for (const { oldPath, newPath } of pending) recent = [newPath, ...recent.filter((p) => comparableRecentPath(p) !== comparableRecentPath(oldPath) && comparableRecentPath(p) !== comparableRecentPath(newPath))];
+	await saveRecentProjectPaths(recent);
+	await fs.unlink(pendingRecentRenamesFile);
+}
+
 export async function buildProjectLibraryEntry(
 	projectPath: string,
 	projectsDir: string,
@@ -403,6 +440,9 @@ export async function buildProjectLibraryEntry(
 }
 
 export async function listProjectLibraryEntries() {
+	const recovery = await recoverProjectRenameTransactions();
+	if (recovery.warnings.length) throw new Error(recovery.warnings.join("\n"));
+	await repairRecentProjectRenames();
 	const projectsDir = await getProjectsDir();
 	const projectPaths: string[] = [];
 
@@ -418,12 +458,12 @@ export async function listProjectLibraryEntries() {
 				projectPaths.push(entryPath);
 			}
 		}
-	} catch {
-		// Ignore directory read failures and fall back to recent files.
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
 	}
 
 	const recentProjectPaths = await loadRecentProjectPaths();
-	const candidatePaths = Array.from(new Set([...projectPaths, ...recentProjectPaths]));
+	const candidatePaths = Array.from(new Map([...projectPaths, ...recentProjectPaths].map((p) => [comparableRecentPath(p), p])).values());
 	const entries = (
 		await Promise.all(
 			candidatePaths.map((candidatePath) =>
@@ -446,6 +486,16 @@ const legacyCandidates=new Map<string,{workspaceDir:string;path:string;projectId
 export function getLegacyConversionOrigin(token:string){const origin=legacyCandidates.get(token);return origin?{path:origin.path,projectId:origin.projectId}:null;}
 export async function releaseLegacyProjectCandidate(token:string){const candidate=legacyCandidates.get(token);if(!candidate)return;const dir=candidate.workspaceDir;legacyCandidates.delete(token);if(path.dirname(path.resolve(dir))!==path.resolve(getWorkspacesRoot())||!path.basename(dir).startsWith("conversion-"))throw new Error("Unsafe conversion cleanup");await fs.rm(dir,{recursive:true,force:true});}
 export async function loadProjectFromPath(projectPath: string) {
+	return enqueueProjectFileOperation(async () => {
+		const recovery = await recoverProjectRenameTransactions();
+		if (recovery.blockedPaths.some((p) => comparableRecentPath(p) === comparableRecentPath(projectPath)))
+			return { success: false, message: "This project has an unresolved rename. Preserve its files and resolve the recovery warning before opening it." };
+		const activity = getTimelineProjectActivity();
+		if (activity.recording || activity.finalizing) return { success: false, message: "Finish recording before switching projects." };
+		return loadProjectFromPathUnqueued(projectPath);
+	});
+}
+async function loadProjectFromPathUnqueued(projectPath: string) {
 	const normalizedPath = normalizePath(projectPath);
 	let project: unknown;
 

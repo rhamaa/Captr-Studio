@@ -760,6 +760,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 			thumbnailDataUrl,
 		);
 	},
+	operateTimelineProjectFile: (request: import("../src/core/project/fileOperationTypes").ProjectFileRequest) => ipcRenderer.invoke("operate-timeline-project-file", request),
+	deactivateTimelineProject: (expectedProjectId: string) => ipcRenderer.invoke("deactivate-timeline-project", expectedProjectId),
+	getTimelineProjectActivity: (expectedProjectId: string) => ipcRenderer.invoke("get-timeline-project-activity", expectedProjectId),
 	loadProjectFile: () => {
 		return ipcRenderer.invoke("load-project-file");
 	},

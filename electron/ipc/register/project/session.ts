@@ -23,15 +23,30 @@ import {
 	normalizeVideoSourcePath,
 } from "../../utils";
 import { normalizeBoolean, normalizeRecordingTimeOffsetMs } from "./shared";
-import { getRecordingProjectContext, setActiveRecordingProjectId } from "../../project/recordingContext";
+import { clearRecordingProjectContext, getActiveRecordingProjectId, getRecordingProjectContext, setActiveRecordingProjectId } from "../../project/recordingContext";
+import { enqueueProjectFileOperation } from "../../project/projectFileQueue";
+import { getTimelineProjectActivity } from "../../project/projectActivity";
 
 export function registerProjectSessionHandlers() {
-	ipcMain.handle("activate-timeline-project", (_, projectId:string, resetPath:boolean) => {
+	ipcMain.handle("activate-timeline-project", (_, projectId:string, resetPath:boolean) => enqueueProjectFileOperation(async () => {
 		if (!/^[a-zA-Z0-9_-]+$/.test(projectId)) throw new Error("Invalid project identity");
+		const activity = getTimelineProjectActivity();
+		if ((activity.recording || activity.finalizing) && (resetPath || projectId !== getActiveRecordingProjectId())) throw new Error("Finish recording before switching projects.");
 		setActiveRecordingProjectId(projectId);
 		if (resetPath) {setCurrentProjectPath(null);setCurrentVideoPath(null);setCurrentRecordingSession(null);}
 		return {success:true};
+	}));
+	ipcMain.handle("get-timeline-project-activity", (_, projectId: string) => {
+		if (projectId !== getActiveRecordingProjectId()) throw new Error("Active project changed.");
+		return getTimelineProjectActivity();
 	});
+	ipcMain.handle("deactivate-timeline-project", (_, projectId: string) => enqueueProjectFileOperation(async () => {
+		if (projectId !== getActiveRecordingProjectId()) return { success: false, error: "Active project changed." };
+		const activity = getTimelineProjectActivity();
+		if (activity.recording || activity.finalizing) return { success: false, error: "Finish recording before returning Home." };
+		clearRecordingProjectContext(); setCurrentProjectPath(null); setCurrentVideoPath(null); setCurrentRecordingSession(null);
+		return { success: true };
+	}));
 	ipcMain.handle("get-recording-project-context", () => getRecordingProjectContext());
 	ipcMain.handle(
 		"set-current-video-path",

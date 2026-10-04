@@ -11,6 +11,10 @@ export function setActiveRecordingProjectId(id: string): void {
 export function getActiveRecordingProjectId(): string | undefined {
 	return activeProjectId;
 }
+export function clearRecordingProjectContext(): void {
+	activeProjectId = undefined;
+	context = {};
+}
 export function setRecordingProjectContext(next: RecordingProjectContext): void {
 	const projectId = next.projectId ?? activeProjectId ?? randomUUID();
 	activeProjectId = projectId;

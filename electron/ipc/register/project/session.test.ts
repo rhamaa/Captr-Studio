@@ -23,6 +23,27 @@ vi.mock("../../utils", () => ({
 }));
 import { registerProjectSessionHandlers } from "./session";
 import * as state from "../../state";
+import { getActiveRecordingProjectId, setActiveRecordingProjectId } from "../../project/recordingContext";
+
+it("returning Home clears the project and completed recording context without inventing an identity", async () => {
+	registerProjectSessionHandlers(); setActiveRecordingProjectId("home-project");
+	state.setCurrentProjectPath("C:/projects/Home.captr");
+	state.setCurrentRecordingSession({ videoPath: "C:/recordings/done.mp4", projectId: "home-project", captureId: "done" });
+	const result = await handlers.get("deactivate-timeline-project")!(null, "home-project");
+	expect(result.success).toBe(true);
+	expect(state.currentProjectPath).toBeNull();
+	expect(state.currentRecordingSession).toBeNull();
+	expect(getActiveRecordingProjectId()).toBeUndefined();
+});
+it("cannot leave an active native recording or another project", async () => {
+	registerProjectSessionHandlers(); setActiveRecordingProjectId("home-project");
+	state.setCurrentProjectPath("C:/projects/Home.captr"); state.setWindowsNativeCaptureActive(true);
+	try {
+		expect((await handlers.get("deactivate-timeline-project")!(null, "home-project")).success).toBe(false);
+		expect(state.currentProjectPath).toBe("C:/projects/Home.captr");
+	} finally { state.setWindowsNativeCaptureActive(false); }
+	expect((await handlers.get("deactivate-timeline-project")!(null, "wrong-project")).success).toBe(false);
+});
 
 describe("Record session project destination", () => {
 	it.each(["set-current-video-path", "set-current-recording-session"])("%s retains capture provenance for Assets registration", async name => {
