@@ -7,7 +7,11 @@ import {
 	updateTrack,
 } from "@/core/timeline/commands";
 import { clipDurationUs, projectDurationUs } from "@/core/timeline/types";
-import { findClipsAtPlayhead, timelineActionCommand } from "./timelineInteractions";
+import {
+	findClipsAtPlayhead,
+	snapTimelineTimeWithDetails,
+	timelineActionCommand,
+} from "./timelineInteractions";
 
 function createTestProject() {
 	let project = createTimelineProject("test-p", "Test Project");
@@ -120,5 +124,63 @@ describe("Video Editor Hotkeys & Timeline Logic", () => {
 		// Reset
 		scale = 65;
 		expect(scale).toBe(65);
+	});
+
+	it("toggles magnetic snapping with N key and affects snap calculation", () => {
+		const p = createTestProject();
+		let snappingEnabled = true;
+
+		// When enabled, near points snap
+		const snapEnabled = snapTimelineTimeWithDetails(1_950_000, p, 0, 100, {
+			enabled: snappingEnabled,
+		});
+		expect(snapEnabled.snapped).toBe(true);
+		expect(snapEnabled.timeUs).toBe(2_000_000);
+
+		// Toggle snapping (hotkey N)
+		snappingEnabled = !snappingEnabled;
+		expect(snappingEnabled).toBe(false);
+
+		// When disabled, raw time is preserved
+		const snapDisabled = snapTimelineTimeWithDetails(1_950_000, p, 0, 100, {
+			enabled: snappingEnabled,
+		});
+		expect(snapDisabled.snapped).toBe(false);
+		expect(snapDisabled.timeUs).toBe(1_950_000);
+	});
+
+	it("multi-selection: delete removes all selected clips", () => {
+		let p = createTestProject();
+		p = placeAsset(p, "asset-1", "visual-1", 15_000_000, {
+			clipId: "clip-2",
+			compositionId: "comp-2",
+		});
+		p = placeAsset(p, "asset-1", "visual-1", 30_000_000, {
+			clipId: "clip-3",
+			compositionId: "comp-3",
+		});
+		expect(p.tracks[0].clips).toHaveLength(3);
+
+		// Multi-select clip-1 and clip-2, then delete
+		const selection = ["clip-1", "clip-2"];
+		const deleted = timelineActionCommand("delete", selection, 0)(p);
+		expect(deleted.tracks[0].clips).toHaveLength(1);
+		expect(deleted.tracks[0].clips[0].id).toBe("clip-3");
+	});
+
+	it("ripple delete: Shift+Delete removes selected clip and closes gap", () => {
+		let p = createTestProject();
+		// clip-1 is 2s-12s (dur 10s). Add clip-2 at 15s-25s.
+		p = placeAsset(p, "asset-1", "visual-1", 15_000_000, {
+			clipId: "clip-2",
+			compositionId: "comp-2",
+		});
+
+		// Ripple delete clip-1:
+		const rippled = timelineActionCommand("ripple-delete", ["clip-1"], 0)(p);
+		expect(rippled.tracks[0].clips).toHaveLength(1);
+		expect(rippled.tracks[0].clips[0].id).toBe("clip-2");
+		// clip-2 was at 15s -> shifted left by 10s (clip-1's dur) -> 5s
+		expect(rippled.tracks[0].clips[0].startUs).toBe(5_000_000);
 	});
 });

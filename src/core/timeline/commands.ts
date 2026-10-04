@@ -201,6 +201,53 @@ export function removeClip(p: TimelineProject, id: string) {
 			n.compositions = n.compositions.filter((e) => e.id !== clip.compositionId);
 	});
 }
+export function rippleRemoveClips(p: TimelineProject, ids: string[]): TimelineProject {
+	return edit(p, (n) => {
+		const byTrack = new Map<string, string[]>();
+		for (const id of ids) {
+			const found = n.tracks.find((t) => t.clips.some((c) => c.id === id));
+			if (found) {
+				const list = byTrack.get(found.id) ?? [];
+				list.push(id);
+				byTrack.set(found.id, list);
+			}
+		}
+
+		const removedCompositionIds: string[] = [];
+
+		for (const [trackId, clipIds] of byTrack.entries()) {
+			const track = n.tracks.find((t) => t.id === trackId);
+			if (!track || track.locked) continue;
+
+			const targetClips = track.clips
+				.filter((c) => clipIds.includes(c.id))
+				.sort((a, b) => b.startUs - a.startUs);
+
+			for (const clip of targetClips) {
+				const dur = clipDurationUs(clip);
+				const startUs = clip.startUs;
+				if (clip.compositionId) {
+					removedCompositionIds.push(clip.compositionId);
+				}
+				track.clips = track.clips.filter((c) => c.id !== clip.id);
+				for (const other of track.clips) {
+					if (other.startUs >= startUs + dur) {
+						other.startUs = Math.max(0, other.startUs - dur);
+					}
+				}
+			}
+		}
+
+		for (const compId of removedCompositionIds) {
+			if (!n.tracks.some((t) => t.clips.some((c) => c.compositionId === compId))) {
+				n.compositions = n.compositions.filter((e) => e.id !== compId);
+			}
+		}
+	});
+}
+export function rippleRemoveClip(p: TimelineProject, id: string): TimelineProject {
+	return rippleRemoveClips(p, [id]);
+}
 export function removeAsset(p: TimelineProject, id: string) {
 	return edit(p, (n) => {
 		if (n.tracks.some((t) => t.clips.some((c) => c.assetId === id)))
@@ -383,4 +430,36 @@ export function addTrack(p: TimelineProject, id: string, kind: "visual" | "audio
 			clips: [],
 		}),
 	);
+}
+export function removeTrack(p: TimelineProject, id: string): TimelineProject {
+	return edit(p, (n) => {
+		if (n.tracks.length <= 1) {
+			throw new Error("Cannot remove the last remaining track");
+		}
+		const t = n.tracks.find((t) => t.id === id);
+		if (!t) throw new Error("Track not found");
+		if (t.locked) throw new Error("Cannot remove locked track");
+
+		const removedCompositionIds = t.clips
+			.map((c) => c.compositionId)
+			.filter((id): id is string => Boolean(id));
+
+		n.tracks = n.tracks.filter((track) => track.id !== id);
+
+		for (const compId of removedCompositionIds) {
+			if (!n.tracks.some((track) => track.clips.some((c) => c.compositionId === compId))) {
+				n.compositions = n.compositions.filter((c) => c.id !== compId);
+			}
+		}
+	});
+}
+export function reorderTrack(p: TimelineProject, id: string, targetIndex: number): TimelineProject {
+	return edit(p, (n) => {
+		const currentIndex = n.tracks.findIndex((t) => t.id === id);
+		if (currentIndex < 0) throw new Error("Track not found");
+		const clampedIndex = Math.max(0, Math.min(n.tracks.length - 1, targetIndex));
+		if (clampedIndex === currentIndex) return;
+		const [moved] = n.tracks.splice(currentIndex, 1);
+		n.tracks.splice(clampedIndex, 0, moved);
+	});
 }

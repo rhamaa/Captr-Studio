@@ -49,6 +49,9 @@ export function ProjectInspector({
 		<aside className="project-inspector" aria-label="Clip inspector">
 			<header className="project-panel-header">
 				<h2>Inspector</h2>
+				{selection.length > 1 && (
+					<span className="project-multi-select-badge">{selection.length} selected</span>
+				)}
 				<SlidersHorizontal size={18} />
 			</header>
 			{!clip || !asset || !track ? (

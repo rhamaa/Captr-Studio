@@ -1,6 +1,9 @@
 import {
+	ArrowLineLeft,
+	ArrowsInLineHorizontal,
 	Copy,
 	LockKey as LockKeyhole,
+	Magnet,
 	Plus,
 	Scissors,
 	TextT,
@@ -19,7 +22,10 @@ interface Props {
 	onAddText: () => void;
 	scale: number;
 	onScale: (scale: number) => void;
+	onZoomToFit?: () => void;
 	locked: boolean;
+	snappingEnabled?: boolean;
+	onToggleSnapping?: () => void;
 }
 export function TimelineToolbar({
 	selection,
@@ -28,7 +34,10 @@ export function TimelineToolbar({
 	onAddText,
 	scale,
 	onScale,
+	onZoomToFit,
 	locked,
+	snappingEnabled = true,
+	onToggleSnapping,
 }: Props) {
 	const disabled = !selection.length || locked;
 	return (
@@ -57,6 +66,16 @@ export function TimelineToolbar({
 			>
 				<Trash2 size={17} />
 			</button>
+			<button
+				title="Ripple delete (Shift+Del / Shift+Backspace)"
+				aria-label="Ripple delete clip"
+				disabled={disabled}
+				onClick={() =>
+					onCommand(timelineActionCommand("ripple-delete", selection, playheadUs))
+				}
+			>
+				<ArrowLineLeft size={17} />
+			</button>
 			<span className="project-toolbar-separator" />
 			<button
 				title="Add video track"
@@ -84,6 +103,30 @@ export function TimelineToolbar({
 				</span>
 			)}
 			<span style={{ flex: 1 }} />
+			{onToggleSnapping && (
+				<button
+					title={
+						snappingEnabled
+							? "Snap to clips & playhead: ON (N)"
+							: "Snap to clips & playhead: OFF (N)"
+					}
+					aria-label="Toggle magnetic snapping"
+					aria-pressed={snappingEnabled}
+					className={snappingEnabled ? "active" : ""}
+					onClick={onToggleSnapping}
+				>
+					<Magnet size={17} weight={snappingEnabled ? "fill" : "regular"} />
+				</button>
+			)}
+			{onZoomToFit && (
+				<button
+					title="Zoom to fit timeline (Shift+Z)"
+					aria-label="Zoom to fit timeline"
+					onClick={onZoomToFit}
+				>
+					<ArrowsInLineHorizontal size={17} />
+				</button>
+			)}
 			<button
 				title="Zoom out timeline (Ctrl + -)"
 				aria-label="Zoom out timeline"

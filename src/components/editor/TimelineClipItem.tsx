@@ -1,5 +1,5 @@
 import type { PointerEvent } from "react";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { ProjectCommand } from "@/core/timeline/history";
 import { clipDurationUs, type TimelineClip, type TimelineProject } from "@/core/timeline/types";
 import {
@@ -9,31 +9,83 @@ import {
 	type ClipGesture,
 	endTimelineDrag,
 	pixelsToTime,
-	snapTimelineTime,
+	snapTimelineTimeWithDetails,
 	timeToPixels,
 } from "./timelineInteractions";
+
+function generateWaveformPath(
+	seedStr: string,
+	sourceInUs: number,
+	rate: number,
+	scale: number,
+	widthPx: number,
+	heightPx: number,
+): string {
+	let seed = 0;
+	for (let i = 0; i < seedStr.length; i++) {
+		seed = (seed * 31 + seedStr.charCodeAt(i)) & 0xffffffff;
+	}
+	const seedNorm = (Math.abs(seed) % 1000) / 1000;
+
+	const barWidth = 2;
+	const barGap = 1.5;
+	const step = barWidth + barGap;
+	const barCount = Math.floor(widthPx / step);
+	if (barCount <= 0) return "";
+
+	const centerY = heightPx / 2;
+	const maxBarHeight = heightPx - 14;
+	let path = "";
+
+	for (let i = 0; i < barCount; i++) {
+		const x = i * step;
+		const clipTimeUs = (x / scale) * 1_000_000;
+		const sourceTimeSec = (sourceInUs + clipTimeUs * rate) / 1_000_000;
+
+		const f1 = Math.sin(sourceTimeSec * 14.3 + seedNorm * 10);
+		const f2 = Math.sin(sourceTimeSec * 31.7 + seedNorm * 23);
+		const f3 = Math.sin(sourceTimeSec * 6.9 + seedNorm * 5);
+		const rhythm = (Math.sin(sourceTimeSec * 2.5) + 1) * 0.5;
+
+		const rawAmp =
+			(Math.abs(f1 * 0.5 + f2 * 0.3 + f3 * 0.2) * 0.8 + 0.15) * (0.35 + 0.65 * rhythm);
+		const amp = Math.min(1, Math.max(0.1, rawAmp));
+		const h = Math.max(3, Math.round(amp * maxBarHeight));
+		const y = Math.round(centerY - h / 2);
+
+		path += `M${x},${y}h${barWidth}v${h}h-${barWidth}Z `;
+	}
+
+	return path;
+}
 
 interface Props {
 	project: TimelineProject;
 	clip: TimelineClip;
 	selected: boolean;
+	selection?: string[];
 	scale: number;
 	playheadUs: number;
 	locked: boolean;
 	onCommand: (command: ProjectCommand) => void;
 	onSelect: (ids: string[]) => void;
 	onOpenRecording: (id: string) => void;
+	snappingEnabled?: boolean;
+	onSnapChange?: (timeUs: number | null) => void;
 }
 export function TimelineClipItem({
 	project,
 	clip,
 	selected,
+	selection,
 	scale,
 	playheadUs,
 	locked,
 	onCommand,
 	onSelect,
 	onOpenRecording,
+	snappingEnabled = true,
+	onSnapChange,
 }: Props) {
 	const asset = project.assets.find((a) => a.id === clip.assetId)!,
 		label =
@@ -54,16 +106,15 @@ export function TimelineClipItem({
 	const move = (event: PointerEvent<HTMLSpanElement>) => {
 		const current = gesture.current;
 		if (!current) return;
-		const edge =
-			current.kind === "trim-out" ? clip.startUs + clipDurationUs(clip) : clip.startUs;
-		current.deltaUs =
-			snapTimelineTime(
-				edge + pixelsToTime(event.clientX - current.startX, scale),
-				project,
-				playheadUs,
-				scale,
-				clip.id,
-			) - edge;
+		const isTrimOut = current.kind === "trim-out";
+		const edge = isTrimOut ? clip.startUs + clipDurationUs(clip) : clip.startUs;
+		const rawTargetTime = edge + pixelsToTime(event.clientX - current.startX, scale);
+		const snapDetails = snapTimelineTimeWithDetails(rawTargetTime, project, playheadUs, scale, {
+			excludedClipId: clip.id,
+			enabled: snappingEnabled,
+		});
+		current.deltaUs = snapDetails.timeUs - edge;
+		onSnapChange?.(snapDetails.snapped ? (snapDetails.snapPointUs ?? null) : null);
 		try {
 			const p = applyClipGesture(project, clip.id, current);
 			setPreview(p.tracks.flatMap((t) => t.clips).find((c) => c.id === clip.id)!);
@@ -76,8 +127,21 @@ export function TimelineClipItem({
 		const current = gesture.current;
 		gesture.current = null;
 		setPreview(null);
+		onSnapChange?.(null);
 		if (current?.deltaUs) onCommand((p) => applyClipGesture(p, clip.id, current));
 	};
+	const clipWidthPx = Math.max(2, timeToPixels(clipDurationUs(shown), scale));
+	const waveformPath = useMemo(() => {
+		if (asset.kind !== "audio") return null;
+		return generateWaveformPath(
+			clip.assetId,
+			shown.sourceInUs,
+			shown.rate,
+			scale,
+			clipWidthPx,
+			51,
+		);
+	}, [asset.kind, clip.assetId, shown.sourceInUs, shown.rate, scale, clipWidthPx]);
 	return (
 		<div
 			role="button"
@@ -87,7 +151,7 @@ export function TimelineClipItem({
 			className={`project-clip ${asset.kind} ${selected ? "selected" : ""} ${locked ? "locked" : ""}`}
 			style={{
 				left: timeToPixels(shown.startUs, scale),
-				width: Math.max(2, timeToPixels(clipDurationUs(shown), scale)),
+				width: clipWidthPx,
 			}}
 			draggable={!locked}
 			onDragStart={(event) => {
@@ -110,7 +174,16 @@ export function TimelineClipItem({
 			}}
 			onClick={(event) => {
 				event.stopPropagation();
-				onSelect([clip.id]);
+				if (event.shiftKey || event.ctrlKey || event.metaKey) {
+					const currentSelection = selection ?? (selected ? [clip.id] : []);
+					if (currentSelection.includes(clip.id)) {
+						onSelect(currentSelection.filter((id) => id !== clip.id));
+					} else {
+						onSelect([...currentSelection, clip.id]);
+					}
+				} else {
+					onSelect([clip.id]);
+				}
 			}}
 			onKeyDown={(event) => {
 				if (event.key === "Enter") {
@@ -123,6 +196,11 @@ export function TimelineClipItem({
 				if (asset.kind === "recording") onOpenRecording(clip.id);
 			}}
 		>
+			{waveformPath && (
+				<svg className="project-clip-waveform" aria-hidden="true">
+					<path d={waveformPath} fill="currentColor" />
+				</svg>
+			)}
 			<span
 				className="project-trim-handle left"
 				role="slider"
@@ -136,6 +214,7 @@ export function TimelineClipItem({
 				onPointerCancel={() => {
 					gesture.current = null;
 					setPreview(null);
+					onSnapChange?.(null);
 				}}
 			/>
 			<span className="project-clip-label">
@@ -174,6 +253,7 @@ export function TimelineClipItem({
 				onPointerCancel={() => {
 					gesture.current = null;
 					setPreview(null);
+					onSnapChange?.(null);
 				}}
 			/>
 		</div>

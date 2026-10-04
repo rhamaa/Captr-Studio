@@ -65,6 +65,7 @@ export function ProjectEditor() {
 		[legacy, setLegacy] = useState<unknown | null>(null),
 		[pendingNew, setPendingNew] = useState(false);
 	const [scale, setScale] = useState(65);
+	const [snappingEnabled, setSnappingEnabled] = useState(true);
 	const playingRef = useRef(playing);
 	playingRef.current = playing;
 	const [exportProgress, setExportProgress] = useState<number | null>(null);
@@ -450,6 +451,9 @@ export function ProjectEditor() {
 						}
 						setPlaying((v) => !v);
 					}
+				} else if (key.toLowerCase() === "n") {
+					e.preventDefault();
+					setSnappingEnabled((v) => !v);
 				} else if (key.toLowerCase() === "s" || key.toLowerCase() === "c") {
 					e.preventDefault();
 					run(
@@ -462,13 +466,23 @@ export function ProjectEditor() {
 				} else if (key === "Delete" || key === "Backspace") {
 					if (controller.snapshot.selection.length > 0) {
 						e.preventDefault();
-						run(
-							timelineActionCommand(
-								"delete",
-								controller.snapshot.selection,
-								controller.snapshot.playheadUs,
-							),
-						);
+						if (e.shiftKey) {
+							run(
+								timelineActionCommand(
+									"ripple-delete",
+									controller.snapshot.selection,
+									controller.snapshot.playheadUs,
+								),
+							);
+						} else {
+							run(
+								timelineActionCommand(
+									"delete",
+									controller.snapshot.selection,
+									controller.snapshot.playheadUs,
+								),
+							);
+						}
 						controller.select([]);
 					}
 				} else if (key === "Escape") {
@@ -515,6 +529,16 @@ export function ProjectEditor() {
 				} else if (key === "?") {
 					e.preventDefault();
 					openConfig();
+				} else if (key.toLowerCase() === "z" && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+					e.preventDefault();
+					const totalUs = projectDurationUs(controller.snapshot.project);
+					if (totalUs > 0) {
+						const targetScale = Math.max(
+							8,
+							Math.min(250, (window.innerWidth - 300) / (totalUs / 1_000_000)),
+						);
+						setScale(targetScale);
+					}
 				}
 			}
 		};
@@ -816,6 +840,9 @@ export function ProjectEditor() {
 						}}
 						scale={scale}
 						onScaleChange={setScale}
+						playing={playing}
+						snappingEnabled={snappingEnabled}
+						onToggleSnapping={() => setSnappingEnabled((v) => !v)}
 					/>
 					<footer className="project-footer">
 						<span>

@@ -3,6 +3,7 @@ import {
 	moveClip,
 	placeAsset,
 	removeClip,
+	rippleRemoveClips,
 	setClipRate,
 	splitClip,
 	trimClip,
@@ -30,33 +31,133 @@ export const timeToPixels = (timeUs: number, pixelsPerSecond: number) =>
 	(timeUs / 1_000_000) * pixelsPerSecond;
 export const pixelsToTime = (pixels: number, pixelsPerSecond: number) =>
 	Math.round((pixels / pixelsPerSecond) * 1_000_000);
+export interface SnapResult {
+	timeUs: number;
+	snapped: boolean;
+	snapPointUs?: number;
+}
+export interface SnapOptions {
+	durationUs?: number;
+	excludedClipId?: string;
+	enabled?: boolean;
+	includePlayhead?: boolean;
+}
+export function snapTimelineTimeWithDetails(
+	timeUs: number,
+	project: TimelineProject,
+	playheadUs: number,
+	pixelsPerSecond: number,
+	optionsOrExcludedId?: SnapOptions | string,
+): SnapResult {
+	const options: SnapOptions =
+		typeof optionsOrExcludedId === "string"
+			? { excludedClipId: optionsOrExcludedId }
+			: (optionsOrExcludedId ?? {});
+	const enabled = options.enabled ?? true;
+	const roundedTimeUs = Math.max(0, Math.round(timeUs));
+
+	if (!enabled) {
+		return { timeUs: roundedTimeUs, snapped: false };
+	}
+
+	const includePlayhead = options.includePlayhead ?? true;
+	const points: number[] = [0];
+	if (includePlayhead) {
+		points.push(playheadUs);
+	}
+	for (const t of project.tracks) {
+		if (t.locked) continue;
+		for (const c of t.clips) {
+			if (c.id === options.excludedClipId) continue;
+			points.push(c.startUs);
+			points.push(c.startUs + clipDurationUs(c));
+		}
+	}
+
+	const threshold = pixelsToTime(8, pixelsPerSecond);
+	let nearestLeading = roundedTimeUs;
+	let leadingDistance = threshold + 1;
+	let leadingSnapPoint: number | undefined;
+
+	for (const point of points) {
+		const delta = Math.abs(point - roundedTimeUs);
+		if (delta <= threshold && delta < leadingDistance) {
+			nearestLeading = point;
+			leadingDistance = delta;
+			leadingSnapPoint = point;
+		}
+	}
+
+	if (options.durationUs && options.durationUs > 0) {
+		const trailingEdge = roundedTimeUs + options.durationUs;
+		let nearestTrailing = trailingEdge;
+		let trailingDistance = threshold + 1;
+		let trailingSnapPoint: number | undefined;
+
+		for (const point of points) {
+			const delta = Math.abs(point - trailingEdge);
+			if (delta <= threshold && delta < trailingDistance) {
+				nearestTrailing = point;
+				trailingDistance = delta;
+				trailingSnapPoint = point;
+			}
+		}
+
+		if (trailingSnapPoint !== undefined && trailingDistance < leadingDistance) {
+			const candidateStart = Math.max(0, nearestTrailing - options.durationUs);
+			return {
+				timeUs: candidateStart,
+				snapped: true,
+				snapPointUs: trailingSnapPoint,
+			};
+		}
+	}
+
+	if (leadingSnapPoint !== undefined) {
+		return {
+			timeUs: nearestLeading,
+			snapped: true,
+			snapPointUs: leadingSnapPoint,
+		};
+	}
+
+	return {
+		timeUs: roundedTimeUs,
+		snapped: false,
+	};
+}
 export function snapTimelineTime(
 	timeUs: number,
 	project: TimelineProject,
 	playheadUs: number,
 	pixelsPerSecond: number,
-	excludedClipId?: string,
+	optionsOrExcludedId?: SnapOptions | string,
 ): number {
-	const points = [
-		0,
+	return snapTimelineTimeWithDetails(
+		timeUs,
+		project,
 		playheadUs,
-		...project.tracks.flatMap((t) =>
-			t.clips
-				.filter((c) => c.id !== excludedClipId)
-				.flatMap((c) => [c.startUs, c.startUs + clipDurationUs(c)]),
-		),
-	];
-	const threshold = pixelsToTime(8, pixelsPerSecond);
-	let nearest = Math.max(0, Math.round(timeUs)),
-		distance = threshold + 1;
-	for (const point of points) {
-		const delta = Math.abs(point - timeUs);
-		if (delta <= threshold && delta < distance) {
-			nearest = point;
-			distance = delta;
-		}
-	}
-	return nearest;
+		pixelsPerSecond,
+		optionsOrExcludedId,
+	).timeUs;
+}
+export function timelineDropDetails(
+	pointerX: number,
+	laneLeft: number,
+	pointerOffsetPx: number,
+	project: TimelineProject,
+	playheadUs: number,
+	pixelsPerSecond: number,
+	optionsOrExcludedId?: SnapOptions | string,
+): SnapResult {
+	const leadingEdgeX = Math.max(0, pointerX - laneLeft - Math.max(0, pointerOffsetPx));
+	return snapTimelineTimeWithDetails(
+		pixelsToTime(leadingEdgeX, pixelsPerSecond),
+		project,
+		playheadUs,
+		pixelsPerSecond,
+		optionsOrExcludedId,
+	);
 }
 export function timelineDropStartUs(
 	pointerX: number,
@@ -65,16 +166,17 @@ export function timelineDropStartUs(
 	project: TimelineProject,
 	playheadUs: number,
 	pixelsPerSecond: number,
-	excludedClipId?: string,
+	optionsOrExcludedId?: SnapOptions | string,
 ): number {
-	const leadingEdgeX = Math.max(0, pointerX - laneLeft - Math.max(0, pointerOffsetPx));
-	return snapTimelineTime(
-		pixelsToTime(leadingEdgeX, pixelsPerSecond),
+	return timelineDropDetails(
+		pointerX,
+		laneLeft,
+		pointerOffsetPx,
 		project,
 		playheadUs,
 		pixelsPerSecond,
-		excludedClipId,
-	);
+		optionsOrExcludedId,
+	).timeUs;
 }
 export function assetDropCommand(
 	assetId: string,
@@ -97,28 +199,76 @@ export function applyClipGesture(
 	const owner = project.tracks.find((t) => t.clips.some((c) => c.id === clipId));
 	const clip = owner?.clips.find((c) => c.id === clipId);
 	if (!clip || !owner) throw new Error("Clip not found");
-	if (gesture.kind === "move")
-		return moveClip(
-			project,
-			clipId,
-			gesture.trackId ?? owner.id,
-			Math.max(0, clip.startUs + gesture.deltaUs),
-		);
-	const sourceDelta = Math.round(gesture.deltaUs * clip.rate);
-	if (gesture.kind === "trim-in") {
-		const nextIn = Math.max(0, clip.sourceInUs + sourceDelta),
-			effectiveDelta = Math.round((nextIn - clip.sourceInUs) / clip.rate);
-		return trimClip(project, clipId, nextIn, clip.sourceOutUs, clip.startUs + effectiveDelta);
+
+	const targetTrackId = gesture.trackId ?? owner.id;
+	const targetTrack = project.tracks.find((t) => t.id === targetTrackId);
+	if (!targetTrack) throw new Error("Target track not found");
+	if (targetTrack.locked) throw new Error("Target track is locked");
+
+	const otherClips = targetTrack.clips
+		.filter((c) => c.id !== clipId)
+		.sort((a, b) => a.startUs - b.startUs);
+
+	if (gesture.kind === "move") {
+		const dur = clipDurationUs(clip);
+		const requestedStartUs = Math.max(0, clip.startUs + gesture.deltaUs);
+
+		let minStartUs = 0;
+		let maxStartUs = Number.MAX_SAFE_INTEGER;
+		for (const other of otherClips) {
+			const otherEnd = other.startUs + clipDurationUs(other);
+			if (other.startUs < clip.startUs) {
+				minStartUs = Math.max(minStartUs, otherEnd);
+			} else {
+				maxStartUs = Math.min(maxStartUs, other.startUs - dur);
+			}
+		}
+		if (maxStartUs < minStartUs) {
+			return project;
+		}
+		const clampedStartUs = Math.max(minStartUs, Math.min(maxStartUs, requestedStartUs));
+		return moveClip(project, clipId, targetTrackId, clampedStartUs);
 	}
-	const asset = project.assets.find((a) => a.id === clip.assetId)!,
-		composition = project.compositions.find((c) => c.id === clip.compositionId),
-		duration = composition?.durationUs ?? asset.durationUs;
-	return trimClip(
-		project,
-		clipId,
-		clip.sourceInUs,
-		Math.min(duration, clip.sourceOutUs + sourceDelta),
-	);
+
+	const sourceDelta = Math.round(gesture.deltaUs * clip.rate);
+
+	if (gesture.kind === "trim-in") {
+		const prevClip = otherClips
+			.filter((c) => c.startUs + clipDurationUs(c) <= clip.startUs)
+			.pop();
+		const minClipStartUs = prevClip ? prevClip.startUs + clipDurationUs(prevClip) : 0;
+		const minDurUs = Math.max(10_000, Math.round(1_000_000 / (project.canvas.fps || 30)));
+		const maxIn = Math.max(0, clip.sourceOutUs - Math.round(minDurUs * clip.rate));
+		let nextIn = Math.max(0, Math.min(maxIn, clip.sourceInUs + sourceDelta));
+		let effectiveDelta = Math.round((nextIn - clip.sourceInUs) / clip.rate);
+		let nextStartUs = clip.startUs + effectiveDelta;
+
+		if (nextStartUs < minClipStartUs) {
+			nextStartUs = minClipStartUs;
+			effectiveDelta = nextStartUs - clip.startUs;
+			nextIn = clip.sourceInUs + Math.round(effectiveDelta * clip.rate);
+		}
+
+		return trimClip(project, clipId, nextIn, clip.sourceOutUs, nextStartUs);
+	}
+
+	const asset = project.assets.find((a) => a.id === clip.assetId)!;
+	const composition = project.compositions.find((c) => c.id === clip.compositionId);
+	const maxSourceDuration = composition?.durationUs ?? asset.durationUs;
+	const nextClip = otherClips.find((c) => c.startUs >= clip.startUs + clipDurationUs(clip));
+	const maxAllowedEndUs = nextClip ? nextClip.startUs : Number.MAX_SAFE_INTEGER;
+	const minDurUs = Math.max(10_000, Math.round(1_000_000 / (project.canvas.fps || 30)));
+	const minOut = clip.sourceInUs + Math.round(minDurUs * clip.rate);
+	let nextOut = Math.max(minOut, Math.min(maxSourceDuration, clip.sourceOutUs + sourceDelta));
+	const effectiveDelta = Math.round((nextOut - clip.sourceOutUs) / clip.rate);
+	const candidateEndUs = clip.startUs + clipDurationUs(clip) + effectiveDelta;
+
+	if (candidateEndUs > maxAllowedEndUs) {
+		const clampedDur = maxAllowedEndUs - clip.startUs;
+		nextOut = clip.sourceInUs + Math.round(clampedDur * clip.rate);
+	}
+
+	return trimClip(project, clipId, clip.sourceInUs, Math.min(maxSourceDuration, nextOut));
 }
 export function findClipsAtPlayhead(project: TimelineProject, playheadUs: number): string[] {
 	return project.tracks
@@ -127,7 +277,7 @@ export function findClipsAtPlayhead(project: TimelineProject, playheadUs: number
 		.filter((c) => c.startUs < playheadUs && playheadUs < c.startUs + clipDurationUs(c))
 		.map((c) => c.id);
 }
-export type TimelineAction = "split" | "delete" | "duplicate" | "rate";
+export type TimelineAction = "split" | "delete" | "duplicate" | "rate" | "ripple-delete";
 export function timelineActionCommand(
 	action: TimelineAction,
 	selection: string[],
@@ -136,10 +286,28 @@ export function timelineActionCommand(
 	rate = 1,
 ): ProjectCommand {
 	return (project) => {
-		const targetIds =
-			selection.length > 0 || action !== "split"
-				? selection
-				: findClipsAtPlayhead(project, playheadUs);
+		let targetIds: string[];
+		if (action === "split") {
+			const selectedUnderPlayhead = selection.filter((id) => {
+				const c = project.tracks.flatMap((t) => t.clips).find((clip) => clip.id === id);
+				return c && playheadUs > c.startUs && playheadUs < c.startUs + clipDurationUs(c);
+			});
+			if (selectedUnderPlayhead.length > 0) {
+				targetIds = selectedUnderPlayhead;
+			} else {
+				targetIds = findClipsAtPlayhead(project, playheadUs);
+			}
+			if (targetIds.length === 0) {
+				return project;
+			}
+		} else {
+			targetIds = selection;
+		}
+
+		if (action === "ripple-delete") {
+			return rippleRemoveClips(project, targetIds);
+		}
+
 		return targetIds.reduce((p, id, index) => {
 			const clip = p.tracks.flatMap((t) => t.clips).find((c) => c.id === id);
 			if (!clip) return p;
@@ -151,6 +319,9 @@ export function timelineActionCommand(
 					: { clipId: crypto.randomUUID(), compositionId: crypto.randomUUID() };
 			if (action === "duplicate")
 				return duplicateClip(p, id, clip.startUs + clipDurationUs(clip), generated);
+			if (playheadUs <= clip.startUs || playheadUs >= clip.startUs + clipDurationUs(clip)) {
+				return p;
+			}
 			return splitClip(p, id, playheadUs, {
 				rightClipId: generated.clipId,
 				rightCompositionId: generated.compositionId,

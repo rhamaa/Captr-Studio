@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+	addTrack,
 	createTimelineProject,
 	moveClip,
 	placeAsset,
 	registerRecording,
 	removeAsset,
 	removeClip,
+	removeTrack,
+	reorderTrack,
+	rippleRemoveClip,
+	rippleRemoveClips,
 	setClipRate,
 	splitClip,
 	updateComposition,
@@ -134,5 +139,82 @@ describe("project assets and placements", () => {
 		const q = placeAsset(p, "a", "visual-1", 0, { clipId: "c", compositionId: "e" });
 		expect(q.compositions[0].durationUs).toBe(13_000_000);
 		expect(mapCompositionTime(q.compositions[0], 5_000_000)).toBe(12_000_000);
+	});
+	it("ripple removes clip and shifts subsequent clips to close the gap", () => {
+		let p = placed();
+		// c is at 0 (duration 20s), place c2 at 25s and c3 at 50s
+		p = placeAsset(p, "a", "visual-1", 25_000_000, { clipId: "c2", compositionId: "e2" });
+		p = placeAsset(p, "a", "visual-1", 50_000_000, { clipId: "c3", compositionId: "e3" });
+
+		// c is 0-20s (dur 20s). c2 is 25-45s (dur 20s). c3 is 50-70s (dur 20s).
+		// Ripple delete c:
+		const rippled = rippleRemoveClip(p, "c");
+		expect(rippled.tracks[0].clips).toHaveLength(2);
+		// c2 was at 25s, shifted by 20s -> 5s
+		expect(rippled.tracks[0].clips.find((x) => x.id === "c2")?.startUs).toBe(5_000_000);
+		// c3 was at 50s, shifted by 20s -> 30s
+		expect(rippled.tracks[0].clips.find((x) => x.id === "c3")?.startUs).toBe(30_000_000);
+		// Validates without errors
+		expect(() => validateTimelineProject(rippled)).not.toThrow();
+	});
+	it("ripple removes multiple clips across tracks", () => {
+		let p = placed();
+		p = placeAsset(p, "a", "visual-1", 25_000_000, { clipId: "c2", compositionId: "e2" });
+		p = placeAsset(p, "a", "visual-1", 50_000_000, { clipId: "c3", compositionId: "e3" });
+
+		// Ripple delete c (0-20s) and c2 (25-45s) simultaneously:
+		const rippled = rippleRemoveClips(p, ["c", "c2"]);
+		expect(rippled.tracks[0].clips).toHaveLength(1);
+		// Total duration removed before c3 was 20s + 20s = 40s
+		// c3 was 50s -> becomes 50s - 40s = 10s
+		expect(rippled.tracks[0].clips[0].id).toBe("c3");
+		expect(rippled.tracks[0].clips[0].startUs).toBe(10_000_000);
+		expect(() => validateTimelineProject(rippled)).not.toThrow();
+	});
+
+	it("removes a track and cleans up unreferenced compositions", () => {
+		let p = placed();
+		p = addTrack(p, "track-extra", "visual");
+		expect(p.tracks).toHaveLength(3); // visual-1, audio-1, track-extra
+
+		// Move clip to track-extra
+		p = moveClip(p, "c", "track-extra", 0);
+		expect(p.compositions).toHaveLength(1);
+
+		// Cannot remove locked track
+		p.tracks.find((t) => t.id === "track-extra")!.locked = true;
+		expect(() => removeTrack(p, "track-extra")).toThrow(/locked/i);
+		p.tracks.find((t) => t.id === "track-extra")!.locked = false;
+
+		// Remove track-extra which holds clip c with composition e
+		const removed = removeTrack(p, "track-extra");
+		expect(removed.tracks.map((t) => t.id)).not.toContain("track-extra");
+		expect(removed.compositions).toHaveLength(0); // composition e cleaned up
+		expect(() => validateTimelineProject(removed)).not.toThrow();
+	});
+
+	it("prevents removing the last remaining track", () => {
+		let p = createTimelineProject("p", "Single Track Test");
+		// p has 2 tracks initially (visual-1, audio-1)
+		p = removeTrack(p, "audio-1");
+		expect(p.tracks).toHaveLength(1);
+		expect(() => removeTrack(p, "visual-1")).toThrow(/last remaining track/i);
+	});
+
+	it("reorders tracks correctly", () => {
+		let p = placed(); // visual-1 (index 0), audio-1 (index 1)
+		p = addTrack(p, "track-3", "visual"); // index 2
+
+		expect(p.tracks.map((t) => t.id)).toEqual(["visual-1", "audio-1", "track-3"]);
+
+		// Move track-3 to index 0
+		const reordered = reorderTrack(p, "track-3", 0);
+		expect(reordered.tracks.map((t) => t.id)).toEqual(["track-3", "visual-1", "audio-1"]);
+
+		// Move track-3 to index 1
+		const reordered2 = reorderTrack(reordered, "track-3", 1);
+		expect(reordered2.tracks.map((t) => t.id)).toEqual(["visual-1", "track-3", "audio-1"]);
+
+		expect(() => validateTimelineProject(reordered2)).not.toThrow();
 	});
 });

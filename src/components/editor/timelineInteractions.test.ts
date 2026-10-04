@@ -5,6 +5,7 @@ import {
 	assetDropCommand,
 	findClipsAtPlayhead,
 	snapTimelineTime,
+	snapTimelineTimeWithDetails,
 	timelineActionCommand,
 } from "./timelineInteractions";
 
@@ -54,6 +55,33 @@ it("snaps playhead and clip edges within eight screen pixels at each zoom scale"
 	expect(snapTimelineTime(4_800_000, p, 2_000_000, 100)).toBe(4_800_000);
 	expect(snapTimelineTime(1_800_000, p, 2_000_000, 20)).toBe(2_000_000);
 	expect(snapTimelineTime(4_950_000, p, 2_000_000, 100, "c")).toBe(4_950_000);
+
+	// Detailed snap result
+	const detailed = snapTimelineTimeWithDetails(4_950_000, p, 2_000_000, 100);
+	expect(detailed).toEqual({
+		timeUs: 5_000_000,
+		snapped: true,
+		snapPointUs: 5_000_000,
+	});
+
+	// Disabled snapping returns raw time and snapped: false
+	const disabled = snapTimelineTimeWithDetails(4_950_000, p, 2_000_000, 100, {
+		enabled: false,
+	});
+	expect(disabled).toEqual({
+		timeUs: 4_950_000,
+		snapped: false,
+	});
+
+	// Trailing edge snapping
+	const trailingSnap = snapTimelineTimeWithDetails(1_950_000, p, 0, 100, {
+		durationUs: 3_000_000, // trailing edge candidate = 4_950_000 -> snaps to clip start 5_000_000
+	});
+	expect(trailingSnap).toEqual({
+		timeUs: 2_000_000,
+		snapped: true,
+		snapPointUs: 5_000_000,
+	});
 });
 
 it("finds clips under playhead and splits them when selection is empty", () => {
@@ -74,4 +102,43 @@ it("finds clips under playhead and splits them when selection is empty", () => {
 	expect(split.tracks[0].clips).toHaveLength(2);
 	expect(split.tracks[0].clips[0].startUs).toBe(1_000_000);
 	expect(split.tracks[0].clips[1].startUs).toBe(5_000_000);
+
+	// Splitting when playhead is outside selection does not throw and safely splits clip under playhead
+	const safeSplit = timelineActionCommand("split", ["non-existent"], 5_000_000)(p);
+	expect(safeSplit.tracks[0].clips).toHaveLength(2);
+
+	// Splitting when playhead is completely outside any clip returns project unchanged without throwing
+	const noOpSplit = timelineActionCommand("split", ["clip-1"], 20_000_000)(p);
+	expect(noOpSplit).toBe(p);
+});
+
+it("clamps clip movement to prevent overlapping adjacent clips", () => {
+	let p = project();
+	p = assetDropCommand("a", "visual-1", 0, { clipId: "c1" })(p);
+	p = assetDropCommand("a", "visual-1", 15_000_000, { clipId: "c2" })(p);
+
+	// c1 is 0 to 10s. c2 is 15s to 25s.
+	// Try moving c1 into c2 (e.g. +10s to 10s -> would end at 20s, which overlaps c2).
+	// Clamping should constrain c1's startUs so it doesn't exceed c2.startUs - c1.duration = 15s - 10s = 5s.
+	const clampedMove = applyClipGesture(p, "c1", {
+		kind: "move",
+		deltaUs: 10_000_000,
+	});
+	expect(clampedMove.tracks[0].clips.find((c) => c.id === "c1")?.startUs).toBe(5_000_000);
+});
+
+it("ripple-deletes selected clips and pulls subsequent clips left", () => {
+	let p = project();
+	p = assetDropCommand("a", "visual-1", 0, { clipId: "c1" })(p);
+	p = assetDropCommand("a", "visual-1", 15_000_000, { clipId: "c2" })(p);
+	p = assetDropCommand("a", "visual-1", 30_000_000, { clipId: "c3" })(p);
+
+	// c1 is 0-10s (dur 10s). c2 is 15-25s (dur 10s). c3 is 30-40s (dur 10s).
+	// Ripple delete c1:
+	const rippled = timelineActionCommand("ripple-delete", ["c1"], 0)(p);
+	expect(rippled.tracks[0].clips).toHaveLength(2);
+	// c2 was at 15s -> becomes 15s - 10s = 5s
+	expect(rippled.tracks[0].clips.find((c) => c.id === "c2")?.startUs).toBe(5_000_000);
+	// c3 was at 30s -> becomes 30s - 10s = 20s
+	expect(rippled.tracks[0].clips.find((c) => c.id === "c3")?.startUs).toBe(20_000_000);
 });
