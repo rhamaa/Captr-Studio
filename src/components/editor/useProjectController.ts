@@ -1,3 +1,5 @@
+import type { ProjectPersistencePort } from "@/core/project/fileOperationTypes";
+import { projectTitleFromPath, validateProjectBaseName } from "@/core/project/projectNames";
 import { useRef, useSyncExternalStore } from "react";
 import { type ProjectCommand, ProjectHistory } from "@/core/timeline/history";
 import { ProjectSession } from "@/core/timeline/projectSession";
@@ -16,6 +18,7 @@ export interface ProjectControllerState {
 	canUndo: boolean;
 	canRedo: boolean;
 	saving: boolean;
+	fileOperation: 'save'|'save-as'|'rename'|null;
 	openingKey: number;
 }
 export class ProjectController {
@@ -25,7 +28,10 @@ export class ProjectController {
 	private importSession = new ProjectSession();
 	private generation: number;
 	private state: ProjectControllerState;
-	constructor(project: TimelineProject, save: SaveProject) {
+	private exited=false;
+	private verified: boolean;
+	constructor(project: TimelineProject, save: SaveProject | {persist:ProjectPersistencePort}) {
+		this.verified=typeof save !== 'function';
 		this.history = new ProjectHistory(project);
 		this.generation = this.importSession.beginProject(project.projectId);
 		this.state = {
@@ -39,11 +45,11 @@ export class ProjectController {
 			playheadUs: 0,
 			canUndo: false,
 			canRedo: false,
-			saving: false,
+			saving: false, fileOperation:null,
 			openingKey: 0,
 		};
 		this.persistence = new TimelinePersistence({
-			save,
+			...(typeof save === 'function' ? {save} : save),
 			onSaved: (revision, path, saved) => {
 				if (saved.projectId !== this.state.project.projectId) {
 					// Save As changes identity after success while keeping edits made during saving.
@@ -51,19 +57,7 @@ export class ProjectController {
 					this.generation = this.importSession.beginProject(saved.projectId);
 					this.persistence.beginProject(saved.projectId);
 				}
-				const fileName = path
-					.split(/[\\/]/)
-					.pop()
-					?.replace(/\.(captr|json)$/i, "")
-					?.trim();
-				if (
-					fileName &&
-					(this.history.project.title === "New project" ||
-						!this.history.project.title?.trim() ||
-						this.history.project.title.toLowerCase() === "new project")
-				) {
-					this.history.setTitle(fileName);
-				}
+				this.history.setTitle(projectTitleFromPath(path));
 				this.publish({ savedRevision: revision, path });
 			},
 		});
@@ -91,6 +85,7 @@ export class ProjectController {
 		for (const listener of this.listeners) listener();
 	}
 	execute(command: ProjectCommand, selection?: string[]): void {
+		if(this.exited || this.state.fileOperation === 'rename' || this.state.fileOperation === 'save-as') throw new Error('Finish the file operation before editing.');
 		const previous = this.history.project;
 		this.history.execute(command, selection);
 		if (previous !== this.history.project) this.publish({ revision: this.state.revision + 1 });
@@ -112,32 +107,20 @@ export class ProjectController {
 		});
 	}
 	undo(): void {
+		if (this.state.fileOperation === 'rename' || this.state.fileOperation === 'save-as') return;
 		if (!this.history.canUndo) return;
 		this.history.undo();
 		this.publish({ revision: this.state.revision + 1 });
 	}
 	redo(): void {
+		if (this.state.fileOperation === 'rename' || this.state.fileOperation === 'save-as') return;
 		if (!this.history.canRedo) return;
 		this.history.redo();
 		this.publish({ revision: this.state.revision + 1 });
 	}
 	open(project: TimelineProject, path: string | null): void {
 		const next = structuredClone(validateTimelineProject(project));
-		if (path) {
-			const fileName = path
-				.split(/[\\/]/)
-				.pop()
-				?.replace(/\.(captr|json)$/i, "")
-				?.trim();
-			if (
-				fileName &&
-				(next.title === "New project" ||
-					!next.title?.trim() ||
-					next.title.toLowerCase() === "new project")
-			) {
-				next.title = fileName;
-			}
-		}
+		if(path) next.title=projectTitleFromPath(path);
 		this.history = new ProjectHistory(next);
 		this.generation = this.importSession.beginProject(next.projectId);
 		this.persistence.beginProject(next.projectId);
@@ -147,7 +130,7 @@ export class ProjectController {
 			path,
 			selectedAssetId: null,
 			playheadUs: 0,
-			saving: false,
+			saving: false, fileOperation:null,
 			openingKey: this.state.openingKey + 1,
 		});
 	}
@@ -158,47 +141,45 @@ export class ProjectController {
 		token: { generation: number; projectId: string },
 		command: ProjectCommand,
 	): boolean {
-		if (!this.importSession.isCurrent(token.generation, token.projectId)) return false;
+		if (this.exited || this.state.fileOperation === 'rename' || this.state.fileOperation === 'save-as' || !this.importSession.isCurrent(token.generation, token.projectId)) return false;
 		this.execute(command);
 		return true;
 	}
-	async save(saveAs = false): Promise<import("./useTimelinePersistence").ProjectSaveResult> {
-		const generation = this.generation;
-		const project = saveAs
-			? { ...this.history.project, projectId: crypto.randomUUID() }
-			: this.history.project;
-		this.publish({ saving: true });
-		try {
-			return await this.persistence.save(
-				project,
-				this.state.revision,
-				this.state.path,
-				saveAs,
-			);
-		} finally {
-			if (
-				generation === this.generation ||
-				this.state.project.projectId === project.projectId
-			)
-				this.publish({ saving: false });
-		}
-	}
-	dispose(): void {
+	async save(saveAs = false, name?:string): Promise<import("./useTimelinePersistence").ProjectSaveResult> {
+        return this.fileOperation(saveAs ? "save-as" : "save", name);
+    }
+    async rename(name:string): Promise<import("./useTimelinePersistence").ProjectSaveResult> {
+        const valid=validateProjectBaseName(name);
+        if(this.state.path && valid===projectTitleFromPath(this.state.path)) return {success:true,path:this.state.path,projectId:this.state.project.projectId};
+        return this.fileOperation(this.state.path ? "rename" : "save",valid);
+    }
+    private async fileOperation(intent:"save"|"save-as"|"rename",name?:string):Promise<import("./useTimelinePersistence").ProjectSaveResult> {
+        if(this.exited || this.state.fileOperation) return {success:false,error:"A project file operation is already running."};
+        const generation=this.generation, owner=this.state.project.projectId, revision=this.state.revision, path=this.state.path;
+        const project=structuredClone(this.history.project);
+        if(name!==undefined) project.title=validateProjectBaseName(name);
+        if(intent==="save-as") project.projectId=crypto.randomUUID();
+        this.publish({saving:true,fileOperation:intent});
+        try {
+            if(this.verified) return await this.persistence.run({operationId:crypto.randomUUID(),ownerProjectId:owner,generation,revision,expectedPath:path,intent,project,name});
+            if(intent==="rename") return {success:false,error:"Rename requires the verified file service."};
+            return await this.persistence.save(project,revision,path,intent==="save-as");
+        } finally { if(!this.exited && (generation===this.generation || this.state.project.projectId===project.projectId)) this.publish({saving:false,fileOperation:null}); }
+    }
+    exit():void { this.exited=true; this.dispose(); }
+    dispose(): void {
 		this.persistence.dispose();
 		this.importSession.dispose();
 		this.listeners.clear();
 	}
 }
-export function useProjectController(initial: TimelineProject) {
-	const controller = useRef<ProjectController>();
-	if (!controller.current)
-		controller.current = new ProjectController(initial, (project, title, path) =>
-			window.electronAPI.saveProjectFile(project, title, path),
-		);
-	const state = useSyncExternalStore(
-		controller.current.subscribe,
-		() => controller.current!.snapshot,
-		() => controller.current!.snapshot,
-	);
-	return { controller: controller.current, state };
+export function createProjectController(project:TimelineProject):ProjectController {
+    return new ProjectController(project,{persist:request=>window.electronAPI.operateTimelineProjectFile(request)});
+}
+export function useProjectController(initial:TimelineProject|ProjectController) {
+    const ref=useRef<ProjectController>();
+    if(!ref.current) ref.current=initial instanceof ProjectController ? initial : createProjectController(initial);
+    const controller=initial instanceof ProjectController ? initial : ref.current;
+    const state=useSyncExternalStore(controller.subscribe,()=>controller.snapshot,()=>controller.snapshot);
+    return {controller,state};
 }
