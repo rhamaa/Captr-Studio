@@ -7,6 +7,8 @@ import {
 	Play,
 	Plus,
 	Scissors,
+	SkipBack,
+	SkipForward,
 	Sparkle,
 	SpeakerHigh,
 	SquaresFour,
@@ -17,6 +19,14 @@ import { type ComponentProps, useEffect, useMemo, useRef, useState } from "react
 import { ProjectPreview } from "@/components/editor/ProjectPreview";
 import { SettingsPanel } from "@/components/video-editor/SettingsPanel";
 import { buildInteractionZoomSuggestions } from "@/components/video-editor/timeline/zoomSuggestionUtils";
+
+function formatTimecode(seconds: number): string {
+	const totalSecs = Math.max(0, seconds);
+	const mins = Math.floor(totalSecs / 60);
+	const secs = Math.floor(totalSecs % 60);
+	const centis = Math.floor((totalSecs % 1) * 100);
+	return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${String(centis).padStart(2, "0")}`;
+}
 import type {
 	AnnotationRegion,
 	EditorEffectSection,
@@ -35,6 +45,7 @@ import { playbackOutputTimeUs } from "./playbackClock";
 export interface RecordingCompositionEditorProps {
 	package: RecordingPackage;
 	composition: RecordComposition;
+	projectTitle?: string;
 	onChange: (next: RecordComposition) => void;
 	onClose: () => void;
 }
@@ -98,6 +109,7 @@ const RECORDING_TABS: {
 export function RecordingCompositionEditor({
 	package: pkg,
 	composition,
+	projectTitle,
 	onChange,
 	onClose,
 }: RecordingCompositionEditorProps) {
@@ -367,11 +379,19 @@ export function RecordingCompositionEditor({
 						onClick={onClose}
 						title="Return to project timeline (Esc)"
 					>
-						<ArrowLeft size={14} weight="bold" />
+						<ArrowLeft size={13} weight="bold" />
 						<span>Timeline</span>
 						<kbd className="recording-kbd">Esc</kbd>
 					</button>
 					<span className="recording-header-sep">/</span>
+					{projectTitle ? (
+						<>
+							<span className="recording-breadcrumb-project" title={projectTitle}>
+								{projectTitle}
+							</span>
+							<span className="recording-header-sep">/</span>
+						</>
+					) : null}
 					<div className="recording-header-title">
 						<span className="recording-header-label">Clip Effects</span>
 						<span className="recording-clip-badge" title={clipName}>
@@ -403,6 +423,18 @@ export function RecordingCompositionEditor({
 						<div className="recording-transport-left">
 							<button
 								type="button"
+								className="recording-step-button"
+								aria-label="Step back 1s (Left Arrow)"
+								title="Step back 1s (←)"
+								onClick={() => {
+									setPlaying(false);
+									setSourceSeconds((curr) => Math.max(0, curr - 1));
+								}}
+							>
+								<SkipBack size={13} weight="bold" />
+							</button>
+							<button
+								type="button"
 								className="recording-play-button"
 								aria-label={
 									playing ? "Pause recording (Space)" : "Play recording (Space)"
@@ -411,18 +443,32 @@ export function RecordingCompositionEditor({
 								onClick={() => setPlaying((v) => !v)}
 							>
 								{playing ? (
-									<Pause size={16} weight="fill" />
+									<Pause size={15} weight="fill" />
 								) : (
-									<Play size={16} weight="fill" />
+									<Play size={15} weight="fill" />
 								)}
+							</button>
+							<button
+								type="button"
+								className="recording-step-button"
+								aria-label="Step forward 1s (Right Arrow)"
+								title="Step forward 1s (→)"
+								onClick={() => {
+									setPlaying(false);
+									setSourceSeconds((curr) =>
+										Math.min(pkg.durationUs / 1_000_000, curr + 1),
+									);
+								}}
+							>
+								<SkipForward size={13} weight="bold" />
 							</button>
 							<div className="recording-timecode">
 								<span className="recording-time-current">
-									{sourceSeconds.toFixed(2)}s
+									{formatTimecode(sourceSeconds)}
 								</span>
 								<span className="recording-time-sep">/</span>
 								<span className="recording-time-total">
-									{(durationMs / 1000).toFixed(2)}s
+									{formatTimecode(durationMs / 1000)}
 								</span>
 							</div>
 						</div>

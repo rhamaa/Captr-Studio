@@ -1004,29 +1004,29 @@
 	box-shadow: none;
 }
 .recording-editor-header {
-	height: 44px;
+	height: 38px;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	border-bottom: 1px solid var(--line);
-	background: #141416;
+	background: #161618;
 	padding: 0 12px;
 	flex-shrink: 0;
 }
 .recording-header-left {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	gap: 8px;
 }
 .recording-back-button {
 	display: inline-flex;
 	align-items: center;
-	gap: 6px;
-	height: 28px;
-	padding: 0 9px;
+	gap: 5px;
+	height: 25px;
+	padding: 0 8px;
 	background: #202024;
-	border: 1px solid #333338;
-	border-radius: 5px;
+	border: 1px solid #323238;
+	border-radius: 4px;
 	color: #dedee6;
 	font-size: 11px;
 	font-weight: 500;
@@ -1053,27 +1053,36 @@
 	color: #404048;
 	font-size: 12px;
 }
+.recording-breadcrumb-project {
+	color: #8c8c97;
+	font-weight: 500;
+	font-size: 11px;
+	max-width: 160px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
 .recording-header-title {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	font-size: 12px;
+	gap: 7px;
+	font-size: 11px;
 }
 .recording-header-label {
 	color: #ffffff;
 	font-weight: 600;
 }
 .recording-clip-badge {
-	max-width: 220px;
+	max-width: 200px;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	font-size: 10px;
 	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 	color: #9d9da8;
-	background: #222226;
-	border: 1px solid #303036;
-	padding: 2px 7px;
+	background: #1e1e22;
+	border: 1px solid #2d2d34;
+	padding: 1px 6px;
 	border-radius: 4px;
 }
 .recording-header-right {
@@ -1094,9 +1103,9 @@
 	flex: 1;
 	min-height: 0;
 	display: grid;
-	grid-template-columns: minmax(360px, 1fr) 350px;
-	gap: 8px;
-	padding: 8px 10px;
+	grid-template-columns: minmax(380px, 1fr) 340px;
+	gap: 0;
+	padding: 0;
 	overflow: hidden;
 }
 .recording-editor-monitor {
@@ -1105,9 +1114,10 @@
 	min-height: 0;
 	min-width: 0;
 	overflow: hidden;
-	background: #161618;
-	border: 1px solid var(--line);
-	border-radius: 7px;
+	background: #141416;
+	border: none;
+	border-right: 1px solid var(--line);
+	border-radius: 0;
 }
 .recording-preview-wrapper {
 	flex: 1;
@@ -1117,20 +1127,23 @@
 	align-items: center;
 	justify-content: center;
 	overflow: hidden;
-	padding: 12px;
-	background: radial-gradient(circle at center, #1c1c20 0%, #111113 100%);
+	padding: 16px;
+	background: radial-gradient(ellipse at center, #202024 0%, #121214 75%);
 }
 .recording-preview-wrapper > div:first-child {
 	max-width: 100%;
 	max-height: 100%;
+	box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.4);
+	border-radius: 4px;
+	overflow: hidden;
 }
 .recording-editor-transport {
-	height: 48px;
+	height: 44px;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 0 14px;
-	background: #18181b;
+	padding: 0 12px;
+	background: #161618;
 	border-top: 1px solid var(--line);
 	flex-shrink: 0;
 	gap: 12px;
@@ -1138,105 +1151,127 @@
 .recording-transport-left {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	gap: 5px;
+}
+.recording-step-button {
+	width: 26px;
+	height: 26px;
+	border-radius: 4px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: transparent;
+	color: #92929e;
+	border: 1px solid transparent;
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+.recording-step-button:hover {
+	background: #232328;
+	color: #ffffff;
+	border-color: #34343c;
 }
 .recording-play-button {
-	width: 32px;
-	height: 32px;
+	width: 30px;
+	height: 30px;
 	border-radius: 50%;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	background: #6fa8ff;
-	color: #0b1524;
+	background: #e8e8ea;
+	color: #121214;
 	border: none;
 	cursor: pointer;
 	transition: all 0.15s ease;
-	box-shadow: 0 2px 6px rgba(111, 168, 255, 0.25);
 	flex-shrink: 0;
 }
 .recording-play-button:hover {
-	background: #89b9ff;
+	background: #ffffff;
 	transform: scale(1.04);
 }
 .recording-timecode {
 	display: flex;
 	align-items: center;
-	gap: 4px;
+	gap: 5px;
 	font-size: 11px;
 	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 	font-variant-numeric: tabular-nums;
+	margin-left: 6px;
+	padding: 3px 8px;
+	background: #111113;
+	border: 1px solid #232328;
+	border-radius: 4px;
 }
 .recording-time-current {
 	color: #ffffff;
 	font-weight: 600;
 }
 .recording-time-sep {
-	color: #555560;
+	color: #4b4b54;
 }
 .recording-time-total {
-	color: #8e8e99;
+	color: #7d7d8a;
 }
 .recording-transport-divider {
 	width: 1px;
-	height: 20px;
-	background: #2b2b32;
+	height: 18px;
+	background: #27272c;
 	flex-shrink: 0;
 }
 .recording-transport-actions {
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	gap: 5px;
 	flex-wrap: nowrap;
 }
 .recording-action-btn {
 	display: inline-flex;
 	align-items: center;
 	gap: 5px;
-	height: 28px;
-	padding: 0 9px;
+	height: 26px;
+	padding: 0 8px;
 	font-size: 11px;
 	font-weight: 500;
 	color: #b5b5c0;
-	background: #222226;
-	border: 1px solid #33333a;
-	border-radius: 5px;
+	background: #1f1f23;
+	border: 1px solid #303036;
+	border-radius: 4px;
 	cursor: pointer;
 	white-space: nowrap;
 	transition: all 0.15s ease;
 }
 .recording-action-btn:hover {
-	background: #2a2a30;
-	border-color: #484852;
+	background: #28282e;
+	border-color: #43434c;
 	color: #ffffff;
 }
 .recording-action-cut {
-	color: #f08c8c;
-	border-color: #4a2828;
-	background: #291818;
+	color: #f87171;
+	border-color: rgba(239, 68, 68, 0.25);
+	background: rgba(239, 68, 68, 0.08);
 }
 .recording-action-cut:hover {
-	background: #361f1f;
-	border-color: #5f3131;
-	color: #ffb0b0;
+	background: rgba(239, 68, 68, 0.15);
+	border-color: rgba(239, 68, 68, 0.4);
+	color: #fca5a5;
 }
 .recording-speed-wrapper {
 	position: relative;
 	display: inline-flex;
 }
 .recording-speed-select {
-	height: 28px;
-	padding: 0 7px;
+	height: 26px;
+	padding: 0 6px;
 	font-size: 11px;
-	background: #222226;
-	border: 1px solid #33333a;
+	background: #1f1f23;
+	border: 1px solid #303036;
 	color: #b5b5c0;
-	border-radius: 5px;
+	border-radius: 4px;
 	cursor: pointer;
 	outline: none;
 }
 .recording-speed-select:focus {
-	border-color: #6fa8ff;
+	border-color: var(--project-accent);
 }
 .recording-editor-settings {
 	min-height: 0;
@@ -1244,9 +1279,9 @@
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
-	border: 1px solid var(--line);
-	border-radius: 7px;
-	background: #171718;
+	border: none;
+	border-radius: 0;
+	background: #171719;
 }
 .recording-section-tabs {
 	display: flex;
@@ -1341,12 +1376,13 @@
 	accent-color: #6fa8ff;
 }
 .recording-timeline-container {
-	height: 250px;
+	height: 240px;
 	flex-shrink: 0;
-	border: 1px solid var(--line);
-	border-radius: 7px;
-	margin: 0 10px;
-	background: #181819;
+	border: none;
+	border-top: 1px solid var(--line);
+	border-radius: 0;
+	margin: 0;
+	background: #151517;
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
@@ -1356,15 +1392,16 @@
 	min-height: 0;
 }
 .recording-editor-footer {
-	height: 23px;
+	height: 22px;
 	display: flex;
 	align-items: center;
-	gap: 20px;
+	gap: 18px;
 	padding: 0 14px;
-	color: #696971;
-	font-size: 9px;
+	color: #62626b;
+	font-size: 10px;
 	flex-shrink: 0;
 	background: #101012;
+	border-top: 1px solid #1c1c1f;
 }
 @media (max-width: 1150px) {
 	.project-workspace {

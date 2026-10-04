@@ -723,6 +723,7 @@ export function ProjectEditor() {
 							key={composition.id}
 							package={pkg}
 							composition={composition}
+							projectTitle={state.project.title}
 							onChange={(next) =>
 								controller.execute((p) =>
 									updateComposition(p, composition.id, next),
