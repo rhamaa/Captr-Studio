@@ -1,7 +1,7 @@
 # Project Home, File Names, and Rename / Save As
 
 Date: 2026-10-04
-Status: conversational design approved; written spec awaiting user review. Product implementation has not started.
+Status: written spec approved by the user with "ok implementasikan"; implementation plan awaiting review. Product implementation has not started.
 
 ## Intent and approved scope
 
@@ -121,4 +121,4 @@ Native Windows QA must exercise real rename/case-only rename, file locks, OS dia
 
 Scope matches the approved conversational flow. Existing Home/library components are reused. Startup, native project-open intent, recording bootstrap, dirty guards, filename authority, source ownership, separate Save As identity, collision checks, transaction recovery, and history naming invariants have explicit outcomes and acceptance checks.
 
-The next gate is user review of this written spec, then the Superpowers writing-plans workflow. Preserve native execution in the current session. This spec changes no product code or storage contract by itself.
+The user approved this written spec. The next gate is review of the written implementation plan. Preserve native execution in the current session. This spec changes no product code or storage contract by itself.
