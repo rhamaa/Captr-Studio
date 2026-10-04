@@ -49,7 +49,7 @@ export interface WebcamSectionProps {
 	webcamPositionX: number;
 	webcamPositionY: number;
 	webcamFileName?: string | null;
-	embeddedInCameraBubble?: boolean;
+	embeddedInLayout?: boolean;
 	renderExtensionPanelsForSections?: (...sections: string[]) => React.ReactNode;
 	tSettings: (key: string, fallback?: string) => string;
 	t: (key: string, fallback?: string) => string;
@@ -70,7 +70,7 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 	webcamPositionX,
 	webcamPositionY,
 	webcamFileName,
-	embeddedInCameraBubble = false,
+	embeddedInLayout = false,
 	renderExtensionPanelsForSections,
 	tSettings,
 	t,
@@ -95,7 +95,6 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 					<Switch
 						checked={webcam?.enabled ?? false}
 						onCheckedChange={(enabled) => updateWebcam({ enabled })}
-						className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 					/>
 				</div>
 				<div className="flex items-center justify-between rounded-lg bg-foreground/[0.03] px-2.5 py-1.5">
@@ -105,7 +104,6 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 					<Switch
 						checked={webcam?.reactToZoom ?? DEFAULT_WEBCAM_REACT_TO_ZOOM}
 						onCheckedChange={(reactToZoom) => updateWebcam({ reactToZoom })}
-						className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 					/>
 				</div>
 				<div className="flex items-center justify-between rounded-lg bg-foreground/[0.03] px-2.5 py-1.5">
@@ -115,10 +113,9 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 					<Switch
 						checked={webcam?.mirror ?? true}
 						onCheckedChange={(mirror) => updateWebcam({ mirror })}
-						className="data-[state=checked]:bg-[#6FA8FF] scale-75"
 					/>
 				</div>
-				{!embeddedInCameraBubble && (
+				{!embeddedInLayout && (
 					<SliderControl
 						label={tSettings("effects.webcamSize")}
 						value={webcam?.size ?? DEFAULT_WEBCAM_SIZE}
@@ -157,7 +154,7 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 						}
 					/>
 				</div>
-				{!embeddedInCameraBubble && (
+				{!embeddedInLayout && (
 					<div className="rounded-lg bg-foreground/[0.03] px-2.5 py-2">
 						<div className="mb-2 text-[10px] text-muted-foreground">
 							{tSettings("effects.webcamPosition", "Position")}
@@ -167,18 +164,18 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 								const isActive = webcamPositionPreset === option.preset;
 								return (
 									<Button
-									key={option.preset}
-									type="button"
-									onClick={() => applyWebcamPositionPreset(option.preset)}
-									className={cn(
-										"h-8 rounded-lg border px-0 text-sm font-semibold transition-all",
-										isActive
-											? "border-[#6FA8FF] bg-[#6FA8FF] text-[#172033]"
-											: "border-foreground/10 bg-foreground/5 text-muted-foreground hover:border-foreground/20 hover:bg-foreground/10",
-									)}
-								>
-									{option.label}
-								</Button>
+										key={option.preset}
+										type="button"
+										onClick={() => applyWebcamPositionPreset(option.preset)}
+										className={cn(
+											"h-8 rounded-lg border px-0 text-sm font-semibold transition-all",
+											isActive
+												? "border-[#6FA8FF] bg-[#6FA8FF] text-[#172033]"
+												: "border-foreground/10 bg-foreground/5 text-muted-foreground hover:border-foreground/20 hover:bg-foreground/10",
+										)}
+									>
+										{option.label}
+									</Button>
 								);
 							})}
 						</div>
@@ -198,7 +195,7 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 						</div>
 					</div>
 				)}
-				{!embeddedInCameraBubble && webcamPositionPreset === "custom" ? (
+				{!embeddedInLayout && webcamPositionPreset === "custom" ? (
 					<>
 						<SliderControl
 							label={tSettings("effects.webcamHorizontal", "Horizontal")}
@@ -255,8 +252,7 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 									0,
 									(webcam?.cornerRadius ?? DEFAULT_WEBCAM_CORNER_RADIUS) / 160,
 								),
-							)) *
-						100
+							)) * 100
 					}
 					defaultValue={(DEFAULT_WEBCAM_CORNER_RADIUS / 160) * 100}
 					min={0}

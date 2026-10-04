@@ -220,9 +220,13 @@
 	}
 
 	/* Smooth playback scrubber */
-	input[type="range"] {
+	input:where([type="range"]) {
 		-webkit-appearance: none;
 		appearance: none;
+		height: 20px;
+		border: 0;
+		padding: 0;
+		background: transparent;
 	}
 
 	input[type="range"]::-webkit-slider-runnable-track {
@@ -242,6 +246,7 @@
 		appearance: none;
 		width: 16px;
 		height: 16px;
+		margin-top: -6px;
 		border-radius: 50%;
 		background: hsl(var(--slider-thumb));
 		cursor: pointer;

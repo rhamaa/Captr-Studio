@@ -68,7 +68,6 @@ export type EditorEffectSection =
 	| "clip"
 	| "audio"
 	| "media"
-	| "audio-record"
 	| "video-adjust"
 	| "transitions"
 	| "motion"

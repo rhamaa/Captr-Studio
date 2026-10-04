@@ -10,14 +10,12 @@ import {
 	SkipBack,
 	SkipForward,
 	Sparkle,
-	SpeakerHigh,
 	SquaresFour,
-	VideoCamera,
-	Waveform,
 } from "@phosphor-icons/react";
 import { type ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ProjectPreview } from "@/components/editor/ProjectPreview";
 import { SettingsPanel } from "@/components/video-editor/SettingsPanel";
+import { ZOOM_DEPTH_OPTIONS } from "@/components/video-editor/settings/sections/ZoomItemSection";
 import { buildInteractionZoomSuggestions } from "@/components/video-editor/timeline/zoomSuggestionUtils";
 
 function formatTimecode(seconds: number): string {
@@ -89,21 +87,18 @@ const settingCallbacks: Partial<Record<keyof RecordingSettings, keyof PanelProps
 	zoomInEasing: "onZoomInEasingChange",
 	zoomOutEasing: "onZoomOutEasingChange",
 	connectedZoomEasing: "onConnectedZoomEasingChange",
-	audioDuckingSettings: "onAudioDuckingSettingsChange",
 };
 
+type RecordingSection = Extract<EditorEffectSection, "scene" | "cursor" | "layout">;
+
 const RECORDING_TABS: {
-	id: EditorEffectSection;
+	id: RecordingSection;
 	label: string;
 	icon: typeof Palette;
 }[] = [
 	{ id: "scene", label: "Scene", icon: Palette },
 	{ id: "cursor", label: "Cursor", icon: CursorClick },
-	{ id: "webcam", label: "Camera", icon: VideoCamera },
-	{ id: "zoom", label: "Zoom", icon: MagnifyingGlassPlus },
 	{ id: "layout", label: "Layout", icon: SquaresFour },
-	{ id: "motion", label: "Motion", icon: Waveform },
-	{ id: "audio-record", label: "Audio", icon: SpeakerHigh },
 ];
 
 /** Controlled effect editor. Project library, recording, persistence and export live outside. */
@@ -118,12 +113,13 @@ export function RecordingCompositionEditor({
 	const [sourceUrl, setSourceUrl] = useState(""),
 		[playing, setPlaying] = useState(false),
 		[sourceSeconds, setSourceSeconds] = useState(0),
-		[section, setSection] = useState<EditorEffectSection>("scene"),
+		[section, setSection] = useState<RecordingSection>("scene"),
 		[selectedZoomId, setSelectedZoomId] = useState<string | null>(null),
 		[selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null),
 		[selectedLayoutId, setSelectedLayoutId] = useState<string | null>(null),
-		[selectedAudioId, setSelectedAudioId] = useState<string | null>(null),
 		[error, setError] = useState<string | null>(null);
+	const webcamPath = pkg.webcam?.path;
+	const [webcamPreview, setWebcamPreview] = useState<{ path: string; url: string } | null>(null);
 	const timeline = useRef<RecordingTimelineHandle>(null);
 	useEffect(() => {
 		let active = true;
@@ -138,6 +134,22 @@ export function RecordingCompositionEditor({
 			active = false;
 		};
 	}, [pkg.screen.path]);
+	useEffect(() => {
+		let active = true;
+		setWebcamPreview(null);
+		if (webcamPath) {
+			void localMediaUrl(webcamPath)
+				.then((url) => {
+					if (active) setWebcamPreview({ path: webcamPath, url });
+				})
+				.catch((e) => {
+					if (active) setError(`Webcam preview: ${String(e)}`);
+				});
+		}
+		return () => {
+			active = false;
+		};
+	}, [webcamPath]);
 	const previewProject = useMemo(
 		() => recordingPreviewProject(pkg, composition),
 		[pkg, composition],
@@ -204,8 +216,7 @@ export function RecordingCompositionEditor({
 			),
 		});
 	const selectedZoom = settings.zoomRegions.find((z) => z.id === selectedZoomId),
-		selectedLayout = settings.layoutRegions.find((l) => l.id === selectedLayoutId),
-		selectedAudio = settings.audioRegions.find((a) => a.id === selectedAudioId);
+		selectedLayout = settings.layoutRegions.find((l) => l.id === selectedLayoutId);
 	const selectedAnnotation = settings.annotationRegions.find(
 		(a) => a.id === selectedAnnotationId,
 	);
@@ -309,11 +320,10 @@ export function RecordingCompositionEditor({
 
 			if (e.key === "Escape") {
 				e.preventDefault();
-				if (selectedZoomId || selectedAnnotationId || selectedLayoutId || selectedAudioId) {
+				if (selectedZoomId || selectedAnnotationId || selectedLayoutId) {
 					setSelectedZoomId(null);
 					setSelectedAnnotationId(null);
 					setSelectedLayoutId(null);
-					setSelectedAudioId(null);
 				} else {
 					onClose();
 				}
@@ -343,12 +353,6 @@ export function RecordingCompositionEditor({
 						),
 					});
 					setSelectedLayoutId(null);
-				} else if (selectedAudioId) {
-					e.preventDefault();
-					update({
-						audioRegions: settings.audioRegions.filter((a) => a.id !== selectedAudioId),
-					});
-					setSelectedAudioId(null);
 				}
 				return;
 			}
@@ -411,7 +415,6 @@ export function RecordingCompositionEditor({
 		selectedZoomId,
 		selectedAnnotationId,
 		selectedLayoutId,
-		selectedAudioId,
 		settings,
 		update,
 		handleAddZoomAtCurrent,
@@ -547,7 +550,10 @@ export function RecordingCompositionEditor({
 									type="button"
 									className={`recording-section-tab-btn ${isActive ? "active" : ""}`}
 									aria-pressed={isActive}
-									onClick={() => setSection(tab.id)}
+									onClick={() => {
+										setSelectedAnnotationId(null);
+										setSection(tab.id);
+									}}
 									title={tab.label}
 								>
 									<Icon size={14} weight={isActive ? "fill" : "regular"} />
@@ -557,46 +563,6 @@ export function RecordingCompositionEditor({
 						})}
 					</nav>
 					<div className="recording-settings-scroll">
-						{section === "motion" && (
-							<label className="recording-motion-control">
-								<span>Zoom motion blur</span>
-								<input
-									type="range"
-									min={0}
-									max={2}
-									step={0.01}
-									value={settings.zoomMotionBlur ?? 0.35}
-									onChange={(event) =>
-										update({ zoomMotionBlur: Number(event.target.value) })
-									}
-								/>
-							</label>
-						)}
-						{selectedZoom && selectedZoom.mode === "manual" && (
-							<div className="recording-motion-control">
-								<span>Manual zoom focus</span>
-								{(["cx", "cy"] as const).map((axis) => (
-									<label key={axis}>
-										<span>{axis === "cx" ? "X" : "Y"}</span>
-										<input
-											type="range"
-											min={0}
-											max={1}
-											step={0.01}
-											value={selectedZoom.focus[axis]}
-											onChange={(event) =>
-												updateZoom(selectedZoom.id, {
-													focus: {
-														...selectedZoom.focus,
-														[axis]: Number(event.target.value),
-													},
-												})
-											}
-										/>
-									</label>
-								))}
-							</div>
-						)}
 						{selectedAnnotation && (
 							<div className="recording-motion-control">
 								<span>Layer position</span>
@@ -649,6 +615,13 @@ export function RecordingCompositionEditor({
 							onWallpaperChange={(path) => update({ wallpaper: path })}
 							activeEffectSection={section}
 							aspectRatio="16:9"
+							webcamPreviewSrc={
+								webcamPreview && webcamPreview.path === webcamPath
+									? webcamPreview.url
+									: null
+							}
+							webcamPreviewCurrentTime={sourceSeconds}
+							webcamPreviewPlaying={playing}
 							selectedZoomId={selectedZoomId}
 							selectedZoomDepth={selectedZoom?.depth}
 							selectedZoomMode={selectedZoom?.mode}
@@ -727,81 +700,6 @@ export function RecordingCompositionEditor({
 									annotationRegions: settings.annotationRegions.filter(
 										(a) => a.id !== id,
 									),
-								})
-							}
-							selectedAudioId={selectedAudioId}
-							selectedAudioVolume={selectedAudio?.volume}
-							selectedAudioNormalize={selectedAudio?.normalize}
-							selectedAudioDucking={selectedAudio?.ducking}
-							onAudioVolumeChange={(volume) =>
-								update({
-									audioRegions: settings.audioRegions.map((a) =>
-										a.id === selectedAudioId ? { ...a, volume } : a,
-									),
-								})
-							}
-							onAudioNormalizeChange={(normalize) =>
-								update({
-									audioRegions: settings.audioRegions.map((a) =>
-										a.id === selectedAudioId ? { ...a, normalize } : a,
-									),
-								})
-							}
-							onAudioDuckingChange={(ducking) =>
-								update({
-									audioRegions: settings.audioRegions.map((a) =>
-										a.id === selectedAudioId ? { ...a, ducking } : a,
-									),
-								})
-							}
-							onAudioAdded={(span, audioPath) =>
-								update({
-									audioRegions: [
-										...settings.audioRegions,
-										{
-											id: crypto.randomUUID(),
-											startMs: span.start,
-											endMs: span.end,
-											audioPath,
-											volume: 1,
-										},
-									],
-								})
-							}
-							onAudioDelete={(id) =>
-								update({
-									audioRegions: settings.audioRegions.filter((a) => a.id !== id),
-								})
-							}
-							sourceAudioTrackMeta={[
-								...(pkg.system ? [{ id: "system", label: "System audio" }] : []),
-								...(pkg.microphone
-									? [{ id: "microphone", label: "Microphone" }]
-									: []),
-							]}
-							sourceAudioTrackSettings={settings.sourceAudioSettings}
-							onSourceAudioTrackVolumeChange={(id, volume) =>
-								update({
-									sourceAudioSettings: {
-										...settings.sourceAudioSettings,
-										[id]: {
-											volume,
-											normalize:
-												settings.sourceAudioSettings?.[id]?.normalize ??
-												false,
-										},
-									},
-								})
-							}
-							onSourceAudioTrackNormalizeChange={(id, normalize) =>
-								update({
-									sourceAudioSettings: {
-										...settings.sourceAudioSettings,
-										[id]: {
-											volume: settings.sourceAudioSettings?.[id]?.volume ?? 1,
-											normalize,
-										},
-									},
 								})
 							}
 						/>
@@ -885,6 +783,67 @@ export function RecordingCompositionEditor({
 						</span>
 					</div>
 				</div>
+				{selectedZoom && (
+					<div
+						className="flex flex-wrap items-center gap-3 px-4 py-2 text-xs"
+						aria-label="Selected zoom settings"
+					>
+						<label className="flex items-center gap-2">
+							Depth
+							<select
+								aria-label="Zoom depth"
+								value={selectedZoom.depth}
+								className="rounded border border-foreground/10 bg-editor-surface px-2 py-1"
+								onChange={(event) =>
+									updateZoom(selectedZoom.id, {
+										depth: Number(event.target.value) as ZoomRegion["depth"],
+									})
+								}
+							>
+								{ZOOM_DEPTH_OPTIONS.map(({ depth, label }) => (
+									<option key={depth} value={depth}>
+										{label}
+									</option>
+								))}
+							</select>
+						</label>
+						<select
+							aria-label="Zoom mode"
+							value={selectedZoom.mode}
+							className="rounded border border-foreground/10 bg-editor-surface px-2 py-1"
+							onChange={(event) =>
+								updateZoom(selectedZoom.id, {
+									mode: event.target.value as ZoomRegion["mode"],
+								})
+							}
+						>
+							<option value="auto">Auto focus</option>
+							<option value="manual">Manual focus</option>
+						</select>
+						{selectedZoom.mode === "manual" &&
+							(["cx", "cy"] as const).map((axis) => (
+								<label key={axis} className="flex items-center gap-2">
+									Focus {axis === "cx" ? "X" : "Y"}
+									<input
+										type="number"
+										aria-label={`Zoom focus ${axis === "cx" ? "X" : "Y"}`}
+										min={0}
+										max={1}
+										step={0.01}
+										value={selectedZoom.focus[axis]}
+										className="w-16 rounded border border-foreground/10 bg-editor-surface px-2 py-1"
+										onChange={(event) => {
+											const value = Number(event.target.value);
+											if (Number.isFinite(value) && value >= 0 && value <= 1)
+												updateZoom(selectedZoom.id, {
+													focus: { ...selectedZoom.focus, [axis]: value },
+												});
+										}}
+									/>
+								</label>
+							))}
+					</div>
+				)}
 				<RecordingTimeline
 					ref={timeline}
 					videoDuration={durationMs / 1000}
@@ -954,7 +913,13 @@ export function RecordingCompositionEditor({
 					}
 					layoutRegions={settings.layoutRegions}
 					selectedLayoutId={selectedLayoutId}
-					onSelectLayout={setSelectedLayoutId}
+					onSelectLayout={(id) => {
+						setSelectedLayoutId(id);
+						if (id) {
+							setSelectedAnnotationId(null);
+							setSection("layout");
+						}
+					}}
 					onLayoutAdded={(span) => {
 						const id = crypto.randomUUID();
 						update({
@@ -971,6 +936,8 @@ export function RecordingCompositionEditor({
 							],
 						});
 						setSelectedLayoutId(id);
+						setSelectedAnnotationId(null);
+						setSection("layout");
 					}}
 					onLayoutSpanChange={(id, span) =>
 						updateLayout(id, { startMs: span.start, endMs: span.end })
@@ -994,36 +961,6 @@ export function RecordingCompositionEditor({
 								(a) => a.id !== id,
 							),
 						})
-					}
-					audioRegions={settings.audioRegions}
-					selectedAudioId={selectedAudioId}
-					onSelectAudio={setSelectedAudioId}
-					onAudioAdded={(span, audioPath, trackIndex) =>
-						update({
-							audioRegions: [
-								...settings.audioRegions,
-								{
-									id: crypto.randomUUID(),
-									startMs: span.start,
-									endMs: span.end,
-									audioPath,
-									volume: 1,
-									trackIndex,
-								},
-							],
-						})
-					}
-					onAudioSpanChange={(id, span, trackIndex) =>
-						update({
-							audioRegions: settings.audioRegions.map((a) =>
-								a.id === id
-									? { ...a, startMs: span.start, endMs: span.end, trackIndex }
-									: a,
-							),
-						})
-					}
-					onAudioDelete={(id) =>
-						update({ audioRegions: settings.audioRegions.filter((a) => a.id !== id) })
 					}
 				/>
 			</div>

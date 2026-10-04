@@ -478,7 +478,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 			{/* Tab Switcher */}
 			<div className="w-full">
 				<LayoutGroup id="scene-background-picker-switcher">
-					<div className="grid h-8 w-full grid-cols-4 rounded-xl border border-foreground/10 bg-foreground/[0.04] p-1">
+					<div className="grid h-8 w-full grid-cols-4 rounded-full border border-foreground/10 bg-foreground/[0.04] p-1">
 						{(
 							[
 								{ value: "image", label: tSettings("background.image", "Image") },
@@ -496,12 +496,12 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 									key={option.value}
 									type="button"
 									onClick={() => setBackgroundTab(option.value)}
-									className="relative rounded-lg text-[10px] font-semibold tracking-wide transition-colors cursor-pointer"
+									className="relative min-h-0 min-w-0 rounded-full p-0 text-[10px] font-semibold tracking-wide transition-colors cursor-pointer"
 								>
 									{isActive ? (
 										<motion.span
 											layoutId="scene-background-picker-pill"
-											className="absolute inset-0 rounded-lg bg-[#6FA8FF]"
+											className="absolute inset-0 rounded-full bg-[#6FA8FF]"
 											transition={{
 												type: "spring",
 												stiffness: 420,
@@ -511,7 +511,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 									) : null}
 									<span
 										className={cn(
-											"relative z-10",
+											"relative z-10 truncate",
 											isActive
 												? "text-white"
 												: "text-muted-foreground hover:text-foreground",

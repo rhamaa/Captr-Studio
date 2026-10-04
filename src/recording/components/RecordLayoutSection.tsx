@@ -1,5 +1,6 @@
 import { SquaresFour as LayoutIcon } from "@phosphor-icons/react";
 import React from "react";
+import { Button } from "@/components/ui/button";
 import {
 	Select,
 	SelectContent,
@@ -7,21 +8,20 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import {
 	getLayoutSceneCategory,
 	LAYOUT_SCENE_CATEGORIES,
 	LAYOUT_SCENE_CATEGORY_DETAILS,
 } from "@/components/video-editor/layoutScenes";
 import { SliderControl } from "@/components/video-editor/SliderControl";
+import { SectionLabel } from "@/components/video-editor/settings/components/SettingsSectionLabel";
 import type {
 	LayoutCameraSettings,
 	LayoutSceneEasing,
 	LayoutScenePreset,
 	WebcamOverlaySettings,
 } from "@/components/video-editor/types";
-import { SectionLabel } from "@/components/video-editor/settings/components/SettingsSectionLabel";
+import { cn } from "@/lib/utils";
 
 export interface RecordLayoutSectionProps {
 	selectedLayoutId?: string | null;
@@ -29,7 +29,7 @@ export interface RecordLayoutSectionProps {
 	selectedLayoutTransitionMs?: number | null;
 	selectedLayoutEasing?: LayoutSceneEasing | null;
 	selectedLayoutCameraSettings?: LayoutCameraSettings | null;
-	bubbleWebcamSettings?: React.ReactNode;
+	cameraSettings?: React.ReactNode;
 	onLayoutPresetChange?: (preset: LayoutScenePreset) => void;
 	onLayoutCameraSettingsChange?: (settings: Partial<LayoutCameraSettings>) => void;
 	onLayoutTransitionChange?: (transitionMs: number) => void;
@@ -131,7 +131,7 @@ export const RecordLayoutSection: React.FC<RecordLayoutSectionProps> = ({
 	selectedLayoutTransitionMs,
 	selectedLayoutEasing,
 	selectedLayoutCameraSettings,
-	bubbleWebcamSettings,
+	cameraSettings,
 	onLayoutPresetChange,
 	onLayoutCameraSettingsChange,
 	onLayoutTransitionChange,
@@ -173,10 +173,10 @@ export const RecordLayoutSection: React.FC<RecordLayoutSectionProps> = ({
 													onLayoutPresetChange?.(category.value)
 												}
 												className={cn(
-													"group flex flex-col justify-between rounded-xl border p-2.5 text-left transition-all overflow-hidden min-h-[64px]",
+													"group flex flex-col justify-between whitespace-normal rounded-xl border p-2.5 text-left transition-all overflow-hidden min-h-[64px]",
 													"border-foreground/10 bg-foreground/[0.03] hover:border-foreground/20 hover:bg-foreground/[0.06]",
 													isActive &&
-														"border-[#6FA8FF]/70 bg-[#6FA8FF]/12 shadow-[inset_0_0_0_1px_rgba(111,168,255,0.2)]",
+														"border-[#6FA8FF]/70 bg-[#6FA8FF]/[0.12] hover:border-[#6FA8FF]/70 hover:bg-[#6FA8FF]/[0.16] shadow-[inset_0_0_0_1px_rgba(111,168,255,0.2)]",
 												)}
 											>
 												<div className="flex items-center gap-2 w-full">
@@ -254,7 +254,7 @@ export const RecordLayoutSection: React.FC<RecordLayoutSectionProps> = ({
 															className={cn(
 																"h-8 border text-sm",
 																active
-																	? "border-[#6FA8FF] bg-[#6FA8FF] text-[#172033] font-semibold"
+																	? "border-[#6FA8FF] bg-[#6FA8FF] text-[#172033] hover:bg-[#6FA8FF] hover:text-[#172033] font-semibold"
 																	: "border-foreground/10 bg-foreground/5 text-muted-foreground hover:bg-foreground/10",
 															)}
 														>
@@ -280,8 +280,6 @@ export const RecordLayoutSection: React.FC<RecordLayoutSectionProps> = ({
 												parseFloat(text.replace(/%$/, ""))
 											}
 										/>
-
-										{bubbleWebcamSettings}
 									</div>
 								);
 							}
@@ -307,7 +305,7 @@ export const RecordLayoutSection: React.FC<RecordLayoutSectionProps> = ({
 															"rounded-xl border px-3 py-2 text-left text-[11px] font-medium transition-all",
 															"border-foreground/10 bg-foreground/[0.03] text-muted-foreground hover:border-foreground/20 hover:bg-foreground/[0.06] hover:text-foreground",
 															isActive &&
-																"border-[#60A5FA]/60 bg-[#60A5FA]/12 text-foreground shadow-[inset_0_0_0_1px_rgba(96,165,250,0.12)]",
+																"border-[#60A5FA]/60 bg-[#60A5FA]/[0.12] hover:border-[#60A5FA]/60 hover:bg-[#60A5FA]/[0.16] text-foreground shadow-[inset_0_0_0_1px_rgba(96,165,250,0.12)]",
 														)}
 													>
 														{preset.label}
@@ -319,6 +317,8 @@ export const RecordLayoutSection: React.FC<RecordLayoutSectionProps> = ({
 								</div>
 							);
 						})()}
+						{getLayoutSceneCategory(selectedLayoutPreset ?? "bubble").id !==
+							"screen-only" && cameraSettings}
 					</div>
 
 					<SliderControl

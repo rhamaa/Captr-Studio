@@ -15,13 +15,12 @@
 	--project-muted: #8d8d95;
 	--project-accent: #7aafff;
 }
-.project-editor button,
-.recording-composition-editor button {
+/* Defaults for plain editor buttons. Component classes own their geometry and states. */
+:where(.project-editor, .recording-composition-editor) button:where(:not([role="switch"])) {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	gap: 6px;
-	min-height: 30px;
 	padding: 5px 8px;
 	border: 1px solid transparent;
 	border-radius: 5px;
@@ -30,11 +29,11 @@
 	cursor: pointer;
 	white-space: nowrap;
 }
-.project-editor button:hover,
-.recording-composition-editor button:hover {
+:where(.project-editor, .recording-composition-editor)
+	button:where(:not([role="switch"])):where(:hover) {
 	background: #29292d;
 }
-.project-editor button:disabled {
+:where(.project-editor) button:where(:disabled) {
 	opacity: 0.35;
 	cursor: default;
 }
@@ -44,8 +43,8 @@
 	outline: 2px solid var(--project-accent);
 	outline-offset: 1px;
 }
-.project-editor input,
-.project-editor select {
+:where(.project-editor) input:where(:not([type="range"])),
+:where(.project-editor) select {
 	background: #19191c;
 	border: 1px solid var(--line);
 	border-radius: 5px;
@@ -1158,6 +1157,7 @@
 .recording-step-button {
 	width: 26px;
 	height: 26px;
+	padding: 0;
 	border-radius: 4px;
 	display: inline-flex;
 	align-items: center;
@@ -1176,6 +1176,7 @@
 .recording-play-button {
 	width: 30px;
 	height: 30px;
+	padding: 0;
 	border-radius: 50%;
 	display: inline-flex;
 	align-items: center;
