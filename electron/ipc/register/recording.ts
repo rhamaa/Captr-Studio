@@ -1,3 +1,4 @@
+import { isProjectFileOperationPending } from "../project/projectFileQueue";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { execFile, spawn } from "node:child_process";
 import fs from "node:fs/promises";
@@ -402,6 +403,9 @@ export function registerRecordingHandlers(
 	ipcMain.handle(
 		"start-native-screen-recording",
 		async (_, source: SelectedSource, options?: NativeMacRecordingOptions) => {
+			if (isProjectFileOperationPending()) {
+				return { success: false, message: "Finish the project file operation before recording." };
+			}
 			// Windows native capture path
 			if (process.platform === "win32") {
 				const windowsCaptureAvailable = await isNativeWindowsCaptureAvailable();
@@ -1857,6 +1861,9 @@ export function registerRecordingHandlers(
 
 	ipcMain.handle("set-recording-state", (_, recording: boolean) => {
 		if (recording) {
+			if (isProjectFileOperationPending()) {
+				throw new Error("Finish the project file operation before recording.");
+			}
 			stopCursorCapture();
 			stopInteractionCapture();
 			startWindowBoundsCapture();

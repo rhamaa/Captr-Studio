@@ -711,6 +711,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	) => {
 		return ipcRenderer.invoke("set-current-recording-session", session, options);
 	},
+	setProjectRecordingFinalizing: (input:{projectId:string;captureId:string;finalizing:boolean})=>ipcRenderer.invoke("set-project-recording-finalizing",input),
 	getRecordingProjectContext: () => ipcRenderer.invoke("get-recording-project-context"),
 	activateTimelineProject: (projectId:string,resetPath=false) => ipcRenderer.invoke("activate-timeline-project",projectId,resetPath),
 	getPathForFile: (file:File) => webUtils.getPathForFile(file),

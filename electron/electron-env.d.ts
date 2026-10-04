@@ -710,6 +710,7 @@ interface Window {
 			},
 			options?: { preserveProjectPath?: boolean;captureId?:string;projectId?:string },
 		) => Promise<{ success: boolean }>;
+		setProjectRecordingFinalizing: (input:{projectId:string;captureId:string;finalizing:boolean})=>Promise<{success:boolean}>;
 		getRecordingProjectContext: () => Promise<{captureId?:string;projectId?:string}>;
 		activateTimelineProject: (projectId:string,resetPath?:boolean) => Promise<{success:boolean}>;
 		getPathForFile: (file:File) => string;

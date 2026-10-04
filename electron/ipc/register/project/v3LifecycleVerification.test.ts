@@ -127,6 +127,7 @@ describe("V3 Lifecycle & Regression Verification Suite", () => {
 		const initSaveResult = await saveHandler(null, initialProject, "Test 2");
 		expect(initSaveResult.success).toBe(true);
 		expect(state.currentProjectPath).toBe(test2Path);
+		await mock.handlers.get("activate-timeline-project")!(null, initialProject.projectId, false);
 
 		// 2. First recording take: Recorder HUD sets preserveProjectPath flag
 		const sources1 = await makeSourceFiles("take-1");

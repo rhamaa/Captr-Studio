@@ -20,6 +20,8 @@ export interface ProjectControllerState {
 	saving: boolean;
 	fileOperation: "save" | "save-as" | "rename" | null;
 	openingKey: number;
+	navigationPending: boolean;
+	pendingWork: number;
 }
 export class ProjectController {
 	private history: ProjectHistory;
@@ -30,6 +32,7 @@ export class ProjectController {
 	private state: ProjectControllerState;
 	private exited = false;
 	private verified: boolean;
+	private work = new Map<string, number>();
 	constructor(project: TimelineProject, save: SaveProject | { persist: ProjectPersistencePort }) {
 		this.verified = typeof save !== "function";
 		this.history = new ProjectHistory(project);
@@ -48,6 +51,8 @@ export class ProjectController {
 			saving: false,
 			fileOperation: null,
 			openingKey: 0,
+			navigationPending: false,
+			pendingWork: 0,
 		};
 		this.persistence = new TimelinePersistence({
 			...(typeof save === "function" ? { save } : save),
@@ -88,6 +93,7 @@ export class ProjectController {
 	execute(command: ProjectCommand, selection?: string[]): void {
 		if (
 			this.exited ||
+			this.state.navigationPending ||
 			this.state.fileOperation === "rename" ||
 			this.state.fileOperation === "save-as"
 		)
@@ -113,18 +119,21 @@ export class ProjectController {
 		});
 	}
 	undo(): void {
+		if (this.state.navigationPending) return;
 		if (this.state.fileOperation === "rename" || this.state.fileOperation === "save-as") return;
 		if (!this.history.canUndo) return;
 		this.history.undo();
 		this.publish({ revision: this.state.revision + 1 });
 	}
 	redo(): void {
+		if (this.state.navigationPending) return;
 		if (this.state.fileOperation === "rename" || this.state.fileOperation === "save-as") return;
 		if (!this.history.canRedo) return;
 		this.history.redo();
 		this.publish({ revision: this.state.revision + 1 });
 	}
 	open(project: TimelineProject, path: string | null): void {
+		this.work.clear();
 		const next = structuredClone(validateTimelineProject(project));
 		if (path) next.title = projectTitleFromPath(path);
 		this.history = new ProjectHistory(next);
@@ -139,6 +148,8 @@ export class ProjectController {
 			saving: false,
 			fileOperation: null,
 			openingKey: this.state.openingKey + 1,
+			navigationPending: false,
+			pendingWork: 0,
 		});
 	}
 	importToken(): { generation: number; projectId: string } {
@@ -178,7 +189,12 @@ export class ProjectController {
 		intent: "save" | "save-as" | "rename",
 		name?: string,
 	): Promise<import("./useTimelinePersistence").ProjectSaveResult> {
-		if (this.exited || this.state.fileOperation)
+		if (
+			this.exited ||
+			this.state.fileOperation ||
+			this.state.navigationPending ||
+			(intent !== "save" && this.state.pendingWork > 0)
+		)
 			return { success: false, error: "A project file operation is already running." };
 		const generation = this.generation,
 			owner = this.state.project.projectId,
@@ -211,6 +227,25 @@ export class ProjectController {
 			)
 				this.publish({ saving: false, fileOperation: null });
 		}
+	}
+	setPendingWork(key: string, count: number): void {
+		if (this.exited) return;
+		this.work.set(key, Math.max(0, count));
+		this.publish({ pendingWork: [...this.work.values()].reduce((a, b) => a + b, 0) });
+	}
+	beginNavigation(): boolean {
+		if (
+			this.exited ||
+			this.state.fileOperation ||
+			this.state.navigationPending ||
+			this.state.pendingWork
+		)
+			return false;
+		this.publish({ navigationPending: true });
+		return true;
+	}
+	endNavigation(): void {
+		if (!this.exited) this.publish({ navigationPending: false });
 	}
 	exit(): void {
 		this.exited = true;

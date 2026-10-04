@@ -65,9 +65,14 @@ export async function projectCanSwitch(
 	controller: ProjectController,
 	api: ApplicationLifecycleApi,
 ): Promise<boolean> {
-	if (controller.snapshot.fileOperation) return false;
+	if (controller.snapshot.fileOperation || controller.snapshot.pendingWork) return false;
 	const activity = await api.getTimelineProjectActivity?.(controller.snapshot.project.projectId);
-	return !activity?.recording && !activity?.finalizing && !controller.snapshot.fileOperation;
+	return (
+		!activity?.recording &&
+		!activity?.finalizing &&
+		!controller.snapshot.fileOperation &&
+		!controller.snapshot.pendingWork
+	);
 }
 export async function requestProjectExit(
 	controller: ProjectController,
@@ -80,8 +85,14 @@ export async function requestProjectExit(
 		if (!saved.success || controller.snapshot.dirty) return false;
 	}
 	if (!(await projectCanSwitch(controller, api))) return false;
-	const result = await api.deactivateTimelineProject?.(controller.snapshot.project.projectId);
-	if (result && !result.success) return false;
-	controller.exit();
-	return true;
+	const ownsLock = controller.snapshot.navigationPending;
+	if (!ownsLock && !controller.beginNavigation()) return false;
+	try {
+		const result = await api.deactivateTimelineProject?.(controller.snapshot.project.projectId);
+		if (result && !result.success) return false;
+		controller.exit();
+		return true;
+	} finally {
+		if (!ownsLock) controller.endNavigation();
+	}
 }

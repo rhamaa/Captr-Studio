@@ -108,10 +108,6 @@ export function useRecordingAssets(
 			.catch((error) => {
 				if (controller.current!.isCurrent(ownerGeneration, projectId))
 					latest.current.onError(error);
-			})
-			.finally(() => {
-				pending.current--;
-				latest.current.onPendingChange?.(pending.current);
 			});
 	}, [projectId, openingKey, restoredSession]);
 	useEffect(() => {

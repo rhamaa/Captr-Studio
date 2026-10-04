@@ -70,3 +70,6 @@
 - Back to Home: Save/Discard/Cancel, deactivation hanya setelah guard berhasil. Capture/finalisasi, import, export dan transaksi file memblokir perpindahan.
 - Rekaman tambahan tetap Assets-only; seluruh sumber/sidecar termasuk asset tanpa placement tersimpan dalam V3. Dua placement memakai sumber bersama dengan komposisi independen.
 - Verifikasi otomatis/browser tercatat di `docs/verification/2026-10-04-project-home-and-naming.md`. QA native Windows (Explorer, file lock, case-only/Unicode, capture berulang dan relaunch recovery) belum dijalankan.
+- Final review: listing/recovery library memakai antrean yang sama dengan transaksi file; recovery tidak boleh menyentuh Rename aktif. Rename yang sudah terverifikasi commit tetap berhasil bila cleanup gagal, dengan warning dan journal yang dapat dipulihkan.
+- Preparation/finalisasi rekaman memiliki lease di proses utama sampai selesai; completion dengan projectId yang sudah ditinggalkan ditolak. Capture baru tidak boleh mulai selama antrean file masih berjalan.
+- Open/Home membekukan edit selama menunggu hasil. Rename/Save As menunggu import/probe media selesai agar aset yang sedang diproses tidak hilang akibat pergantian identitas.

@@ -70,3 +70,19 @@ it("newer edits during Save prevent exiting", async () => {
 	expect(await job).toBe(false);
 	expect(a.deactivateTimelineProject).not.toHaveBeenCalled();
 });
+it("Home owns mutations through its final async deactivation boundary", async () => {
+	const c = new ProjectController(createTimelineProject("p", "P"), vi.fn());
+	const a = api();
+	let finish!: () => void;
+	a.deactivateTimelineProject.mockImplementation(
+		() =>
+			new Promise((resolve) => {
+				finish = () => resolve({ success: true });
+			}),
+	);
+	const job = requestProjectExit(c, "discard", a);
+	await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+	expect(() => c.execute((p) => ({ ...p, canvas: { ...p.canvas, width: 1280 } }))).toThrow();
+	finish();
+	expect(await job).toBe(true);
+});

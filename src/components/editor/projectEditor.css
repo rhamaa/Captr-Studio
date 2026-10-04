@@ -1734,3 +1734,4 @@
 	margin-left: -3px;
 	box-shadow: 0 0 2px rgba(0, 0, 0, 0.6);
 }
+.project-editor[data-navigation-blocked="true"] { pointer-events: none; }

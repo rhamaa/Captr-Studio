@@ -64,11 +64,15 @@ export function ProjectApplication() {
 		if (operationBusy.current) return;
 		operationBusy.current = true;
 		setBusy(true);
+		const owner = active.current;
+		const locked = owner?.beginNavigation();
 		try {
+			if (owner && !locked) throw new Error("Finish pending project work before switching.");
 			await action();
 		} catch (e) {
 			report(e);
 		} finally {
+			owner?.endNavigation();
 			operationBusy.current = false;
 			setBusy(false);
 		}
@@ -137,12 +141,14 @@ export function ProjectApplication() {
 			if (rendererBusy.current || (c && !(await projectCanSwitch(c, api ?? {}))))
 				throw new Error("Finish the current operation first.");
 			if (decision === "save" && c?.snapshot.dirty) {
+				c.endNavigation();
 				const saved = await c.save();
 				if (!saved.success) {
 					if (!saved.canceled) report(saved.error ?? "Could not save project.");
 					return;
 				}
 				if (c.snapshot.dirty) return;
+				if (!c.beginNavigation()) return;
 			}
 			setPending(null);
 			await action();

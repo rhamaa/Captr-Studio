@@ -53,3 +53,5 @@ Sebelum mengubah pembuatan slide Record, Recorder HUD, finalisasi rekaman, proje
 ## Home dan nama project
 
 Home tidak memiliki projectId aktif atau target save tersembunyi. Startup hanya melewati Home untuk intent Open/capture yang terverifikasi. Filename `.captr` authoritative untuk nama terlihat; title internal tanpa ekstensi. Rename mempertahankan identitas/folder, Save As membuat salinan dengan identitas baru dan mempertahankan asli. Undo/redo mempertahankan nama/identitas committed. Switch Home/New/Open harus menjaga dirty revisions dan menolak capture/finalisasi/export/file operation aktif. Tetap ikuti seluruh kontrak recording V3 di atas.
+
+Listing/recovery library, load dan transaksi file berbagi antrean; jangan menjalankan recovery terhadap Rename aktif. Preparation/finalisasi capture harus memiliki lease proses utama dan menolak completion dari project yang sudah ditinggalkan. Freeze edit selama navigasi asynchronous; Rename/Save As harus menunggu import/probe selesai. Rename yang sudah commit terverifikasi mengembalikan sukses dengan warning bila hanya cleanup gagal.

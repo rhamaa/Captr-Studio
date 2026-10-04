@@ -439,7 +439,8 @@ export async function buildProjectLibraryEntry(
 	}
 }
 
-export async function listProjectLibraryEntries() {
+export async function listProjectLibraryEntries() {return enqueueProjectFileOperation(listProjectLibraryEntriesUnqueued);}
+async function listProjectLibraryEntriesUnqueued() {
 	const recovery = await recoverProjectRenameTransactions();
 	if (recovery.warnings.length) throw new Error(recovery.warnings.join("\n"));
 	await repairRecentProjectRenames();

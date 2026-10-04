@@ -121,7 +121,10 @@ export function ProjectEditor(props: ProjectEditorProps) {
 			getProject: () => controller.snapshot.project,
 			update: (next) => controller.execute(() => next),
 			onError: errorMessage,
-			onPendingChange: setRecordingPending,
+			onPendingChange: (count) => {
+				setRecordingPending(count);
+				controller.setPendingWork("recording", count);
+			},
 		},
 		state.openingKey,
 		props.recordingSession,
@@ -173,6 +176,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	const open = async () => props.onRequestOpen();
 	const newProject = async () => props.onRequestNew();
 	const importMedia = async (paths?: string[]) => {
+		controller.setPendingWork("import", 1);
 		const token = controller.importToken();
 		setBusy(true);
 		try {
@@ -207,6 +211,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 			if (controller.importToken().generation === token.generation) errorMessage(e);
 		} finally {
 			setBusy(false);
+			controller.setPendingWork("import", 0);
 		}
 	};
 	const startRecord = async () => {
@@ -253,9 +258,20 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	};
 	useEffect(() => {
 		props.onBusyChange?.(
-			busy || recordingPending > 0 || exportProgress !== null || Boolean(state.fileOperation),
+			busy ||
+				recordingPending > 0 ||
+				exportProgress !== null ||
+				Boolean(state.fileOperation) ||
+				state.navigationPending,
 		);
-	}, [busy, recordingPending, exportProgress, state.fileOperation, props.onBusyChange]);
+	}, [
+		busy,
+		recordingPending,
+		exportProgress,
+		state.fileOperation,
+		state.navigationPending,
+		props.onBusyChange,
+	]);
 	useEffect(() => bindProjectClose(controller, window.electronAPI, errorMessage), [controller]);
 	useEffect(() => {
 		const keydown = (e: KeyboardEvent) => {
@@ -481,7 +497,12 @@ export function ProjectEditor(props: ProjectEditorProps) {
 			sourceAsset?.source?.path ??
 			state.project.packages.find((p) => p.id === sourceAsset?.packageId)?.screen.path;
 	return (
-		<main className="project-editor dark">
+		<main
+			className="project-editor dark"
+			data-navigation-blocked={
+				state.navigationPending || props.navigationBlocked || undefined
+			}
+		>
 			<header className="project-header">
 				<button
 					aria-label="Back to Home"
@@ -573,7 +594,13 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						Cancel {Math.round(exportProgress)}%
 					</button>
 				)}
-				<button className="project-record-button" onClick={() => void startRecord()}>
+				<button
+					className="project-record-button"
+					disabled={
+						state.saving || state.navigationPending || busy || recordingPending > 0
+					}
+					onClick={() => void startRecord()}
+				>
 					<VideoCamera size={17} />
 					{m("record")}
 				</button>

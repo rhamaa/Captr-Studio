@@ -38,6 +38,31 @@ it("imports into an empty library, previews independently and retains dirty work
 	expect(c.snapshot.selection).toEqual([]);
 	expect(c.snapshot.project.assets).toHaveLength(1);
 });
+it("owns navigation while async loading and blocks Save As until a pending import completes", async () => {
+	const persist = vi.fn(async (r: any) => ({
+		success: true,
+		operationId: r.operationId,
+		generation: r.generation,
+		revision: r.revision,
+		projectId: r.project.projectId,
+		path: "Copy.captr",
+		title: "Copy",
+	}));
+	const c = new ProjectController(createTimelineProject("p", "P"), { persist });
+	expect(c.beginNavigation()).toBe(true);
+	expect(() => c.execute((p) => ({ ...p, canvas: { ...p.canvas, width: 1280 } }))).toThrow();
+	c.endNavigation();
+	c.setPendingWork("import", 1);
+	expect((await c.save(true)).success).toBe(false);
+	expect(persist).not.toHaveBeenCalled();
+	const token = c.importToken();
+	expect(c.acceptImport(token, (p) => ({ ...p, canvas: { ...p.canvas, width: 1280 } }))).toBe(
+		true,
+	);
+	c.setPendingWork("import", 0);
+	expect((await c.save(true)).success).toBe(true);
+	expect(c.snapshot.project.canvas.width).toBe(1280);
+});
 it("invalidates late imports when a new project replaces the opened one", () => {
 	const c = new ProjectController(createTimelineProject("p", "P"), vi.fn());
 	const token = c.importToken();
