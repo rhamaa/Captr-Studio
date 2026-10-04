@@ -14,24 +14,24 @@ import {
 	VideoCamera,
 	X,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
 import {
 	addTextOverlay,
-	createTimelineProject,
+	
 	placeAsset,
 	registerMedia,
 	removeAsset,
 	updateComposition,
 } from "@/core/timeline/commands";
 import type { ProjectCommand } from "@/core/timeline/history";
-import { convertLegacyRecordProject } from "@/core/timeline/legacyConversion";
+
 import { clipDurationUs, type MediaAsset, projectDurationUs } from "@/core/timeline/types";
-import { validateTimelineProject } from "@/core/timeline/validation";
+
 import { TimelineProjectExporter } from "@/lib/exporter/timelineProjectExporter";
 import { RecordingCompositionEditor } from "@/recording/editor/RecordingCompositionEditor";
-import { probeLegacyRecordProject } from "@/recording/legacyProbe";
+
 import { probeMedia } from "@/recording/mediaProbe";
 import { AssetLibrary } from "./AssetLibrary";
 import { AssetSourcePreview } from "./AssetSourcePreview";
@@ -41,43 +41,40 @@ import { ProjectPreview } from "./ProjectPreview";
 import { ProjectTimeline } from "./ProjectTimeline";
 import { ProjectWelcome } from "./ProjectWelcome";
 import { timelineActionCommand } from "./timelineInteractions";
-import { useProjectController } from "./useProjectController";
+import { projectFileName } from "@/core/project/projectNames";
+import { type ProjectController, useProjectController } from "./useProjectController";
 import { useProjectMessages } from "./useProjectMessages";
 import { useRecordingAssets } from "./useRecordingAssets";
 import "./projectEditor.css";
 import type { RecordingSessionData } from "../../../electron/ipc/types";
-import {
-	bindProjectClose,
-	type PendingProjectOpen,
-	type ProjectOpenResult,
-	resolveEditorBootstrap,
-} from "./projectLifecycle";
-
-export function ProjectEditor() {
+import {bindProjectClose} from "./projectLifecycle";
+export interface ProjectEditorProps {
+ controller:ProjectController;
+ recordingSession?:RecordingSessionData|null;
+ onRequestHome:()=>void;
+ onProjectChanged:()=>void;
+ onRequestNew:()=>void;
+ onRequestOpen:()=>void;
+ onBusyChange?:(busy:boolean)=>void;
+}
+export function ProjectEditor(props:ProjectEditorProps) {
 	const m = useProjectMessages();
 	const { openConfig } = useShortcuts();
-	const initial = useMemo(() => createTimelineProject(crypto.randomUUID(), "New project"), []);
-	const { controller, state } = useProjectController(initial);
+	const {controller,state}=useProjectController(props.controller);
 	const [error, setError] = useState<string | null>(null),
 		[busy, setBusy] = useState(false),
 		[playing, setPlaying] = useState(false),
-		[editingClipId, setEditingClipId] = useState<string | null>(null),
-		[legacy, setLegacy] = useState<unknown | null>(null),
-		[pendingNew, setPendingNew] = useState(false);
+		[editingClipId, setEditingClipId] = useState<string | null>(null);
 	const [scale, setScale] = useState(65);
 	const [snappingEnabled, setSnappingEnabled] = useState(true);
 	const playingRef = useRef(playing);
 	playingRef.current = playing;
 	const [exportProgress, setExportProgress] = useState<number | null>(null);
 	const exportAbort = useRef<AbortController | null>(null);
-	const [pendingOpen, setPendingOpen] = useState(false);
-	const pendingOpenRequest = useRef<PendingProjectOpen | null>(null);
-	const bootstrapTask = useRef<ReturnType<typeof resolveEditorBootstrap>>();
-	const [restoredRecordingSession, setRestoredRecordingSession] =
-		useState<RecordingSessionData | null>(null);
+	const [recordingPending,setRecordingPending]=useState(0);
 	const modalOpen = useRef(false);
 	modalOpen.current = Boolean(
-		pendingNew || pendingOpen || legacy || editingClipId || exportProgress !== null,
+		editingClipId || exportProgress !== null,
 	);
 	useEffect(() => {
 		if (!editingClipId) return;
@@ -111,46 +108,6 @@ export function ProjectEditor() {
 			setExportProgress(null);
 		}
 	};
-	const legacyToken = useRef<string | null>(null);
-	const releaseLegacy = () => {
-		const token = legacyToken.current;
-		legacyToken.current = null;
-		if (token) void window.electronAPI.releaseLegacyProjectCandidate?.(token);
-	};
-	const convertProject = async () => {
-		setBusy(true);
-		const owner = controller.importToken();
-		try {
-			const prepared = await probeLegacyRecordProject(legacy);
-			if (controller.importToken().generation !== owner.generation) return;
-			const converted = convertLegacyRecordProject(prepared, {
-				projectId: crypto.randomUUID(),
-				prefix: crypto.randomUUID(),
-			});
-			if (!legacyToken.current)
-				throw new Error("Open the original project again before converting");
-			const result = await window.electronAPI.saveConvertedProjectCopy(
-				converted,
-				legacyToken.current,
-			);
-			if (!result.success) {
-				if (!result.canceled)
-					throw new Error(result.error ?? "Could not save converted copy");
-				return;
-			}
-			const reopened = await window.electronAPI.loadCurrentProjectFile();
-			if (!reopened.success)
-				throw new Error(
-					reopened.error ?? reopened.message ?? "Could not reopen converted copy",
-				);
-			await install(reopened.project, reopened.path ?? null);
-			releaseLegacy();
-		} catch (e) {
-			errorMessage(e);
-		} finally {
-			setBusy(false);
-		}
-	};
 	const latest = useRef(state);
 	latest.current = state;
 	const errorMessage = (e: unknown) => setError(e instanceof Error ? e.message : String(e));
@@ -160,9 +117,10 @@ export function ProjectEditor() {
 			getProject: () => controller.snapshot.project,
 			update: (next) => controller.execute(() => next),
 			onError: errorMessage,
+			onPendingChange: setRecordingPending,
 		},
 		state.openingKey,
-		restoredRecordingSession,
+		props.recordingSession,
 	);
 	const run = (command: ProjectCommand) => {
 		try {
@@ -175,6 +133,7 @@ export function ProjectEditor() {
 	const save = async (saveAs = false) => {
 		try {
 			const result = await controller.save(saveAs);
+			if(result.success) props.onProjectChanged();
 			if (!result.success && !result.canceled)
 				throw new Error(result.error ?? result.message ?? "Could not save project");
 			if (result.success)
@@ -185,74 +144,8 @@ export function ProjectEditor() {
 			errorMessage(e);
 		}
 	};
-	const install = async (value: unknown, path: string | null) => {
-		const project = validateTimelineProject(value);
-		if (path) {
-			const fileName = path
-				.split(/[\\/]/)
-				.pop()
-				?.replace(/\.(captr|json)$/i, "")
-				?.trim();
-			if (
-				fileName &&
-				(project.title === "New project" ||
-					!project.title?.trim() ||
-					project.title.toLowerCase() === "new project")
-			) {
-				project.title = fileName;
-			}
-		}
-		controller.open(project, path);
-		setEditingClipId(null);
-		setPlaying(false);
-		setLegacy(null);
-		setError(null);
-		await window.electronAPI?.activateTimelineProject?.(project.projectId);
-	};
-	const acceptOpened = async (result: ProjectOpenResult) => {
-		if (!result.success) {
-			if (!result.canceled)
-				throw new Error(result.error ?? result.message ?? "Could not open project");
-			return;
-		}
-		if ((result.project as { version?: number })?.version === 3)
-			await install(result.project, result.path ?? null);
-		else {
-			releaseLegacy();
-			legacyToken.current = result.conversionToken ?? null;
-			setLegacy(result.project);
-		}
-	};
-	const open = async (discard = false, request?: PendingProjectOpen) => {
-		if (request) pendingOpenRequest.current = request;
-		if (controller.snapshot.dirty && !discard) {
-			setPendingOpen(true);
-			return;
-		}
-		setPendingOpen(false);
-		try {
-			const queued = pendingOpenRequest.current;
-			pendingOpenRequest.current = null;
-			await acceptOpened(
-				queued?.result ??
-					(queued?.path
-						? await window.electronAPI.openProjectFileAtPath(queued.path)
-						: await window.electronAPI.loadProjectFile()),
-			);
-		} catch (e) {
-			errorMessage(e);
-		}
-	};
-	const newProject = async () => {
-		if (controller.snapshot.dirty && !pendingNew) {
-			setPendingNew(true);
-			return;
-		}
-		setPendingNew(false);
-		const next = createTimelineProject(crypto.randomUUID(), "New project");
-		await window.electronAPI?.activateTimelineProject?.(next.projectId, true);
-		await install(next, null);
-	};
+	const open = async () => props.onRequestOpen();
+	const newProject = async () => props.onRequestNew();
 	const importMedia = async (paths?: string[]) => {
 		const token = controller.importToken();
 		setBusy(true);
@@ -332,33 +225,7 @@ export function ProjectEditor() {
 			errorMessage(e);
 		}
 	};
-	useEffect(() => {
-		let active = true;
-		void window.electronAPI?.setWindowMode?.("editor");
-		if (window.electronAPI) {
-			bootstrapTask.current ??= resolveEditorBootstrap(window.electronAPI);
-			void bootstrapTask.current
-				.then(async ({ result, recordingProjectId, recordingSession, resetPath }) => {
-					if (!active) return;
-					setRestoredRecordingSession(recordingSession ?? null);
-					if (result) await acceptOpened(result);
-					else if (recordingProjectId)
-						await install(
-							createTimelineProject(recordingProjectId, "New project"),
-							null,
-						);
-					else
-						await window.electronAPI.activateTimelineProject?.(
-							initial.projectId,
-							resetPath,
-						);
-				})
-				.catch(errorMessage);
-		}
-		return () => {
-			active = false;
-		};
-	}, []);
+	useEffect(()=>{props.onBusyChange?.(busy || recordingPending>0 || exportProgress!==null || Boolean(state.fileOperation));},[busy,recordingPending,exportProgress,state.fileOperation,props.onBusyChange]);
 	useEffect(() => bindProjectClose(controller, window.electronAPI, errorMessage), [controller]);
 	useEffect(() => {
 		const keydown = (e: KeyboardEvent) => {
@@ -544,17 +411,9 @@ export function ProjectEditor() {
 		};
 		window.addEventListener("keydown", keydown);
 		const unsub = [
-			window.electronAPI?.onOpenProjectFilePath?.(() => {
-				void window.electronAPI
-					.consumePendingProjectOpen?.()
-					.then((request) => {
-						if (request) void open(false, request);
-					})
-					.catch(errorMessage);
-			}),
 			window.electronAPI?.onMenuSaveProject?.(() => void save()),
 			window.electronAPI?.onMenuSaveProjectAs?.(() => void save(true)),
-			window.electronAPI?.onMenuLoadProject?.(() => void open()),
+			
 		];
 		return () => {
 			window.removeEventListener("keydown", keydown);
@@ -591,6 +450,7 @@ export function ProjectEditor() {
 	return (
 		<main className="project-editor dark">
 			<header className="project-header">
+<button aria-label='Back to Home' disabled={busy || recordingPending>0 || exportProgress!==null || state.saving} onClick={props.onRequestHome}>Home</button>
 				<div className="project-brand" aria-label="Captr Studio">
 					<VideoCamera size={22} weight="duotone" />
 				</div>
@@ -723,7 +583,7 @@ export function ProjectEditor() {
 							key={composition.id}
 							package={pkg}
 							composition={composition}
-							projectTitle={state.project.title}
+							projectTitle={projectFileName(state.path)}
 							onChange={(next) =>
 								controller.execute((p) =>
 									updateComposition(p, composition.id, next),
@@ -853,106 +713,6 @@ export function ProjectEditor() {
 					</footer>
 				</>
 			</ProjectEditorPanel>
-			{Boolean(legacy) && (
-				<div className="project-dialog-backdrop">
-					<section
-						role="dialog"
-						aria-modal="true"
-						aria-label="Convert legacy project"
-						className="project-dialog"
-					>
-						<h2>Convert a Record project</h2>
-						<p>
-							This project uses an earlier format. Create an editable copy in the new
-							Assets format.
-						</p>
-						<div>
-							<button
-								onClick={() => {
-									releaseLegacy();
-									setLegacy(null);
-								}}
-							>
-								Cancel
-							</button>
-							<button
-								className="primary"
-								disabled={busy}
-								onClick={() => void convertProject()}
-							>
-								Convert and save a copy
-							</button>
-						</div>
-					</section>
-				</div>
-			)}
-			{pendingNew && (
-				<div className="project-dialog-backdrop">
-					<section
-						role="dialog"
-						aria-modal="true"
-						aria-label="Unsaved project"
-						className="project-dialog"
-					>
-						<h2>Unsaved changes</h2>
-						<p>Save your project before starting a new one?</p>
-						<div>
-							<button onClick={() => setPendingNew(false)}>Cancel</button>
-							<button onClick={() => void newProject()}>Discard and start new</button>
-							<button
-								className="primary"
-								onClick={() =>
-									void save().then(() => {
-										if (!controller.snapshot.dirty) void newProject();
-									})
-								}
-							>
-								Save and start new
-							</button>
-						</div>
-					</section>
-				</div>
-			)}
-			{pendingOpen && (
-				<div className="project-dialog-backdrop">
-					<section
-						role="dialog"
-						aria-modal="true"
-						aria-label="Unsaved project"
-						className="project-dialog"
-					>
-						<h2>Unsaved changes</h2>
-						<p>Save your project before opening another?</p>
-						<div>
-							<button
-								onClick={() => {
-									const token =
-										pendingOpenRequest.current?.result?.conversionToken;
-									if (token)
-										void window.electronAPI.releaseLegacyProjectCandidate(
-											token,
-										);
-									pendingOpenRequest.current = null;
-									setPendingOpen(false);
-								}}
-							>
-								Cancel
-							</button>
-							<button onClick={() => void open(true)}>Discard and open</button>
-							<button
-								className="primary"
-								onClick={() =>
-									void save().then(() => {
-										if (!controller.snapshot.dirty) void open(true);
-									})
-								}
-							>
-								Save and open
-							</button>
-						</div>
-					</section>
-				</div>
-			)}
 			<Toaster />
 		</main>
 	);
