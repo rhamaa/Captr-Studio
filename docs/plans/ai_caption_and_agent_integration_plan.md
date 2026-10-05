@@ -88,8 +88,9 @@ $$\text{timelineTimeUs} = \text{clip.startUs} + \frac{\text{word.startUs} - \tex
 2. Membaca `transcript.json` dari aset klip aktif, menghitung pemotongan secara dinamis dengan rumus time-mapping.
 3. Mendukung kustomisasi visual dasar (posisi atas/bawah, warna teks, background container).
 
-### Fase 4: AI Agent / Hyperframe Assistant Panel
-1. Modal / Drawer UI di Project Editor (`AIAssistantModal.tsx`).
-2. Input prompt pengguna + pemilihan CLI agent (`claude`, `codex`, `agy`, `opencode`).
-3. Payload assembler: Merangkum `project.json` + semua `transcript.json` menjadi konteks lengkap.
-4. Menjalankan CLI di subprocess, memvalidasi hasil perubahan `validateTimelineProject()`, dan auto-reload ke editor.
+### Fase 4: AI Agent / Hyperframe Assistant Panel [SELESAI]
+1. [x] Modal / Drawer UI di Project Editor (`AIAssistantModal.tsx`).
+2. [x] Input prompt pengguna + preset chips (cut dead air, 60s reel, filler removal) + pemilihan CLI agent (`claude`, `codex`, `agy`, `opencode`, `gemini`).
+3. [x] Payload assembler: Merangkum `project.json` + semua `transcript.json` kata per kata menjadi konteks lengkap (`agentPayload.ts`).
+4. [x] Menjalankan CLI di subprocess dengan live stdout/stderr log streaming (`agentRunner.ts`, `agentDetector.ts`), memvalidasi hasil perubahan `validateTimelineProject()`, menghasilkan diff review, dan 1-click apply ke Project Editor timeline dengan undo/redo terintegrasi.
+

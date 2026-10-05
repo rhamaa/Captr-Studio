@@ -1000,6 +1000,31 @@ interface Window {
 				totalBytes: number;
 			}) => void,
 		) => () => void;
+		getAvailableAgents?: () => Promise<
+			Array<{
+				id: string;
+				name: string;
+				command: string;
+				description: string;
+				available: boolean;
+				executablePath?: string;
+			}>
+		>;
+		runAgentTask?: (params: {
+			agentId: string;
+			customCommand?: string;
+			userPrompt: string;
+			project: import("../src/core/timeline/types").TimelineProject;
+			transcripts: Record<string, import("../src/core/timeline/transcriptTypes").AssetTranscript>;
+		}) => Promise<{
+			success: boolean;
+			project?: import("../src/core/timeline/types").TimelineProject;
+			diff?: import("../src/core/timeline/agentPayload").AgentDiffSummary;
+			logs: string[];
+			error?: string;
+		}>;
+		cancelAgentTask?: () => Promise<boolean>;
+		onAgentLogStream?: (callback: (chunk: string) => void) => () => void;
 	};
 }
 

@@ -1065,4 +1065,20 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		ipcRenderer.on("whisper-model-download-progress", listener);
 		return () => ipcRenderer.removeListener("whisper-model-download-progress", listener);
 	},
+
+	// ── AI Assistant / Agent Bridge ────────────────────────────────────
+	getAvailableAgents: () => ipcRenderer.invoke("agent:get-available"),
+	runAgentTask: (params: {
+		agentId: string;
+		customCommand?: string;
+		userPrompt: string;
+		project: unknown;
+		transcripts: Record<string, unknown>;
+	}) => ipcRenderer.invoke("agent:run-task", params),
+	cancelAgentTask: () => ipcRenderer.invoke("agent:cancel-task"),
+	onAgentLogStream: (callback: (chunk: string) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, chunk: string) => callback(chunk);
+		ipcRenderer.on("agent:log-stream", listener);
+		return () => ipcRenderer.removeListener("agent:log-stream", listener);
+	},
 });

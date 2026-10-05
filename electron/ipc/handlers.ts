@@ -1,4 +1,5 @@
 import { BrowserWindow } from "electron";
+import { registerAgentHandlers } from "./register/agent";
 import { registerAssetHandlers } from "./register/assets";
 import { registerExportHandlers } from "./register/export";
 import { registerPermissionHandlers } from "./register/permissions";
@@ -69,4 +70,5 @@ export function registerIpcHandlers(
 	registerProjectHandlers();
 	registerSettingsHandlers();
 	registerTranscriptionHandlers();
+	registerAgentHandlers();
 }

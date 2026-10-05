@@ -10,6 +10,7 @@ import {
 	Pause,
 	Play,
 	Plus,
+	Sparkle,
 	Square,
 	SquaresFour,
 	VideoCamera,
@@ -45,6 +46,8 @@ import type { AspectRatio } from "@/utils/aspectRatioUtils";
 import { RepurposeBoardEditor } from "../repurpose/RepurposeBoardEditor";
 import { AssetLibrary } from "./AssetLibrary";
 import { AssetSourcePreview } from "./AssetSourcePreview";
+import { AIAssistantModal } from "./AIAssistantModal";
+import type { AssetTranscript } from "@/core/timeline/transcriptTypes";
 import { ProjectEditorPanel } from "./ProjectEditorPanel";
 import { ProjectInspector } from "./ProjectInspector";
 import { ProjectNameDialog } from "./ProjectNameDialog";
@@ -136,6 +139,35 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	const [nameDialog, setNameDialog] = useState(false),
 		[draftName, setDraftName] = useState(""),
 		[nameError, setNameError] = useState<string | null>(null);
+	const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
+	const [transcripts, setTranscripts] = useState<Record<string, AssetTranscript>>({});
+
+	useEffect(() => {
+		let isCurrent = true;
+		const loadTranscript = window.electronAPI?.loadAssetTranscript;
+		if (!loadTranscript) return;
+
+		const loadAll = async () => {
+			const map: Record<string, AssetTranscript> = {};
+			for (const asset of state.project.assets) {
+				const pkg = state.project.packages.find((p) => p.id === asset.packageId);
+				const candidatePath = asset.source?.path ?? pkg?.screen.path;
+				if (candidatePath) {
+					try {
+						const t = await loadTranscript(candidatePath);
+						if (t && isCurrent) map[asset.id] = t;
+					} catch {}
+				}
+			}
+			if (isCurrent) setTranscripts(map);
+		};
+
+		void loadAll();
+		return () => {
+			isCurrent = false;
+		};
+	}, [state.project.assets, state.project.packages]);
+
 	const modalOpen = useRef(false);
 	useEffect(() => {
 		controller.setThumbnailProvider(() => {
@@ -157,6 +189,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 			exportProgress !== null ||
 			nameDialog ||
 			audioRecorderOpen ||
+			aiAssistantOpen ||
 			props.navigationBlocked,
 	);
 	useEffect(() => {
@@ -841,6 +874,20 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					{m("record")}
 				</button>
 				<button
+					type="button"
+					className="project-ai-assist-button"
+					aria-label="AI Editor Assistant"
+					title="AI Editor Assistant (Claude, Antigravity, OpenCode)"
+					disabled={state.saving || state.navigationPending || busy}
+					onClick={() => {
+						setPlaying(false);
+						setAiAssistantOpen(true);
+					}}
+				>
+					<Sparkle size={15} weight="fill" />
+					<span>AI Editor</span>
+				</button>
+				<button
 					aria-label="Save project"
 					title="Save project (Ctrl+S)"
 					disabled={state.saving}
@@ -1129,6 +1176,27 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						if (recording) beginAudioCapture();
 					}}
 					onClose={closeAudioRecorder}
+				/>
+			)}
+			{aiAssistantOpen && (
+				<AIAssistantModal
+					open={aiAssistantOpen}
+					onOpenChange={setAiAssistantOpen}
+					project={activeProject}
+					transcripts={transcripts}
+					onApplyChanges={(modifiedProject) => {
+						if (currentActiveArtboardId) {
+							controller.execute((rootProject) =>
+								updateArtboardProject(
+									rootProject,
+									currentActiveArtboardId,
+									() => modifiedProject,
+								),
+							);
+						} else {
+							controller.execute(() => modifiedProject);
+						}
+					}}
 				/>
 			)}
 			<Toaster />
