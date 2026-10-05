@@ -14,7 +14,9 @@ describe("ProjectFrameRenderer text overlays", () => {
 		const context = {
 			fillStyle: "",
 			globalAlpha: 1,
+			clearRect: () => undefined,
 			fillRect: () => undefined,
+			drawImage: () => undefined,
 			save: () => undefined,
 			restore: () => undefined,
 			translate: () => undefined,

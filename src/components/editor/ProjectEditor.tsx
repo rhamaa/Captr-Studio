@@ -3,7 +3,6 @@ import {
 	ArrowCounterClockwise,
 	CaretDown,
 	FloppyDisk,
-	Folder,
 	FolderOpen,
 	Keyboard,
 	Minus,
@@ -26,7 +25,12 @@ import {
 } from "@/core/timeline/commands";
 import type { ProjectCommand } from "@/core/timeline/history";
 
-import { clipDurationUs, type MediaAsset, projectDurationUs } from "@/core/timeline/types";
+import {
+	clipDurationUs,
+	type MediaAsset,
+	type ShapeDefinition,
+	projectDurationUs,
+} from "@/core/timeline/types";
 
 import { TimelineProjectExporter } from "@/lib/exporter/timelineProjectExporter";
 import { RecordingCompositionEditor } from "@/recording/editor/RecordingCompositionEditor";
@@ -38,7 +42,8 @@ import { ProjectEditorPanel } from "./ProjectEditorPanel";
 import { ProjectInspector } from "./ProjectInspector";
 import { ProjectPreview } from "./ProjectPreview";
 import { captureProjectThumbnail } from "./projectThumbnail";
-import { ProjectTimeline } from "./ProjectTimeline";
+import { ProjectTimeline, shapePlacementCommand } from "./ProjectTimeline";
+import { ProjectToolRail } from "./ProjectToolRail";
 import { ProjectWelcome } from "./ProjectWelcome";
 import { timelineActionCommand } from "./timelineInteractions";
 import { projectFileName, projectTitleFromPath } from "@/core/project/projectNames";
@@ -70,6 +75,11 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		[busy, setBusy] = useState(false),
 		[playing, setPlaying] = useState(false),
 		[editingClipId, setEditingClipId] = useState<string | null>(null);
+	const [selectedTransitionId, setSelectedTransitionId] = useState<string | null>(null);
+	useEffect(() => {
+		if (selectedTransitionId && !state.project.clipTransitions?.some((item) => item.id === selectedTransitionId))
+			setSelectedTransitionId(null);
+	}, [selectedTransitionId, state.project.clipTransitions]);
 	const [scale, setScale] = useState(65);
 	const [snappingEnabled, setSnappingEnabled] = useState(true);
 	const playingRef = useRef(playing);
@@ -174,6 +184,20 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	const run = (command: ProjectCommand) => {
 		try {
 			controller.execute(command);
+			setError(null);
+		} catch (e) {
+			errorMessage(e);
+		}
+	};
+	const addShape = (kind: ShapeDefinition["kind"]) => {
+		const ids = {
+			assetId: crypto.randomUUID(),
+			clipId: crypto.randomUUID(),
+			trackId: crypto.randomUUID(),
+		};
+		try {
+			controller.execute(shapePlacementCommand(kind, state.playheadUs, ids));
+			controller.select([ids.clipId]);
 			setError(null);
 		} catch (e) {
 			errorMessage(e);
@@ -753,11 +777,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 			>
 				<>
 					<div className="project-workspace">
-						<aside className="project-tool-rail">
-							<button aria-label="Assets" aria-current="page">
-								<Folder size={21} />
-							</button>
-						</aside>
+						<ProjectToolRail onAddShape={addShape} />
 						<AssetLibrary
 							assets={state.project.assets}
 							packages={state.project.packages}
@@ -837,6 +857,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						<ProjectInspector
 							project={state.project}
 							selection={state.selection}
+							selectedTransitionId={selectedTransitionId}
 							playheadUs={state.playheadUs}
 							onCommand={run}
 							onOpenRecording={setEditingClipId}
@@ -845,9 +866,17 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					<ProjectTimeline
 						project={state.project}
 						selection={state.selection}
+						selectedTransitionId={selectedTransitionId}
 						playheadUs={state.playheadUs}
 						onCommand={run}
-						onSelect={(ids) => controller.select(ids)}
+						onSelect={(ids) => {
+							setSelectedTransitionId(null);
+							controller.select(ids);
+						}}
+						onSelectTransition={(id) => {
+							controller.select([]);
+							setSelectedTransitionId(id);
+						}}
 						onSeek={(time) => {
 							setPlaying(false);
 							controller.preview(null);

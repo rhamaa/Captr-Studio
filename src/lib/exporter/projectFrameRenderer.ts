@@ -1,10 +1,23 @@
-import type { ProjectEvaluation, ProjectVisual } from "@/core/timeline/evaluation";
+import type { ProjectEvaluation } from "@/core/timeline/evaluation";
+import type {
+	EvaluatedClipTransition,
+	ProjectVisualSample,
+} from "@/core/timeline/visualAnimation";
+import type {
+	ComponentAnimation,
+	ShapeDefinition,
+	ShapeStyle,
+} from "@/core/timeline/types";
 import { localMediaUrl } from "@/recording/mediaProbe";
 import { FrameRenderer } from "./frameRenderer";
 import { LayerVideoSource } from "./layerVideoSource";
+
+type Direction = "left" | "right" | "up" | "down";
+
 /** Paused source decoders and effect renderers are bounded and shared by preview/export. */
 export class ProjectFrameRenderer {
 	private canvas = document.createElement("canvas");
+	private frameCanvases: HTMLCanvasElement[] = [];
 	private sources = new Map<string, LayerVideoSource>();
 	private images = new Map<string, HTMLImageElement>();
 	private effects = new Map<string, FrameRenderer>();
@@ -78,13 +91,13 @@ export class ProjectFrameRenderer {
 		return image;
 	}
 	private async recording(
-		visual: ProjectVisual,
+		visual: ProjectVisualSample,
 		evaluation: ProjectEvaluation,
 		continuousPlayback: boolean,
 	) {
-		const record = visual.recording!,
-			{ settings, package: pkg, composition } = record,
-			{ width, height } = evaluation.project.canvas;
+		const record = visual.recording!;
+		const { settings, package: pkg, composition } = record;
+		const { width, height } = evaluation.project.canvas;
 		// History branches may reuse a numeric revision; immutable object identity cannot collide.
 		let identity = this.compositionKeys.get(composition);
 		if (identity === undefined) {
@@ -151,6 +164,224 @@ export class ProjectFrameRenderer {
 			frame.close();
 		}
 	}
+	private makeCanvas(width: number, height: number, poolIndex: number) {
+		const canvas = this.frameCanvases[poolIndex] ?? document.createElement("canvas");
+		this.frameCanvases[poolIndex] = canvas;
+		canvas.width = width;
+		canvas.height = height;
+		const ctx = canvas.getContext("2d");
+		if (!ctx) throw new Error("Project canvas is unavailable");
+		ctx.clearRect(0, 0, width, height);
+		return { canvas, ctx };
+	}
+	private animationTransform(visual: ProjectVisualSample, width: number, height: number) {
+		let { x, y, scale, opacity } = visual.transform;
+		let wipe: { progress: number; direction: Direction } | undefined;
+		const animations = visual.componentAnimations;
+		if (!animations) return { x, y, scale, opacity, wipe };
+		for (const [edge, sample] of [["enter", animations.enter], ["exit", animations.exit]] as const) {
+			if (!sample) continue;
+			const progress = sample.progress;
+			applyComponentAnimation(sample.preset, edge, progress, sample.direction ?? "left", width, height,
+				(value) => { opacity *= value; },
+				(dx, dy) => { x += dx; y += dy; },
+				(value) => { scale *= value; },
+				(value, direction) => { wipe = { progress: value, direction }; },
+			);
+		}
+		return { x, y, scale, opacity, wipe };
+	}
+	private applyMask(
+		ctx: CanvasRenderingContext2D,
+		width: number,
+		height: number,
+		mask: { progress: number; direction: Direction } | undefined,
+	) {
+		if (!mask) return;
+		const p = Math.max(0, Math.min(1, mask.progress));
+		ctx.beginPath();
+		switch (mask.direction) {
+			case "left": ctx.rect(0, 0, width * p, height); break;
+			case "right": ctx.rect(width * (1 - p), 0, width * p, height); break;
+			case "up": ctx.rect(0, 0, width, height * p); break;
+			case "down": ctx.rect(0, height * (1 - p), width, height * p); break;
+		}
+		ctx.clip();
+	}
+	private drawShape(
+		ctx: CanvasRenderingContext2D,
+		shape: ShapeDefinition,
+		style: ShapeStyle,
+		assetWidth: number,
+		assetHeight: number,
+		ratio: number,
+	) {
+		ctx.scale(ratio, ratio);
+		const stroke = style.stroke;
+		if (stroke) {
+			ctx.strokeStyle = stroke.color;
+			ctx.lineWidth = stroke.width;
+			ctx.lineCap = "round";
+			ctx.lineJoin = "round";
+		}
+		if (style.fill) ctx.fillStyle = style.fill;
+		if (shape.kind === "rectangle") {
+			const x = -assetWidth / 2, y = -assetHeight / 2;
+			if (style.fill) ctx.fillRect(x, y, shape.width, shape.height);
+			if (stroke) ctx.strokeRect(x, y, shape.width, shape.height);
+			return;
+		}
+		if (shape.kind === "ellipse") {
+			ctx.beginPath();
+			ctx.ellipse(0, 0, shape.width / 2, shape.height / 2, 0, 0, Math.PI * 2);
+			if (style.fill) ctx.fill();
+			if (stroke) ctx.stroke();
+			return;
+		}
+		const fromX = shape.from.x - assetWidth / 2;
+		const fromY = shape.from.y - assetHeight / 2;
+		const toX = shape.to.x - assetWidth / 2;
+		const toY = shape.to.y - assetHeight / 2;
+		ctx.beginPath();
+		ctx.moveTo(fromX, fromY);
+		ctx.lineTo(toX, toY);
+		if (shape.kind === "arrow") {
+			const angle = Math.atan2(toY - fromY, toX - fromX);
+			const length = Math.hypot(toX - fromX, toY - fromY);
+			const headLength = Math.min(length * 0.4, shape.headLength);
+			const spread = Math.PI / 6;
+			ctx.moveTo(toX, toY);
+			ctx.lineTo(toX - headLength * Math.cos(angle - spread), toY - headLength * Math.sin(angle - spread));
+			ctx.moveTo(toX, toY);
+			ctx.lineTo(toX - headLength * Math.cos(angle + spread), toY - headLength * Math.sin(angle + spread));
+		}
+		if (stroke) ctx.stroke();
+	}
+	private async visualLayer(
+		visual: ProjectVisualSample,
+		evaluation: ProjectEvaluation,
+		continuousPlayback: boolean,
+		poolIndex = 0,
+	): Promise<HTMLCanvasElement> {
+		const { width, height } = evaluation.project.canvas;
+		const { canvas, ctx } = this.makeCanvas(width, height, poolIndex);
+		const animated = this.animationTransform(visual, width, height);
+		ctx.save();
+		this.applyMask(ctx, width, height, animated.wipe);
+		ctx.globalAlpha = animated.opacity;
+		ctx.translate(width / 2 + animated.x, height / 2 + animated.y);
+		ctx.rotate((visual.transform.rotation * Math.PI) / 180);
+		ctx.scale(animated.scale, animated.scale);
+		if (visual.asset.kind === "text") {
+			const overlay = visual.clip.text ?? visual.asset.text!;
+			ctx.font = `${overlay.fontWeight} ${overlay.fontSizePx}px "${overlay.fontFamily.replace(/["\\\r\n]/g, "")}"`;
+			ctx.textAlign = overlay.align;
+			ctx.textBaseline = "middle";
+			ctx.fillStyle = overlay.color;
+			const lines = overlay.content.split("\n"), lineHeight = overlay.fontSizePx * 1.2;
+			lines.forEach((line, index) => ctx.fillText(
+				line,
+				0,
+				(index - (lines.length - 1) / 2) * lineHeight,
+				width * 0.9,
+			));
+			ctx.restore();
+			return canvas;
+		}
+		if (visual.asset.kind === "shape") {
+			const definition = visual.asset.shapeDefinition;
+			if (!definition) throw new Error(`Missing shape definition for ${visual.clipId}`);
+			const defaultStyle: ShapeStyle = {
+				fill: "fill" in definition.style ? definition.style.fill : null,
+				stroke: definition.style.stroke,
+			};
+			const style = visual.clip.shapeStyleOverride ?? defaultStyle;
+			const ratio = Math.min(width / visual.asset.width, height / visual.asset.height);
+			this.drawShape(ctx, definition, style, visual.asset.width, visual.asset.height, ratio);
+			ctx.restore();
+			return canvas;
+		}
+		const source = visual.recording
+			? await this.recording(visual, evaluation, continuousPlayback)
+			: visual.asset.kind === "image"
+				? await this.image(visual.path)
+				: await this.video(visual.path, visual.sourceUs, evaluation.timeUs, continuousPlayback);
+		if (this.disposed) throw new Error("Project renderer disposed");
+		const sourceWidth = source instanceof HTMLVideoElement
+			? source.videoWidth
+			: source instanceof HTMLImageElement ? source.naturalWidth : source.width;
+		const sourceHeight = source instanceof HTMLVideoElement
+			? source.videoHeight
+			: source instanceof HTMLImageElement ? source.naturalHeight : source.height;
+		if (!sourceWidth || !sourceHeight) throw new Error(`No decoded frame for ${visual.clipId}`);
+		const ratio = Math.min(width / sourceWidth, height / sourceHeight);
+		const drawWidth = sourceWidth * ratio, drawHeight = sourceHeight * ratio;
+		ctx.drawImage(source, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+		ctx.restore();
+		return canvas;
+	}
+	private paintWipe(ctx: CanvasRenderingContext2D, incoming: HTMLCanvasElement, transition: EvaluatedClipTransition) {
+		const { width, height } = incoming;
+		const p = transition.progress;
+		const direction: Direction = transition.preset.kind === "wipe" ? transition.preset.direction : "left";
+		ctx.save();
+		ctx.beginPath();
+		switch (direction) {
+			case "left": ctx.rect(0, 0, width * p, height); break;
+			case "right": ctx.rect(width * (1 - p), 0, width * p, height); break;
+			case "up": ctx.rect(0, 0, width, height * p); break;
+			case "down": ctx.rect(0, height * (1 - p), width, height * p); break;
+		}
+		ctx.clip();
+		ctx.drawImage(incoming, 0, 0);
+		ctx.restore();
+	}
+	private async transitionLayer(
+		transition: EvaluatedClipTransition,
+		evaluation: ProjectEvaluation,
+		continuousPlayback: boolean,
+	): Promise<HTMLCanvasElement> {
+		const { width, height } = evaluation.project.canvas;
+		const outgoing = await this.visualLayer(transition.outgoing, evaluation, continuousPlayback, 1);
+		const incoming = await this.visualLayer(transition.incoming, evaluation, continuousPlayback, 2);
+		const { canvas, ctx } = this.makeCanvas(width, height, 3);
+		const p = Math.max(0, Math.min(1, transition.progress));
+		const preset = transition.preset;
+		if (preset.kind === "cross-dissolve") {
+			ctx.globalCompositeOperation = "lighter";
+			ctx.globalAlpha = 1 - p;
+			ctx.drawImage(outgoing, 0, 0);
+			ctx.globalAlpha = p;
+			ctx.drawImage(incoming, 0, 0);
+			ctx.globalAlpha = 1;
+			ctx.globalCompositeOperation = "source-over";
+		} else if (preset.kind === "fade-through") {
+			if (p < 0.5) {
+				ctx.drawImage(outgoing, 0, 0);
+				ctx.globalAlpha = p * 2;
+				ctx.fillStyle = preset.color === "white" ? "#fff" : "#000";
+				ctx.fillRect(0, 0, width, height);
+			} else {
+				ctx.fillStyle = preset.color === "white" ? "#fff" : "#000";
+				ctx.fillRect(0, 0, width, height);
+				ctx.globalAlpha = (p - 0.5) * 2;
+				ctx.drawImage(incoming, 0, 0);
+			}
+			ctx.globalAlpha = 1;
+		} else if (preset.kind === "wipe") {
+			ctx.drawImage(outgoing, 0, 0);
+			this.paintWipe(ctx, incoming, transition);
+		} else {
+			const horizontal = preset.direction === "left" || preset.direction === "right";
+			const sign = preset.direction === "left" || preset.direction === "up" ? -1 : 1;
+			const distance = horizontal ? width : height;
+			const incomingX = horizontal ? sign * distance * (1 - p) : 0;
+			const incomingY = horizontal ? 0 : sign * distance * (1 - p);
+			ctx.drawImage(outgoing, horizontal ? -sign * distance * p : 0, horizontal ? 0 : -sign * distance * p);
+			ctx.drawImage(incoming, incomingX, incomingY);
+		}
+		return canvas;
+	}
 	async render(
 		evaluation: ProjectEvaluation,
 		options: { continuousPlayback?: boolean } = {},
@@ -163,70 +394,29 @@ export class ProjectFrameRenderer {
 		this.canvas.height = height;
 		const ctx = this.canvas.getContext("2d");
 		if (!ctx) throw new Error("Project canvas is unavailable");
+		ctx.clearRect(0, 0, width, height);
 		ctx.fillStyle = "#000";
 		ctx.fillRect(0, 0, width, height);
+		const transitions = new Map<string, EvaluatedClipTransition>();
+		for (const transition of evaluation.visualTransitions) {
+			transitions.set(transition.fromClipId, transition);
+			transitions.set(transition.toClipId, transition);
+		}
+		const renderedTransitions = new Set<string>(), transitionClips = new Set<string>();
 		for (const visual of evaluation.visuals) {
-			if (visual.asset.kind === "text") {
-				const overlay = visual.clip.text ?? visual.asset.text!;
-				const transform = visual.transform ?? visual.clip.transform;
-				ctx.save();
-				ctx.globalAlpha = transform.opacity;
-				ctx.translate(width / 2 + transform.x, height / 2 + transform.y);
-				ctx.rotate((transform.rotation * Math.PI) / 180);
-				ctx.scale(transform.scale, transform.scale);
-				ctx.font = `${overlay.fontWeight} ${overlay.fontSizePx}px "${overlay.fontFamily.replace(/["\\\r\n]/g, "")}"`;
-				ctx.textAlign = overlay.align;
-				ctx.textBaseline = "middle";
-				ctx.fillStyle = overlay.color;
-				const lines = overlay.content.split("\n"),
-					lineHeight = overlay.fontSizePx * 1.2;
-				lines.forEach((line, index) =>
-					ctx.fillText(
-						line,
-						0,
-						(index - (lines.length - 1) / 2) * lineHeight,
-						width * 0.9,
-					),
-				);
-				ctx.restore();
+			if (transitionClips.has(visual.clipId)) continue;
+			const transition = transitions.get(visual.clipId);
+			if (transition) {
+				if (renderedTransitions.has(transition.id)) continue;
+				const layer = await this.transitionLayer(transition, evaluation, continuousPlayback);
+				ctx.drawImage(layer, 0, 0);
+				renderedTransitions.add(transition.id);
+				transitionClips.add(transition.fromClipId);
+				transitionClips.add(transition.toClipId);
 				continue;
 			}
-			const source = visual.recording
-				? await this.recording(visual, evaluation, continuousPlayback)
-				: visual.asset.kind === "image"
-					? await this.image(visual.path)
-					: await this.video(
-							visual.path,
-							visual.sourceUs,
-							evaluation.timeUs,
-							continuousPlayback,
-						);
-			if (this.disposed) throw new Error("Project renderer disposed");
-			const sourceWidth =
-					source instanceof HTMLVideoElement
-						? source.videoWidth
-						: source instanceof HTMLImageElement
-							? source.naturalWidth
-							: source.width,
-				sourceHeight =
-					source instanceof HTMLVideoElement
-						? source.videoHeight
-						: source instanceof HTMLImageElement
-							? source.naturalHeight
-							: source.height;
-			if (!sourceWidth || !sourceHeight)
-				throw new Error(`No decoded frame for ${visual.clipId}`);
-			const ratio = Math.min(width / sourceWidth, height / sourceHeight),
-				w = sourceWidth * ratio,
-				h = sourceHeight * ratio,
-				transform = visual.transform ?? visual.clip.transform;
-			ctx.save();
-			ctx.globalAlpha = transform.opacity;
-			ctx.translate(width / 2 + transform.x, height / 2 + transform.y);
-			ctx.rotate((transform.rotation * Math.PI) / 180);
-			ctx.scale(transform.scale, transform.scale);
-			ctx.drawImage(source, -w / 2, -h / 2, w, h);
-			ctx.restore();
+			const layer = await this.visualLayer(visual, evaluation, continuousPlayback);
+			ctx.drawImage(layer, 0, 0);
 		}
 		return this.canvas;
 	}
@@ -238,6 +428,39 @@ export class ProjectFrameRenderer {
 		this.effects.clear();
 		this.playbackPositions.clear();
 		this.images.clear();
+		this.frameCanvases.forEach((canvas) => { canvas.width = canvas.height = 0; });
+		this.frameCanvases = [];
 		this.canvas.width = this.canvas.height = 0;
 	}
+}
+
+function applyComponentAnimation(
+	preset: ComponentAnimation["preset"],
+	edge: "enter" | "exit",
+	progress: number,
+	direction: Direction,
+	width: number,
+	height: number,
+	setOpacity: (factor: number) => void,
+	addOffset: (x: number, y: number) => void,
+	setScale: (factor: number) => void,
+	setWipe: (progress: number, direction: Direction) => void,
+) {
+	const p = Math.max(0, Math.min(1, progress));
+	if (preset === "fade") {
+		setOpacity(edge === "enter" ? p : 1 - p);
+		return;
+	}
+	if (preset === "slide") {
+		const offset = edge === "enter" ? 1 - p : p;
+		const sign = direction === "left" || direction === "up" ? -1 : 1;
+		if (direction === "left" || direction === "right") addOffset(sign * width * offset, 0);
+		else addOffset(0, sign * height * offset);
+		return;
+	}
+	if (preset === "scale-pop") {
+		setScale(edge === "enter" ? 0.85 + p * 0.15 : 1 - p * 0.15);
+		return;
+	}
+	setWipe(edge === "enter" ? p : 1 - p, direction);
 }

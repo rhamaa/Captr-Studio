@@ -3,6 +3,9 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { addTextOverlay, createTimelineProject, registerMedia, registerRecording, placeAsset } from "../../../src/core/timeline/commands";
+import { addClipTransition, setComponentAnimation } from "../../../src/core/timeline/clipTransitions";
+import { createAndPlaceShape, setShapeStyleOverride } from "../../../src/core/timeline/shapeCommands";
+import type { ShapeDefinition } from "../../../src/core/timeline/types";
 import { resolveTimelineProject, stageTimelineProject } from "./timelineBundle";
 import { packProjectWorkspace, unpackProjectBundle } from "./projectBundle";
 
@@ -87,4 +90,131 @@ it("stages an unplaced voiceover Asset and reopens it alongside a placed audio c
 	]);
 	expect(await fs.readFile(unplaced!.source!.path, "utf8")).toBe("unplaced voice bytes");
 	expect(await fs.readFile(placed!.source!.path, "utf8")).toBe("placed voice bytes");
+});
+
+it("timelineBundle_roundTripsClipTransitionAndComponentAnimations", async () => {
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-transition-roundtrip-"));
+	roots.push(root);
+	let project = createTimelineProject("transition-roundtrip", "Transitions");
+	for (const id of ["outgoing", "incoming"]) {
+		const sourcePath = path.join(root, `${id}.mp4`);
+		await fs.writeFile(sourcePath, `${id} media`);
+		project = registerMedia(project, {
+			id,
+			kind: "video",
+			name: id,
+			durationUs: 8_000_000,
+			width: 1920,
+			height: 1080,
+			source: { path: sourcePath, durationUs: 8_000_000, offsetUs: 0 },
+		});
+	}
+	project = placeAsset(project, "outgoing", "visual-1", 0, { clipId: "out" });
+	project = placeAsset(project, "incoming", "visual-1", 8_000_000, { clipId: "in" });
+	project.tracks[0]!.clips[0]!.sourceOutUs = 6_000_000;
+	project.tracks[0]!.clips[1]!.sourceInUs = 2_000_000;
+	project.tracks[0]!.clips[1]!.startUs = 6_000_000;
+	project = setComponentAnimation(project, "in", "enter", {
+		preset: "slide",
+		direction: "left",
+		durationUs: 400_000,
+		easing: "ease-out",
+	});
+	project = addClipTransition(
+		project,
+		{
+			trackId: "visual-1",
+			fromClipId: "out",
+			toClipId: "in",
+			preset: { kind: "wipe", direction: "right" },
+			easing: "ease-in-out",
+		},
+		"transition",
+	);
+
+	const workspace = path.join(root, "workspace"),
+		staged = await stageTimelineProject(project, workspace),
+		bundle = path.join(root, "transition.captr"),
+		loaded = path.join(root, "loaded");
+	await packProjectWorkspace(workspace, bundle);
+	await unpackProjectBundle(bundle, loaded);
+	const reopened = resolveTimelineProject(
+		JSON.parse(await fs.readFile(path.join(loaded, "project.json"), "utf8")),
+		loaded,
+	);
+	expect(staged.clipTransitions).toEqual(project.clipTransitions);
+	expect(reopened.clipTransitions).toEqual(project.clipTransitions);
+	expect(reopened.tracks[0]!.clips.find((clip) => clip.id === "in")?.componentAnimation)
+		.toEqual(project.tracks[0]!.clips.find((clip) => clip.id === "in")?.componentAnimation);
+	expect(await fs.readFile(reopened.assets.find((asset) => asset.id === "outgoing")!.source!.path, "utf8"))
+		.toBe("outgoing media");
+});
+
+it("timelineBundle_roundTripsPathlessShapeAssetAndPlacementOverride", async () => {
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-shape-roundtrip-"));
+	roots.push(root);
+	const rectangle: ShapeDefinition = {
+		kind: "rectangle",
+		width: 320,
+		height: 180,
+		style: { fill: "#ffffff", stroke: { color: "#111111", width: 2 } },
+	};
+	let project = createAndPlaceShape(createTimelineProject("shape-roundtrip", "Shapes"), rectangle, 0, {
+		assetId: "shape",
+		clipId: "shape-clip",
+		trackId: "shape-track",
+	});
+	project = setShapeStyleOverride(project, "shape-clip", {
+		fill: "#abcdef",
+		stroke: { color: "#123456", width: 1.5 },
+	});
+	project.clipTransitions = [];
+	const workspace = path.join(root, "workspace"),
+		staged = await stageTimelineProject(project, workspace),
+		shapeFiles = await fs.readdir(path.join(workspace, "assets", "shape"));
+	expect(shapeFiles).toEqual(["asset.json"]);
+	expect(staged.assets[0]!.source).toBeUndefined();
+	expect(staged.assets[0]!.shapeDefinition).toEqual(rectangle);
+
+	const bundle = path.join(root, "shape.captr"), loaded = path.join(root, "loaded");
+	await packProjectWorkspace(workspace, bundle);
+	await unpackProjectBundle(bundle, loaded);
+	const reopened = resolveTimelineProject(
+		JSON.parse(await fs.readFile(path.join(loaded, "project.json"), "utf8")),
+		loaded,
+	);
+	expect(reopened.assets[0]!.shapeDefinition).toEqual(rectangle);
+	expect(reopened.tracks[0]!.clips[0]!.shapeStyleOverride).toEqual({
+		fill: "#abcdef",
+		stroke: { color: "#123456", width: 1.5 },
+	});
+	expect(reopened.assets[0]!.source).toBeUndefined();
+});
+
+it("timelineBundle_loadsOldV3WithoutVisualEffectFields", async () => {
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-old-v3-"));
+	roots.push(root);
+	const workspace = path.join(root, "workspace");
+	await stageTimelineProject(createTimelineProject("old-v3", "Old V3"), workspace);
+	const bundle = path.join(root, "old.captr"), loaded = path.join(root, "loaded");
+	await packProjectWorkspace(workspace, bundle);
+	await unpackProjectBundle(bundle, loaded);
+	const reopened = resolveTimelineProject(
+		JSON.parse(await fs.readFile(path.join(loaded, "project.json"), "utf8")),
+		loaded,
+	);
+	expect(reopened.version).toBe(3);
+	expect(reopened.clipTransitions).toBeUndefined();
+});
+
+it("timelineBundle_rejectsMalformedTransitionWithoutPartialLoad", async () => {
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-invalid-transition-"));
+	roots.push(root);
+	const project = createTimelineProject("invalid-transition", "Invalid"),
+		workspace = path.join(root, "workspace");
+	(project as unknown as { clipTransitions: unknown[] }).clipTransitions = [
+		{ id: "bad-transition", trackId: "visual-1", fromClipId: "missing-a", toClipId: "missing-b", preset: { kind: "mystery" }, durationUs: 1, easing: "linear" },
+	];
+	await expect(stageTimelineProject(project, workspace)).rejects.toThrow(/transition|clip|preset/i);
+	await expect(fs.access(workspace)).rejects.toThrow();
 });

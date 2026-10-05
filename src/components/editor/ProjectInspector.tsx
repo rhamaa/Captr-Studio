@@ -10,24 +10,151 @@ import {
 	updateClipKeyframe,
 	updateTextOverlay,
 } from "@/core/timeline/commands";
+import {
+	getMaxClipTransitionDurationUs,
+	removeClipTransition,
+	setComponentAnimation,
+	updateClipTransition,
+} from "@/core/timeline/clipTransitions";
+import { setShapeStyleOverride } from "@/core/timeline/shapeCommands";
 import type { ProjectCommand } from "@/core/timeline/history";
-import { clipDurationUs, type TimelineProject } from "@/core/timeline/types";
+import { clipDurationUs, type ClipTransition, type ClipTransitionPreset, type ComponentAnimation, type ShapeStyle, type TimelineProject } from "@/core/timeline/types";
+import { useProjectMessages } from "./useProjectMessages";
+
+type Direction = "left" | "right" | "up" | "down";
+
+export function transitionPresetFromControl(
+	value: string,
+	direction: Direction = "left",
+): ClipTransitionPreset {
+	if (value === "fade-through-black") return { kind: "fade-through", color: "black" };
+	if (value === "fade-through-white") return { kind: "fade-through", color: "white" };
+	if (value === "wipe") return { kind: "wipe", direction };
+	if (value === "push") return { kind: "push", direction };
+	return { kind: "cross-dissolve" };
+}
+
+export function transitionPresetControlValue(preset: ClipTransitionPreset) {
+	if (preset.kind === "fade-through") return `fade-through-${preset.color}`;
+	return preset.kind;
+}
+
+export function componentAnimationDurationLimitUs(clipDuration: number, otherDuration: number) {
+	return Math.max(0, Math.min(2_000_000, clipDuration - otherDuration));
+}
+
+export function defaultComponentAnimationDurationUs(clipDuration: number, otherDuration: number) {
+	return Math.min(300_000, componentAnimationDurationLimitUs(clipDuration, otherDuration));
+}
+
+function TransitionInspector({
+	transition,
+	maximumDurationUs,
+	locked,
+	fromName,
+	toName,
+	onCommand,
+}: {
+	transition: ClipTransition;
+	maximumDurationUs: number;
+	locked: boolean;
+	fromName: string;
+	toName: string;
+	onCommand: (command: ProjectCommand) => void;
+}) {
+	const m = useProjectMessages();
+	const maxDurationMs = maximumDurationUs === Number.MAX_SAFE_INTEGER ? undefined : maximumDurationUs / 1000;
+	return (
+		<fieldset disabled={locked} className="project-transition-inspector">
+			<div className="project-inspector-title">
+				<strong>{fromName} → {toName}</strong>
+				<span>{m("transition")}</span>
+			</div>
+			<label>
+				{m("transitionPreset")}
+				<select aria-label={m("transitionPreset")} value={transitionPresetControlValue(transition.preset)} onChange={(event) => {
+					const direction = transition.preset.kind === "wipe" || transition.preset.kind === "push" ? transition.preset.direction : "left";
+					onCommand((p) => updateClipTransition(p, transition.id, { preset: transitionPresetFromControl(event.target.value, direction) }));
+				}}>
+					<option value="cross-dissolve">{m("transitionCrossDissolve")}</option>
+					<option value="fade-through-black">{m("transitionFadeThroughBlack")}</option>
+					<option value="fade-through-white">{m("transitionFadeThroughWhite")}</option>
+					<option value="wipe">{m("transitionWipe")}</option>
+					<option value="push">{m("transitionPush")}</option>
+				</select>
+			</label>
+			{(transition.preset.kind === "wipe" || transition.preset.kind === "push") && (
+				<label>
+					{m("transitionDirection")}
+					<select aria-label={m("transitionDirection")} value={transition.preset.direction} onChange={(event) => {
+						const direction = event.target.value as Direction;
+						const kind = transition.preset.kind as "wipe" | "push";
+						onCommand((p) => updateClipTransition(p, transition.id, { preset: { kind, direction } }));
+					}}>
+						{(["left", "right", "up", "down"] as const).map((direction) => <option key={direction} value={direction}>{m(direction)}</option>)}
+					</select>
+				</label>
+			)}
+			{transition.preset.kind === "fade-through" && (
+				<label>
+					{m("transitionColor")}
+					<select aria-label={m("transitionColor")} value={transition.preset.color} onChange={(event) => onCommand((p) => updateClipTransition(p, transition.id, { preset: { kind: "fade-through", color: event.target.value as "black" | "white" } }))}>
+						<option value="black">{m("black")}</option>
+						<option value="white">{m("white")}</option>
+					</select>
+				</label>
+			)}
+			<label>
+				{m("transitionDuration")}
+				<input aria-label={m("transitionDuration")} type="number" min={100} step={50} max={maxDurationMs} disabled={maximumDurationUs < 100_000} value={maximumDurationUs < 100_000 ? 0 : Math.min(transition.durationUs, maximumDurationUs) / 1000} onChange={(event) => {
+					const durationUs = Math.max(100_000, Math.min(maximumDurationUs, Math.round(Number(event.target.value) * 1000)));
+					onCommand((p) => updateClipTransition(p, transition.id, { durationUs }));
+				}} />
+				<span>ms</span>
+			</label>
+			<div className="project-transition-maximum"><span>{m("maximumTransitionDuration")}</span><strong>{maximumDurationUs === Number.MAX_SAFE_INTEGER ? m("unlimited") : `${(maximumDurationUs / 1_000_000).toFixed(2)}s`}</strong></div>
+			<label>
+				{m("transitionEasing")}
+				<select aria-label={m("transitionEasing")} value={transition.easing} onChange={(event) => onCommand((p) => updateClipTransition(p, transition.id, { easing: event.target.value as ClipTransition["easing"] }))}>
+					<option value="linear">{m("linear")}</option>
+					<option value="ease-in">{m("easeIn")}</option>
+					<option value="ease-out">{m("easeOut")}</option>
+					<option value="ease-in-out">{m("easeInOut")}</option>
+				</select>
+			</label>
+			<button type="button" className="project-transition-remove" aria-label={m("removeTransition")} onClick={() => onCommand((p) => removeClipTransition(p, transition.id))}>{m("removeTransition")}</button>
+		</fieldset>
+	);
+}
+
 export function ProjectInspector({
 	project,
 	selection,
 	playheadUs = 0,
 	onCommand,
 	onOpenRecording,
+	selectedTransitionId = null,
 }: {
 	project: TimelineProject;
 	selection: string[];
 	playheadUs?: number;
 	onCommand: (command: ProjectCommand) => void;
 	onOpenRecording: (id: string) => void;
+	selectedTransitionId?: string | null;
 }) {
+	const m = useProjectMessages();
 	const track = project.tracks.find((t) => t.clips.some((c) => selection.includes(c.id))),
 		clip = track?.clips.find((c) => selection.includes(c.id)),
 		asset = project.assets.find((a) => a.id === clip?.assetId);
+	const selectedTransition = project.clipTransitions?.find((item) => item.id === selectedTransitionId),
+		transitionTrack = selectedTransition && project.tracks.find((item) => item.id === selectedTransition.trackId),
+		transitionFrom = selectedTransition && project.tracks.flatMap((item) => item.clips).find((item) => item.id === selectedTransition.fromClipId),
+		transitionTo = selectedTransition && project.tracks.flatMap((item) => item.clips).find((item) => item.id === selectedTransition.toClipId),
+		transitionMaximumUs = selectedTransition
+				? getMaxClipTransitionDurationUs(project, selectedTransition.fromClipId, selectedTransition.toClipId, selectedTransition.id)
+			: 0;
+	const fromAsset = transitionFrom && project.assets.find((item) => item.id === transitionFrom.assetId),
+		toAsset = transitionTo && project.assets.find((item) => item.id === transitionTo.assetId);
 	const localMs = clip ? Math.round(Math.max(0, (playheadUs - clip.startUs) / 1000)) : 0;
 	const handleAddKeyframe = (property: KeyframeProperty) => {
 		if (!clip) return;
@@ -45,16 +172,61 @@ export function ProjectInspector({
 			}),
 		);
 	};
+	const componentDurationLimit = (edge: "enter" | "exit") => {
+		if (!clip) return 0;
+		const other = edge === "enter" ? clip.componentAnimation?.exit : clip.componentAnimation?.enter;
+		return componentAnimationDurationLimitUs(clipDurationUs(clip), other?.durationUs ?? 0);
+	};
+	const setAnimation = (edge: "enter" | "exit", value: string) => {
+		if (!clip) return;
+		if (value === "none") {
+			onCommand((p) => setComponentAnimation(p, clip.id, edge, null));
+			return;
+		}
+		const current = clip.componentAnimation?.[edge],
+			other = edge === "enter" ? clip.componentAnimation?.exit : clip.componentAnimation?.enter,
+			preset = value as ComponentAnimation["preset"],
+			animation: ComponentAnimation = {
+				preset,
+				durationUs: current?.durationUs ?? defaultComponentAnimationDurationUs(clipDurationUs(clip), other?.durationUs ?? 0),
+				easing: current?.easing ?? "ease-out",
+				...((preset === "slide" || preset === "wipe-reveal") ? { direction: current?.direction ?? "left" } : {}),
+			};
+		onCommand((p) => setComponentAnimation(p, clip.id, edge, animation));
+	};
+	const setAnimationDuration = (edge: "enter" | "exit", rawMs: string) => {
+		if (!clip) return;
+		const current = clip.componentAnimation?.[edge];
+		if (!current) return;
+		const limit = componentDurationLimit(edge),
+			durationUs = Math.max(Math.min(50_000, limit), Math.min(limit, Math.round(Number(rawMs) * 1000)));
+		onCommand((p) => setComponentAnimation(p, clip.id, edge, { ...current, durationUs }));
+	};
+	const setAnimationDirection = (edge: "enter" | "exit", direction: Direction) => {
+		if (!clip) return;
+		const current = clip.componentAnimation?.[edge];
+		if (!current) return;
+		onCommand((p) => setComponentAnimation(p, clip.id, edge, { ...current, direction }));
+	};
 	return (
-		<aside className="project-inspector" aria-label="Clip inspector">
+		<aside className="project-inspector" aria-label={selectedTransition ? m("transitionInspector") : m("clipInspector")}>
 			<header className="project-panel-header">
-				<h2>Inspector</h2>
+				<h2>{selectedTransition ? m("transition") : m("inspector")}</h2>
 				{selection.length > 1 && (
 					<span className="project-multi-select-badge">{selection.length} selected</span>
 				)}
 				<SlidersHorizontal size={18} />
 			</header>
-			{!clip || !asset || !track ? (
+			{selectedTransition && transitionTrack && transitionFrom && transitionTo ? (
+				<TransitionInspector
+					transition={selectedTransition}
+					maximumDurationUs={transitionMaximumUs}
+					locked={transitionTrack.locked}
+					fromName={fromAsset?.name ?? m("clip")}
+					toName={toAsset?.name ?? m("clip")}
+					onCommand={onCommand}
+				/>
+			) : !clip || !asset || !track ? (
 				<div className="project-inspector-empty">
 					<SlidersHorizontal size={27} />
 					<p>Select a clip to edit its properties</p>
@@ -265,6 +437,45 @@ export function ProjectInspector({
 					</label>
 					{asset.kind !== "audio" && (
 						<>
+							{asset.kind === "shape" && asset.shapeDefinition && (() => {
+								const base = asset.shapeDefinition.style;
+								const defaultStyle: ShapeStyle = { fill: "fill" in base ? base.fill : null, stroke: base.stroke };
+								const style = clip.shapeStyleOverride ?? defaultStyle;
+								return (
+									<div className="project-shape-style">
+										<h3>{m("shapeStyle")}</h3>
+										{asset.shapeDefinition.kind !== "line" && asset.shapeDefinition.kind !== "arrow" && (
+											<label>{m("shapeFill")}<input aria-label={m("shapeFill")} type="color" value={style.fill ?? "#6387ff"} onChange={(event) => onCommand((p) => setShapeStyleOverride(p, clip.id, { ...style, fill: event.target.value }))} /></label>
+										)}
+										<label>{m("shapeStroke")}<input aria-label={m("shapeStroke")} type="color" value={style.stroke?.color ?? "#ffffff"} onChange={(event) => onCommand((p) => setShapeStyleOverride(p, clip.id, { ...style, stroke: { color: event.target.value, width: style.stroke?.width ?? 4 } }))} /></label>
+										<label>{m("shapeStrokeWidth")}<input aria-label={m("shapeStrokeWidth")} type="number" min={0} max={64} step={1} value={style.stroke?.width ?? 0} onChange={(event) => onCommand((p) => setShapeStyleOverride(p, clip.id, { ...style, stroke: Number(event.target.value) > 0 ? { color: style.stroke?.color ?? "#ffffff", width: Number(event.target.value) } : null }))} /></label>
+									</div>
+								);
+							})()}
+							<div className="project-component-animations">
+								<h3>{m("componentAnimations")}</h3>
+								{(["enter", "exit"] as const).map((edge) => {
+									const current = clip.componentAnimation?.[edge];
+									const other = edge === "enter" ? clip.componentAnimation?.exit : clip.componentAnimation?.enter;
+									const limit = componentDurationLimit(edge);
+									const label = edge === "enter" ? m("enterAnimation") : m("exitAnimation");
+									const durationLabel = edge === "enter" ? m("enterAnimationDuration") : m("exitAnimationDuration");
+									return (
+										<div className="project-component-animation-row" key={edge}>
+											<label>{label}<select aria-label={label} value={current?.preset ?? "none"} disabled={!current && limit <= 0} onChange={(event) => setAnimation(edge, event.target.value)}>
+												<option value="none">{m("animationNone")}</option>
+												<option value="fade">{m("animationFade")}</option>
+												<option value="slide">{m("animationSlide")}</option>
+												<option value="scale-pop">{m("animationScalePop")}</option>
+												<option value="wipe-reveal">{m("animationWipeReveal")}</option>
+											</select></label>
+											{current && <label>{durationLabel}<input aria-label={durationLabel} type="number" min={Math.min(50, limit / 1000)} max={limit / 1000} step={50} disabled={limit <= 0} value={Math.min(current.durationUs, limit) / 1000} onChange={(event) => setAnimationDuration(edge, event.target.value)} /><span>ms</span></label>}
+											{current && (current.preset === "slide" || current.preset === "wipe-reveal") && <label>{m("animationDirection")}<select aria-label={`${label} ${m("animationDirection")}`} value={current.direction ?? "left"} onChange={(event) => setAnimationDirection(edge, event.target.value as Direction)}>{(["left", "right", "up", "down"] as const).map((direction) => <option key={direction} value={direction}>{m(direction)}</option>)}</select></label>}
+											{other && current && current.durationUs + other.durationUs > clipDurationUs(clip) && <span className="project-muted">{m("animationsCannotOverlap")}</span>}
+										</div>
+									);
+								})}
+							</div>
 							<h3>Transform</h3>
 							{(["x", "y", "scale", "rotation", "opacity"] as const).map((key) => (
 								<label key={key}>

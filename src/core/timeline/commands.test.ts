@@ -5,6 +5,7 @@ import {
 	moveClip,
 	placeAsset,
 	registerRecording,
+	registerMedia,
 	removeAsset,
 	removeClip,
 	removeTrack,
@@ -13,8 +14,11 @@ import {
 	rippleRemoveClips,
 	setClipRate,
 	splitClip,
+	trimClip,
 	updateComposition,
 } from "./commands";
+import { addClipTransition, setComponentAnimation } from "./clipTransitions";
+import { ProjectHistory } from "./history";
 import { mapClipTime, mapCompositionTime, mapStreamTime } from "./timeMapping";
 import { validateTimelineProject } from "./validation";
 
@@ -38,6 +42,40 @@ export function recorded() {
 }
 export function placed() {
 	return placeAsset(recorded(), "a", "visual-1", 0, { clipId: "c", compositionId: "e" });
+}
+
+function transitionReadyProject() {
+	let project = createTimelineProject("transition-commands", "Transition commands");
+	for (const id of ["out-asset", "in-asset"])
+		project = registerMedia(project, {
+			id,
+			kind: "video",
+			name: id,
+			durationUs: 10_000_000,
+			width: 1280,
+			height: 720,
+			source: { path: `${id}.mp4`, durationUs: 10_000_000, offsetUs: 0 },
+		});
+	project = placeAsset(project, "out-asset", "visual-1", 0, { clipId: "out" });
+	project = placeAsset(project, "in-asset", "visual-1", 10_000_000, { clipId: "in" });
+	project.tracks[0]!.clips[0]!.sourceOutUs = 8_000_000;
+	project.tracks[0]!.clips[1]!.sourceInUs = 2_000_000;
+	project.tracks[0]!.clips[1]!.startUs = 8_000_000;
+	return project;
+}
+
+function transitionReadyProjectWithTransition() {
+	return addClipTransition(
+		transitionReadyProject(),
+		{
+			trackId: "visual-1",
+			fromClipId: "out",
+			toClipId: "in",
+			preset: { kind: "cross-dissolve" },
+			easing: "linear",
+		},
+		"between-clips",
+	);
 }
 
 describe("project assets and placements", () => {
@@ -216,5 +254,70 @@ describe("project assets and placements", () => {
 		expect(reordered2.tracks.map((t) => t.id)).toEqual(["visual-1", "track-3", "audio-1"]);
 
 		expect(() => validateTimelineProject(reordered2)).not.toThrow();
+	});
+});
+
+describe("transition and component animation command cleanup", () => {
+	it("removes a transition atomically when moving, trimming, splitting, or deleting a clip", () => {
+		const moved = moveClip(transitionReadyProjectWithTransition(), "in", "visual-1", 9_000_000);
+		expect(moved.clipTransitions).toEqual([]);
+
+		const trimmed = trimClip(transitionReadyProjectWithTransition(), "out", 0, 7_500_000);
+		expect(trimmed.clipTransitions).toEqual([]);
+
+		const split = splitClip(transitionReadyProjectWithTransition(), "out", 4_000_000, {
+			rightClipId: "out-right",
+		});
+		expect(split.clipTransitions).toEqual([]);
+
+		const removed = removeClip(transitionReadyProjectWithTransition(), "in");
+		expect(removed.clipTransitions).toEqual([]);
+	});
+
+	it("rejects a trim that preserves the cut but removes a required source handle", () => {
+		const project = transitionReadyProjectWithTransition();
+		const before = structuredClone(project);
+		expect(() => trimClip(project, "in", 100_000, 10_000_000)).toThrow(/handle/i);
+		expect(project).toEqual(before);
+	});
+
+	it("undo restores a transition removed by a clip gesture", () => {
+		const history = new ProjectHistory(transitionReadyProjectWithTransition());
+		history.execute((project) => moveClip(project, "in", "visual-1", 9_000_000), ["in"]);
+		expect(history.project.clipTransitions).toEqual([]);
+		history.undo();
+		expect(history.project.clipTransitions).toHaveLength(1);
+		expect(history.project.tracks[0]!.clips.find((clip) => clip.id === "in")?.startUs)
+			.toBe(8_000_000);
+	});
+
+	it("clamps or removes edge animations on trim and preserves outer edges on split", () => {
+		let project = transitionReadyProject();
+		project = setComponentAnimation(project, "out", "enter", {
+			preset: "fade",
+			durationUs: 1_000_000,
+			easing: "linear",
+		});
+		project = setComponentAnimation(project, "out", "exit", {
+			preset: "slide",
+			direction: "right",
+			durationUs: 1_000_000,
+			easing: "ease-out",
+		});
+		const clamped = trimClip(project, "out", 0, 1_500_000);
+		expect(clamped.tracks[0]!.clips[0]!.componentAnimation).toMatchObject({
+			enter: { durationUs: 1_000_000 },
+			exit: { durationUs: 500_000 },
+		});
+		const removed = trimClip(project, "out", 0, 1_000_000);
+		expect(removed.tracks[0]!.clips[0]!.componentAnimation).toEqual({ enter: {
+			preset: "fade", durationUs: 1_000_000, easing: "linear",
+		} });
+
+		const split = splitClip(project, "out", 4_000_000, { rightClipId: "animation-right" });
+		const left = split.tracks[0]!.clips.find((clip) => clip.id === "out")!;
+		const right = split.tracks[0]!.clips.find((clip) => clip.id === "animation-right")!;
+		expect(left.componentAnimation).toEqual({ enter: project.tracks[0]!.clips[0]!.componentAnimation!.enter });
+		expect(right.componentAnimation).toEqual({ exit: project.tracks[0]!.clips[0]!.componentAnimation!.exit });
 	});
 });

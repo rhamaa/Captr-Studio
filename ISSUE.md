@@ -81,3 +81,11 @@
 - Final review: listing/recovery library memakai antrean yang sama dengan transaksi file; recovery tidak boleh menyentuh Rename aktif. Rename yang sudah terverifikasi commit tetap berhasil bila cleanup gagal, dengan warning dan journal yang dapat dipulihkan.
 - Preparation/finalisasi rekaman memiliki lease di proses utama sampai selesai; completion dengan projectId yang sudah ditinggalkan ditolak. Capture baru tidak boleh mulai selama antrean file masih berjalan.
 - Open/Home membekukan edit selama menunggu hasil. Rename/Save As menunggu import/probe media selesai agar aset yang sedang diproses tidak hilang akibat pergantian identitas.
+
+## Transisi visual dan shape V3 (5 Oktober 2026)
+
+- `project.json` V3 menyimpan relasi `clipTransitions` dan animasi masuk/keluar pada clip; field transisi bersifat opsional agar project V3 lama tanpa efek visual tetap bisa dibuka.
+- Shape rectangle, ellipse, line, dan arrow adalah asset metadata `shapeDefinition` tanpa file media raster. Style yang diedit pada placement tersimpan di `shapeStyleOverride` clip.
+- Relasi transisi menghubungkan dua clip visual yang bersebelahan pada track yang sama. Durasi project tidak berubah; sampling memakai source handle sesuai rate clip, dan transisi ditolak atau dibatasi bila handle tidak cukup. Operasi timeline membersihkan relasi yang tidak lagi valid dan undo memulihkannya.
+- Preview dan export menggunakan evaluasi/render frame yang sama. Recording package serta komposisinya tetap utuh dan tidak diratakan sebelum transisi.
+- Tes bundle memverifikasi round-trip metadata transisi, animasi, shape, style placement, serta pembukaan project V3 lama tanpa field efek. QA desktop native untuk tambah/edit/duplikasi shape, playback, save/reopen, dan parity preview/export masih pending.

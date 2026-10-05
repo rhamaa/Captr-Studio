@@ -13,6 +13,7 @@ import {
 	type TimelineProject,
 } from "./types";
 import { validateTimelineProject } from "./validation";
+import { reconcileClipTransitions } from "./clipTransitions";
 
 export function createTimelineProject(projectId: string, title: string): TimelineProject {
 	const stamp = new Date().toISOString();
@@ -51,8 +52,19 @@ export function createTimelineProject(projectId: string, title: string): Timelin
 function edit(project: TimelineProject, update: (next: TimelineProject) => void): TimelineProject {
 	const next = structuredClone(project);
 	update(next);
+	reconcileClipTransitions(next);
 	next.updatedAt = new Date().toISOString();
 	return validateTimelineProject(next);
+}
+
+function clampEdgeAnimation(clip: TimelineClip, edge: "enter" | "exit", maxDurationUs: number) {
+	const animation = clip.componentAnimation?.[edge];
+	if (!animation) return;
+	if (maxDurationUs <= 0) delete clip.componentAnimation![edge];
+	else if (animation.durationUs > maxDurationUs)
+		clip.componentAnimation![edge] = { ...animation, durationUs: maxDurationUs };
+	if (clip.componentAnimation && !clip.componentAnimation.enter && !clip.componentAnimation.exit)
+		delete clip.componentAnimation;
 }
 export function registerRecording(
 	p: TimelineProject,
@@ -282,9 +294,21 @@ export function trimClip(
 ) {
 	return edit(p, (n) => {
 		const c = find(n, id).clip;
+		const oldSourceInUs = c.sourceInUs,
+			oldSourceOutUs = c.sourceOutUs,
+			oldStartUs = c.startUs;
 		c.sourceInUs = sourceInUs;
 		c.sourceOutUs = sourceOutUs;
 		if (startUs !== undefined) c.startUs = startUs;
+		const newDurationUs = Math.max(0, clipDurationUs(c));
+		if (sourceInUs !== oldSourceInUs || c.startUs !== oldStartUs) {
+			const opposite = c.componentAnimation?.exit?.durationUs ?? 0;
+			clampEdgeAnimation(c, "enter", newDurationUs - opposite);
+		}
+		if (sourceOutUs !== oldSourceOutUs) {
+			const opposite = c.componentAnimation?.enter?.durationUs ?? 0;
+			clampEdgeAnimation(c, "exit", newDurationUs - opposite);
+		}
 	});
 }
 export function splitClip(
@@ -305,6 +329,12 @@ export function splitClip(
 				sourceInUs: boundary,
 			};
 		c.sourceOutUs = boundary;
+		if (c.componentAnimation) {
+			const enter = c.componentAnimation.enter;
+			const exit = c.componentAnimation.exit;
+			c.componentAnimation = enter ? { enter: structuredClone(enter) } : undefined;
+			right.componentAnimation = exit ? { exit: structuredClone(exit) } : undefined;
+		}
 		if (c.compositionId) {
 			if (!ids.rightCompositionId) throw new Error("Composition ID required");
 			const original = n.compositions.find((e) => e.id === c.compositionId)!;

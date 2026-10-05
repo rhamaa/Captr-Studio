@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 import { buildProjectAudioPlan } from "./audioPlan";
+import { audioAtTime } from "./audioPlan";
 import {
 	addTrack,
 	createTimelineProject,
@@ -9,6 +10,8 @@ import {
 	updateComposition,
 } from "./commands";
 import { evaluateProject } from "./evaluation";
+import { addClipTransition, setComponentAnimation } from "./clipTransitions";
+import { registerMedia } from "./commands";
 
 const recording = {
 	captureId: "capture",
@@ -115,4 +118,67 @@ it("preserves additional audio offsets, playback rates and audible video layers"
 		sourceUs: 450_000,
 		rate: 0.5,
 	});
+});
+
+it("evaluateProject_keepsAudioPlanUnchanged", () => {
+	let project = fixture();
+	project = setComponentAnimation(project, "c", "enter", {
+		preset: "fade",
+		durationUs: 250_000,
+		easing: "ease-in-out",
+	});
+	const timeUs = 1_000_000;
+	const expectedAudio = audioAtTime(buildProjectAudioPlan(project), timeUs);
+	const evaluated = evaluateProject(project, timeUs);
+	expect(evaluated.audio).toEqual(expectedAudio);
+	expect(evaluated.componentAnimations).toHaveLength(1);
+	expect(evaluated.componentAnimations[0]).toMatchObject({
+		clipId: "c",
+		enter: null,
+	});
+});
+
+it("evaluates transition and component samples in stable visual-track order", () => {
+	let project = createTimelineProject("evaluation-transition", "Transitions");
+	for (const id of ["outgoing", "incoming"])
+		project = registerMedia(project, {
+			id,
+			kind: "video",
+			name: id,
+			durationUs: 8_000_000,
+			width: 1920,
+			height: 1080,
+			source: { path: `${id}.mp4`, durationUs: 8_000_000, offsetUs: 0 },
+		});
+	project = placeAsset(project, "outgoing", "visual-1", 0, { clipId: "out" });
+	project = placeAsset(project, "incoming", "visual-1", 8_000_000, { clipId: "in" });
+	project.tracks[0]!.clips[0]!.sourceOutUs = 6_000_000;
+	project.tracks[0]!.clips[1]!.sourceInUs = 2_000_000;
+	project.tracks[0]!.clips[1]!.startUs = 6_000_000;
+	project = setComponentAnimation(project, "in", "enter", {
+		preset: "slide",
+		direction: "left",
+		durationUs: 500_000,
+		easing: "linear",
+	});
+	project = addClipTransition(
+		project,
+		{
+			trackId: "visual-1",
+			fromClipId: "out",
+			toClipId: "in",
+			preset: { kind: "push", direction: "left" },
+			easing: "ease-in-out",
+			durationUs: 1_000_000,
+		},
+		"transition",
+	);
+	const evaluated = evaluateProject(project, 6_000_000);
+	expect(evaluated.visualTransitions).toHaveLength(1);
+	expect(evaluated.visualTransitions[0]).toMatchObject({
+		fromClipId: "out",
+		toClipId: "in",
+		progress: 0.5,
+	});
+	expect(evaluated.componentAnimations.map((sample) => sample.clipId)).toEqual(["in"]);
 });

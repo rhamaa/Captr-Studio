@@ -149,6 +149,7 @@
 	gap: 8px;
 	padding: 10px 10px 8px 0;
 	min-height: 240px;
+	position: relative;
 	overflow: hidden;
 }
 .project-tool-rail {
@@ -1922,5 +1923,207 @@
 
 	.audio-recorder-actions button {
 		flex: 1 1 100%;
+	}
+}
+
+/* Shape picker lives in the left tool rail, next to the Assets sidebar. */
+.project-shape-rail-menu {
+	position: absolute;
+	z-index: 30;
+	top: 54px;
+	left: 8px;
+}
+
+.project-shape-rail-menu > summary {
+	width: 36px;
+	height: 38px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	list-style: none;
+	cursor: pointer;
+	color: var(--project-accent);
+	background: #17222e;
+	border: 1px solid #213951;
+	border-radius: 6px;
+}
+
+.project-shape-rail-menu > summary::-webkit-details-marker {
+	display: none;
+}
+
+.project-shape-rail-menu[open] > summary,
+.project-shape-rail-menu > summary:hover,
+.project-shape-rail-menu > summary:focus-visible {
+	border-color: var(--project-accent);
+	background: #202a38;
+}
+
+.project-shape-rail-icon {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.project-shape-rail-icon > :last-child {
+	position: absolute;
+	right: -5px;
+	bottom: -4px;
+	background: #17222e;
+	border-radius: 50%;
+}
+
+.project-shape-rail-menu-items {
+	position: absolute;
+	z-index: 31;
+	top: 0;
+	left: calc(100% + 8px);
+	min-width: 168px;
+	padding: 6px;
+	border: 1px solid var(--editor-border, #343640);
+	border-radius: 10px;
+	background: var(--editor-panel, #202127);
+	box-shadow: 0 12px 32px rgb(0 0 0 / 35%);
+}
+
+.project-shape-rail-menu-items button {
+	width: 100%;
+	justify-content: flex-start;
+	text-align: left;
+}
+
+.project-transition-item {
+	position: absolute;
+	z-index: 5;
+	top: 4px;
+	height: calc(100% - 8px);
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 5px;
+	min-width: 18px;
+	padding: 0 8px;
+	overflow: hidden;
+	border: 1px solid #c4a6ff;
+	border-radius: 7px;
+	background: rgb(108 72 173 / 82%);
+	color: #fff;
+	font-size: 11px;
+	white-space: nowrap;
+	cursor: pointer;
+	user-select: none;
+}
+
+.project-transition-add {
+	position: absolute;
+	z-index: 7;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	width: 22px;
+	min-width: 22px;
+	height: 22px;
+	padding: 0;
+	border: 1px solid #b7a0fa;
+	border-radius: 50%;
+	background: #28213e;
+	color: #f5f0ff;
+	font-size: 17px;
+	line-height: 1;
+	box-shadow: 0 1px 5px rgb(0 0 0 / 45%);
+	cursor: pointer;
+}
+
+.project-transition-add:hover,
+.project-transition-add:focus-visible {
+	background: #8b6fe8;
+	outline: 2px solid rgb(196 166 255 / 55%);
+	outline-offset: 1px;
+}
+
+.project-transition-item.selected {
+	border-color: #e1d3ff;
+	box-shadow: 0 0 0 2px rgb(168 130 255 / 35%);
+}
+
+.project-transition-item.locked {
+	cursor: not-allowed;
+	opacity: 0.65;
+}
+
+.project-transition-label,
+.project-transition-duration {
+	pointer-events: none;
+}
+
+.project-transition-duration {
+	opacity: 0.8;
+	font-variant-numeric: tabular-nums;
+}
+
+.project-transition-handle {
+	position: absolute;
+	z-index: 2;
+	top: 0;
+	bottom: 0;
+	width: 8px;
+	touch-action: none;
+	cursor: ew-resize;
+}
+
+.project-transition-handle.left {
+	left: 0;
+}
+
+.project-transition-handle.right {
+	right: 0;
+}
+
+.project-transition-inspector,
+.project-shape-style,
+.project-component-animations {
+	min-width: 0;
+	margin: 10px 0;
+	padding: 10px;
+	border: 1px solid var(--editor-border, #343640);
+	border-radius: 9px;
+}
+
+.project-shape-style h3,
+.project-component-animations h3 {
+	margin: 0 0 8px;
+	font-size: 12px;
+}
+
+.project-component-animation-row {
+	display: grid;
+	gap: 8px;
+	margin: 8px 0;
+}
+
+.project-transition-inspector label,
+.project-shape-style label,
+.project-component-animation-row label {
+	min-width: 0;
+}
+
+.project-transition-inspector input[type="number"],
+.project-transition-inspector select,
+.project-shape-style input,
+.project-component-animation-row input,
+.project-component-animation-row select {
+	max-width: 100%;
+}
+
+@media (max-width: 720px) {
+	.project-transition-item {
+		gap: 2px;
+		padding: 0 5px;
+		font-size: 10px;
+	}
+
+	.project-transition-duration {
+		display: none;
 	}
 }

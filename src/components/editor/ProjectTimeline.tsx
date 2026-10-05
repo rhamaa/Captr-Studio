@@ -17,10 +17,14 @@ import {
 	reorderTrack,
 	updateTrack,
 } from "@/core/timeline/commands";
+import { addClipTransition, getMaxClipTransitionDurationUs } from "@/core/timeline/clipTransitions";
 import type { ProjectCommand } from "@/core/timeline/history";
-import { clipDurationUs, projectDurationUs, type TimelineProject } from "@/core/timeline/types";
+import { createAndPlaceShape } from "@/core/timeline/shapeCommands";
+import { clipDurationUs, projectDurationUs, type ShapeDefinition, type TimelineProject } from "@/core/timeline/types";
 import { TimelineClipItem } from "./TimelineClipItem";
+import { TimelineTransitionItem } from "./TimelineTransitionItem";
 import { TimelineToolbar } from "./TimelineToolbar";
+import { useProjectMessages } from "./useProjectMessages";
 import {
 	ASSET_DRAG_TYPE,
 	assetDropCommand,
@@ -41,6 +45,8 @@ export interface ProjectTimelineProps {
 	onSelect: (ids: string[]) => void;
 	onSeek: (timeUs: number) => void;
 	onOpenRecording: (id: string) => void;
+	selectedTransitionId?: string | null;
+	onSelectTransition?: (id: string) => void;
 	scale?: number;
 	onScaleChange?: (scale: number | ((prev: number) => number)) => void;
 	playing?: boolean;
@@ -55,12 +61,15 @@ export function ProjectTimeline({
 	onSelect,
 	onSeek,
 	onOpenRecording,
+	selectedTransitionId = null,
+	onSelectTransition = () => undefined,
 	scale: externalScale,
 	onScaleChange,
 	playing = false,
 	snappingEnabled: externalSnapping,
 	onToggleSnapping,
 }: ProjectTimelineProps) {
+	const m = useProjectMessages();
 	const [internalScale, setInternalScale] = useState(65);
 	const scale = externalScale ?? internalScale;
 	const setScale = onScaleChange ?? setInternalScale;
@@ -694,6 +703,39 @@ export function ProjectTimeline({
 										onOpenRecording={onOpenRecording}
 									/>
 								))}
+				{eligibleTimelineTransitions(project, track.id).map(({ transition, boundaryUs, maximumDurationUs }) => (
+					<TimelineTransitionItem
+						key={transition.id}
+						transition={transition}
+						boundaryUs={boundaryUs}
+						maximumDurationUs={maximumDurationUs}
+						scale={scale}
+						selected={selectedTransitionId === transition.id}
+						locked={track.locked || track.kind !== "visual"}
+						snappingEnabled={snappingEnabled}
+						onSelect={() => onSelectTransition(transition.id)}
+						onCommand={onCommand}
+					/>
+				))}
+				{eligibleTransitionBoundaries(project, track.id).map(({ fromClipId, toClipId, boundaryUs }) => (
+					<button
+						key={`${fromClipId}:${toClipId}`}
+						type="button"
+						className="project-transition-add"
+						style={{ left: timeToPixels(boundaryUs, scale) }}
+						aria-label={m("addTransition")}
+						title={m("addTransition")}
+						onPointerDown={(event) => event.stopPropagation()}
+						onClick={(event) => {
+							event.stopPropagation();
+							const id = crypto.randomUUID();
+							onCommand(transitionPlacementCommand(fromClipId, toClipId, id));
+							onSelectTransition(id);
+						}}
+					>
+						+
+					</button>
+				))}
 								{dropPreview?.trackId === track.id && (
 									<div
 										className={`project-drop-preview ${dropPreview.mediaKind} ${dropPreview.invalid ? "invalid" : ""}`}
@@ -731,4 +773,75 @@ export function ProjectTimeline({
 			</div>
 		</section>
 	);
+}
+
+export function shapePlacementCommand(
+	kind: ShapeDefinition["kind"],
+	startUs: number,
+	ids: { assetId: string; clipId: string; trackId: string },
+): ProjectCommand {
+	const definitions: Record<ShapeDefinition["kind"], ShapeDefinition> = {
+		rectangle: { kind: "rectangle", width: 360, height: 220, style: { fill: "#6387ff", stroke: null } },
+		ellipse: { kind: "ellipse", width: 260, height: 180, style: { fill: "#6387ff", stroke: null } },
+		line: { kind: "line", from: { x: 0, y: 0 }, to: { x: 360, y: 220 }, style: { stroke: { color: "#6387ff", width: 8 } } },
+		arrow: { kind: "arrow", from: { x: 0, y: 110 }, to: { x: 360, y: 110 }, headLength: 32, style: { stroke: { color: "#6387ff", width: 8 } } },
+	};
+	const definition = structuredClone(definitions[kind]);
+	return (project) => createAndPlaceShape(project, definition, startUs, ids);
+}
+
+export function transitionPlacementCommand(
+	fromClipId: string,
+	toClipId: string,
+	transitionId: string,
+): ProjectCommand {
+	return (project) => {
+		const track = project.tracks.find((item) => item.clips.some((clip) => clip.id === fromClipId));
+		if (!track) throw new Error("Transition clip not found");
+		return addClipTransition(project, {
+			trackId: track.id,
+			fromClipId,
+			toClipId,
+			preset: { kind: "cross-dissolve" },
+			easing: "ease-in-out",
+		}, transitionId);
+	};
+}
+
+export function eligibleTransitionBoundaries(project: TimelineProject, trackId: string) {
+	const track = project.tracks.find((item) => item.id === trackId);
+	if (!track || track.kind !== "visual" || track.locked || track.hidden) return [];
+	const clips = [...track.clips].sort((left, right) => left.startUs - right.startUs);
+	return clips.slice(0, -1).flatMap((from, index) => {
+		const to = clips[index + 1]!;
+		if (from.startUs + clipDurationUs(from) !== to.startUs) return [];
+		if ((project.clipTransitions ?? []).some((item) => item.trackId === track.id && item.fromClipId === from.id && item.toClipId === to.id)) return [];
+		try {
+			const maximumDurationUs = getMaxClipTransitionDurationUs(project, from.id, to.id);
+			return maximumDurationUs > 0
+				? [{ trackId: track.id, fromClipId: from.id, toClipId: to.id, boundaryUs: to.startUs, maximumDurationUs }]
+				: [];
+		} catch {
+			return [];
+		}
+	});
+}
+
+export function eligibleTimelineTransitions(project: TimelineProject, trackId: string) {
+	const track = project.tracks.find((item) => item.id === trackId);
+	if (!track || track.kind !== "visual") return [];
+	const clips = [...track.clips].sort((left, right) => left.startUs - right.startUs);
+	return (project.clipTransitions ?? []).flatMap((transition) => {
+		if (transition.trackId !== track.id) return [];
+		const index = clips.findIndex((clip) => clip.id === transition.fromClipId);
+		const from = clips[index], to = clips[index + 1];
+		if (!from || !to || to.id !== transition.toClipId || from.startUs + clipDurationUs(from) !== to.startUs) return [];
+		try {
+			const maximumDurationUs = getMaxClipTransitionDurationUs(project, from.id, to.id, transition.id);
+			if (transition.durationUs > maximumDurationUs) return [];
+			return [{ transition, boundaryUs: to.startUs, maximumDurationUs }];
+		} catch {
+			return [];
+		}
+	});
 }
