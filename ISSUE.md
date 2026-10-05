@@ -89,3 +89,9 @@
 - Relasi transisi menghubungkan dua clip visual yang bersebelahan pada track yang sama. Durasi project tidak berubah; sampling memakai source handle sesuai rate clip, dan transisi ditolak atau dibatasi bila handle tidak cukup. Operasi timeline membersihkan relasi yang tidak lagi valid dan undo memulihkannya.
 - Preview dan export menggunakan evaluasi/render frame yang sama. Recording package serta komposisinya tetap utuh dan tidak diratakan sebelum transisi.
 - Tes bundle memverifikasi round-trip metadata transisi, animasi, shape, style placement, serta pembukaan project V3 lama tanpa field efek. QA desktop native untuk tambah/edit/duplikasi shape, playback, save/reopen, dan parity preview/export masih pending.
+
+## UX pemisahan track media dan audio (5 Oktober 2026)
+
+- Timeline menampilkan layer visual di atas grup Audio; urutan tampilan visual mengikuti z-order evaluator V3, sementara urutan data project tetap menjadi sumber render.
+- Drop otomatis mengikuti jenis aset/clip ke grup yang benar meski dilepas di baris grup lain. Track kompatibel baru dibuat hanya bila rentang waktu beririsan pada baris tujuan; interval yang bersentuhan tetap berbagi track.
+- Tes fokus timeline lulus: drop 8/8, tampilan `ProjectTimeline` 5/5, dan `tsc --noEmit` lulus. Suite penuh: 1.148/1.164 lulus; 16 gagal di 8 suite lain (`useProjectController`, `mediaLayerTiming`, `audioEncoder`, `frameRenderer`, `modernFrameRenderer`, `streamingDecoder`, `templateWallpaperSave`, `v3LifecycleVerification`). QA native drag/drop belum dijalankan.

@@ -1,4 +1,5 @@
 import {
+	addTrack,
 	duplicateClip,
 	moveClip,
 	placeAsset,
@@ -9,7 +10,7 @@ import {
 	trimClip,
 } from "@/core/timeline/commands";
 import type { ProjectCommand } from "@/core/timeline/history";
-import { clipDurationUs, type TimelineProject } from "@/core/timeline/types";
+import { clipDurationUs, type TimelineProject, type TimelineTrack } from "@/core/timeline/types";
 export const ASSET_DRAG_TYPE = "application/x-captr-asset";
 export const CLIP_DRAG_TYPE = "application/x-captr-clip";
 export interface TimelineDragSession {
@@ -186,6 +187,104 @@ export function assetDropCommand(
 ): ProjectCommand {
 	return (p) => placeAsset(p, assetId, trackId, startUs, ids);
 }
+
+export function timelineTracksInDisplayOrder(tracks: TimelineTrack[]): TimelineTrack[] {
+	const visual = tracks.filter((track) => track.kind === "visual").reverse();
+	const audio = tracks.filter((track) => track.kind === "audio");
+	return [...visual, ...audio];
+}
+
+export interface TimelineDropRequest {
+	type: "asset" | "clip";
+	id: string;
+	preferredTrackId: string;
+	startUs: number;
+	durationUs: number;
+}
+
+export interface TimelineDropTarget {
+	kind: "visual" | "audio";
+	trackId?: string;
+	createTrack: boolean;
+	blocked: boolean;
+}
+
+function dropKind(project: TimelineProject, request: TimelineDropRequest): "visual" | "audio" {
+	if (request.type === "asset") {
+		const asset = project.assets.find((entry) => entry.id === request.id);
+		if (!asset) throw new Error("Asset not found");
+		return asset.kind === "audio" ? "audio" : "visual";
+	}
+
+	const track = project.tracks.find((entry) =>
+		entry.clips.some((clip) => clip.id === request.id),
+	);
+	if (!track) throw new Error("Clip not found");
+	return track.kind;
+}
+
+export function resolveTimelineDropTarget(
+	project: TimelineProject,
+	request: TimelineDropRequest,
+): TimelineDropTarget {
+	const kind = dropKind(project, request);
+	const preferred = project.tracks.find((track) => track.id === request.preferredTrackId);
+	if (preferred?.kind === kind) {
+		if (preferred.locked)
+			return { kind, trackId: preferred.id, createTrack: false, blocked: true };
+		const endUs = request.startUs + request.durationUs;
+		const overlaps = preferred.clips.some(
+			(clip) =>
+				clip.id !== (request.type === "clip" ? request.id : undefined) &&
+				request.startUs < clip.startUs + clipDurationUs(clip) &&
+				endUs > clip.startUs,
+		);
+		return { kind, trackId: preferred.id, createTrack: overlaps, blocked: false };
+	}
+
+	const displayTracks = timelineTracksInDisplayOrder(project.tracks);
+	const preferredIndex = displayTracks.findIndex(
+		(track) => track.id === request.preferredTrackId,
+	);
+	const candidates = displayTracks.filter((track) => track.kind === kind && !track.locked);
+	const target = candidates.reduce<TimelineTrack | undefined>((closest, candidate) => {
+		if (!closest) return candidate;
+		if (preferredIndex < 0) return closest;
+		const candidateDistance = Math.abs(displayTracks.indexOf(candidate) - preferredIndex);
+		const closestDistance = Math.abs(displayTracks.indexOf(closest) - preferredIndex);
+		return candidateDistance < closestDistance ? candidate : closest;
+	}, undefined);
+
+	if (!target) {
+		const lockedTrack = displayTracks.find((track) => track.kind === kind);
+		return lockedTrack
+			? { kind, trackId: lockedTrack.id, createTrack: false, blocked: true }
+			: { kind, createTrack: true, blocked: false };
+	}
+	const endUs = request.startUs + request.durationUs;
+	const overlaps = target.clips.some(
+		(clip) =>
+			clip.id !== (request.type === "clip" ? request.id : undefined) &&
+			request.startUs < clip.startUs + clipDurationUs(clip) &&
+			endUs > clip.startUs,
+	);
+	return { kind, trackId: target.id, createTrack: overlaps, blocked: false };
+}
+
+export function applyTimelineDrop(
+	project: TimelineProject,
+	request: TimelineDropRequest,
+	ids: { trackId: string; clipId: string; compositionId?: string },
+): TimelineProject {
+	const target = resolveTimelineDropTarget(project, request);
+	if (target.blocked) throw new Error("Cannot drop on a locked track");
+	const trackId = target.createTrack ? ids.trackId : target.trackId!;
+	const next = target.createTrack ? addTrack(project, trackId, target.kind) : project;
+	return request.type === "asset"
+		? placeAsset(next, request.id, trackId, request.startUs, ids)
+		: moveClip(next, request.id, trackId, request.startUs);
+}
+
 export interface ClipGesture {
 	kind: "move" | "trim-in" | "trim-out";
 	deltaUs: number;

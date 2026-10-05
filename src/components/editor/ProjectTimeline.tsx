@@ -12,7 +12,6 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	addTextOverlay,
-	moveClip,
 	removeTrack,
 	reorderTrack,
 	updateTrack,
@@ -27,7 +26,7 @@ import { TimelineToolbar } from "./TimelineToolbar";
 import { useProjectMessages } from "./useProjectMessages";
 import {
 	ASSET_DRAG_TYPE,
-	assetDropCommand,
+	applyTimelineDrop,
 	CLIP_DRAG_TYPE,
 	getTimelineDrag,
 	pixelsToTime,
@@ -35,6 +34,8 @@ import {
 	timelineActionCommand,
 	timelineDropDetails,
 	timelineDropStartUs,
+	resolveTimelineDropTarget,
+	timelineTracksInDisplayOrder,
 	timeToPixels,
 } from "./timelineInteractions";
 export interface ProjectTimelineProps {
@@ -87,12 +88,17 @@ export function ProjectTimeline({
 		durationUs: number;
 		mediaKind: "visual" | "audio";
 		invalid: boolean;
+		willCreateTrack: boolean;
 	} | null>(null);
 	const duration = Math.max(20_000_000, projectDurationUs(project) + 10_000_000),
 		width = timeToPixels(duration, scale);
 	const tickSeconds = scale < 20 ? 10 : scale < 50 ? 5 : scale < 110 ? 2 : 1;
 	const selectedTrack = project.tracks.find((t) => t.clips.some((c) => selection.includes(c.id)));
 	const locked = Boolean(selectedTrack?.locked);
+	const displayTracks = timelineTracksInDisplayOrder(project.tracks);
+	const visualTracks = displayTracks.filter((track) => track.kind === "visual");
+	const audioTracks = displayTracks.filter((track) => track.kind === "audio");
+	const timelineRows = [...visualTracks, null, ...audioTracks];
 
 	const handleZoomToFit = useCallback(() => {
 		const container = scrollRef.current;
@@ -180,12 +186,12 @@ export function ProjectTimeline({
 	};
 
 	const handleMoveTrack = (trackId: string, direction: "up" | "down") => {
-		const currentIndex = project.tracks.findIndex((t) => t.id === trackId);
+		const currentIndex = displayTracks.findIndex((t) => t.id === trackId);
 		if (currentIndex < 0) return;
-		const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-		if (targetIndex >= 0 && targetIndex < project.tracks.length) {
-			onCommand((p) => reorderTrack(p, trackId, targetIndex));
-		}
+		const target = displayTracks[currentIndex + (direction === "up" ? -1 : 1)];
+		if (!target || target.kind !== displayTracks[currentIndex].kind) return;
+		const targetIndex = project.tracks.findIndex((track) => track.id === target.id);
+		onCommand((p) => reorderTrack(p, trackId, targetIndex));
 	};
 
 	const handleDeleteTrack = (track: TimelineProject["tracks"][number]) => {
@@ -375,10 +381,23 @@ export function ProjectTimeline({
 							)}
 						</div>
 					</div>
-					{project.tracks.map((track, trackIndex) => (
+					{timelineRows.map((track) => {
+						if (!track) {
+							return (
+								<div className="project-track-group-divider" role="separator" aria-label="Audio tracks" key="track-kind-divider">
+									<span className="project-track-group-divider-label">AUDIO</span>
+									<span className="project-track-group-divider-line" />
+								</div>
+							);
+						}
+						const peerTracks = track.kind === "visual" ? visualTracks : audioTracks;
+						const peerIndex = peerTracks.findIndex((entry) => entry.id === track.id);
+						return (
 						<div
-							className={`project-track-row ${track.locked ? "locked" : ""}`}
+							className={`project-track-row ${track.kind} ${track.locked ? "locked" : ""}`}
 							key={track.id}
+							data-track-id={track.id}
+							data-track-kind={track.kind}
 						>
 							<div className="project-track-heading">
 								<div className="project-track-heading-top">
@@ -410,7 +429,7 @@ export function ProjectTimeline({
 									<div className="project-track-reorder-group">
 										<button
 											className="project-track-mini-btn"
-											disabled={trackIndex === 0}
+											disabled={peerIndex === 0}
 											title="Move track up"
 											aria-label={`Move ${track.name} up`}
 											onClick={() => handleMoveTrack(track.id, "up")}
@@ -419,7 +438,7 @@ export function ProjectTimeline({
 										</button>
 										<button
 											className="project-track-mini-btn"
-											disabled={trackIndex === project.tracks.length - 1}
+											disabled={peerIndex === peerTracks.length - 1}
 											title="Move track down"
 											aria-label={`Move ${track.name} down`}
 											onClick={() => handleMoveTrack(track.id, "down")}
@@ -579,7 +598,7 @@ export function ProjectTimeline({
 								}}
 								onDragOver={(event) => {
 									const drag = getTimelineDrag();
-									if (track.locked || !drag || drag.mediaKind !== track.kind) {
+									if (!drag) {
 										setDropPreview(null);
 										setSnapGuideUs(null);
 										return;
@@ -603,29 +622,34 @@ export function ProjectTimeline({
 										},
 									);
 									const startUs = snapDetails.timeUs;
+									const request = {
+										type: drag.type,
+										id: drag.id,
+										preferredTrackId: track.id,
+										startUs,
+										durationUs: drag.durationUs,
+									};
+									const target = resolveTimelineDropTarget(project, request);
+									const previewTrackId = target.trackId ?? track.id;
 									setSnapGuideUs(
 										snapDetails.snapped
 											? (snapDetails.snapPointUs ?? null)
 											: null,
 									);
-									const endUs = startUs + drag.durationUs;
-									const invalid = track.clips.some(
-										(clip) =>
-											clip.id !== drag.id &&
-											startUs < clip.startUs + clipDurationUs(clip) &&
-											endUs > clip.startUs,
-									);
+									const invalid = target.blocked;
 									setDropPreview((current) =>
-										current?.trackId === track.id &&
+										current?.trackId === previewTrackId &&
 										current.startUs === startUs &&
-										current.invalid === invalid
+										current.invalid === invalid &&
+										current.willCreateTrack === target.createTrack
 											? current
 											: {
-													trackId: track.id,
+													trackId: previewTrackId,
 													startUs,
 													durationUs: drag.durationUs,
-													mediaKind: drag.mediaKind,
+													mediaKind: target.kind,
 													invalid,
+													willCreateTrack: target.createTrack,
 												},
 									);
 								}}
@@ -642,13 +666,11 @@ export function ProjectTimeline({
 									event.preventDefault();
 									setDropPreview(null);
 									setSnapGuideUs(null);
-									if (track.locked) return;
 									const clipId = event.dataTransfer.getData(CLIP_DRAG_TYPE),
 										assetId = event.dataTransfer.getData(ASSET_DRAG_TYPE),
 										drag = getTimelineDrag();
 									if (
 										!drag ||
-										drag.mediaKind !== track.kind ||
 										(drag.type === "clip"
 											? drag.id !== clipId
 											: drag.id !== assetId)
@@ -668,15 +690,21 @@ export function ProjectTimeline({
 												enabled: snappingEnabled,
 											},
 										);
-									if (clipId)
-										onCommand((p) => moveClip(p, clipId, track.id, startUs));
-									else if (assetId)
-										onCommand(
-											assetDropCommand(assetId, track.id, startUs, {
-												clipId: crypto.randomUUID(),
-												compositionId: crypto.randomUUID(),
-											}),
-										);
+									const request = {
+										type: drag.type,
+										id: drag.id,
+										preferredTrackId: track.id,
+										startUs,
+										durationUs: drag.durationUs,
+									};
+									if (resolveTimelineDropTarget(project, request).blocked) return;
+									onCommand((p) =>
+										applyTimelineDrop(p, request, {
+											trackId: crypto.randomUUID(),
+											clipId: clipId || crypto.randomUUID(),
+											compositionId: crypto.randomUUID(),
+										}),
+									);
 								}}
 							>
 								{!track.clips.length && (
@@ -738,20 +766,29 @@ export function ProjectTimeline({
 				))}
 								{dropPreview?.trackId === track.id && (
 									<div
-										className={`project-drop-preview ${dropPreview.mediaKind} ${dropPreview.invalid ? "invalid" : ""}`}
+										className={`project-drop-preview ${dropPreview.mediaKind} ${dropPreview.invalid ? "invalid" : ""} ${dropPreview.willCreateTrack ? "new-track" : ""}`}
 										style={{
-											left: timeToPixels(dropPreview.startUs, scale),
-											width: Math.max(
-												8,
-												timeToPixels(dropPreview.durationUs, scale),
-											),
-										}}
-										aria-hidden="true"
-									/>
+										left: timeToPixels(dropPreview.startUs, scale),
+										width: Math.max(
+											8,
+											timeToPixels(dropPreview.durationUs, scale),
+										),
+									}}
+										aria-label={
+											dropPreview.willCreateTrack
+											? `New ${dropPreview.mediaKind} track will be created`
+											: `Place on ${dropPreview.mediaKind} track`
+										}
+									>
+										{dropPreview.willCreateTrack && (
+											<span className="project-drop-preview-label">New track</span>
+										)}
+									</div>
 								)}
 							</div>
 						</div>
-					))}
+						);
+					})}
 					{snapGuideUs !== null && (
 						<div
 							className="project-snap-guide"

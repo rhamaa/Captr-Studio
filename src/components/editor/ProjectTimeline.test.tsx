@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 import { I18nProvider } from "@/contexts/I18nContext";
 import { addClipTransition } from "@/core/timeline/clipTransitions";
-import { createTimelineProject, moveClip } from "@/core/timeline/commands";
+import { addTrack, createTimelineProject, moveClip } from "@/core/timeline/commands";
 import { ProjectHistory } from "@/core/timeline/history";
 import { createAndPlaceShape } from "@/core/timeline/shapeCommands";
 import type { ShapeDefinition, TimelineProject } from "@/core/timeline/types";
@@ -33,6 +33,23 @@ it("projectTimeline shows only the eligible transition boundary", () => {
 	expect(renderTimeline(project).match(/project-transition-item/g)).toHaveLength(1);
 	const moved = moveClip(project, "right-clip", "visual-1", 6_000_000);
 	expect(renderTimeline(moved)).not.toContain("project-transition-item");
+});
+
+it("renders visual overlays above a separated audio group", () => {
+	let project = createTimelineProject("timeline-groups", "Timeline groups");
+	project = addTrack(project, "visual-top", "visual");
+	project = addTrack(project, "audio-bottom", "audio");
+	const markup = renderTimeline(project);
+
+	const topVisual = markup.indexOf('data-track-id="visual-top"');
+	const baseVisual = markup.indexOf('data-track-id="visual-1"');
+	const divider = markup.indexOf('class="project-track-group-divider"');
+	const firstAudio = markup.indexOf('data-track-id="audio-1"');
+
+	expect(topVisual).toBeGreaterThanOrEqual(0);
+	expect(topVisual).toBeLessThan(baseVisual);
+	expect(baseVisual).toBeLessThan(divider);
+	expect(divider).toBeLessThan(firstAudio);
 });
 
 it("offers an add-transition action on eligible boundaries and removes it after placement", () => {
