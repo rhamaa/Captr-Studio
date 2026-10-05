@@ -111,12 +111,16 @@ export class ProjectController {
 		if (assetId && !this.history.project.assets.some((a) => a.id === assetId)) return;
 		this.publish({ selectedAssetId: assetId });
 	}
-	seek(timeUs: number): void {
+	seek(timeUs: number, maxDurationUs?: number): void {
+		const rootDuration = projectDurationUs(this.history.project);
+		const artboardDurations =
+			this.history.project.repurposeBoard?.artboards.map((a) =>
+				a.tracks ? projectDurationUs({ ...this.history.project, tracks: a.tracks }) : 0,
+			) ?? [];
+		const fallbackMax = Math.max(rootDuration, ...artboardDurations);
+		const max = maxDurationUs !== undefined ? maxDurationUs : fallbackMax;
 		this.publish({
-			playheadUs: Math.max(
-				0,
-				Math.min(projectDurationUs(this.history.project), Math.round(timeUs)),
-			),
+			playheadUs: Math.max(0, Math.min(max, Math.round(timeUs))),
 		});
 	}
 	undo(): void {

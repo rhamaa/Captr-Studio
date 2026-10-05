@@ -190,3 +190,62 @@ it("syncs project title with saved file name when saving a project with default 
 	await c.save();
 	expect(c.snapshot.project.title).toBe("My Presentation");
 });
+
+it("clamps seek playhead against root duration, artboard sequences, and explicit max duration", () => {
+	const c = new ProjectController(createTimelineProject("init", "Test"), vi.fn());
+	// Empty project: duration is 0
+	c.seek(5_000_000);
+	expect(c.snapshot.playheadUs).toBe(0);
+
+	// Add artboard with tracks totaling 10s
+	c.execute((p) => ({
+		...p,
+		repurposeBoard: {
+			artboards: [
+				{
+					id: "ab-1",
+					name: "Square",
+					aspectRatio: "1:1",
+					width: 1080,
+					height: 1080,
+					framing: { scale: 1, offsetX: 0, offsetY: 0 },
+					tracks: [
+						{
+							id: "t-1",
+							kind: "visual",
+							name: "Track 1",
+							muted: false,
+							locked: false,
+							clips: [
+								{
+									id: "c-1",
+									assetId: "a-1",
+									compositionId: "comp-1",
+									startUs: 0,
+									sourceInUs: 0,
+									sourceOutUs: 10_000_000,
+									rate: 1,
+									volume: 1,
+									speed: 1,
+									enabled: true,
+								},
+							],
+						},
+					],
+				},
+			],
+			slices: [],
+			activeSliceId: null,
+		},
+	}));
+
+	// Without explicit maxDurationUs, seeks up to 10s using artboard fallback
+	c.seek(4_000_000);
+	expect(c.snapshot.playheadUs).toBe(4_000_000);
+	c.seek(15_000_000);
+	expect(c.snapshot.playheadUs).toBe(10_000_000);
+
+	// With explicit maxDurationUs, clamps to the specified limit
+	c.seek(8_000_000, 6_000_000);
+	expect(c.snapshot.playheadUs).toBe(6_000_000);
+});
