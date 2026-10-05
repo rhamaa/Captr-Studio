@@ -115,6 +115,11 @@ export const projectMessages = {
 	right: "Right",
 	up: "Up",
 	down: "Down",
+	captions: "Captions",
+	generateCaptions: "Generate captions",
+	generatingCaptions: "Generating captions…",
+	viewCaptions: "View captions",
+	captionsReady: "Captions ready",
 } as const;
 export function useProjectMessages() {
 	const { t } = useI18n();

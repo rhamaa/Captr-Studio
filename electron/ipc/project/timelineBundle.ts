@@ -43,9 +43,28 @@ export async function stageTimelineProject(project:TimelineProject,workspaceDir:
    if(path.resolve(real)!==path.resolve(target))await fs.copyFile(real,target);
    copies.set(key,relative);
   }request.set(relative);
- }
- for(const asset of staged.assets){const dir=path.join(workspaceDir,"assets",safeId(asset.id));await fs.mkdir(dir,{recursive:true});await fs.writeFile(path.join(dir,"asset.json"),JSON.stringify(asset,null,2));const pkg=staged.packages.find(r=>r.id===asset.packageId);if(pkg)await fs.writeFile(path.join(dir,"package.json"),JSON.stringify(pkg,null,2));}
- await fs.mkdir(path.join(workspaceDir,"compositions"),{recursive:true});for(const c of staged.compositions)await fs.writeFile(path.join(workspaceDir,"compositions",`${safeId(c.id)}.json`),JSON.stringify(c,null,2));
+	}
+	for (const asset of staged.assets) {
+		const dir = path.join(workspaceDir, "assets", safeId(asset.id));
+		await fs.mkdir(dir, { recursive: true });
+		await fs.writeFile(path.join(dir, "asset.json"), JSON.stringify(asset, null, 2));
+		const pkg = staged.packages.find((r) => r.id === asset.packageId);
+		if (pkg) await fs.writeFile(path.join(dir, "package.json"), JSON.stringify(pkg, null, 2));
+		const origAsset = project.assets.find((a) => a.id === asset.id);
+		const origPkg = project.packages.find((p) => p.id === asset.packageId);
+		const mediaSourceCandidate = origAsset?.source?.path ?? origPkg?.screen?.path;
+		if (mediaSourceCandidate) {
+			const sourceAssetDir = path.dirname(mediaSourceCandidate);
+			for (const sidecar of ["transcript.json", "captions.vtt"]) {
+				const srcFile = path.join(sourceAssetDir, sidecar);
+				const dstFile = path.join(dir, sidecar);
+				if (existsSync(srcFile) && path.resolve(srcFile) !== path.resolve(dstFile)) {
+					await fs.copyFile(srcFile, dstFile);
+				}
+			}
+		}
+	}
+	await fs.mkdir(path.join(workspaceDir, "compositions"), { recursive: true });for(const c of staged.compositions)await fs.writeFile(path.join(workspaceDir,"compositions",`${safeId(c.id)}.json`),JSON.stringify(c,null,2));
  validateTimelineProject(staged);await fs.writeFile(path.join(workspaceDir,"project.json"),JSON.stringify(staged,null,2));return staged;
 }
 export function resolveTimelineProject(project:TimelineProject,workspaceDir:string):TimelineProject{

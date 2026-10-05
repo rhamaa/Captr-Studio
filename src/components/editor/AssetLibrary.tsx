@@ -21,6 +21,7 @@ export interface AssetLibraryProps {
 	onPreview: (id: string) => void;
 	onPlace: (id: string) => void;
 	onRemove: (id: string) => void;
+	onTranscribe?: (id: string) => void;
 }
 export function AssetLibrary({
 	assets,
@@ -32,6 +33,7 @@ export function AssetLibrary({
 	onPreview,
 	onPlace,
 	onRemove,
+	onTranscribe,
 }: AssetLibraryProps) {
 	const m = useProjectMessages();
 	const [view, setView] = useState<"grid" | "list">("grid"),
@@ -118,20 +120,27 @@ export function AssetLibrary({
 						</button>
 					</div>
 				) : (
-					shown.map((asset) => (
-						<AssetCard
-							key={asset.id}
-							asset={asset}
-							sourcePath={
-								asset.source?.path ??
-								packages.find((p) => p.id === asset.packageId)?.screen.path
-							}
-							selected={asset.id === selectedAssetId}
-							onPreview={() => onPreview(asset.id)}
-							onPlace={() => onPlace(asset.id)}
-							onRemove={() => onRemove(asset.id)}
-						/>
-					))
+					shown.map((asset) => {
+						const pkg = packages.find((p) => p.id === asset.packageId);
+						return (
+							<AssetCard
+								key={asset.id}
+								asset={asset}
+								sourcePath={
+									asset.source?.path ??
+									pkg?.screen.path
+								}
+								audioPath={
+									pkg?.microphone?.path ?? pkg?.system?.path
+								}
+								selected={asset.id === selectedAssetId}
+								onPreview={() => onPreview(asset.id)}
+								onPlace={() => onPlace(asset.id)}
+								onRemove={() => onRemove(asset.id)}
+								onTranscribe={onTranscribe ? () => onTranscribe(asset.id) : undefined}
+							/>
+						);
+					})
 				)}
 				{!!assets.length && !shown.length && (
 					<p className="project-muted">{m("noMatches")}</p>

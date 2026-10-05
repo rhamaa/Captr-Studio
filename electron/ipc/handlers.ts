@@ -6,6 +6,7 @@ import { registerProjectHandlers } from "./register/project";
 import { registerRecordingHandlers } from "./register/recording";
 import { registerSettingsHandlers } from "./register/settings";
 import { registerSourceHandlers } from "./register/sources";
+import { registerTranscriptionHandlers } from "./register/transcription";
 import {
 	selectedSource,
 	setNativeScreenRecordingActive,
@@ -67,4 +68,5 @@ export function registerIpcHandlers(
 	registerExportHandlers();
 	registerProjectHandlers();
 	registerSettingsHandlers();
+	registerTranscriptionHandlers();
 }

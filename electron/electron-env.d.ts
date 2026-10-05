@@ -959,6 +959,47 @@ interface Window {
 		setWindowMode: (mode: "welcome" | "editor") => Promise<{ success: boolean }>;
 		onWindowMaximizedChange: (callback: (isMaximized: boolean) => void) => () => void;
 		approveLocalMediaPath?: (filePath: string) => Promise<{ success: boolean }>;
+		transcribeAsset?: (params: {
+			assetId: string;
+			assetMediaFilePath: string;
+			assetDir?: string;
+			options?: {
+				engine?: "local" | "groq" | "openai";
+				language?: string;
+				modelPath?: string;
+				cloudApiKey?: string;
+				cloudProvider?: "groq" | "openai";
+			};
+		}) => Promise<{
+			success: boolean;
+			transcript?: import("../src/core/timeline/transcriptTypes").AssetTranscript;
+			vttPath?: string;
+			jsonPath?: string;
+			error?: string;
+		}>;
+		loadAssetTranscript?: (
+			assetDir: string,
+		) => Promise<import("../src/core/timeline/transcriptTypes").AssetTranscript | null>;
+		getTranscriptionEngineStatus?: () => Promise<{
+			hasLocalWhisperCli: boolean;
+			cliPath: string | null;
+			hasLocalModel: boolean;
+			modelPath: string | null;
+			availableModels?: Array<{ name: string; path: string; sizeBytes: number }>;
+		}>;
+		downloadWhisperModel?: (modelName?: "tiny" | "base" | "small") => Promise<{
+			success: boolean;
+			modelPath?: string;
+			error?: string;
+		}>;
+		onWhisperModelDownloadProgress?: (
+			callback: (progress: {
+				modelName: string;
+				percent: number;
+				downloadedBytes: number;
+				totalBytes: number;
+			}) => void,
+		) => () => void;
 	};
 }
 

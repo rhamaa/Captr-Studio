@@ -1025,4 +1025,44 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		ipcRenderer.on("window:maximized-change", listener);
 		return () => ipcRenderer.removeListener("window:maximized-change", listener);
 	},
+
+	// ── Transcription ──────────────────────────────────────────────────
+	transcribeAsset: (params: {
+		assetId: string;
+		assetMediaFilePath: string;
+		assetDir?: string;
+		options?: {
+			engine?: "local" | "groq" | "openai";
+			language?: string;
+			modelPath?: string;
+			cloudApiKey?: string;
+			cloudProvider?: "groq" | "openai";
+		};
+	}) => ipcRenderer.invoke("transcribe-asset", params),
+	loadAssetTranscript: (assetDir: string) =>
+		ipcRenderer.invoke("load-asset-transcript", assetDir),
+	getTranscriptionEngineStatus: () =>
+		ipcRenderer.invoke("get-transcription-engine-status"),
+	downloadWhisperModel: (modelName?: "tiny" | "base" | "small") =>
+		ipcRenderer.invoke("download-whisper-model", modelName),
+	onWhisperModelDownloadProgress: (
+		callback: (progress: {
+			modelName: string;
+			percent: number;
+			downloadedBytes: number;
+			totalBytes: number;
+		}) => void,
+	) => {
+		const listener = (
+			_event: Electron.IpcRendererEvent,
+			progress: {
+				modelName: string;
+				percent: number;
+				downloadedBytes: number;
+				totalBytes: number;
+			},
+		) => callback(progress);
+		ipcRenderer.on("whisper-model-download-progress", listener);
+		return () => ipcRenderer.removeListener("whisper-model-download-progress", listener);
+	},
 });
