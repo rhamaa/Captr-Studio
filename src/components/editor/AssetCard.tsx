@@ -20,6 +20,7 @@ import { ASSET_DRAG_TYPE, beginTimelineDrag, endTimelineDrag } from "./timelineI
 export interface AssetCardProps {
 	asset: MediaAsset;
 	sourcePath?: string;
+	audioPath?: string;
 	selected: boolean;
 	onPreview: () => void;
 	onPlace: () => void;
@@ -29,6 +30,7 @@ export interface AssetCardProps {
 export function AssetCard({
 	asset,
 	sourcePath,
+	audioPath,
 	selected,
 	onPreview,
 	onPlace,
@@ -81,13 +83,14 @@ export function AssetCard({
 		language?: string;
 		cloudApiKey?: string;
 	}) => {
-		if (!sourcePath || !window.electronAPI?.transcribeAsset) return;
+		const mediaPathForAudio = audioPath || sourcePath;
+		if (!mediaPathForAudio || !window.electronAPI?.transcribeAsset) return;
 		setIsTranscribing(true);
 		setTranscribeError(null);
 		try {
 			const res = await window.electronAPI.transcribeAsset({
 				assetId: asset.id,
-				assetMediaFilePath: sourcePath,
+				assetMediaFilePath: mediaPathForAudio,
 				options,
 			});
 			if (res.success && res.transcript) {

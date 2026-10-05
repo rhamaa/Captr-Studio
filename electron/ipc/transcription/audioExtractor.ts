@@ -8,6 +8,39 @@ export interface ExtractAudioOptions {
 	outputWavPath?: string;
 }
 
+async function resolveAudioSourcePath(inputPath: string): Promise<string> {
+	const ext = path.extname(inputPath).toLowerCase();
+	if ([".wav", ".m4a", ".mp3", ".aac", ".ogg", ".flac"].includes(ext)) {
+		return inputPath;
+	}
+
+	const dir = path.dirname(inputPath);
+	const baseName = path.basename(inputPath, ext);
+
+	// Check companion audio candidates
+	const candidates = [
+		`${path.join(dir, baseName)}.mic.wav`,
+		`${path.join(dir, baseName)}.mic.m4a`,
+		`${path.join(dir, baseName)}.mic.webm`,
+		path.join(dir, "mic.wav"),
+		path.join(dir, "main.mic.wav"),
+		`${path.join(dir, baseName)}.system.wav`,
+		`${path.join(dir, baseName)}.system.m4a`,
+		`${path.join(dir, baseName)}.system.webm`,
+		path.join(dir, "system.wav"),
+		path.join(dir, "main.system.wav"),
+	];
+
+	for (const candidate of candidates) {
+		try {
+			await fs.access(candidate);
+			return candidate;
+		} catch {}
+	}
+
+	return inputPath;
+}
+
 /**
  * Extracts audio track from media file (video/audio) and converts to 16kHz mono 16-bit PCM WAV.
  * This format is optimal for Whisper speech recognition.
@@ -17,6 +50,7 @@ export async function extractAudioToWav(
 	options: ExtractAudioOptions = {},
 ): Promise<string> {
 	const ffmpegBin = getFfmpegBinaryPath();
+	const audioSourcePath = await resolveAudioSourcePath(inputMediaFilePath);
 	const targetPath =
 		options.outputWavPath ??
 		path.join(
@@ -29,7 +63,7 @@ export async function extractAudioToWav(
 	const args = [
 		"-y",
 		"-i",
-		inputMediaFilePath,
+		audioSourcePath,
 		"-vn",
 		"-ar",
 		"16000",
@@ -56,9 +90,20 @@ export async function extractAudioToWav(
 			if (code === 0) {
 				resolve(targetPath);
 			} else {
-				reject(
-					new Error(`FFmpeg audio extraction failed (code ${code}): ${stderr.slice(-300)}`),
-				);
+				if (
+					stderr.includes("does not contain any stream") ||
+					stderr.includes("does not contain any audio stream")
+				) {
+					reject(
+						new Error(
+							"No audio stream found. The recording or video has no microphone or audio track.",
+						),
+					);
+				} else {
+					reject(
+						new Error(`FFmpeg audio extraction failed (code ${code}): ${stderr.slice(-300)}`),
+					);
+				}
 			}
 		});
 	});
