@@ -16,7 +16,15 @@ import { type ComponentProps, useCallback, useEffect, useMemo, useRef, useState 
 import { ProjectPreview } from "@/components/editor/ProjectPreview";
 import { SettingsPanel } from "@/components/video-editor/SettingsPanel";
 import { ZOOM_DEPTH_OPTIONS } from "@/components/video-editor/settings/sections/ZoomItemSection";
-import { buildInteractionZoomSuggestions } from "@/components/video-editor/timeline/zoomSuggestionUtils";
+import {
+	buildAutoReframeSuggestions,
+	buildInteractionZoomSuggestions,
+} from "@/components/video-editor/timeline/zoomSuggestionUtils";
+import {
+	type AspectRatio,
+	getAspectRatioValue,
+	resolveAspectRatioCanvas,
+} from "@/utils/aspectRatioUtils";
 
 function formatTimecode(seconds: number): string {
 	const totalSecs = Math.max(0, seconds);
@@ -45,6 +53,10 @@ export interface RecordingCompositionEditorProps {
 	package: RecordingPackage;
 	composition: RecordComposition;
 	projectTitle?: string;
+	canvas?: { width: number; height: number; fps?: number };
+	aspectRatio?: AspectRatio;
+	clipTransform?: { x: number; y: number; scale: number; rotation: number; opacity: number };
+	onAspectRatioChange?: (ratio: AspectRatio) => void;
 	onChange: (next: RecordComposition) => void;
 	onClose: () => void;
 }
@@ -106,10 +118,52 @@ export function RecordingCompositionEditor({
 	package: pkg,
 	composition,
 	projectTitle,
+	canvas: propCanvas,
+	aspectRatio: propAspectRatio,
+	clipTransform,
+	onAspectRatioChange,
 	onChange,
 	onClose,
 }: RecordingCompositionEditorProps) {
 	const settings = useMemo(() => resolveRecordingSettings(pkg, composition), [pkg, composition]);
+
+	const initialAspectRatio: AspectRatio = useMemo(() => {
+		if (propAspectRatio) {
+			return propAspectRatio;
+		}
+		if (composition.settings?.aspectRatio) {
+			return composition.settings.aspectRatio as AspectRatio;
+		}
+		if (propCanvas) {
+			const { width, height } = propCanvas;
+			if (width === 1080 && height === 1920) return "9:16";
+			if (width === 1080 && height === 1080) return "1:1";
+			if (width === 1080 && height === 1350) return "4:5";
+			if (width === 1920 && height === 1080) return "16:9";
+			if (width === 1440 && height === 1080) return "4:3";
+			if (width === 1728 && height === 1080) return "16:10";
+			if (width === 1080 && height === 1728) return "10:16";
+		}
+		return "16:9";
+	}, [propAspectRatio, composition.settings?.aspectRatio, propCanvas]);
+
+	const [aspectRatio, setAspectRatio] = useState<AspectRatio>(initialAspectRatio);
+
+	useEffect(() => {
+		if (propAspectRatio) {
+			setAspectRatio(propAspectRatio);
+		}
+	}, [propAspectRatio]);
+
+	const previewCanvas = useMemo(
+		() =>
+			resolveAspectRatioCanvas(aspectRatio, propCanvas, {
+				width: pkg.width,
+				height: pkg.height,
+			}),
+		[aspectRatio, propCanvas, pkg.width, pkg.height],
+	);
+
 	const [sourceUrl, setSourceUrl] = useState(""),
 		[playing, setPlaying] = useState(false),
 		[sourceSeconds, setSourceSeconds] = useState(0),
@@ -151,8 +205,8 @@ export function RecordingCompositionEditor({
 		};
 	}, [webcamPath]);
 	const previewProject = useMemo(
-		() => recordingPreviewProject(pkg, composition),
-		[pkg, composition],
+		() => recordingPreviewProject(pkg, composition, previewCanvas, clipTransform),
+		[pkg, composition, previewCanvas, clipTransform],
 	);
 	const clipName = useMemo(() => {
 		const p = pkg.screen.path;
@@ -220,12 +274,31 @@ export function RecordingCompositionEditor({
 	const selectedAnnotation = settings.annotationRegions.find(
 		(a) => a.id === selectedAnnotationId,
 	);
+	const handleAspectRatioChange = useCallback(
+		(nextRatio: AspectRatio) => {
+			setAspectRatio(nextRatio);
+			update({ aspectRatio: nextRatio });
+			onAspectRatioChange?.(nextRatio);
+		},
+		[update, onAspectRatioChange],
+	);
+
 	const suggestZooms = () => {
-		const suggestions = buildInteractionZoomSuggestions({
-			cursorTelemetry: settings.cursorTelemetry ?? [],
-			totalMs: pkg.durationUs / 1000,
-			defaultDurationMs: 2500,
-		});
+		const sourceAspectRatio = pkg.height > 0 ? pkg.width / pkg.height : 16 / 9;
+		const targetRatioValue = getAspectRatioValue(aspectRatio, sourceAspectRatio);
+		const suggestions =
+			targetRatioValue < 1.1
+				? buildAutoReframeSuggestions({
+						cursorTelemetry: settings.cursorTelemetry ?? [],
+						totalMs: pkg.durationUs / 1000,
+						targetAspectRatio: aspectRatio,
+						sourceAspectRatio,
+					})
+				: buildInteractionZoomSuggestions({
+						cursorTelemetry: settings.cursorTelemetry ?? [],
+						totalMs: pkg.durationUs / 1000,
+						defaultDurationMs: 2500,
+					});
 		update({
 			zoomRegions: suggestions.suggestions.map((z) => ({
 				id: crypto.randomUUID(),
@@ -464,7 +537,25 @@ export function RecordingCompositionEditor({
 					</div>
 				</div>
 				<div className="recording-header-right">
-					<span className="recording-badge-meta">16:9</span>
+					<div className="recording-aspect-select-wrapper">
+						<select
+							className="recording-aspect-select"
+							value={aspectRatio}
+							onChange={(e) => handleAspectRatioChange(e.target.value as AspectRatio)}
+							title="Preview Aspect Ratio"
+							aria-label="Preview aspect ratio"
+						>
+							<option value="16:9">16:9 Landscape</option>
+							<option value="9:16">9:16 Shorts / Reels</option>
+							<option value="1:1">1:1 Square</option>
+							<option value="4:5">4:5 Portrait</option>
+							<option value="4:3">4:3 Standard</option>
+							<option value="16:10">16:10 Widescreen</option>
+							<option value="native">
+								Native ({pkg.width}×{pkg.height})
+							</option>
+						</select>
+					</div>
 					<span className="recording-badge-meta">{(durationMs / 1000).toFixed(1)}s</span>
 				</div>
 			</header>
@@ -476,12 +567,19 @@ export function RecordingCompositionEditor({
 			<div className="recording-editor-body">
 				<div className="recording-editor-monitor">
 					<div className="recording-preview-wrapper">
-						<ProjectPreview
-							project={previewProject}
-							timeUs={outputUs}
-							playing={playing}
-							onError={setError}
-						/>
+						<div
+							className="recording-preview-stage"
+							style={{
+								aspectRatio: `${previewCanvas.width} / ${previewCanvas.height}`,
+							}}
+						>
+							<ProjectPreview
+								project={previewProject}
+								timeUs={outputUs}
+								playing={playing}
+								onError={setError}
+							/>
+						</div>
 					</div>
 					<div className="recording-editor-transport">
 						<div className="recording-transport-center">
@@ -614,7 +712,8 @@ export function RecordingCompositionEditor({
 							selected={settings.wallpaper}
 							onWallpaperChange={(path) => update({ wallpaper: path })}
 							activeEffectSection={section}
-							aspectRatio="16:9"
+							aspectRatio={aspectRatio}
+							onAspectRatioChange={handleAspectRatioChange}
 							webcamPreviewSrc={
 								webcamPreview && webcamPreview.path === webcamPath
 									? webcamPreview.url

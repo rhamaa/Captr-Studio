@@ -117,3 +117,15 @@
 - **Multi-Sequence Batch Exporter:** `TimelineProjectExporter` dan `RepurposeBatchExportDialog` mendeteksi keberadaan sequence unik artboard; jika ada, exporter langsung merender sequence individu resolusi target tanpa pemotongan master.
 - **Status Pengujian:** 28/28 tests pada suite repurpose & editor lulus (100% green), `tsc --noEmit` 0 errors, Biome linter bersih.
 
+## Dynamic Aspect Ratio di Record Editor / Clip Effects Preview (5 Oktober 2026)
+
+- **Ukuran Preview Adaptif:** Monitor preview rekaman di `RecordingCompositionEditor` kini secara dinamis menyesuaikan aspek rasio yang sedang aktif (16:9 Landscape, 9:16 Shorts/Reels/TikTok, 1:1 Square, 4:5 Portrait, 4:3, 16:10, dsb.). Stage canvas dibungkus container `.recording-preview-stage` dengan CSS `aspect-ratio: ${previewCanvas.width} / ${previewCanvas.height}` sehingga bounding stage memeluk proporsi visual secara presisi.
+- **Inheritance dari Active Artboard:** Saat Record Editor / Clip Effects dibuka dari artboard individual tertentu di `ProjectEditor` (misalnya artboard 9:16 Shorts 1080x1920), Record Editor otomatis mewarisi rasio dan dimensi canvas artboard tersebut tanpa default paksa ke 16:9.
+- **Interactive Aspect Ratio Selector:** Header Record Editor dilengkapi dengan selector aspek rasio interaktif (`<select className="recording-aspect-select">`) yang tersinkronisasi dua arah dengan `SettingsPanel` dan metadata komposisi rekaman.
+- **Auto-Reframe Cerdas:** Tombol *Suggest Zooms* secara otomatis mendeteksi rasio target (aspek rasio vertikal/persegi dengan ratio < 1.1) untuk menerapkan algoritma `buildAutoReframeSuggestions` (safe-zone reframing dengan zoom in ~1.5x terpusat pada kursor dan action) alih-alih interaction-zoom landscape standar.
+- **Backward-Compatible Schema:** `aspectRatio?: AspectRatio` disimpan secara opsional di `RecordingEffectSettings` (`project.json` V3) tanpa merusak schema rekaman atau proyek versi sebelumnya.
+- **Status Pengujian:**
+  - 10/10 tests lulus di `src/recording/editor/RecordingCompositionEditor.test.tsx` (termasuk verifikasi canvas 9:16 dan 1:1).
+  - 56/56 tests lulus pada agregat suite recording, editor, repurpose, timeline, dan exporter.
+  - `npx tsc --noEmit` lolos 0 errors, Biome check lolos.
+

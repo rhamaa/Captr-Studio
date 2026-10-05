@@ -40,8 +40,8 @@ import {
 } from "@/core/timeline/types";
 import { TimelineProjectExporter } from "@/lib/exporter/timelineProjectExporter";
 import { RecordingCompositionEditor } from "@/recording/editor/RecordingCompositionEditor";
-
 import { probeMedia } from "@/recording/mediaProbe";
+import type { AspectRatio } from "@/utils/aspectRatioUtils";
 import { RepurposeBoardEditor } from "../repurpose/RepurposeBoardEditor";
 import { AssetLibrary } from "./AssetLibrary";
 import { AssetSourcePreview } from "./AssetSourcePreview";
@@ -665,10 +665,15 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		frame = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(frame);
 	}, [playing, currentActiveArtboardId]);
-	const editedClip = state.project.tracks
-			.flatMap((t) => t.clips)
-			.find((c) => c.id === editingClipId),
-		composition = state.project.compositions.find((c) => c.id === editedClip?.compositionId),
+	const editedClip =
+			(activeProject.tracks ?? state.project.tracks)
+				.flatMap((t) => t.clips)
+				.find((c) => c.id === editingClipId) ??
+			state.project.tracks.flatMap((t) => t.clips).find((c) => c.id === editingClipId),
+		composition =
+			(activeProject.compositions ?? state.project.compositions).find(
+				(c) => c.id === editedClip?.compositionId,
+			) ?? state.project.compositions.find((c) => c.id === editedClip?.compositionId),
 		pkg = state.project.packages.find((p) => p.id === composition?.packageId);
 	const sourceAsset = state.project.assets.find((a) => a.id === state.selectedAssetId),
 		sourcePath =
@@ -884,6 +889,24 @@ export function ProjectEditor(props: ProjectEditorProps) {
 							package={pkg}
 							composition={composition}
 							projectTitle={projectFileName(state.path)}
+							canvas={activeProject.canvas}
+							aspectRatio={
+								(activeArtboard?.aspectRatio &&
+								activeArtboard.aspectRatio !== "custom"
+									? (activeArtboard.aspectRatio as AspectRatio)
+									: null) ??
+								(composition.settings?.aspectRatio as AspectRatio) ??
+								(activeProject.canvas.width === 1080 &&
+								activeProject.canvas.height === 1920
+									? "9:16"
+									: activeProject.canvas.width === activeProject.canvas.height
+										? "1:1"
+										: activeProject.canvas.width === 1080 &&
+												activeProject.canvas.height === 1350
+											? "4:5"
+											: "16:9")
+							}
+							clipTransform={editedClip?.transform}
 							onChange={(next) =>
 								controller.execute((p) =>
 									updateComposition(p, composition.id, next),
