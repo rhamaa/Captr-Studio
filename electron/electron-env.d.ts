@@ -962,8 +962,9 @@ interface Window {
 		transcribeAsset?: (params: {
 			assetId: string;
 			assetMediaFilePath: string;
-			assetDir: string;
+			assetDir?: string;
 			options?: {
+				engine?: "local" | "groq" | "openai";
 				language?: string;
 				modelPath?: string;
 				cloudApiKey?: string;

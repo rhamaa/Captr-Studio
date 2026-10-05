@@ -127,7 +127,8 @@ export function SubtitleOverlay({
 	// Load transcripts for all audio/video/recording assets in project
 	useEffect(() => {
 		let isCurrent = true;
-		if (!window.electronAPI?.loadAssetTranscript) return;
+		const loadTranscript = window.electronAPI?.loadAssetTranscript;
+		if (!loadTranscript) return;
 
 		const loadAll = async () => {
 			const results: Record<string, AssetTranscript> = {};
@@ -141,7 +142,7 @@ export function SubtitleOverlay({
 					const candidatePath = asset.source?.path ?? pkg?.screen.path;
 					if (candidatePath) {
 						try {
-							const t = await window.electronAPI.loadAssetTranscript(candidatePath);
+							const t = await loadTranscript(candidatePath);
 							if (t && isCurrent) {
 								results[asset.id] = t;
 							}
