@@ -209,7 +209,9 @@ export class ProjectController {
 		if (intent === "save-as") project.projectId = crypto.randomUUID();
 		this.publish({ saving: true, fileOperation: intent });
 		try {
-			const thumbnailDataUrl = (await this.thumbnailProvider?.()) ?? undefined;
+			const thumbnailDataUrl = this.thumbnailProvider
+				? ((await this.thumbnailProvider()) ?? undefined)
+				: undefined;
 			if (this.verified)
 				return await this.persistence.run({
 					operationId: crypto.randomUUID(),

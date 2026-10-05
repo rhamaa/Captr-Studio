@@ -20,11 +20,21 @@ function project() {
 function transitionProject(): TimelineProject {
 	const base = createTimelineProject("transition", "Transition");
 	let value = registerMedia(base, {
-		id: "a", kind: "video", name: "Outgoing", durationUs: 2_000_000, width: 2, height: 2,
+		id: "a",
+		kind: "video",
+		name: "Outgoing",
+		durationUs: 2_000_000,
+		width: 2,
+		height: 2,
 		source: { path: "outgoing.mp4", durationUs: 4_000_000, offsetUs: 0 },
 	});
 	value = registerMedia(value, {
-		id: "b", kind: "video", name: "Incoming", durationUs: 2_000_000, width: 2, height: 2,
+		id: "b",
+		kind: "video",
+		name: "Incoming",
+		durationUs: 2_000_000,
+		width: 2,
+		height: 2,
 		source: { path: "incoming.mp4", durationUs: 4_000_000, offsetUs: 0 },
 	});
 	value = placeAsset(value, "a", "visual-1", 0, { clipId: "from" });
@@ -32,10 +42,17 @@ function transitionProject(): TimelineProject {
 	value.tracks[0]!.clips[0]!.sourceOutUs = 1_800_000;
 	value.tracks[0]!.clips[1]!.startUs = 1_800_000;
 	value.tracks[0]!.clips[1]!.sourceInUs = 200_000;
-	value.clipTransitions = [{
-		id: "transition", trackId: "visual-1", fromClipId: "from", toClipId: "to",
-		preset: { kind: "cross-dissolve" }, durationUs: 400_000, easing: "linear",
-	}];
+	value.clipTransitions = [
+		{
+			id: "transition",
+			trackId: "visual-1",
+			fromClipId: "from",
+			toClipId: "to",
+			preset: { kind: "cross-dissolve" },
+			durationUs: 400_000,
+			easing: "linear",
+		},
+	];
 	return value;
 }
 
@@ -147,10 +164,14 @@ it("timelineProjectExporter matches preview at transition start, midpoint, and j
 	const samples = [48, 54, 59];
 	for (const frame of samples) {
 		const timeUs = Math.round((frame * 1_000_000) / 30);
-		const preview = pixelCanvas(evaluateProject(value, timeUs)).getContext().getImageData().data;
+		const preview = pixelCanvas(evaluateProject(value, timeUs))
+			.getContext()
+			.getImageData().data;
 		expect(writes[frame]).toEqual(Array.from(preview));
 	}
-	const progress = samples.map((frame) => render.mock.calls[frame]![0].visualTransitions[0]?.progress);
+	const progress = samples.map(
+		(frame) => render.mock.calls[frame]![0].visualTransitions[0]?.progress,
+	);
 	expect(progress[0]).toBe(0);
 	expect(progress[1]).toBe(0.5);
 	expect(progress[2]).toBeGreaterThan(0.9);
@@ -172,9 +193,76 @@ it("timelineProjectExporter matches preview for component animation after random
 	expect(result.success).toBe(true);
 	for (const timeUs of [750_000, 250_000]) {
 		const frame = Math.round((timeUs * 4) / 1_000_000);
-		const preview = pixelCanvas(evaluateProject(value, timeUs)).getContext().getImageData().data;
+		const preview = pixelCanvas(evaluateProject(value, timeUs))
+			.getContext()
+			.getImageData().data;
 		expect(writes[frame]).toEqual(Array.from(preview));
 	}
 	expect(render.mock.calls[3]![0].componentAnimations[0]?.enter?.progress).toBe(0.75);
 	expect(render.mock.calls[1]![0].componentAnimations[0]?.enter?.progress).toBe(0.25);
+});
+
+it("exports an artboard and timeRangeUs slice with target dimensions and slice duration", async () => {
+	const value = project();
+	const writes: number[][] = [];
+	const startCalls: any[] = [];
+	const finishCalls: any[] = [];
+	const mockApi = {
+		nativeVideoExportStart: vi.fn(async (opts: any) => {
+			startCalls.push(opts);
+			return { success: true, sessionId: "session" };
+		}),
+		nativeVideoExportWriteFrame: async (_session: string, bytes: Uint8Array) => {
+			writes.push(Array.from(bytes));
+			return { success: true };
+		},
+		nativeVideoExportFinish: vi.fn(async (_session: string, opts: any) => {
+			finishCalls.push(opts);
+			return { success: true, tempPath: "temporary.mp4" };
+		}),
+		finalizeExportedVideo: async (opts: any) => ({
+			success: true,
+			path: opts.outputPath || "saved.mp4",
+		}),
+	};
+	const exporter = new TimelineProjectExporter({
+		renderer: () => ({
+			render: vi.fn(async () => ({
+				width: 1920,
+				height: 1080,
+				getContext: () => ({
+					drawImage: vi.fn(),
+					fillRect: vi.fn(),
+					getImageData: () => ({ data: new Uint8ClampedArray(4) }),
+				}),
+			})),
+			destroy: vi.fn(),
+		}),
+		audio: async () => null,
+		api: mockApi as any,
+	});
+
+	const artboard = {
+		id: "ab-1",
+		name: "9:16 Shorts",
+		aspectRatio: "9:16" as const,
+		width: 1080,
+		height: 1920,
+		framing: { fitMode: "cover" as const, offsetX: 0, offsetY: 0, scale: 1 },
+	};
+
+	const result = await exporter.export(value, {
+		outputPath: "/out/shorts.mp4",
+		fps: 4,
+		artboard,
+		timeRangeUs: { startUs: 250_000, endUs: 750_000 },
+		fileName: "shorts.mp4",
+	});
+
+	expect(result.success).toBe(true);
+	expect(startCalls[0]?.width).toBe(1080);
+	expect(startCalls[0]?.height).toBe(1920);
+	// 500ms duration at 4 fps = 2 frames
+	expect(writes.length).toBe(2);
+	expect(finishCalls[0]?.outputDurationSec).toBe(0.5);
 });

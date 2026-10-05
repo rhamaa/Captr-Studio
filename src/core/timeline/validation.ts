@@ -137,9 +137,7 @@ function shapeStyle(value: unknown) {
 	requireValue(value.fill === null || hexColor(value.fill), "Invalid shape fill color");
 	if (value.stroke !== null) {
 		requireValue(
-			object(value.stroke) &&
-				hexColor(value.stroke.color) &&
-				positive(value.stroke.width),
+			object(value.stroke) && hexColor(value.stroke.color) && positive(value.stroke.width),
 			"Invalid shape stroke color or width",
 		);
 	}
@@ -161,24 +159,33 @@ function shapePoint(value: unknown, width: number, height: number) {
 function shapeAsset(asset: MediaAsset) {
 	const definition = asset.shapeDefinition;
 	requireValue(
-		definition && object(definition) &&
-			integer(asset.durationUs) && asset.durationUs === 5_000_000 &&
-			integer(asset.width) && asset.width > 0 &&
-			integer(asset.height) && asset.height > 0 &&
-			!asset.source && !asset.packageId,
+		definition &&
+			object(definition) &&
+			integer(asset.durationUs) &&
+			asset.durationUs === 5_000_000 &&
+			integer(asset.width) &&
+			asset.width > 0 &&
+			integer(asset.height) &&
+			asset.height > 0 &&
+			!asset.source &&
+			!asset.packageId,
 		"Invalid pathless shape asset",
 	);
 	if (definition.kind === "rectangle" || definition.kind === "ellipse") {
 		requireValue(
-			positive(definition.width) && positive(definition.height) &&
-			asset.width === Math.ceil(definition.width) &&
-			asset.height === Math.ceil(definition.height),
-		"Invalid shape geometry dimensions",
+			positive(definition.width) &&
+				positive(definition.height) &&
+				asset.width === Math.ceil(definition.width) &&
+				asset.height === Math.ceil(definition.height),
+			"Invalid shape geometry dimensions",
 		);
 		shapeStyle(definition.style);
 		return;
 	}
-	requireValue(definition.kind === "line" || definition.kind === "arrow", "Invalid shape definition");
+	requireValue(
+		definition.kind === "line" || definition.kind === "arrow",
+		"Invalid shape definition",
+	);
 	shapePoint(definition.from, asset.width, asset.height);
 	shapePoint(definition.to, asset.width, asset.height);
 	requireValue(
@@ -197,14 +204,23 @@ function componentAnimation(value: unknown) {
 		"Invalid component animation preset",
 	);
 	requireValue(
-		integer(animation.durationUs) && animation.durationUs > 0 && animation.durationUs <= 2_000_000,
+		integer(animation.durationUs) &&
+			animation.durationUs > 0 &&
+			animation.durationUs <= 2_000_000,
 		"Invalid component animation duration",
 	);
-	requireValue(transitionEasings.includes(animation.easing as (typeof transitionEasings)[number]), "Invalid component animation easing");
+	requireValue(
+		transitionEasings.includes(animation.easing as (typeof transitionEasings)[number]),
+		"Invalid component animation easing",
+	);
 	const directional = animation.preset === "slide" || animation.preset === "wipe-reveal";
 	if (directional)
-		requireValue(directions.includes(animation.direction as (typeof directions)[number]), "Invalid component animation direction");
-	else requireValue(animation.direction === undefined, "Unexpected component animation direction");
+		requireValue(
+			directions.includes(animation.direction as (typeof directions)[number]),
+			"Invalid component animation direction",
+		);
+	else
+		requireValue(animation.direction === undefined, "Unexpected component animation direction");
 	return animation.durationUs;
 }
 function clipTransitionPreset(value: unknown) {
@@ -213,11 +229,17 @@ function clipTransitionPreset(value: unknown) {
 		case "cross-dissolve":
 			return;
 		case "fade-through":
-			requireValue(value.color === "black" || value.color === "white", "Invalid transition color");
+			requireValue(
+				value.color === "black" || value.color === "white",
+				"Invalid transition color",
+			);
 			return;
 		case "wipe":
 		case "push":
-			requireValue(directions.includes(value.direction as (typeof directions)[number]), "Invalid transition direction");
+			requireValue(
+				directions.includes(value.direction as (typeof directions)[number]),
+				"Invalid transition direction",
+			);
 			return;
 		default:
 			requireValue(false, "Invalid transition preset");
@@ -303,7 +325,10 @@ export function validateTimelineProject(value: unknown): TimelineProject {
 			);
 		} else if (a.kind === "text") {
 			textOverlay(a.text);
-			requireValue(!a.source && !a.packageId && !a.shapeDefinition, "Unexpected text asset metadata");
+			requireValue(
+				!a.source && !a.packageId && !a.shapeDefinition,
+				"Unexpected text asset metadata",
+			);
 		} else if (a.kind === "shape") shapeAsset(a);
 		else {
 			requireValue(!a.shapeDefinition, "Unexpected shape definition");
@@ -412,10 +437,19 @@ export function validateTimelineProject(value: unknown): TimelineProject {
 			);
 			clipKeyframes(c.keyframes);
 			if (c.componentAnimation !== undefined) {
-				requireValue(t.kind === "visual" && a.kind !== "audio", "Component animation requires a visual clip");
+				requireValue(
+					t.kind === "visual" && a.kind !== "audio",
+					"Component animation requires a visual clip",
+				);
 				requireValue(object(c.componentAnimation), "Invalid component animation settings");
-				const enter = c.componentAnimation.enter === undefined ? 0 : componentAnimation(c.componentAnimation.enter);
-				const exit = c.componentAnimation.exit === undefined ? 0 : componentAnimation(c.componentAnimation.exit);
+				const enter =
+					c.componentAnimation.enter === undefined
+						? 0
+						: componentAnimation(c.componentAnimation.enter);
+				const exit =
+					c.componentAnimation.exit === undefined
+						? 0
+						: componentAnimation(c.componentAnimation.exit);
 				requireValue(enter + exit <= clipDurationUs(c), "Component animations overlap");
 			}
 			if (c.shapeStyleOverride !== undefined) {
@@ -438,8 +472,11 @@ export function validateTimelineProject(value: unknown): TimelineProject {
 			const from = ordered[fromIndex];
 			const to = ordered[fromIndex + 1];
 			requireValue(
-				fromIndex >= 0 && to && to.id === transition.toClipId &&
-					from.enabled && to.enabled &&
+				fromIndex >= 0 &&
+					to &&
+					to.id === transition.toClipId &&
+					from.enabled &&
+					to.enabled &&
 					from.startUs + clipDurationUs(from) === to.startUs,
 				"Invalid transition clip references or non-adjacent clips",
 			);
@@ -457,7 +494,8 @@ export function validateTimelineProject(value: unknown): TimelineProject {
 			clipTransitionPreset(transition.preset);
 		}
 		const projectEndUs = p.tracks.reduce(
-			(endUs, track) => Math.max(endUs, ...track.clips.map((clip) => clip.startUs + clipDurationUs(clip))),
+			(endUs, track) =>
+				Math.max(endUs, ...track.clips.map((clip) => clip.startUs + clipDurationUs(clip))),
 			0,
 		);
 		for (const transition of p.clipTransitions) {
@@ -469,20 +507,34 @@ export function validateTimelineProject(value: unknown): TimelineProject {
 			const fromComposition = from.compositionId
 				? p.compositions.find((composition) => composition.id === from.compositionId)
 				: undefined;
-			const outgoingTailUs = fromAsset.kind === "shape" || fromAsset.kind === "image"
-				? Number.POSITIVE_INFINITY
-				: Math.max(0, ((fromComposition?.durationUs ?? fromAsset.durationUs) - from.sourceOutUs) / from.rate);
-			const incomingHeadUs = toAsset.kind === "shape" || toAsset.kind === "image"
-				? Number.POSITIVE_INFINITY
-				: to.sourceInUs / to.rate;
+			const outgoingTailUs =
+				fromAsset.kind === "shape" || fromAsset.kind === "image"
+					? Number.POSITIVE_INFINITY
+					: Math.max(
+							0,
+							((fromComposition?.durationUs ?? fromAsset.durationUs) -
+								from.sourceOutUs) /
+								from.rate,
+						);
+			const incomingHeadUs =
+				toAsset.kind === "shape" || toAsset.kind === "image"
+					? Number.POSITIVE_INFINITY
+					: to.sourceInUs / to.rate;
 			const boundaryUs = to.startUs;
-			let maximumUs = Math.min(outgoingTailUs, incomingHeadUs, boundaryUs, Math.max(0, projectEndUs - boundaryUs));
+			let maximumUs = Math.min(
+				outgoingTailUs,
+				incomingHeadUs,
+				boundaryUs,
+				Math.max(0, projectEndUs - boundaryUs),
+			);
 			maximumUs = Number.isFinite(maximumUs)
 				? Math.max(0, Math.floor(maximumUs * 2))
 				: Number.MAX_SAFE_INTEGER;
 			for (const other of p.clipTransitions) {
 				if (other.id === transition.id || other.trackId !== transition.trackId) continue;
-				const otherBoundaryUs = track.clips.find((clip) => clip.id === other.toClipId)!.startUs;
+				const otherBoundaryUs = track.clips.find(
+					(clip) => clip.id === other.toClipId,
+				)!.startUs;
 				maximumUs = Math.min(
 					maximumUs,
 					Math.max(0, 2 * Math.abs(boundaryUs - otherBoundaryUs) - other.durationUs),
@@ -492,6 +544,40 @@ export function validateTimelineProject(value: unknown): TimelineProject {
 				transition.durationUs <= maximumUs,
 				"Transition exceeds available source handles or overlaps an adjacent transition",
 			);
+		}
+	}
+	if (p.repurposeBoard) {
+		requireValue(Array.isArray(p.repurposeBoard.artboards), "Invalid repurpose artboards");
+		requireValue(Array.isArray(p.repurposeBoard.slices), "Invalid repurpose slices");
+		for (const ab of p.repurposeBoard.artboards) {
+			requireValue(typeof ab.id === "string" && ab.id.length > 0, "Invalid artboard ID");
+			requireValue(typeof ab.name === "string", "Invalid artboard name");
+			requireValue(integer(ab.width) && ab.width > 0, "Invalid artboard width");
+			requireValue(integer(ab.height) && ab.height > 0, "Invalid artboard height");
+			requireValue(ab.framing && typeof ab.framing === "object", "Invalid artboard framing");
+			requireValue(
+				Number.isFinite(ab.framing.scale) && ab.framing.scale > 0,
+				"Invalid artboard scale",
+			);
+			requireValue(
+				Number.isFinite(ab.framing.offsetX) && Number.isFinite(ab.framing.offsetY),
+				"Invalid artboard offset",
+			);
+			if (ab.tracks !== undefined) {
+				requireValue(Array.isArray(ab.tracks), "Invalid artboard tracks");
+			}
+			if (ab.clipTransitions !== undefined) {
+				requireValue(
+					Array.isArray(ab.clipTransitions),
+					"Invalid artboard clip transitions",
+				);
+			}
+		}
+		for (const slice of p.repurposeBoard.slices) {
+			requireValue(typeof slice.id === "string" && slice.id.length > 0, "Invalid slice ID");
+			requireValue(typeof slice.name === "string", "Invalid slice name");
+			requireValue(integer(slice.startUs) && integer(slice.endUs), "Invalid slice clock");
+			requireValue(slice.endUs > slice.startUs, "Slice end must be after start");
 		}
 	}
 	return p;

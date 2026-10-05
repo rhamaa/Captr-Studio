@@ -1,5 +1,6 @@
 import type { PropertyKeyframe } from "@/components/video-editor/types";
 import type { MediaSource, RecordComposition, RecordingPackage } from "@/recording/types";
+import type { RepurposeBoardSettings } from "./repurposeTypes";
 
 export type { PropertyKeyframe } from "@/components/video-editor/types";
 export type {
@@ -8,6 +9,14 @@ export type {
 	RecordComposition,
 	RecordingPackage,
 } from "@/recording/types";
+export type {
+	ArtboardPreset,
+	RepurposeArtboard,
+	RepurposeArtboardFraming,
+	RepurposeAspectRatio,
+	RepurposeBoardSettings,
+	RepurposeSlice,
+} from "./repurposeTypes";
 export interface TextOverlay {
 	content: string;
 	fontFamily: string;
@@ -48,14 +57,14 @@ export type ShapeDefinition =
 			from: { x: number; y: number };
 			to: { x: number; y: number };
 			style: { stroke: { color: string; width: number } };
-		}
+	  }
 	| {
 			kind: "arrow";
 			from: { x: number; y: number };
 			to: { x: number; y: number };
 			headLength: number;
 			style: { stroke: { color: string; width: number } };
-		};
+	  };
 export interface MediaAsset {
 	id: string;
 	kind: "video" | "image" | "audio" | "recording" | "text" | "shape";
@@ -111,6 +120,7 @@ export interface TimelineProject {
 	compositions: RecordComposition[];
 	tracks: TimelineTrack[];
 	clipTransitions?: ClipTransition[];
+	repurposeBoard?: RepurposeBoardSettings;
 	createdAt: string;
 	updatedAt: string;
 }

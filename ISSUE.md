@@ -95,3 +95,25 @@
 - Timeline menampilkan layer visual di atas grup Audio; urutan tampilan visual mengikuti z-order evaluator V3, sementara urutan data project tetap menjadi sumber render.
 - Drop otomatis mengikuti jenis aset/clip ke grup yang benar meski dilepas di baris grup lain. Track kompatibel baru dibuat hanya bila rentang waktu beririsan pada baris tujuan; interval yang bersentuhan tetap berbagi track.
 - Tes fokus timeline lulus: drop 8/8, tampilan `ProjectTimeline` 5/5, dan `tsc --noEmit` lulus. Suite penuh: 1.148/1.164 lulus; 16 gagal di 8 suite lain (`useProjectController`, `mediaLayerTiming`, `audioEncoder`, `frameRenderer`, `modernFrameRenderer`, `streamingDecoder`, `templateWallpaperSave`, `v3LifecycleVerification`). QA native drag/drop belum dijalankan.
+
+## Sub-Editor ke-3: Multi-Artboard Repurposer & Slice Studio (5 Oktober 2026)
+
+- `repurposeBoard?: RepurposeBoardSettings` tersimpan opsional di `project.json` V3 (backward-compatible; project V3 tanpa repurposeBoard tetap valid dan tidak terpengaruh).
+- Multi-artboard canvas sub-editor terpasang docked di bawah `ProjectEditorPanel` (`project-repurpose-subeditor`), dapat dibuka dari topbar (`Repurpose`) dan preview stage panel (`Multi-Artboard Slices`).
+- Evaluasi frame master tunggal via `ProjectPreview` (`onRenderedCanvas`) menghindari duplikasi beban decode/render timeline; artboard (9:16 Shorts, 1:1 Square, 4:5 Portrait, 16:9 Landscape) merender frame turunan via framing crop/pan/zoom offset.
+- Slicing mini-timeline bar di bagian bawah mendukung razor cut pada playhead (`S`/`C` atau tombol split), penamaan cuplikan, time range badge, penghapusan slice, dan playhead scrubber indicator.
+- Batch Export Dialog (`RepurposeBatchExportDialog`) terintegrasi penuh ke `TimelineProjectExporter` dan desktop encoder native: mengekspor kombinasi artboards × slices menjadi MP4 terpisah dengan nama terstruktur (`[Project]_[Slice]_[Aspect].mp4`), progress bar individual + overall, pembatalan aman, dan pemilihan folder output.
+- Tes terverifikasi: 186 unit tests lulus 100% (`repurposeCommands.test.ts`, `repurposeFraming.test.ts`, `RepurposeBatchExportDialog.test.tsx`, `timelineProjectExporter.test.ts`, `ProjectEditorPanel.test.tsx`, `ProjectEditor.test.tsx`, dsb.). `graft build` dan `tsc --noEmit` 0 errors.
+
+## Inverted Multi-Artboard Flow & Independent Sequence Editor (5 Oktober 2026)
+
+- **Workflow Inversion:** Membalik alur kerja utama di `ProjectEditor` sehingga saat membuka/membuat project, tampilan default langsung mendarat pada **Multi-Artboard Hub** (`RepurposeBoardEditor`).
+- **Double-Click & Edit Gesture:** Double-click pada kartu artboard (atau tombol *Edit* di header kartu) membuka **Individual Project Editor** khusus untuk ukuran/format tersebut.
+- **Independent Sequence per Artboard:**
+  - `RepurposeArtboard` diperluas dengan field sequence opsional: `tracks?: TimelineTrack[]` dan `clipTransitions?: ClipTransition[]`.
+  - Jika belum diedit, artboard mewarisi sequence root (`project.tracks`). Begitu diedit secara individual, modifikasi timeline tersimpan pada sequence mandiri artboard (`updateArtboardProject`) tanpa merusak susunan artboard lainnya.
+  - Seluruh artboard tetap berbagi pustaka aset (`assets`, `packages`, `compositions`) yang sama di root project.
+- **Navigasi Balik:** Header individual editor menyediakan tombol `← Artboards` (dengan shortcut `Esc`) serta badge format aktif (misal `Shorts (9:16)`). Menekan `Esc` dari timeline editor langsung kembali ke Multi-Artboard Hub.
+- **Multi-Sequence Batch Exporter:** `TimelineProjectExporter` dan `RepurposeBatchExportDialog` mendeteksi keberadaan sequence unik artboard; jika ada, exporter langsung merender sequence individu resolusi target tanpa pemotongan master.
+- **Status Pengujian:** 28/28 tests pada suite repurpose & editor lulus (100% green), `tsc --noEmit` 0 errors, Biome linter bersih.
+
