@@ -7,7 +7,7 @@ import {
 	type RepurposeSlice,
 	SLICE_COLORS,
 } from "./repurposeTypes";
-import { projectDurationUs, type TimelineProject } from "./types";
+import { projectDurationUs, type TimelineClip, type TimelineProject, type TimelineTrack } from "./types";
 
 /**
  * Creates default RepurposeBoardSettings with standard social media artboards (9:16, 1:1, 16:9)
@@ -530,3 +530,88 @@ export function duplicateRepurposeArtboard(
 		updatedAt: new Date().toISOString(),
 	};
 }
+
+/**
+ * Places an asset into an artboard's independent sequence tracks.
+ * If artboard has no tracks yet, initializes with a compatible visual/audio track.
+ */
+export function placeAssetIntoArtboard(
+	project: TimelineProject,
+	artboardId: string,
+	assetId: string,
+): TimelineProject {
+	const current = ensureRepurposeBoard(project);
+	const artboardIndex = current.repurposeBoard!.artboards.findIndex((a) => a.id === artboardId);
+	if (artboardIndex === -1) return current;
+
+	const artboard = current.repurposeBoard!.artboards[artboardIndex]!;
+	const asset = current.assets.find((a) => a.id === assetId);
+	if (!asset) return current;
+
+	const tracks: TimelineTrack[] = artboard.tracks
+		? structuredClone(artboard.tracks)
+		: current.tracks.length > 0
+			? structuredClone(current.tracks)
+			: [
+					{
+						id: crypto.randomUUID(),
+						name: asset.kind === "audio" ? "Audio 1" : "Track 1",
+						kind: asset.kind === "audio" ? "audio" : "visual",
+						locked: false,
+						muted: false,
+						hidden: false,
+						clips: [],
+					},
+				];
+
+	const targetKind = asset.kind === "audio" ? "audio" : "visual";
+	let track = tracks.find((t) => !t.locked && t.kind === targetKind);
+	if (!track) {
+		track = {
+			id: crypto.randomUUID(),
+			name: targetKind === "audio" ? "Audio Track" : "Video Track",
+			kind: targetKind,
+			locked: false,
+			muted: false,
+			hidden: false,
+			clips: [],
+		};
+		tracks.push(track);
+	}
+
+	const startUs = Math.max(
+		0,
+		...track.clips.map((c) => c.startUs + Math.round((c.sourceOutUs - c.sourceInUs) / c.rate)),
+	);
+
+	const clipId = crypto.randomUUID();
+	const newClip: TimelineClip = {
+		id: clipId,
+		assetId,
+		compositionId: crypto.randomUUID(),
+		startUs,
+		sourceInUs: 0,
+		sourceOutUs: Math.max(1_000_000, asset.durationUs),
+		rate: 1,
+		transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+		gain: 1,
+		enabled: true,
+	};
+	track.clips.push(newClip);
+
+	const updatedArtboards = [...current.repurposeBoard!.artboards];
+	updatedArtboards[artboardIndex] = {
+		...artboard,
+		tracks,
+	};
+
+	return {
+		...current,
+		repurposeBoard: {
+			...current.repurposeBoard!,
+			artboards: updatedArtboards,
+		},
+		updatedAt: new Date().toISOString(),
+	};
+}
+
