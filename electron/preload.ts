@@ -1025,4 +1025,21 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		ipcRenderer.on("window:maximized-change", listener);
 		return () => ipcRenderer.removeListener("window:maximized-change", listener);
 	},
+
+	// ── Transcription ──────────────────────────────────────────────────
+	transcribeAsset: (params: {
+		assetId: string;
+		assetMediaFilePath: string;
+		assetDir: string;
+		options?: {
+			language?: string;
+			modelPath?: string;
+			cloudApiKey?: string;
+			cloudProvider?: "groq" | "openai";
+		};
+	}) => ipcRenderer.invoke("transcribe-asset", params),
+	loadAssetTranscript: (assetDir: string) =>
+		ipcRenderer.invoke("load-asset-transcript", assetDir),
+	getTranscriptionEngineStatus: () =>
+		ipcRenderer.invoke("get-transcription-engine-status"),
 });
