@@ -1,3 +1,5 @@
+import { createRecordComposition } from "@/recording/packageAdapter";
+import type { RecordComposition } from "@/recording/types";
 import {
 	type ArtboardPreset,
 	type RepurposeArtboard,
@@ -7,7 +9,7 @@ import {
 	type RepurposeSlice,
 	SLICE_COLORS,
 } from "./repurposeTypes";
-import { projectDurationUs, type TimelineProject } from "./types";
+import { projectDurationUs, type TimelineClip, type TimelineProject, type TimelineTrack } from "./types";
 
 /**
  * Creates default RepurposeBoardSettings with standard social media artboards (9:16, 1:1, 16:9)
@@ -480,9 +482,28 @@ export function forkArtboardSequence(
 	const artboard = current.repurposeBoard!.artboards[artboardIndex]!;
 	if (artboard.tracks) return current; // Already forked
 
+	const clonedTracks: TimelineTrack[] = structuredClone(current.tracks);
+	const newCompositions: RecordComposition[] = [];
+	for (const track of clonedTracks) {
+		for (const clip of track.clips) {
+			clip.id = crypto.randomUUID();
+			if (clip.compositionId) {
+				const origComp = current.compositions.find((c) => c.id === clip.compositionId);
+				if (origComp) {
+					const newCompId = crypto.randomUUID();
+					newCompositions.push({
+						...structuredClone(origComp),
+						id: newCompId,
+					});
+					clip.compositionId = newCompId;
+				}
+			}
+		}
+	}
+
 	const updatedArtboard: RepurposeArtboard = {
 		...artboard,
-		tracks: structuredClone(current.tracks),
+		tracks: clonedTracks,
 		clipTransitions: current.clipTransitions ? structuredClone(current.clipTransitions) : [],
 	};
 
@@ -491,6 +512,7 @@ export function forkArtboardSequence(
 
 	return {
 		...current,
+		compositions: [...current.compositions, ...newCompositions],
 		repurposeBoard: {
 			...current.repurposeBoard!,
 			artboards: updatedArtboards,
@@ -501,6 +523,7 @@ export function forkArtboardSequence(
 
 /**
  * Duplicates an artboard, including its framing and any independent sequence tracks.
+ * Re-maps all clip compositions so edits to the duplicated artboard never affect the original.
  */
 export function duplicateRepurposeArtboard(
 	project: TimelineProject,
@@ -510,12 +533,34 @@ export function duplicateRepurposeArtboard(
 	const artboard = current.repurposeBoard!.artboards.find((a) => a.id === artboardId);
 	if (!artboard) return current;
 
+	const newCompositions: RecordComposition[] = [];
+	let duplicatedTracks: TimelineTrack[] | undefined;
+	if (artboard.tracks) {
+		duplicatedTracks = structuredClone(artboard.tracks);
+		for (const track of duplicatedTracks) {
+			for (const clip of track.clips) {
+				clip.id = crypto.randomUUID();
+				if (clip.compositionId) {
+					const origComp = current.compositions.find((c) => c.id === clip.compositionId);
+					if (origComp) {
+						const newCompId = crypto.randomUUID();
+						newCompositions.push({
+							...structuredClone(origComp),
+							id: newCompId,
+						});
+						clip.compositionId = newCompId;
+					}
+				}
+			}
+		}
+	}
+
 	const duplicated: RepurposeArtboard = {
 		...artboard,
 		id: crypto.randomUUID(),
 		name: `${artboard.name} (Copy)`,
 		framing: structuredClone(artboard.framing),
-		tracks: artboard.tracks ? structuredClone(artboard.tracks) : undefined,
+		tracks: duplicatedTracks,
 		clipTransitions: artboard.clipTransitions
 			? structuredClone(artboard.clipTransitions)
 			: undefined,
@@ -523,6 +568,7 @@ export function duplicateRepurposeArtboard(
 
 	return {
 		...current,
+		compositions: [...current.compositions, ...newCompositions],
 		repurposeBoard: {
 			...current.repurposeBoard!,
 			artboards: [...current.repurposeBoard!.artboards, duplicated],
@@ -530,3 +576,101 @@ export function duplicateRepurposeArtboard(
 		updatedAt: new Date().toISOString(),
 	};
 }
+
+/**
+ * Places an asset into an artboard's independent sequence tracks.
+ * If artboard has no tracks yet, initializes with a compatible visual/audio track.
+ * Automatically generates a dedicated RecordComposition if placing a recording asset.
+ */
+export function placeAssetIntoArtboard(
+	project: TimelineProject,
+	artboardId: string,
+	assetId: string,
+): TimelineProject {
+	const current = ensureRepurposeBoard(project);
+	const artboardIndex = current.repurposeBoard!.artboards.findIndex((a) => a.id === artboardId);
+	if (artboardIndex === -1) return current;
+
+	const artboard = current.repurposeBoard!.artboards[artboardIndex]!;
+	const asset = current.assets.find((a) => a.id === assetId);
+	if (!asset) return current;
+
+	const tracks: TimelineTrack[] = artboard.tracks
+		? structuredClone(artboard.tracks)
+		: current.tracks.length > 0
+			? structuredClone(current.tracks)
+			: [
+					{
+						id: crypto.randomUUID(),
+						name: asset.kind === "audio" ? "Audio 1" : "Track 1",
+						kind: asset.kind === "audio" ? "audio" : "visual",
+						locked: false,
+						muted: false,
+						hidden: false,
+						clips: [],
+					},
+				];
+
+	const targetKind = asset.kind === "audio" ? "audio" : "visual";
+	let track = tracks.find((t) => !t.locked && t.kind === targetKind);
+	if (!track) {
+		track = {
+			id: crypto.randomUUID(),
+			name: targetKind === "audio" ? "Audio Track" : "Video Track",
+			kind: targetKind,
+			locked: false,
+			muted: false,
+			hidden: false,
+			clips: [],
+		};
+		tracks.push(track);
+	}
+
+	const startUs = Math.max(
+		0,
+		...track.clips.map((c) => c.startUs + Math.round((c.sourceOutUs - c.sourceInUs) / c.rate)),
+	);
+
+	let compositionId: string | undefined;
+	const addedCompositions: RecordComposition[] = [];
+	if (asset.kind === "recording" && asset.packageId) {
+		const pkg = current.packages.find((p) => p.id === asset.packageId);
+		if (pkg) {
+			compositionId = crypto.randomUUID();
+			const composition = createRecordComposition(pkg, compositionId);
+			addedCompositions.push(composition);
+		}
+	}
+
+	const clipId = crypto.randomUUID();
+	const newClip: TimelineClip = {
+		id: clipId,
+		assetId,
+		compositionId,
+		startUs,
+		sourceInUs: 0,
+		sourceOutUs: Math.max(1_000_000, addedCompositions[0]?.durationUs ?? asset.durationUs),
+		rate: 1,
+		transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+		gain: 1,
+		enabled: true,
+	};
+	track.clips.push(newClip);
+
+	const updatedArtboards = [...current.repurposeBoard!.artboards];
+	updatedArtboards[artboardIndex] = {
+		...artboard,
+		tracks,
+	};
+
+	return {
+		...current,
+		compositions: [...current.compositions, ...addedCompositions],
+		repurposeBoard: {
+			...current.repurposeBoard!,
+			artboards: updatedArtboards,
+		},
+		updatedAt: new Date().toISOString(),
+	};
+}
+

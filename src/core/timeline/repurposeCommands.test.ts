@@ -8,6 +8,7 @@ import {
 	ensureRepurposeBoard,
 	forkArtboardSequence,
 	getArtboardProjectView,
+	placeAssetIntoArtboard,
 	removeRepurposeArtboard,
 	removeRepurposeSlice,
 	renameRepurposeArtboard,
@@ -278,6 +279,82 @@ describe("repurposeCommands", () => {
 		expect(duplicated.tracks).toBeDefined();
 		expect(duplicated.tracks).toEqual(targetArtboard.tracks);
 		expect(duplicated.id).not.toBe(targetArtboard.id);
+
+		// Validation check
+		expect(() => validateTimelineProject(project)).not.toThrow();
+	});
+
+	it("places asset into artboard timeline and creates tracks if needed", () => {
+		let project = createTimelineProject("p1", "Test Project");
+		project = addRepurposeArtboard(project, {
+			aspectRatio: "9:16",
+			name: "Shorts",
+			width: 1080,
+			height: 1920,
+			defaultFitMode: "cover",
+		});
+		const artboardId = project.repurposeBoard!.artboards[0].id;
+
+		// Add asset to project
+		project = {
+			...project,
+			assets: [
+				{
+					id: "video-asset-1",
+					name: "ScreenRecord.mp4",
+					kind: "video",
+					durationUs: 5_000_000,
+					width: 1920,
+					height: 1080,
+					source: {
+						type: "file" as const,
+						path: "assets/video-asset-1/ScreenRecord.mp4",
+						durationUs: 5_000_000,
+						offsetUs: 0,
+					},
+				},
+			],
+		};
+
+		// Place asset into artboard
+		project = placeAssetIntoArtboard(project, artboardId, "video-asset-1");
+
+		const abView = getArtboardProjectView(project, artboardId);
+		expect(abView.tracks.length).toBeGreaterThan(0);
+		const videoTrack = abView.tracks.find((t) => t.kind === "visual");
+		expect(videoTrack).toBeDefined();
+		expect(videoTrack?.clips).toHaveLength(1);
+		expect(videoTrack?.clips[0].assetId).toBe("video-asset-1");
+		expect(videoTrack?.clips[0].sourceOutUs).toBe(5_000_000);
+
+		// Place another asset (audio)
+		project = {
+			...project,
+			assets: [
+				...project.assets,
+				{
+					id: "audio-asset-1",
+					name: "Voice.mp3",
+					kind: "audio",
+					durationUs: 3_000_000,
+					width: 0,
+					height: 0,
+					source: {
+						type: "file" as const,
+						path: "assets/audio-asset-1/Voice.mp3",
+						durationUs: 3_000_000,
+						offsetUs: 0,
+					},
+				},
+			],
+		};
+
+		project = placeAssetIntoArtboard(project, artboardId, "audio-asset-1");
+		const updatedAbView = getArtboardProjectView(project, artboardId);
+		const audioTrack = updatedAbView.tracks.find((t) => t.kind === "audio");
+		expect(audioTrack).toBeDefined();
+		expect(audioTrack?.clips).toHaveLength(1);
+		expect(audioTrack?.clips[0].assetId).toBe("audio-asset-1");
 
 		// Validation check
 		expect(() => validateTimelineProject(project)).not.toThrow();

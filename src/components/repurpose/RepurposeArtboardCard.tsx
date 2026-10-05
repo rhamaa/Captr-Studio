@@ -3,6 +3,7 @@ import {
 	ArrowsIn,
 	ArrowsOut,
 	Copy,
+	DotsSixVertical,
 	FilmStrip,
 	MagnifyingGlassMinus,
 	MagnifyingGlassPlus,
@@ -12,6 +13,7 @@ import {
 	Trash,
 } from "@phosphor-icons/react";
 import { type MouseEvent as ReactMouseEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ASSET_DRAG_TYPE } from "@/components/editor/timelineInteractions";
 import { ProjectPreview } from "@/components/editor/ProjectPreview";
 import type { RepurposeArtboard, RepurposeArtboardFraming } from "@/core/timeline/repurposeTypes";
 import { projectDurationUs, type TimelineProject } from "@/core/timeline/types";
@@ -38,6 +40,8 @@ export interface RepurposeArtboardCardProps {
 	onResetFraming: () => void;
 	onDuplicate?: () => void;
 	onRename?: (newName: string) => void;
+	onStartDragCard?: (e: ReactMouseEvent) => void;
+	onDropAsset?: (assetId: string) => void;
 }
 
 export function RepurposeArtboardCard({
@@ -53,10 +57,13 @@ export function RepurposeArtboardCard({
 	onResetFraming,
 	onDuplicate,
 	onRename,
+	onStartDragCard,
+	onDropAsset,
 }: RepurposeArtboardCardProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
-	const [renderedCanvas, setRenderedCanvas] = useState<HTMLCanvasElement | null>(null);
-	const [isDragging, setIsDragging] = useState(false);
+	const latestSourceCanvas = useRef<HTMLCanvasElement | null>(null);
+	const [isDraggingFraming, setIsDraggingFraming] = useState(false);
+	const [isDragOver, setIsDragOver] = useState(false);
 	const dragStart = useRef<{
 		x: number;
 		y: number;
@@ -135,6 +142,9 @@ export function RepurposeArtboardCard({
 
 	const togglePlay = (e: ReactMouseEvent) => {
 		e.stopPropagation();
+		if (!localPlaying && localPlayheadUs >= durationUs - 100_000) {
+			setLocalPlayheadUs(0);
+		}
 		const next = !localPlaying;
 		setLocalPlaying(next);
 		onPlayingChange?.(next);
@@ -144,39 +154,54 @@ export function RepurposeArtboardCard({
 	const aspect = artboard.width / Math.max(1, artboard.height);
 	const displayWidth = Math.round(displayHeight * aspect);
 
-	// Render frame to canvas whenever renderedCanvas, or framing changes
-	useEffect(() => {
+	const drawPlaceholder = (ctx?: CanvasRenderingContext2D | null) => {
+		const targetCtx = ctx ?? canvasRef.current?.getContext("2d");
+		if (!targetCtx) return;
+		targetCtx.fillStyle = "#151518";
+		targetCtx.fillRect(0, 0, displayWidth, displayHeight);
+		targetCtx.fillStyle = "#4a4a55";
+		targetCtx.font = "12px sans-serif";
+		targetCtx.textAlign = "center";
+		targetCtx.fillText(
+			`${artboard.aspectRatio} (${artboard.width}×${artboard.height})`,
+			displayWidth / 2,
+			displayHeight / 2,
+		);
+	};
+
+	// Direct painting function: called on every frame by ProjectPreview
+	const paintToCanvas = (source: HTMLCanvasElement) => {
+		latestSourceCanvas.current = source;
 		const canvas = canvasRef.current;
 		if (!canvas) return;
 		const ctx = canvas.getContext("2d");
 		if (!ctx) return;
 
-		if (renderedCanvas && renderedCanvas.width > 0 && renderedCanvas.height > 0) {
+		if (source.width > 0 && source.height > 0) {
 			if (artboard.tracks) {
 				ctx.clearRect(0, 0, displayWidth, displayHeight);
-				ctx.drawImage(renderedCanvas, 0, 0, displayWidth, displayHeight);
+				ctx.drawImage(source, 0, 0, displayWidth, displayHeight);
 			} else {
-				drawArtboardFrame(ctx, renderedCanvas, artboard, displayWidth, displayHeight);
+				drawArtboardFrame(ctx, source, artboard, displayWidth, displayHeight);
 			}
 		} else {
-			// Placeholder pattern
-			ctx.fillStyle = "#151518";
-			ctx.fillRect(0, 0, displayWidth, displayHeight);
-			ctx.fillStyle = "#4a4a55";
-			ctx.font = "12px sans-serif";
-			ctx.textAlign = "center";
-			ctx.fillText(
-				`${artboard.aspectRatio} (${artboard.width}×${artboard.height})`,
-				displayWidth / 2,
-				displayHeight / 2,
-			);
+			drawPlaceholder(ctx);
 		}
-	}, [renderedCanvas, artboard, displayWidth, displayHeight]);
+	};
 
-	// Mouse drag-to-pan handlers
+	// Re-paint when framing or display dimensions change
+	useEffect(() => {
+		if (latestSourceCanvas.current) {
+			paintToCanvas(latestSourceCanvas.current);
+		} else {
+			drawPlaceholder();
+		}
+	}, [artboard.framing, artboard.tracks, displayWidth, displayHeight]);
+
+	// Mouse drag-to-pan camera framing handlers
 	const handleMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
 		e.preventDefault();
-		setIsDragging(true);
+		setIsDraggingFraming(true);
 		dragStart.current = {
 			x: e.clientX,
 			y: e.clientY,
@@ -186,7 +211,9 @@ export function RepurposeArtboardCard({
 	};
 
 	useEffect(() => {
-		if (!isDragging) return;
+		if (!isDraggingFraming) return;
+
+		let pendingPatch: Partial<RepurposeArtboardFraming> | null = null;
 
 		const handleMouseMove = (e: MouseEvent) => {
 			const dx = e.clientX - dragStart.current.x;
@@ -196,7 +223,7 @@ export function RepurposeArtboardCard({
 			const deltaOffsetX = -(dx / (displayWidth * 0.75));
 			const deltaOffsetY = -(dy / (displayHeight * 0.75));
 
-			onUpdateFraming({
+			pendingPatch = {
 				offsetX: Math.max(
 					-0.5,
 					Math.min(0.5, dragStart.current.initialOffsetX + deltaOffsetX),
@@ -205,11 +232,28 @@ export function RepurposeArtboardCard({
 					-0.5,
 					Math.min(0.5, dragStart.current.initialOffsetY + deltaOffsetY),
 				),
-			});
+			};
+
+			if (!artboard.tracks && latestSourceCanvas.current) {
+				const canvas = canvasRef.current;
+				const ctx = canvas?.getContext("2d");
+				if (ctx) {
+					drawArtboardFrame(
+						ctx,
+						latestSourceCanvas.current,
+						{ ...artboard, framing: { ...artboard.framing, ...pendingPatch } },
+						displayWidth,
+						displayHeight,
+					);
+				}
+			}
 		};
 
 		const handleMouseUp = () => {
-			setIsDragging(false);
+			setIsDraggingFraming(false);
+			if (pendingPatch) {
+				onUpdateFraming(pendingPatch);
+			}
 		};
 
 		window.addEventListener("mousemove", handleMouseMove);
@@ -218,12 +262,44 @@ export function RepurposeArtboardCard({
 			window.removeEventListener("mousemove", handleMouseMove);
 			window.removeEventListener("mouseup", handleMouseUp);
 		};
-	}, [isDragging, displayWidth, displayHeight, onUpdateFraming]);
+	}, [isDraggingFraming, displayWidth, displayHeight, artboard, onUpdateFraming]);
+
+	// Drag & Drop asset handling
+	const handleDragOver = (e: React.DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		if (!isDragOver) setIsDragOver(true);
+	};
+
+	const handleDragLeave = (e: React.DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		setIsDragOver(false);
+	};
+
+	const handleDrop = (e: React.DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		setIsDragOver(false);
+		const assetId =
+			e.dataTransfer.getData(ASSET_DRAG_TYPE) ||
+			e.dataTransfer.getData("application/x-captr-asset") ||
+			e.dataTransfer.getData("text/plain");
+		if (assetId) {
+			onDropAsset?.(assetId);
+		}
+	};
 
 	const scalePercent = Math.round((artboard.framing.scale || 1) * 100);
 
 	return (
-		<div className="repurpose-artboard-card" style={{ width: displayWidth }}>
+		<div
+			className={`repurpose-artboard-card ${isDragOver ? "drag-over" : ""}`}
+			style={{ width: displayWidth }}
+			onDragOver={handleDragOver}
+			onDragLeave={handleDragLeave}
+			onDrop={handleDrop}
+		>
 			{/* Hidden Dedicated ProjectPreview running this card's own sequence & playhead */}
 			<div style={{ display: "none" }}>
 				<ProjectPreview
@@ -231,13 +307,25 @@ export function RepurposeArtboardCard({
 					timeUs={localPlayheadUs}
 					playing={localPlaying}
 					onError={() => undefined}
-					onRenderedCanvas={setRenderedCanvas}
+					onRenderedCanvas={paintToCanvas}
 				/>
 			</div>
 
 			{/* Artboard Card Header */}
-			<div className="repurpose-card-header">
+			<div
+				className="repurpose-card-header"
+				onMouseDown={(e) => {
+					if ((e.target as HTMLElement).closest("button,input")) return;
+					onStartDragCard?.(e);
+				}}
+				title="Drag header to move card · Double-click card to edit"
+			>
 				<div className="repurpose-card-badge">
+					{onStartDragCard && (
+						<span className="repurpose-card-drag-grip" title="Drag to move card on canvas">
+							<DotsSixVertical size={13} weight="bold" />
+						</span>
+					)}
 					<span className="repurpose-card-aspect">{artboard.aspectRatio}</span>
 					{isEditingName ? (
 						<input
@@ -353,7 +441,7 @@ export function RepurposeArtboardCard({
 
 			{/* Interactive Canvas Viewport */}
 			<div
-				className={`repurpose-card-viewport ${isDragging ? "dragging" : ""}`}
+				className={`repurpose-card-viewport ${isDraggingFraming ? "dragging" : ""}`}
 				style={{ width: displayWidth, height: displayHeight }}
 				onMouseDown={handleMouseDown}
 				onDoubleClick={(e) => {
@@ -371,7 +459,9 @@ export function RepurposeArtboardCard({
 
 				{/* Framing indicator crosshair overlay on hover/drag */}
 				<div className="repurpose-framing-overlay">
-					<span className="repurpose-drag-hint">Double-click to Edit · Drag to Pan</span>
+					<span className="repurpose-drag-hint">
+						{isDragOver ? "Drop Asset to Place on Timeline" : "Double-click to Edit · Drag to Pan"}
+					</span>
 				</div>
 			</div>
 

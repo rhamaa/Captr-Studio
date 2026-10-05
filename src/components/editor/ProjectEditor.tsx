@@ -464,8 +464,9 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					void newProject();
 				} else if (key === "e") {
 					e.preventDefault();
+					const proj = currentActiveArtboardId ? activeProject : controller.snapshot.project;
 					if (
-						projectDurationUs(controller.snapshot.project) > 0 &&
+						projectDurationUs(proj) > 0 &&
 						exportProgress === null
 					) {
 						void exportProject();
@@ -523,7 +524,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					if (projectDurationUs(proj) > 0) {
 						controller.preview(null);
 						if (controller.snapshot.playheadUs >= projectDurationUs(proj)) {
-							controller.seek(0);
+							controller.seek(0, projectDurationUs(proj));
 						}
 						setPlaying((v) => !v);
 					}
@@ -588,12 +589,15 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						0,
 						Math.min(maxUs, controller.snapshot.playheadUs + dir * stepUs),
 					);
-					controller.seek(nextUs);
+					controller.seek(nextUs, maxUs);
 				} else if (key === "Home") {
 					e.preventDefault();
 					setPlaying(false);
 					controller.preview(null);
-					controller.seek(0);
+					const proj = currentActiveArtboardId
+						? activeProject
+						: controller.snapshot.project;
+					controller.seek(0, projectDurationUs(proj));
 				} else if (key === "End") {
 					e.preventDefault();
 					setPlaying(false);
@@ -601,7 +605,8 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					const proj = currentActiveArtboardId
 						? activeProject
 						: controller.snapshot.project;
-					controller.seek(projectDurationUs(proj));
+					const maxUs = projectDurationUs(proj);
+					controller.seek(maxUs, maxUs);
 				} else if (key.toLowerCase() === "t" && !e.shiftKey) {
 					e.preventDefault();
 					const ids = {
@@ -655,11 +660,11 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				: controller.snapshot.project;
 			const totalUs = projectDurationUs(targetProj);
 			if (next >= totalUs) {
-				controller.seek(totalUs);
+				controller.seek(totalUs, totalUs);
 				setPlaying(false);
 				return;
 			}
-			controller.seek(next);
+			controller.seek(next, totalUs);
 			frame = requestAnimationFrame(tick);
 		};
 		frame = requestAnimationFrame(tick);
@@ -930,6 +935,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 								setPlaying(false);
 								setEditingClipId(null);
 								setActiveArtboardId(artboardId);
+								controller.seek(0);
 							}}
 							onImport={(paths) => void importMedia(paths)}
 							onRecord={() => void startRecord()}
@@ -1023,7 +1029,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 									onClick={() => {
 										controller.preview(null);
 										if (state.playheadUs >= projectDurationUs(activeProject))
-											controller.seek(0);
+											controller.seek(0, projectDurationUs(activeProject));
 										setPlaying((v) => !v);
 									}}
 								>
@@ -1064,7 +1070,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						onSeek={(time) => {
 							setPlaying(false);
 							controller.preview(null);
-							controller.seek(time);
+							controller.seek(time, projectDurationUs(activeProject));
 						}}
 						onOpenRecording={(id) => {
 							setPlaying(false);
@@ -1109,7 +1115,10 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					onPreviewStart={() => {
 						beginAudioCapture();
 						controller.preview(null);
-						controller.seek(audioTakeToken.current?.startUs ?? audioStartUs);
+						controller.seek(
+							audioTakeToken.current?.startUs ?? audioStartUs,
+							projectDurationUs(activeProject),
+						);
 						setPlaying(true);
 					}}
 					onPreviewPause={() => setPlaying(false)}
