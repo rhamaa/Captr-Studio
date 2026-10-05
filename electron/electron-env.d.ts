@@ -985,7 +985,21 @@ interface Window {
 			cliPath: string | null;
 			hasLocalModel: boolean;
 			modelPath: string | null;
+			availableModels?: Array<{ name: string; path: string; sizeBytes: number }>;
 		}>;
+		downloadWhisperModel?: (modelName?: "tiny" | "base" | "small") => Promise<{
+			success: boolean;
+			modelPath?: string;
+			error?: string;
+		}>;
+		onWhisperModelDownloadProgress?: (
+			callback: (progress: {
+				modelName: string;
+				percent: number;
+				downloadedBytes: number;
+				totalBytes: number;
+			}) => void,
+		) => () => void;
 	};
 }
 

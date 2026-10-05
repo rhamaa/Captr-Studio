@@ -2,6 +2,7 @@ import {
 	CheckCircle,
 	CircleNotch,
 	ClosedCaptioning,
+	DownloadSimple,
 	MagnifyingGlass,
 	Microphone,
 	Sparkle,
@@ -67,16 +68,101 @@ export function AssetTranscriptDialog({
 		}
 	});
 
+	const [engineStatus, setEngineStatus] = useState<{
+		hasLocalWhisperCli: boolean;
+		hasLocalModel: boolean;
+		availableModels?: Array<{ name: string; path: string; sizeBytes: number }>;
+	} | null>(null);
+
+	const [downloadProgress, setDownloadProgress] = useState<{
+		isDownloading: boolean;
+		modelName: "tiny" | "base";
+		percent: number;
+		downloadedBytes: number;
+		totalBytes: number;
+		error: string | null;
+	}>({
+		isDownloading: false,
+		modelName: "base",
+		percent: 0,
+		downloadedBytes: 0,
+		totalBytes: 0,
+		error: null,
+	});
+
+	const refreshEngineStatus = async () => {
+		try {
+			const status = await window.electronAPI?.getTranscriptionEngineStatus?.();
+			if (status) setEngineStatus(status);
+		} catch {}
+	};
+
+	useEffect(() => {
+		if (open) {
+			void refreshEngineStatus();
+		}
+	}, [open]);
+
+	useEffect(() => {
+		const unsub = window.electronAPI?.onWhisperModelDownloadProgress?.((p) => {
+			setDownloadProgress((prev) => ({
+				...prev,
+				isDownloading: p.percent < 100,
+				percent: p.percent,
+				downloadedBytes: p.downloadedBytes,
+				totalBytes: p.totalBytes,
+				error: null,
+			}));
+		});
+		return () => unsub?.();
+	}, []);
+
+	const handleDownloadModel = async (model: "tiny" | "base" = "base") => {
+		if (!window.electronAPI?.downloadWhisperModel) return;
+		setDownloadProgress({
+			isDownloading: true,
+			modelName: model,
+			percent: 0,
+			downloadedBytes: 0,
+			totalBytes: 0,
+			error: null,
+		});
+		try {
+			const res = await window.electronAPI.downloadWhisperModel(model);
+			if (res.success) {
+				setDownloadProgress((prev) => ({
+					...prev,
+					isDownloading: false,
+					percent: 100,
+					error: null,
+				}));
+				await refreshEngineStatus();
+			} else {
+				setDownloadProgress((prev) => ({
+					...prev,
+					isDownloading: false,
+					error: res.error || "Failed to download model",
+				}));
+			}
+		} catch (err) {
+			setDownloadProgress((prev) => ({
+				...prev,
+				isDownloading: false,
+				error: err instanceof Error ? err.message : String(err),
+			}));
+		}
+	};
+
 	useEffect(() => {
 		if (!open) return;
 		const onKeyDown = (e: KeyboardEvent) => {
-			if (e.key === "Escape" && !isTranscribing) {
+			if (e.key === "Escape" && !isTranscribing && !downloadProgress.isDownloading) {
 				onOpenChange(false);
 			}
 		};
 		window.addEventListener("keydown", onKeyDown);
 		return () => window.removeEventListener("keydown", onKeyDown);
-	}, [open, isTranscribing, onOpenChange]);
+	}, [open, isTranscribing, downloadProgress.isDownloading, onOpenChange]);
 
 	const filteredSegments = useMemo(() => {
 		if (!transcript?.segments) return [];
@@ -91,6 +177,10 @@ export function AssetTranscriptDialog({
 	}, [transcript]);
 
 	const handleStartTranscribe = async () => {
+		if (engine === "local" && engineStatus && !engineStatus.hasLocalModel) {
+			await handleDownloadModel("base");
+			return;
+		}
 		if (apiKey.trim()) {
 			try {
 				if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
@@ -171,10 +261,70 @@ export function AssetTranscriptDialog({
 								<p className="asset-transcript-error-message">{error}</p>
 							</div>
 						</div>
+
+						{error.toLowerCase().includes("model") && error.toLowerCase().includes("not found") && (
+							<div className="asset-transcript-model-card">
+								<div className="asset-transcript-model-card-header">
+									<DownloadSimple size={16} weight="bold" className="text-emerald-400" />
+									<span>Download Whisper GGML Model</span>
+								</div>
+								<p className="asset-transcript-model-card-desc">
+									Local offline speech-to-text requires a Whisper model file. Download once to run on your device without cloud API keys.
+								</p>
+								{downloadProgress.isDownloading ? (
+									<div className="asset-transcript-progress-box">
+										<div className="asset-transcript-progress-bar">
+											<div
+												className="asset-transcript-progress-fill"
+												style={{ width: `${downloadProgress.percent}%` }}
+											/>
+										</div>
+										<div className="asset-transcript-progress-meta">
+											<span>Downloading ggml-{downloadProgress.modelName}.bin… {downloadProgress.percent}%</span>
+											<span>
+												{(downloadProgress.downloadedBytes / (1024 * 1024)).toFixed(1)} MB
+												{downloadProgress.totalBytes > 0 &&
+													` / ${(downloadProgress.totalBytes / (1024 * 1024)).toFixed(1)} MB`}
+											</span>
+										</div>
+									</div>
+								) : (
+									<div className="asset-transcript-model-btn-row">
+										<button
+											type="button"
+											className="asset-transcript-btn-primary"
+											onClick={() => void handleDownloadModel("base")}
+										>
+											<DownloadSimple size={14} weight="bold" />
+											<span>Download Base Model (~142 MB, Recommended)</span>
+										</button>
+										<button
+											type="button"
+											className="asset-transcript-btn-secondary"
+											onClick={() => void handleDownloadModel("tiny")}
+										>
+											<span>Tiny Model (~75 MB, Faster)</span>
+										</button>
+									</div>
+								)}
+								{downloadProgress.error && (
+									<p className="text-xs text-rose-400 mt-1">{downloadProgress.error}</p>
+								)}
+							</div>
+						)}
+
 						<div className="asset-transcript-actions">
 							<button
 								type="button"
+								className="asset-transcript-btn-secondary"
+								onClick={() => setShowOptions(true)}
+							>
+								Change Engine / Options
+							</button>
+							<button
+								type="button"
 								className="asset-transcript-btn-primary"
+								disabled={downloadProgress.isDownloading}
 								onClick={() => void handleStartTranscribe()}
 							>
 								Retry
@@ -310,6 +460,71 @@ export function AssetTranscriptDialog({
 										<span className="engine-desc">Cloud API</span>
 									</button>
 								</div>
+
+								{engine === "local" && (
+									<div style={{ marginTop: 10 }}>
+										{engineStatus?.hasLocalModel ? (
+											<div className="asset-transcript-model-ready-badge">
+												<CheckCircle size={13} weight="fill" />
+												<span>
+													Local model ready (
+													{engineStatus.availableModels?.[0]?.name ?? "base"})
+												</span>
+											</div>
+										) : (
+											<div className="asset-transcript-model-card">
+												<div className="asset-transcript-model-card-header">
+													<DownloadSimple size={15} weight="bold" className="text-emerald-400" />
+													<span>Local Whisper Model (~142 MB)</span>
+												</div>
+												<p className="asset-transcript-model-card-desc">
+													No local model detected. Download once to transcribe audio offline without cloud API keys.
+												</p>
+												{downloadProgress.isDownloading ? (
+													<div className="asset-transcript-progress-box">
+														<div className="asset-transcript-progress-bar">
+															<div
+																className="asset-transcript-progress-fill"
+																style={{ width: `${downloadProgress.percent}%` }}
+															/>
+														</div>
+														<div className="asset-transcript-progress-meta">
+															<span>
+																Downloading ggml-{downloadProgress.modelName}.bin… {downloadProgress.percent}%
+															</span>
+															<span>
+																{(downloadProgress.downloadedBytes / (1024 * 1024)).toFixed(1)} MB
+																{downloadProgress.totalBytes > 0 &&
+																	` / ${(downloadProgress.totalBytes / (1024 * 1024)).toFixed(1)} MB`}
+															</span>
+														</div>
+													</div>
+												) : (
+													<div className="asset-transcript-model-btn-row">
+														<button
+															type="button"
+															className="asset-transcript-btn-primary"
+															onClick={() => void handleDownloadModel("base")}
+														>
+															<DownloadSimple size={14} weight="bold" />
+															<span>Download Base Model (~142 MB)</span>
+														</button>
+														<button
+															type="button"
+															className="asset-transcript-btn-secondary"
+															onClick={() => void handleDownloadModel("tiny")}
+														>
+															<span>Tiny Model (~75 MB)</span>
+														</button>
+													</div>
+												)}
+												{downloadProgress.error && (
+													<p className="text-xs text-rose-400 mt-1">{downloadProgress.error}</p>
+												)}
+											</div>
+										)}
+									</div>
+								)}
 							</div>
 
 							{engine !== "local" && (

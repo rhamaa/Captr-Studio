@@ -98,10 +98,18 @@ export function AssetCard({
 				setTranscribeError(null);
 				onTranscribe?.(asset);
 			} else {
-				setTranscribeError(res.error ?? "Failed to transcribe audio");
+				const errMsg = res.error ?? "Failed to transcribe audio";
+				setTranscribeError(errMsg);
+				if (errMsg.toLowerCase().includes("model") && errMsg.toLowerCase().includes("not found")) {
+					setDialogOpen(true);
+				}
 			}
 		} catch (err) {
-			setTranscribeError(err instanceof Error ? err.message : String(err));
+			const errMsg = err instanceof Error ? err.message : String(err);
+			setTranscribeError(errMsg);
+			if (errMsg.toLowerCase().includes("model") && errMsg.toLowerCase().includes("not found")) {
+				setDialogOpen(true);
+			}
 		} finally {
 			setIsTranscribing(false);
 		}

@@ -1043,4 +1043,26 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		ipcRenderer.invoke("load-asset-transcript", assetDir),
 	getTranscriptionEngineStatus: () =>
 		ipcRenderer.invoke("get-transcription-engine-status"),
+	downloadWhisperModel: (modelName?: "tiny" | "base" | "small") =>
+		ipcRenderer.invoke("download-whisper-model", modelName),
+	onWhisperModelDownloadProgress: (
+		callback: (progress: {
+			modelName: string;
+			percent: number;
+			downloadedBytes: number;
+			totalBytes: number;
+		}) => void,
+	) => {
+		const listener = (
+			_event: Electron.IpcRendererEvent,
+			progress: {
+				modelName: string;
+				percent: number;
+				downloadedBytes: number;
+				totalBytes: number;
+			},
+		) => callback(progress);
+		ipcRenderer.on("whisper-model-download-progress", listener);
+		return () => ipcRenderer.removeListener("whisper-model-download-progress", listener);
+	},
 });

@@ -1,5 +1,10 @@
 import { ipcMain } from "electron";
 import {
+	type WhisperModelVariant,
+	downloadWhisperModel,
+	getAvailableWhisperModels,
+} from "../transcription/modelDownloader";
+import {
 	type TranscribeAssetParams,
 	type TranscribeAssetResult,
 	loadAssetTranscript,
@@ -25,14 +30,39 @@ export function registerTranscriptionHandlers() {
 		},
 	);
 
-	ipcMain.handle("get-transcription-engine-status", () => {
+	ipcMain.handle("get-transcription-engine-status", async () => {
 		const cliPath = resolveWhisperCliExecutable();
 		const modelPath = resolveWhisperModelPath();
+		const availableModels = await getAvailableWhisperModels();
 		return {
 			hasLocalWhisperCli: Boolean(cliPath),
 			cliPath,
 			hasLocalModel: Boolean(modelPath),
 			modelPath,
+			availableModels,
 		};
 	});
+
+	ipcMain.handle(
+		"download-whisper-model",
+		async (event, modelName: WhisperModelVariant = "base") => {
+			try {
+				const result = await downloadWhisperModel(modelName, (progress) => {
+					if (!event.sender.isDestroyed()) {
+						event.sender.send("whisper-model-download-progress", {
+							modelName,
+							...progress,
+						});
+					}
+				});
+				return result;
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error);
+				return {
+					success: false,
+					error: message,
+				};
+			}
+		},
+	);
 }

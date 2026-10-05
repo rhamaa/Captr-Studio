@@ -36,11 +36,23 @@ export function resolveWhisperModelPath(customPath?: string): string | null {
 		return customPath;
 	}
 
+	let modelsDir = path.join(process.cwd(), "models");
+	try {
+		modelsDir = path.join(app.getPath("userData"), "models");
+	} catch {}
+
+	if (customPath) {
+		const namedPath = path.join(modelsDir, `ggml-${customPath}.bin`);
+		if (existsSync(namedPath)) return namedPath;
+	}
+
 	const candidates = [
-		path.join(app.getPath("userData"), "models", "ggml-base.bin"),
-		path.join(app.getPath("userData"), "models", "ggml-tiny.bin"),
+		path.join(modelsDir, "ggml-base.bin"),
+		path.join(modelsDir, "ggml-tiny.bin"),
+		path.join(modelsDir, "ggml-small.bin"),
 		path.join(process.cwd(), "models", "ggml-base.bin"),
 		path.join(process.cwd(), "models", "ggml-tiny.bin"),
+		path.join(process.cwd(), "models", "ggml-small.bin"),
 	];
 
 	for (const p of candidates) {

@@ -2547,6 +2547,83 @@
 	background: #2c2e3a;
 }
 
+.asset-transcript-model-card {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 12px 14px;
+	background: rgba(30, 32, 42, 0.7);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 8px;
+	margin-top: 8px;
+}
+
+.asset-transcript-model-card-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 13px;
+	font-weight: 500;
+	color: #e2e8f0;
+}
+
+.asset-transcript-model-card-desc {
+	font-size: 11px;
+	color: #94a3b8;
+	line-height: 1.4;
+	margin: 0;
+}
+
+.asset-transcript-progress-box {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 6px;
+}
+
+.asset-transcript-progress-bar {
+	width: 100%;
+	height: 6px;
+	background: #1e2029;
+	border-radius: 3px;
+	overflow: hidden;
+}
+
+.asset-transcript-progress-fill {
+	height: 100%;
+	background: linear-gradient(90deg, #10b981, #34d399);
+	transition: width 0.15s ease-out;
+}
+
+.asset-transcript-progress-meta {
+	display: flex;
+	justify-content: space-between;
+	font-size: 11px;
+	color: #94a3b8;
+}
+
+.asset-transcript-model-btn-row {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	flex-wrap: wrap;
+	margin-top: 4px;
+}
+
+.asset-transcript-model-ready-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	font-size: 11px;
+	font-weight: 500;
+	color: #34d399;
+	background: rgba(16, 185, 129, 0.1);
+	border: 1px solid rgba(16, 185, 129, 0.2);
+	border-radius: 4px;
+	padding: 2px 7px;
+	margin-top: 4px;
+}
+
 .audio-recorder-overlay {
 	position: fixed;
 	inset: 0;
