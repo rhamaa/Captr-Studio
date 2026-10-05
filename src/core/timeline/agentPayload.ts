@@ -124,7 +124,7 @@ export function parseAgentProjectOutput(rawOutput: string): {
 		return { success: false, error: "Agent produced empty output." };
 	}
 
-	let jsonStr = rawOutput.trim();
+	let jsonStr = rawOutput.replace(/^\uFEFF/, "").trim();
 
 	// Match markdown code block ```json ... ```
 	const codeBlockMatch = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(jsonStr);

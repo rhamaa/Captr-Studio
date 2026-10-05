@@ -10,7 +10,7 @@ import {
 } from "../../../src/core/timeline/agentPayload";
 import type { AssetTranscript } from "../../../src/core/timeline/transcriptTypes";
 import type { TimelineProject } from "../../../src/core/timeline/types";
-import { KNOWN_AGENTS, getAugmentedEnv } from "./agentDetector";
+import { KNOWN_AGENTS, checkAgentAvailability, getAugmentedEnv } from "./agentDetector";
 
 export interface RunAgentTaskParams {
 	agentId: string;
@@ -30,38 +30,44 @@ export interface RunAgentTaskResult {
 
 let activeProcess: ChildProcess | null = null;
 
-export function formatAgentTaskPrompt(userPrompt: string, draftFileName: string): string {
+export function formatAgentTaskPrompt(userPrompt: string, draftFilePath: string): string {
 	return `You are editing a Captr Studio video timeline project.
-The current project state is stored in "${draftFileName}".
-Also read "CONTEXT.md" which contains clip summaries and speech transcripts with word timestamps.
+The current project state is stored in: "${draftFilePath}".
+Also read "CONTEXT.md" in the same folder, which contains clip summaries and speech transcripts with word timestamps.
 
 USER REQUEST:
 "${userPrompt}"
 
 INSTRUCTIONS:
-1. Open and inspect "${draftFileName}".
+1. Open and inspect "${draftFilePath}".
 2. Apply the requested edits (trimming clips, cutting pauses, deleting or reordering clips).
 3. Ensure all clip startUs, duration, and source range properties match the TimelineProject schema and do not overlap.
-4. Save the modified JSON directly back to "${draftFileName}" OR print the updated JSON as your final response.`;
+4. Save the modified JSON directly back to "${draftFilePath}" OR print the updated JSON as your final response.`;
 }
 
 /**
  * Builds the exact CLI arguments for the specified agent.
- * Automatically injects non-interactive and permission bypass flags so the agent runs smoothly.
+ * Automatically injects flags before prompt so -p doesn't consume them as values.
  */
 export function buildAgentCommandArgs(
 	agentId: string,
 	taskPrompt: string,
+	workspaceDir?: string,
 	defaultArgs?: string[],
 ): string[] {
 	if (agentId === "agy") {
-		return ["-p", taskPrompt, "--dangerously-skip-permissions"];
+		const args = ["--dangerously-skip-permissions"];
+		if (workspaceDir) {
+			args.push("--add-dir", workspaceDir);
+		}
+		args.push("-p", taskPrompt);
+		return args;
 	}
 	if (agentId === "claude") {
-		return ["-p", taskPrompt, "--dangerously-skip-permissions"];
+		return ["--dangerously-skip-permissions", "-p", taskPrompt];
 	}
 	if (agentId === "opencode") {
-		return ["run", taskPrompt, "--auto"];
+		return ["run", "--auto", taskPrompt];
 	}
 	if (defaultArgs && defaultArgs.length > 0) {
 		return [...defaultArgs, taskPrompt];
@@ -113,15 +119,28 @@ export async function runAgentTask(
 
 		// Resolve agent executable & arguments
 		const known = KNOWN_AGENTS.find((a) => a.id === params.agentId);
-		const command = params.customCommand?.trim() || known?.command || params.agentId;
-		const taskPrompt = formatAgentTaskPrompt(params.userPrompt, "project_draft.json");
-		const args = buildAgentCommandArgs(params.agentId, taskPrompt, known?.defaultArgs);
+		let command = params.customCommand?.trim() || known?.command || params.agentId;
+
+		// Resolve absolute executable path if available
+		if (!path.isAbsolute(command)) {
+			const resolvedPath = await checkAgentAvailability(command);
+			if (resolvedPath) {
+				command = resolvedPath;
+			}
+		}
+
+		const taskPrompt = formatAgentTaskPrompt(params.userPrompt, draftFile);
+		const args = buildAgentCommandArgs(params.agentId, taskPrompt, tempDir, known?.defaultArgs);
 
 		log(`[Captr Studio] Launching agent: ${command} in ${tempDir}...\n`);
 
+		// Windows: If command is an .exe, run without cmd.exe shell so arguments aren't broken
+		const useShell =
+			process.platform === "win32" && !command.toLowerCase().endsWith(".exe");
+
 		const child = spawn(command, args, {
 			cwd: tempDir,
-			shell: process.platform === "win32",
+			shell: useShell,
 			stdio: ["ignore", "pipe", "pipe"],
 			env: {
 				...getAugmentedEnv(),
@@ -157,8 +176,10 @@ export async function runAgentTask(
 		let parsedResult = null;
 		try {
 			const diskContent = await fsPromises.readFile(draftFile, "utf-8");
-			if (diskContent && diskContent !== context.projectJson) {
-				parsedResult = parseAgentProjectOutput(diskContent);
+			const cleanDisk = diskContent.replace(/^\uFEFF/, "").trim();
+			const cleanOriginal = context.projectJson.trim();
+			if (cleanDisk && cleanDisk !== cleanOriginal) {
+				parsedResult = parseAgentProjectOutput(cleanDisk);
 			}
 		} catch {}
 
@@ -172,13 +193,13 @@ export async function runAgentTask(
 			const combinedLogs = `${stdoutAccumulator}\n${stderrAccumulator}`;
 
 			if (combinedLogs.includes("Not logged in")) {
-				friendlyError = `Agent "${command}" is not logged in. Run "${command}" or "${command} /login" in your terminal to authenticate, or switch to "Antigravity (agy)".`;
+				friendlyError = `Agent "${path.basename(command)}" is not logged in. Run "${path.basename(command)}" in your terminal to authenticate, or switch to "Antigravity (agy)".`;
 			} else if (
 				combinedLogs.includes("Auth method") ||
 				combinedLogs.includes("API_KEY") ||
 				combinedLogs.includes("GEMINI_API_KEY")
 			) {
-				friendlyError = `Agent "${command}" requires an API key. For instant zero-setup timeline editing, choose "Antigravity (agy)" which uses your active logged-in session.`;
+				friendlyError = `Agent "${path.basename(command)}" requires an API key. For zero-setup editing, choose "Antigravity (agy)" which uses your active session directly.`;
 			}
 
 			return {
