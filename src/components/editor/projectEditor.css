@@ -1640,6 +1640,16 @@
 		max-height: 185px;
 	}
 }
+.project-preview-viewport {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	max-width: 100%;
+	max-height: 100%;
+	width: fit-content;
+	height: fit-content;
+}
 .project-rendered-preview {
 	width: 100%;
 	height: 100%;
@@ -1647,6 +1657,224 @@
 	max-width: 100%;
 	max-height: 100%;
 	display: block;
+}
+
+/* Subtitle Overlay in Player Stage */
+.subtitle-overlay-root {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 24px 20px;
+	box-sizing: border-box;
+	z-index: 10;
+}
+
+.subtitle-overlay-root.subtitle-pos-bottom {
+	justify-content: flex-end;
+}
+
+.subtitle-overlay-root.subtitle-pos-top {
+	justify-content: flex-start;
+}
+
+.subtitle-overlay-root.subtitle-pos-center {
+	justify-content: center;
+}
+
+/* Quick hover toggle bar */
+.subtitle-overlay-hover-bar {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	opacity: 0;
+	transition: opacity 0.2s ease;
+	pointer-events: auto;
+	z-index: 20;
+}
+
+.project-preview-viewport:hover .subtitle-overlay-hover-bar {
+	opacity: 1;
+}
+
+.subtitle-toggle-pill {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 8px;
+	font-size: 11px;
+	font-weight: 600;
+	border-radius: 6px;
+	background: rgba(20, 21, 26, 0.85);
+	border: 1px solid rgba(255, 255, 255, 0.15);
+	color: #9da1b4;
+	backdrop-filter: blur(4px);
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+
+.subtitle-toggle-pill.active {
+	background: rgba(16, 185, 129, 0.25);
+	border-color: rgba(52, 211, 153, 0.5);
+	color: #34d399;
+}
+
+.subtitle-toggle-pill:hover {
+	transform: scale(1.03);
+}
+
+.subtitle-settings-pill {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 5px;
+	border-radius: 6px;
+	background: rgba(20, 21, 26, 0.85);
+	border: 1px solid rgba(255, 255, 255, 0.15);
+	color: #9da1b4;
+	backdrop-filter: blur(4px);
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+
+.subtitle-settings-pill:hover {
+	color: #f2f3f7;
+	background: rgba(35, 37, 46, 0.95);
+}
+
+/* Settings dropdown */
+.subtitle-settings-dropdown {
+	position: absolute;
+	top: 40px;
+	right: 10px;
+	width: 240px;
+	padding: 12px;
+	border-radius: 10px;
+	background: rgba(24, 25, 31, 0.96);
+	border: 1px solid #363844;
+	box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+	backdrop-filter: blur(8px);
+	pointer-events: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	z-index: 30;
+	font-size: 11px;
+}
+
+.subtitle-settings-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	color: #c4c7d6;
+}
+
+.subtitle-btn-group {
+	display: flex;
+	background: #141519;
+	border: 1px solid #2b2c36;
+	border-radius: 6px;
+	overflow: hidden;
+}
+
+.subtitle-btn-group button {
+	padding: 3px 7px;
+	font-size: 10.5px;
+	background: transparent;
+	border: none;
+	color: #8c90a3;
+	cursor: pointer;
+}
+
+.subtitle-btn-group button.selected {
+	background: #3b82f6;
+	color: #ffffff;
+	font-weight: 600;
+}
+
+.subtitle-toggle-switch {
+	padding: 3px 8px;
+	border-radius: 4px;
+	font-size: 10px;
+	font-weight: 600;
+	cursor: pointer;
+	border: 1px solid transparent;
+}
+
+.subtitle-toggle-switch.on {
+	background: rgba(16, 185, 129, 0.2);
+	color: #34d399;
+	border-color: rgba(52, 211, 153, 0.35);
+}
+
+.subtitle-toggle-switch.off {
+	background: rgba(255, 255, 255, 0.08);
+	color: #8c90a3;
+}
+
+.subtitle-color-presets {
+	display: flex;
+	gap: 6px;
+}
+
+.subtitle-color-presets .color-dot {
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	cursor: pointer;
+	padding: 0;
+}
+
+.subtitle-color-presets .color-dot.selected {
+	outline: 2px solid #3b82f6;
+	outline-offset: 1px;
+}
+
+/* Subtitle box display */
+.subtitle-display-box {
+	max-width: 85%;
+	padding: 6px 16px;
+	border-radius: 8px;
+	backdrop-filter: blur(4px);
+	text-align: center;
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+	pointer-events: none;
+	user-select: none;
+	line-height: 1.4;
+	transition: all 0.1s ease;
+}
+
+.subtitle-words-container {
+	margin: 0;
+	display: inline-block;
+}
+
+.subtitle-word {
+	display: inline-block;
+	transition: color 0.12s ease, transform 0.12s ease;
+	opacity: 0.9;
+}
+
+.subtitle-word.word-active {
+	font-weight: 750;
+	opacity: 1;
+	transform: scale(1.08);
+	text-shadow: 0 0 12px currentColor;
+}
+
+.subtitle-word.word-passed {
+	opacity: 0.85;
+}
+
+.subtitle-text-plain {
+	margin: 0;
+	font-weight: 600;
 }
 .project-export-button {
 	background: #8b69ce !important;

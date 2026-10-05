@@ -4,6 +4,8 @@ import type { TimelineProject } from "@/core/timeline/types";
 import { renderProjectAudio } from "@/lib/exporter/projectAudioRenderer";
 import { ProjectFrameRenderer } from "@/lib/exporter/projectFrameRenderer";
 import { PreviewQueue } from "./previewQueue";
+import { SubtitleOverlay } from "./SubtitleOverlay";
+
 export function ProjectPreview({
 	project,
 	timeUs,
@@ -103,11 +105,14 @@ export function ProjectPreview({
 			void element.play().catch((error) => latest.current.onError(String(error)));
 	}, [timeUs, playing]);
 	return (
-		<canvas
-			ref={canvas}
-			aria-label="Project video preview"
-			className="project-rendered-preview"
-			data-project-preview-ready="false"
-		/>
+		<div className="project-preview-viewport">
+			<canvas
+				ref={canvas}
+				aria-label="Project video preview"
+				className="project-rendered-preview"
+				data-project-preview-ready="false"
+			/>
+			<SubtitleOverlay project={project} timeUs={timeUs} />
+		</div>
 	);
 }
