@@ -31,6 +31,7 @@ export function projectSpeechIntervals(
 export async function renderProjectAudio(
 	project: TimelineProject,
 	signal?: AbortSignal,
+	timeRangeUs?: { startUs: number; endUs: number },
 ): Promise<Blob | null> {
 	const plan = buildProjectAudioPlan(project);
 	if (!plan.some((p) => p.gain > 0)) return null;
@@ -41,7 +42,13 @@ export async function renderProjectAudio(
 		parts: ArrayBuffer[] = [],
 		sampleRate = 48000,
 		channels = 2,
-		totalFrames = Math.ceil((projectDurationUs(project) / 1_000_000) * sampleRate);
+		totalDuration = projectDurationUs(project),
+		rangeStartUs = timeRangeUs ? Math.max(0, timeRangeUs.startUs) : 0,
+		rangeEndUs = timeRangeUs
+			? Math.min(totalDuration, Math.max(rangeStartUs, timeRangeUs.endUs))
+			: totalDuration,
+		effectiveDurationUs = Math.max(0, rangeEndUs - rangeStartUs),
+		totalFrames = Math.ceil((effectiveDurationUs / 1_000_000) * sampleRate);
 	if (!Number.isSafeInteger(totalFrames) || totalFrames * channels * 2 > 0xffffffff - 36)
 		throw new Error("Project audio exceeds WAV size limit");
 	const abort = () => processor.cancel();
@@ -91,8 +98,8 @@ export async function renderProjectAudio(
 			throwIfCanceled(signal);
 			const count = Math.min(sampleRate * 10, totalFrames - offset),
 				context = new OfflineAudioContext(channels, count, sampleRate),
-				beginUs = (offset / sampleRate) * 1_000_000,
-				endUs = ((offset + count) / sampleRate) * 1_000_000;
+				beginUs = rangeStartUs + (offset / sampleRate) * 1_000_000,
+				endUs = rangeStartUs + ((offset + count) / sampleRate) * 1_000_000;
 			for (const source of plan) {
 				const start = Math.max(beginUs, source.startUs),
 					end = Math.min(endUs, source.endUs),

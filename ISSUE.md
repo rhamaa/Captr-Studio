@@ -95,3 +95,46 @@
 - Timeline menampilkan layer visual di atas grup Audio; urutan tampilan visual mengikuti z-order evaluator V3, sementara urutan data project tetap menjadi sumber render.
 - Drop otomatis mengikuti jenis aset/clip ke grup yang benar meski dilepas di baris grup lain. Track kompatibel baru dibuat hanya bila rentang waktu beririsan pada baris tujuan; interval yang bersentuhan tetap berbagi track.
 - Tes fokus timeline lulus: drop 8/8, tampilan `ProjectTimeline` 5/5, dan `tsc --noEmit` lulus. Suite penuh: 1.148/1.164 lulus; 16 gagal di 8 suite lain (`useProjectController`, `mediaLayerTiming`, `audioEncoder`, `frameRenderer`, `modernFrameRenderer`, `streamingDecoder`, `templateWallpaperSave`, `v3LifecycleVerification`). QA native drag/drop belum dijalankan.
+
+## Sub-Editor ke-3: Multi-Artboard Repurposer & Slice Studio (5 Oktober 2026)
+
+- `repurposeBoard?: RepurposeBoardSettings` tersimpan opsional di `project.json` V3 (backward-compatible; project V3 tanpa repurposeBoard tetap valid dan tidak terpengaruh).
+- Multi-artboard canvas sub-editor terpasang docked di bawah `ProjectEditorPanel` (`project-repurpose-subeditor`), dapat dibuka dari topbar (`Repurpose`) dan preview stage panel (`Multi-Artboard Slices`).
+- Evaluasi frame master tunggal via `ProjectPreview` (`onRenderedCanvas`) menghindari duplikasi beban decode/render timeline; artboard (9:16 Shorts, 1:1 Square, 4:5 Portrait, 16:9 Landscape) merender frame turunan via framing crop/pan/zoom offset.
+- Slicing mini-timeline bar di bagian bawah mendukung razor cut pada playhead (`S`/`C` atau tombol split), penamaan cuplikan, time range badge, penghapusan slice, dan playhead scrubber indicator.
+- Batch Export Dialog (`RepurposeBatchExportDialog`) terintegrasi penuh ke `TimelineProjectExporter` dan desktop encoder native: mengekspor kombinasi artboards × slices menjadi MP4 terpisah dengan nama terstruktur (`[Project]_[Slice]_[Aspect].mp4`), progress bar individual + overall, pembatalan aman, dan pemilihan folder output.
+- Tes terverifikasi: 186 unit tests lulus 100% (`repurposeCommands.test.ts`, `repurposeFraming.test.ts`, `RepurposeBatchExportDialog.test.tsx`, `timelineProjectExporter.test.ts`, `ProjectEditorPanel.test.tsx`, `ProjectEditor.test.tsx`, dsb.). `graft build` dan `tsc --noEmit` 0 errors.
+
+## Inverted Multi-Artboard Flow & Independent Sequence Editor (5 Oktober 2026)
+
+- **Workflow Inversion:** Membalik alur kerja utama di `ProjectEditor` sehingga saat membuka/membuat project, tampilan default langsung mendarat pada **Multi-Artboard Hub** (`RepurposeBoardEditor`).
+- **Double-Click & Edit Gesture:** Double-click pada kartu artboard (atau tombol *Edit* di header kartu) membuka **Individual Project Editor** khusus untuk ukuran/format tersebut.
+- **Independent Sequence per Artboard:**
+  - `RepurposeArtboard` diperluas dengan field sequence opsional: `tracks?: TimelineTrack[]` dan `clipTransitions?: ClipTransition[]`.
+  - Jika belum diedit, artboard mewarisi sequence root (`project.tracks`). Begitu diedit secara individual, modifikasi timeline tersimpan pada sequence mandiri artboard (`updateArtboardProject`) tanpa merusak susunan artboard lainnya.
+  - Seluruh artboard tetap berbagi pustaka aset (`assets`, `packages`, `compositions`) yang sama di root project.
+- **Navigasi Balik:** Header individual editor menyediakan tombol `← Artboards` (dengan shortcut `Esc`) serta badge format aktif (misal `Shorts (9:16)`). Menekan `Esc` dari timeline editor langsung kembali ke Multi-Artboard Hub.
+- **Multi-Sequence Batch Exporter:** `TimelineProjectExporter` dan `RepurposeBatchExportDialog` mendeteksi keberadaan sequence unik artboard; jika ada, exporter langsung merender sequence individu resolusi target tanpa pemotongan master.
+- **Status Pengujian:** 28/28 tests pada suite repurpose & editor lulus (100% green), `tsc --noEmit` 0 errors, Biome linter bersih.
+
+## Dynamic Aspect Ratio di Record Editor / Clip Effects Preview (5 Oktober 2026)
+
+- **Ukuran Preview Adaptif:** Monitor preview rekaman di `RecordingCompositionEditor` kini secara dinamis menyesuaikan aspek rasio yang sedang aktif (16:9 Landscape, 9:16 Shorts/Reels/TikTok, 1:1 Square, 4:5 Portrait, 4:3, 16:10, dsb.). Stage canvas dibungkus container `.recording-preview-stage` dengan CSS `aspect-ratio: ${previewCanvas.width} / ${previewCanvas.height}` sehingga bounding stage memeluk proporsi visual secara presisi.
+- **Inheritance dari Active Artboard:** Saat Record Editor / Clip Effects dibuka dari artboard individual tertentu di `ProjectEditor` (misalnya artboard 9:16 Shorts 1080x1920), Record Editor otomatis mewarisi rasio dan dimensi canvas artboard tersebut tanpa default paksa ke 16:9.
+- **Interactive Aspect Ratio Selector:** Header Record Editor dilengkapi dengan selector aspek rasio interaktif (`<select className="recording-aspect-select">`) yang tersinkronisasi dua arah dengan `SettingsPanel` dan metadata komposisi rekaman.
+- **Auto-Reframe Cerdas:** Tombol *Suggest Zooms* secara otomatis mendeteksi rasio target (aspek rasio vertikal/persegi dengan ratio < 1.1) untuk menerapkan algoritma `buildAutoReframeSuggestions` (safe-zone reframing dengan zoom in ~1.5x terpusat pada kursor dan action) alih-alih interaction-zoom landscape standar.
+- **Backward-Compatible Schema:** `aspectRatio?: AspectRatio` disimpan secara opsional di `RecordingEffectSettings` (`project.json` V3) tanpa merusak schema rekaman atau proyek versi sebelumnya.
+- **Status Pengujian:**
+  - 10/10 tests lulus di `src/recording/editor/RecordingCompositionEditor.test.tsx` (termasuk verifikasi canvas 9:16 dan 1:1).
+  - 56/56 tests lulus pada agregat suite recording, editor, repurpose, timeline, dan exporter.
+  - `npx tsc --noEmit` lolos 0 errors, Biome check lolos.
+
+## Artboard Home, Docked Asset Library & Individual Video Preview (5 Oktober 2026)
+
+- **Artboard Sebagai Halaman Utama Project:** Multi-Artboard Hub difungsikan penuh sebagai halaman beranda authoritative project `.captr`. Transport controls global terpusat dan timeline slicing bar dihilangkan dari canvas view.
+- **Docked Project Asset Library:** Panel pustaka aset (`AssetLibrary`) disematkan di sebelah kiri canvas (`repurpose-assets-sidebar`) dengan tombol collapse/expand. Pengguna dapat melihat seluruh aset project (`assets`, `packages`), melakukan import video/gambar/audio, recording layar/webcam, dan audio recording langsung di halaman utama project.
+- **Default Artboard Kosong:** `createDefaultRepurposeBoard` kini menginisialisasi `artboards: []` secara default. Halaman menampilkan empty state dengan tombol pilihan rasio instan (9:16, 1:1, 16:9, 4:5, 4:3).
+- **Multiple Video & Inline Renaming:** Pengguna dapat memproduksi lebih dari satu video dengan aspek rasio yang sama atau berbeda dari satu source asset project. Judul setiap card video dapat di-rename langsung (inline `<input>` saat klik pensil atau double click judul) dan disimpan via `renameRepurposeArtboard`.
+- **Individual Preview Playback per Card:** Setiap card video pada artboard memiliki pemutaran preview independen (`localPlaying`, `localPlayheadUs`), tombol Play/Pause lokal di footer card, display timecode mandiri, dan interactive mini scrubber bar. Memutar satu card secara otomatis mem-pause card lain sehingga audio tidak bentrok.
+- **Status Pengujian:** 25/25 tests lulus (100% green) di suite repurpose, commands, dan editor. `npx tsc --noEmit` lolos 0 errors.
+

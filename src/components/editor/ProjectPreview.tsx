@@ -9,11 +9,13 @@ export function ProjectPreview({
 	timeUs,
 	playing = false,
 	onError,
+	onRenderedCanvas,
 }: {
 	project: TimelineProject;
 	timeUs: number;
 	playing?: boolean;
 	onError: (error: string) => void;
+	onRenderedCanvas?: (canvas: HTMLCanvasElement) => void;
 }) {
 	const canvas = useRef<HTMLCanvasElement>(null),
 		queue =
@@ -23,8 +25,8 @@ export function ProjectPreview({
 					HTMLCanvasElement
 				>
 			>(),
-		latest = useRef({ timeUs, playing, onError });
-	latest.current = { timeUs, playing, onError };
+		latest = useRef({ timeUs, playing, onError, onRenderedCanvas });
+	latest.current = { timeUs, playing, onError, onRenderedCanvas };
 	const audio = useRef<HTMLAudioElement>();
 	useEffect(() => {
 		const renderer = new ProjectFrameRenderer();
@@ -43,6 +45,7 @@ export function ProjectPreview({
 					canvas.current.getContext("2d")?.drawImage(rendered, 0, 0);
 					canvas.current.dataset.projectPreviewReady = "true";
 				}
+				latest.current.onRenderedCanvas?.(rendered);
 			},
 			(error) =>
 				latest.current.onError(error instanceof Error ? error.message : String(error)),

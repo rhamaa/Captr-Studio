@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "@/contexts/I18nContext";
 import { createTimelineProject } from "@/core/timeline/commands";
+import { addRepurposeArtboard, ensureRepurposeBoard } from "@/core/timeline/repurposeCommands";
 import { ProjectEditor } from "./ProjectEditor";
 import { createProjectAudioRecorderNavigation } from "./projectAudioRecorderNavigation";
 import { ProjectController } from "./useProjectController";
@@ -64,7 +65,7 @@ describe("ProjectEditor audio recording navigation", () => {
 		expect(await secondClose).toBe(true);
 	});
 
-	it("wires the Audio Recorder action into the project Asset Library", () => {
+	it("renders Multi-Artboard Hub as primary view by default", () => {
 		vi.stubGlobal("window", {
 			electronAPI: {},
 			localStorage: { getItem: () => null, setItem: () => undefined },
@@ -87,8 +88,50 @@ describe("ProjectEditor audio recording navigation", () => {
 			),
 		);
 
+		expect(markup).toContain('class="repurpose-board-editor"');
+		expect(markup).toContain("Multi-Artboard Hub");
+		expect(markup).toContain("9:16");
+		expect(markup).toContain("16:9");
+		vi.unstubAllGlobals();
+	});
+
+	it("wires the Audio Recorder action into the project Asset Library when viewing artboard timeline", () => {
+		vi.stubGlobal("window", {
+			electronAPI: {},
+			localStorage: { getItem: () => null, setItem: () => undefined },
+		});
+		let project = createTimelineProject("editor", "Editor");
+		project = addRepurposeArtboard(project, {
+			aspectRatio: "9:16",
+			name: "Shorts",
+			width: 1080,
+			height: 1920,
+			defaultFitMode: "cover",
+		});
+		const artboardId = project.repurposeBoard!.artboards[0].id;
+
+		const controller = new ProjectController(project, async () => ({
+			success: true,
+			path: "editor.captr",
+		}));
+		const markup = renderToStaticMarkup(
+			createElement(
+				I18nProvider,
+				null,
+				createElement(ProjectEditor, {
+					controller,
+					onRequestHome: vi.fn(),
+					onProjectChanged: vi.fn(),
+					onRequestNew: vi.fn(),
+					onRequestOpen: vi.fn(),
+					initialArtboardId: artboardId,
+				}),
+			),
+		);
+
 		expect(markup).toContain('aria-label="Record Audio"');
 		expect(markup).toContain("Record Audio");
+		expect(markup).toContain('class="project-back-artboards-button"');
 		vi.unstubAllGlobals();
 	});
 });

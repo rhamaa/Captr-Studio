@@ -177,4 +177,71 @@ describe("Recording composition settings", () => {
 		expect(html.includes('aria-label="bottom-right"')).toBe(bubbleVisible);
 		expect(html.includes('<video src="http://127.0.0.1:4321/webcam.mp4"')).toBe(cameraVisible);
 	});
+
+	it("adapts preview canvas aspect ratio to passed 9:16 aspect ratio and canvas props", () => {
+		const registered = registerRecording(
+			createTimelineProject("project-shorts", "Project Shorts"),
+			{
+				captureId: "capture-shorts",
+				name: "Recording Shorts",
+				screen: { path: "screen.mp4", offsetUs: 0, durationUs: 10_000_000 },
+				durationUs: 10_000_000,
+				width: 1920,
+				height: 1080,
+				settings: {},
+			},
+			{ assetId: "asset-shorts", packageId: "package-shorts" },
+		);
+		const project = placeAsset(registered, "asset-shorts", registered.tracks[0].id, 0, {
+			clipId: "clip-shorts",
+			compositionId: "comp-shorts",
+		});
+		const html = translate(
+			createElement(RecordingCompositionEditor, {
+				package: project.packages[0],
+				composition: project.compositions[0],
+				aspectRatio: "9:16",
+				canvas: { width: 1080, height: 1920, fps: 30 },
+				onChange: () => {},
+				onClose: () => {},
+			}),
+		);
+
+		expect(html).toContain('class="recording-aspect-select"');
+		expect(html).toContain('value="9:16" selected');
+		expect(html).toContain("1080 / 1920");
+	});
+
+	it("adapts preview canvas aspect ratio to passed 1:1 square ratio", () => {
+		const registered = registerRecording(
+			createTimelineProject("project-square", "Project Square"),
+			{
+				captureId: "capture-square",
+				name: "Recording Square",
+				screen: { path: "screen.mp4", offsetUs: 0, durationUs: 10_000_000 },
+				durationUs: 10_000_000,
+				width: 1920,
+				height: 1080,
+				settings: {},
+			},
+			{ assetId: "asset-square", packageId: "package-square" },
+		);
+		const project = placeAsset(registered, "asset-square", registered.tracks[0].id, 0, {
+			clipId: "clip-square",
+			compositionId: "comp-square",
+		});
+		const html = translate(
+			createElement(RecordingCompositionEditor, {
+				package: project.packages[0],
+				composition: project.compositions[0],
+				aspectRatio: "1:1",
+				canvas: { width: 1080, height: 1080, fps: 30 },
+				onChange: () => {},
+				onClose: () => {},
+			}),
+		);
+
+		expect(html).toContain('value="1:1" selected');
+		expect(html).toContain("1080 / 1080");
+	});
 });

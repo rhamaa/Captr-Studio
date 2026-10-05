@@ -1,6 +1,7 @@
 import {
 	ArrowClockwise,
 	ArrowCounterClockwise,
+	ArrowLeft,
 	CaretDown,
 	FloppyDisk,
 	FolderOpen,
@@ -10,12 +11,14 @@ import {
 	Play,
 	Plus,
 	Square,
+	SquaresFour,
 	VideoCamera,
 	X,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
+import { projectFileName, projectTitleFromPath } from "@/core/project/projectNames";
 import {
 	addTextOverlay,
 	placeAsset,
@@ -24,39 +27,42 @@ import {
 	updateComposition,
 } from "@/core/timeline/commands";
 import type { ProjectCommand } from "@/core/timeline/history";
-
+import {
+	ensureRepurposeBoard,
+	getArtboardProjectView,
+	updateArtboardProject,
+} from "@/core/timeline/repurposeCommands";
 import {
 	clipDurationUs,
 	type MediaAsset,
-	type ShapeDefinition,
 	projectDurationUs,
+	type ShapeDefinition,
 } from "@/core/timeline/types";
-
 import { TimelineProjectExporter } from "@/lib/exporter/timelineProjectExporter";
 import { RecordingCompositionEditor } from "@/recording/editor/RecordingCompositionEditor";
-
 import { probeMedia } from "@/recording/mediaProbe";
+import type { AspectRatio } from "@/utils/aspectRatioUtils";
+import { RepurposeBoardEditor } from "../repurpose/RepurposeBoardEditor";
 import { AssetLibrary } from "./AssetLibrary";
 import { AssetSourcePreview } from "./AssetSourcePreview";
 import { ProjectEditorPanel } from "./ProjectEditorPanel";
 import { ProjectInspector } from "./ProjectInspector";
+import { ProjectNameDialog } from "./ProjectNameDialog";
 import { ProjectPreview } from "./ProjectPreview";
-import { captureProjectThumbnail } from "./projectThumbnail";
 import { ProjectTimeline, shapePlacementCommand } from "./ProjectTimeline";
 import { ProjectToolRail } from "./ProjectToolRail";
 import { ProjectWelcome } from "./ProjectWelcome";
+import { captureProjectThumbnail } from "./projectThumbnail";
 import { timelineActionCommand } from "./timelineInteractions";
-import { projectFileName, projectTitleFromPath } from "@/core/project/projectNames";
-import { ProjectNameDialog } from "./ProjectNameDialog";
 import { type ProjectController, useProjectController } from "./useProjectController";
 import { useProjectMessages } from "./useProjectMessages";
 import { useRecordingAssets } from "./useRecordingAssets";
 import "./projectEditor.css";
 import type { RecordingSessionData } from "../../../electron/ipc/types";
-import { bindProjectClose } from "./projectLifecycle";
 import { AudioRecorderDialog } from "./AudioRecorderDialog";
-import { useAudioRecordingAssets } from "./useAudioRecordingAssets";
 import { createProjectAudioRecorderNavigation } from "./projectAudioRecorderNavigation";
+import { bindProjectClose } from "./projectLifecycle";
+import { useAudioRecordingAssets } from "./useAudioRecordingAssets";
 export interface ProjectEditorProps {
 	controller: ProjectController;
 	recordingSession?: RecordingSessionData | null;
@@ -66,6 +72,7 @@ export interface ProjectEditorProps {
 	onRequestOpen: () => void;
 	onBusyChange?: (busy: boolean) => void;
 	navigationBlocked?: boolean;
+	initialArtboardId?: string;
 }
 export function ProjectEditor(props: ProjectEditorProps) {
 	const m = useProjectMessages();
@@ -74,12 +81,32 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	const [error, setError] = useState<string | null>(null),
 		[busy, setBusy] = useState(false),
 		[playing, setPlaying] = useState(false),
-		[editingClipId, setEditingClipId] = useState<string | null>(null);
+		[editingClipId, setEditingClipId] = useState<string | null>(null),
+		[activeArtboardId, setActiveArtboardId] = useState<string | null>(
+			props.initialArtboardId ?? null,
+		);
+
+	const activeArtboard = useMemo(() => {
+		if (!activeArtboardId) return null;
+		const board = ensureRepurposeBoard(state.project).repurposeBoard;
+		return board?.artboards.find((a) => a.id === activeArtboardId) ?? null;
+	}, [state.project, activeArtboardId]);
+
+	const currentActiveArtboardId = activeArtboard ? activeArtboard.id : null;
+
+	const activeProject = useMemo(() => {
+		if (!currentActiveArtboardId) return state.project;
+		return getArtboardProjectView(state.project, currentActiveArtboardId);
+	}, [state.project, currentActiveArtboardId]);
+
 	const [selectedTransitionId, setSelectedTransitionId] = useState<string | null>(null);
 	useEffect(() => {
-		if (selectedTransitionId && !state.project.clipTransitions?.some((item) => item.id === selectedTransitionId))
+		if (
+			selectedTransitionId &&
+			!activeProject.clipTransitions?.some((item) => item.id === selectedTransitionId)
+		)
 			setSelectedTransitionId(null);
-	}, [selectedTransitionId, state.project.clipTransitions]);
+	}, [selectedTransitionId, activeProject.clipTransitions]);
 	const [scale, setScale] = useState(65);
 	const [snappingEnabled, setSnappingEnabled] = useState(true);
 	const playingRef = useRef(playing);
@@ -149,9 +176,12 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		setPlaying(false);
 		setExportProgress(0);
 		try {
-			const result = await new TimelineProjectExporter().export(controller.snapshot.project, {
+			const projectToExport = currentActiveArtboardId
+				? activeProject
+				: controller.snapshot.project;
+			const result = await new TimelineProjectExporter().export(projectToExport, {
 				outputPath: "",
-				fps: controller.snapshot.project.canvas.fps,
+				fps: projectToExport.canvas.fps,
 				signal: abort.signal,
 				onProgress: setExportProgress,
 			});
@@ -181,9 +211,21 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		state.openingKey,
 		props.recordingSession,
 	);
-	const run = (command: ProjectCommand) => {
+	const run = (command: ProjectCommand, selection?: string[]) => {
 		try {
-			controller.execute(command);
+			if (currentActiveArtboardId) {
+				controller.execute(
+					(rootProject) =>
+						updateArtboardProject(
+							rootProject,
+							currentActiveArtboardId,
+							(artboardProject) => command(artboardProject),
+						),
+					selection,
+				);
+			} else {
+				controller.execute(command, selection);
+			}
 			setError(null);
 		} catch (e) {
 			errorMessage(e);
@@ -195,13 +237,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 			clipId: crypto.randomUUID(),
 			trackId: crypto.randomUUID(),
 		};
-		try {
-			controller.execute(shapePlacementCommand(kind, state.playheadUs, ids));
-			controller.select([ids.clipId]);
-			setError(null);
-		} catch (e) {
-			errorMessage(e);
-		}
+		run(shapePlacementCommand(kind, state.playheadUs, ids), [ids.clipId]);
 	};
 	const save = async (saveAs = false) => {
 		try {
@@ -257,7 +293,9 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		if (!audioTakeToken.current)
 			audioTakeToken.current = audioAssets.begin(audioStartUsRef.current);
 	};
-	const finalizeAudioTake = async (take: import("@/recording/audioRecorder").RecordedAudioTake) => {
+	const finalizeAudioTake = async (
+		take: import("@/recording/audioRecorder").RecordedAudioTake,
+	) => {
 		const token = audioTakeToken.current ?? audioAssets.begin(take.startUs);
 		audioTakeToken.current = token;
 		const result = await audioAssets.finalize(token, take);
@@ -329,10 +367,10 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		}
 	};
 	const addToTimeline = (id: string) => {
-		const project = controller.snapshot.project,
-			asset = project.assets.find((a) => a.id === id);
+		const targetProject = activeProject,
+			asset = state.project.assets.find((a) => a.id === id);
 		if (!asset) return;
-		const track = project.tracks.find(
+		const track = targetProject.tracks.find(
 			(t) => !t.locked && t.kind === (asset.kind === "audio" ? "audio" : "visual"),
 		);
 		if (!track) {
@@ -345,7 +383,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 			),
 			clipId = crypto.randomUUID();
 		try {
-			controller.execute(
+			run(
 				(p) =>
 					placeAsset(p, id, track.id, startUs, {
 						clipId,
@@ -362,7 +400,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		props.onBusyChange?.(
 			busy ||
 				recordingPending > 0 ||
-			audioCaptureActive ||
+				audioCaptureActive ||
 				exportProgress !== null ||
 				Boolean(state.fileOperation) ||
 				state.navigationPending,
@@ -377,12 +415,27 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		props.onBusyChange,
 	]);
 	useEffect(
-		() => bindProjectClose(controller, window.electronAPI, errorMessage, audioNavigation.beforeClose),
+		() =>
+			bindProjectClose(
+				controller,
+				window.electronAPI,
+				errorMessage,
+				audioNavigation.beforeClose,
+			),
 		[controller, audioNavigation, errorMessage],
 	);
 	useEffect(() => {
 		const keydown = (e: KeyboardEvent) => {
-			if (modalOpen.current || document.querySelector("[role=dialog]")) return;
+			if (
+				editingClipId ||
+				nameDialog ||
+				audioRecorderOpen ||
+				props.navigationBlocked ||
+				document.querySelector("[role=dialog]")
+			)
+				return;
+			// In Multi-Artboard Hub, let RepurposeBoardEditor handle transport & split keys
+			if (!currentActiveArtboardId && !e.ctrlKey && !e.metaKey) return;
 			const target = e.target;
 			if (
 				target instanceof HTMLElement &&
@@ -430,9 +483,10 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					}
 				} else if (key === "a") {
 					e.preventDefault();
-					const allClipIds = controller.snapshot.project.tracks.flatMap((t) =>
-						t.clips.map((c) => c.id),
-					);
+					const targetTracks = currentActiveArtboardId
+						? activeProject.tracks
+						: controller.snapshot.project.tracks;
+					const allClipIds = targetTracks.flatMap((t) => t.clips.map((c) => c.id));
 					controller.select(allClipIds);
 				} else if (key === "b" && !e.shiftKey && !e.altKey) {
 					e.preventDefault();
@@ -463,7 +517,9 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				const key = e.key;
 				if (key === " ") {
 					e.preventDefault();
-					const proj = controller.snapshot.project;
+					const proj = currentActiveArtboardId
+						? activeProject
+						: controller.snapshot.project;
 					if (projectDurationUs(proj) > 0) {
 						controller.preview(null);
 						if (controller.snapshot.playheadUs >= projectDurationUs(proj)) {
@@ -512,16 +568,22 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					} else if (playingRef.current) {
 						e.preventDefault();
 						setPlaying(false);
+					} else if (currentActiveArtboardId) {
+						e.preventDefault();
+						setActiveArtboardId(null);
 					}
 				} else if (key === "ArrowLeft" || key === "ArrowRight") {
 					e.preventDefault();
 					setPlaying(false);
 					controller.preview(null);
-					const fps = controller.snapshot.project.canvas.fps || 30;
+					const proj = currentActiveArtboardId
+						? activeProject
+						: controller.snapshot.project;
+					const fps = proj.canvas.fps || 30;
 					const frameUs = Math.round(1_000_000 / fps);
 					const stepUs = e.shiftKey ? 1_000_000 : frameUs;
 					const dir = key === "ArrowLeft" ? -1 : 1;
-					const maxUs = projectDurationUs(controller.snapshot.project);
+					const maxUs = projectDurationUs(proj);
 					const nextUs = Math.max(
 						0,
 						Math.min(maxUs, controller.snapshot.playheadUs + dir * stepUs),
@@ -536,7 +598,10 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					e.preventDefault();
 					setPlaying(false);
 					controller.preview(null);
-					controller.seek(projectDurationUs(controller.snapshot.project));
+					const proj = currentActiveArtboardId
+						? activeProject
+						: controller.snapshot.project;
+					controller.seek(projectDurationUs(proj));
 				} else if (key.toLowerCase() === "t" && !e.shiftKey) {
 					e.preventDefault();
 					const ids = {
@@ -551,7 +616,9 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					openConfig();
 				} else if (key.toLowerCase() === "z" && e.shiftKey && !e.ctrlKey && !e.metaKey) {
 					e.preventDefault();
-					const totalUs = projectDurationUs(controller.snapshot.project);
+					const totalUs = projectDurationUs(
+						currentActiveArtboardId ? activeProject : controller.snapshot.project,
+					);
 					if (totalUs > 0) {
 						const targetScale = Math.max(
 							8,
@@ -575,7 +642,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 			window.removeEventListener("keydown", keydown);
 			unsub.forEach((u) => u?.());
 		};
-	}, [controller]);
+	}, [controller, currentActiveArtboardId, activeProject]);
 	useEffect(() => {
 		if (!playing) return;
 		const started = performance.now(),
@@ -583,8 +650,12 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		let frame = 0;
 		const tick = (now: number) => {
 			const next = base + Math.round((now - started) * 1000);
-			if (next >= projectDurationUs(controller.snapshot.project)) {
-				controller.seek(projectDurationUs(controller.snapshot.project));
+			const targetProj = currentActiveArtboardId
+				? getArtboardProjectView(controller.snapshot.project, currentActiveArtboardId)
+				: controller.snapshot.project;
+			const totalUs = projectDurationUs(targetProj);
+			if (next >= totalUs) {
+				controller.seek(totalUs);
 				setPlaying(false);
 				return;
 			}
@@ -593,11 +664,16 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		};
 		frame = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(frame);
-	}, [playing]);
-	const editedClip = state.project.tracks
-			.flatMap((t) => t.clips)
-			.find((c) => c.id === editingClipId),
-		composition = state.project.compositions.find((c) => c.id === editedClip?.compositionId),
+	}, [playing, currentActiveArtboardId]);
+	const editedClip =
+			(activeProject.tracks ?? state.project.tracks)
+				.flatMap((t) => t.clips)
+				.find((c) => c.id === editingClipId) ??
+			state.project.tracks.flatMap((t) => t.clips).find((c) => c.id === editingClipId),
+		composition =
+			(activeProject.compositions ?? state.project.compositions).find(
+				(c) => c.id === editedClip?.compositionId,
+			) ?? state.project.compositions.find((c) => c.id === editedClip?.compositionId),
 		pkg = state.project.packages.find((p) => p.id === composition?.packageId);
 	const sourceAsset = state.project.assets.find((a) => a.id === state.selectedAssetId),
 		sourcePath =
@@ -611,15 +687,32 @@ export function ProjectEditor(props: ProjectEditorProps) {
 			}
 		>
 			<header className="project-header">
-				<button
-					aria-label="Back to Home"
-					disabled={
-						busy || recordingPending > 0 || exportProgress !== null || state.saving
-					}
-					onClick={() => navigate(props.onRequestHome)}
-				>
-					Home
-				</button>
+				{currentActiveArtboardId ? (
+					<button
+						type="button"
+						className="project-back-artboards-button"
+						aria-label="Back to Artboards Hub"
+						title="Back to Multi-Artboard Hub (Esc)"
+						onClick={() => {
+							setPlaying(false);
+							setActiveArtboardId(null);
+						}}
+					>
+						<ArrowLeft size={14} weight="bold" />
+						<span>Artboards</span>
+						<kbd className="project-kbd">Esc</kbd>
+					</button>
+				) : (
+					<button
+						aria-label="Back to Home"
+						disabled={
+							busy || recordingPending > 0 || exportProgress !== null || state.saving
+						}
+						onClick={() => navigate(props.onRequestHome)}
+					>
+						Home
+					</button>
+				)}
 				<div className="project-brand" aria-label="Captr Studio">
 					<VideoCamera size={22} weight="duotone" />
 				</div>
@@ -680,6 +773,11 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				>
 					{projectFileName(state.path)}
 				</button>
+				{activeArtboard && (
+					<span className="project-artboard-tag" title="Active artboard sequence">
+						{activeArtboard.name} ({activeArtboard.aspectRatio})
+					</span>
+				)}
 				<span className="project-save-status">
 					{state.saving
 						? m("saving")
@@ -691,7 +789,11 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				</span>
 				<button
 					className="project-export-button"
-					disabled={!projectDurationUs(state.project) || exportProgress !== null}
+					disabled={
+						!projectDurationUs(
+							currentActiveArtboardId ? activeProject : state.project,
+						) || exportProgress !== null
+					}
 					onClick={() => void exportProject()}
 				>
 					Export
@@ -699,6 +801,28 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				{exportProgress !== null && (
 					<button onClick={() => exportAbort.current?.abort()}>
 						Cancel {Math.round(exportProgress)}%
+					</button>
+				)}
+				{currentActiveArtboardId && (
+					<button
+						type="button"
+						className="project-repurpose-button"
+						title="Return to Multi-Artboard Hub"
+						disabled={
+							state.saving ||
+							busy ||
+							recordingPending > 0 ||
+							exportProgress !== null ||
+							props.navigationBlocked
+						}
+						onClick={() => {
+							setPlaying(false);
+							setEditingClipId(null);
+							setActiveArtboardId(null);
+						}}
+					>
+						<SquaresFour size={16} weight="bold" />
+						Artboards
 					</button>
 				)}
 				<button
@@ -765,12 +889,57 @@ export function ProjectEditor(props: ProjectEditorProps) {
 							package={pkg}
 							composition={composition}
 							projectTitle={projectFileName(state.path)}
+							canvas={activeProject.canvas}
+							aspectRatio={
+								(activeArtboard?.aspectRatio &&
+								activeArtboard.aspectRatio !== "custom"
+									? (activeArtboard.aspectRatio as AspectRatio)
+									: null) ??
+								(composition.settings?.aspectRatio as AspectRatio) ??
+								(activeProject.canvas.width === 1080 &&
+								activeProject.canvas.height === 1920
+									? "9:16"
+									: activeProject.canvas.width === activeProject.canvas.height
+										? "1:1"
+										: activeProject.canvas.width === 1080 &&
+												activeProject.canvas.height === 1350
+											? "4:5"
+											: "16:9")
+							}
+							clipTransform={editedClip?.transform}
 							onChange={(next) =>
 								controller.execute((p) =>
 									updateComposition(p, composition.id, next),
 								)
 							}
 							onClose={() => setEditingClipId(null)}
+						/>
+					) : null
+				}
+				repurposeEditor={
+					!currentActiveArtboardId ? (
+						<RepurposeBoardEditor
+							project={state.project}
+							projectTitle={projectFileName(state.path)}
+							selectedAssetId={state.selectedAssetId}
+							onChange={(updater) => {
+								controller.execute(updater);
+							}}
+							onClose={() => navigate(props.onRequestHome)}
+							onOpenArtboardEditor={(artboardId) => {
+								setPlaying(false);
+								setEditingClipId(null);
+								setActiveArtboardId(artboardId);
+							}}
+							onImport={(paths) => void importMedia(paths)}
+							onRecord={() => void startRecord()}
+							onRecordAudio={openAudioRecorder}
+							onPreviewAsset={(id) => {
+								setPlaying(false);
+								controller.preview(id);
+							}}
+							onPlaceAsset={addToTimeline}
+							onRemoveAsset={(id) => run((p) => removeAsset(p, id))}
 						/>
 					) : null
 				}
@@ -796,8 +965,23 @@ export function ProjectEditor(props: ProjectEditorProps) {
 							<header className="project-panel-header">
 								<h2>{sourceAsset ? m("sourcePreview") : m("preview")}</h2>
 								<span>
-									{state.project.canvas.width} × {state.project.canvas.height}
+									{activeProject.canvas.width} × {activeProject.canvas.height}
 								</span>
+								{!sourceAsset && currentActiveArtboardId && (
+									<button
+										type="button"
+										className="project-stage-repurpose-btn"
+										title="Return to Multi-Artboard Hub"
+										onClick={() => {
+											setPlaying(false);
+											setEditingClipId(null);
+											setActiveArtboardId(null);
+										}}
+									>
+										<SquaresFour size={14} weight="bold" />
+										All Artboards
+									</button>
+								)}
 								{sourceAsset && (
 									<button onClick={() => controller.preview(null)}>
 										{m("backTimeline")}
@@ -812,13 +996,13 @@ export function ProjectEditor(props: ProjectEditorProps) {
 										path={sourcePath ?? ""}
 										onError={setError}
 									/>
-								) : projectDurationUs(state.project) > 0 ? (
+								) : projectDurationUs(activeProject) > 0 ? (
 									<ProjectPreview
-										key={state.openingKey}
-										project={state.project}
+										key={`${state.openingKey}-${currentActiveArtboardId}`}
+										project={activeProject}
 										timeUs={Math.min(
 											state.playheadUs,
-											Math.max(0, projectDurationUs(state.project) - 1),
+											Math.max(0, projectDurationUs(activeProject) - 1),
 										)}
 										playing={playing && !editingClipId}
 										onError={setError}
@@ -835,10 +1019,10 @@ export function ProjectEditor(props: ProjectEditorProps) {
 								<span>{(state.playheadUs / 1_000_000).toFixed(2)}</span>
 								<button
 									aria-label={playing ? "Pause timeline" : "Play timeline"}
-									disabled={!projectDurationUs(state.project)}
+									disabled={!projectDurationUs(activeProject)}
 									onClick={() => {
 										controller.preview(null);
-										if (state.playheadUs >= projectDurationUs(state.project))
+										if (state.playheadUs >= projectDurationUs(activeProject))
 											controller.seek(0);
 										setPlaying((v) => !v);
 									}}
@@ -850,12 +1034,12 @@ export function ProjectEditor(props: ProjectEditorProps) {
 									)}
 								</button>
 								<span>
-									{(projectDurationUs(state.project) / 1_000_000).toFixed(2)}
+									{(projectDurationUs(activeProject) / 1_000_000).toFixed(2)}
 								</span>
 							</div>
 						</section>
 						<ProjectInspector
-							project={state.project}
+							project={activeProject}
 							selection={state.selection}
 							selectedTransitionId={selectedTransitionId}
 							playheadUs={state.playheadUs}
@@ -864,7 +1048,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						/>
 					</div>
 					<ProjectTimeline
-						project={state.project}
+						project={activeProject}
 						selection={state.selection}
 						selectedTransitionId={selectedTransitionId}
 						playheadUs={state.playheadUs}
@@ -921,7 +1105,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				<AudioRecorderDialog
 					startUs={audioStartUs}
 					navigationRequested={audioNavigationRequested}
-				onNavigationRequest={() => setAudioNavigationRequested(true)}
+					onNavigationRequest={() => setAudioNavigationRequested(true)}
 					onPreviewStart={() => {
 						beginAudioCapture();
 						controller.preview(null);

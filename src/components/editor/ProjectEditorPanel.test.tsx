@@ -1,5 +1,6 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
 import { ProjectEditorPanel } from "./ProjectEditorPanel";
 
 describe("ProjectEditorPanel", () => {
@@ -32,5 +33,25 @@ describe("ProjectEditorPanel", () => {
 
 		expect(html).toContain('aria-label="Project timeline"');
 		expect(html).not.toContain("project-recording-subeditor");
+		expect(html).not.toContain("project-repurpose-subeditor");
+	});
+
+	it("shows repurpose sub-editor when repurposeEditor is provided and recordingEditor is null", () => {
+		const html = renderToStaticMarkup(
+			createElement(
+				ProjectEditorPanel,
+				{
+					recordingEditor: null,
+					repurposeEditor: createElement("section", {
+						"aria-label": "Repurpose studio",
+					}),
+				},
+				createElement("section", { "aria-label": "Project timeline" }),
+			),
+		);
+
+		expect(html).toContain('class="project-repurpose-subeditor"');
+		expect(html).toContain('aria-label="Repurpose studio"');
+		expect(html).not.toContain('aria-label="Project timeline"');
 	});
 });

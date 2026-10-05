@@ -1,4 +1,6 @@
+import { drawArtboardFrame } from "@/components/repurpose/repurposeFraming";
 import { evaluateProject } from "@/core/timeline/evaluation";
+import type { RepurposeArtboard } from "@/core/timeline/repurposeTypes";
 import { projectDurationUs, type TimelineProject } from "@/core/timeline/types";
 import { validateTimelineProject } from "@/core/timeline/validation";
 import { renderProjectAudio, throwIfCanceled } from "./projectAudioRenderer";
@@ -9,6 +11,9 @@ interface Options {
 	fps: number;
 	signal?: AbortSignal;
 	onProgress?: (percent: number) => void;
+	artboard?: RepurposeArtboard;
+	timeRangeUs?: { startUs: number; endUs: number };
+	fileName?: string;
 }
 interface ExportResult {
 	success: boolean;
@@ -30,23 +35,36 @@ export class TimelineProjectExporter {
 		const api = this.dependencies.api ?? window.electronAPI;
 		try {
 			const project = structuredClone(validateTimelineProject(value)),
-				duration = projectDurationUs(project);
-			if (!duration) throw new Error("Place an asset on the timeline before exporting");
+				totalDuration = projectDurationUs(project);
+			if (!totalDuration) throw new Error("Place an asset on the timeline before exporting");
 			if (!Number.isFinite(options.fps) || options.fps <= 0 || options.fps > 120)
 				throw new Error("Invalid export frame rate");
 			throwIfCanceled(options.signal);
 			if (!api?.nativeVideoExportStart)
 				throw new Error("Project export requires the desktop encoder");
+
+			const rangeStartUs = options.timeRangeUs ? Math.max(0, options.timeRangeUs.startUs) : 0;
+			const rangeEndUs = options.timeRangeUs
+				? Math.min(totalDuration, Math.max(rangeStartUs, options.timeRangeUs.endUs))
+				: totalDuration;
+			const duration = rangeEndUs - rangeStartUs;
+			if (!duration) throw new Error("Export duration cannot be zero");
+
 			renderer = this.dependencies.renderer?.() ?? new ProjectFrameRenderer();
 			const audio = await (this.dependencies.audio ?? renderProjectAudio)(
 				project,
 				options.signal,
+				options.timeRangeUs ? { startUs: rangeStartUs, endUs: rangeEndUs } : undefined,
 			);
 			throwIfCanceled(options.signal);
+
+			const outputWidth = options.artboard ? options.artboard.width : project.canvas.width;
+			const outputHeight = options.artboard ? options.artboard.height : project.canvas.height;
+
 			// Match the preview canvas settings; output FPS controls project sampling only.
 			const start = await api.nativeVideoExportStart({
-				width: project.canvas.width,
-				height: project.canvas.height,
+				width: outputWidth,
+				height: outputHeight,
 				frameRate: options.fps,
 				bitrate: 12_000_000,
 				encodingMode: "quality",
@@ -56,20 +74,38 @@ export class TimelineProjectExporter {
 				throw new Error(start.error ?? "Could not start encoder");
 			session = start.sessionId;
 			const frames = Math.ceil((duration * options.fps) / 1_000_000);
+
+			let artboardCanvas: HTMLCanvasElement | undefined;
+			if (options.artboard && typeof document !== "undefined") {
+				artboardCanvas = document.createElement("canvas");
+				artboardCanvas.width = outputWidth;
+				artboardCanvas.height = outputHeight;
+			}
+
 			for (let i = 0; i < frames; i++) {
 				throwIfCanceled(options.signal);
-				const canvas = await renderer.render(
-					evaluateProject(project, Math.round((i * 1_000_000) / options.fps)),
-				);
+				const sampleTimeUs = rangeStartUs + Math.round((i * 1_000_000) / options.fps);
+				const canvas = await renderer.render(evaluateProject(project, sampleTimeUs));
 				throwIfCanceled(options.signal);
-				const context = canvas.getContext("2d");
-				if (!context) throw new Error("Rendered frame unavailable");
-				const rgba = context.getImageData(
-					0,
-					0,
-					project.canvas.width,
-					project.canvas.height,
-				).data;
+
+				let rgba: Uint8ClampedArray;
+				if (options.artboard && artboardCanvas && !options.artboard.tracks) {
+					const ctx = artboardCanvas.getContext("2d");
+					if (!ctx) throw new Error("Artboard canvas context unavailable");
+					drawArtboardFrame(
+						ctx,
+						canvas as HTMLCanvasElement,
+						options.artboard,
+						outputWidth,
+						outputHeight,
+					);
+					rgba = ctx.getImageData(0, 0, outputWidth, outputHeight).data;
+				} else {
+					const context = canvas.getContext("2d");
+					if (!context) throw new Error("Rendered frame unavailable");
+					rgba = context.getImageData(0, 0, outputWidth, outputHeight).data;
+				}
+
 				const written = await api.nativeVideoExportWriteFrame(
 					session,
 					new Uint8Array(rgba.buffer, rgba.byteOffset, rgba.byteLength),
@@ -90,10 +126,11 @@ export class TimelineProjectExporter {
 			session = undefined;
 			temp = finished.tempPath;
 			throwIfCanceled(options.signal);
+			const fileName = options.fileName || `${project.title}.mp4`;
 			const saved = await api.finalizeExportedVideo({
 				tempPath: temp,
-				fileName: `${project.title}.mp4`,
-				outputPath: options.outputPath,
+				fileName,
+				outputPath: options.outputPath || undefined,
 			});
 			if (saved.canceled) return { success: false, canceled: true };
 			if (!saved.success)

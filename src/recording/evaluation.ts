@@ -1,7 +1,7 @@
-import type { RecordComposition, RecordingPackage } from "./types";
+import { createTimelineProject } from "@/core/timeline/commands";
 import { mapCompositionTime, mapStreamTime } from "@/core/timeline/timeMapping";
 import { resolveRecordingSettings } from "./editor/compositionAdapter";
-import { createTimelineProject } from "@/core/timeline/commands";
+import type { RecordComposition, RecordingPackage } from "./types";
 export function evaluateRecording(
 	pkg: RecordingPackage,
 	composition: RecordComposition,
@@ -20,8 +20,20 @@ export function evaluateRecording(
 			: null,
 	};
 }
-export function recordingPreviewProject(pkg: RecordingPackage, composition: RecordComposition) {
+export function recordingPreviewProject(
+	pkg: RecordingPackage,
+	composition: RecordComposition,
+	canvas?: { width: number; height: number; fps?: number },
+	clipTransform?: { x: number; y: number; scale: number; rotation: number; opacity: number },
+) {
 	const project = createTimelineProject("recording-preview", "Recording");
+	if (canvas && canvas.width > 0 && canvas.height > 0) {
+		project.canvas = {
+			width: canvas.width,
+			height: canvas.height,
+			fps: canvas.fps ?? 30,
+		};
+	}
 	project.packages = [pkg];
 	project.compositions = [composition];
 	project.assets = [
@@ -46,7 +58,7 @@ export function recordingPreviewProject(pkg: RecordingPackage, composition: Reco
 			rate: 1,
 			gain: 1,
 			enabled: true,
-			transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+			transform: clipTransform ?? { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
 		},
 	];
 	return project;
