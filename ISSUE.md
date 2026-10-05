@@ -129,3 +129,12 @@
   - 56/56 tests lulus pada agregat suite recording, editor, repurpose, timeline, dan exporter.
   - `npx tsc --noEmit` lolos 0 errors, Biome check lolos.
 
+## Artboard Home, Docked Asset Library & Individual Video Preview (5 Oktober 2026)
+
+- **Artboard Sebagai Halaman Utama Project:** Multi-Artboard Hub difungsikan penuh sebagai halaman beranda authoritative project `.captr`. Transport controls global terpusat dan timeline slicing bar dihilangkan dari canvas view.
+- **Docked Project Asset Library:** Panel pustaka aset (`AssetLibrary`) disematkan di sebelah kiri canvas (`repurpose-assets-sidebar`) dengan tombol collapse/expand. Pengguna dapat melihat seluruh aset project (`assets`, `packages`), melakukan import video/gambar/audio, recording layar/webcam, dan audio recording langsung di halaman utama project.
+- **Default Artboard Kosong:** `createDefaultRepurposeBoard` kini menginisialisasi `artboards: []` secara default. Halaman menampilkan empty state dengan tombol pilihan rasio instan (9:16, 1:1, 16:9, 4:5, 4:3).
+- **Multiple Video & Inline Renaming:** Pengguna dapat memproduksi lebih dari satu video dengan aspek rasio yang sama atau berbeda dari satu source asset project. Judul setiap card video dapat di-rename langsung (inline `<input>` saat klik pensil atau double click judul) dan disimpan via `renameRepurposeArtboard`.
+- **Individual Preview Playback per Card:** Setiap card video pada artboard memiliki pemutaran preview independen (`localPlaying`, `localPlayheadUs`), tombol Play/Pause lokal di footer card, display timecode mandiri, dan interactive mini scrubber bar. Memutar satu card secara otomatis mem-pause card lain sehingga audio tidak bentrok.
+- **Status Pengujian:** 25/25 tests lulus (100% green) di suite repurpose, commands, dan editor. `npx tsc --noEmit` lolos 0 errors.
+

@@ -921,11 +921,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						<RepurposeBoardEditor
 							project={state.project}
 							projectTitle={projectFileName(state.path)}
-							playheadUs={state.playheadUs}
-							onSeek={(timeUs) => {
-								setPlaying(false);
-								controller.seek(timeUs);
-							}}
+							selectedAssetId={state.selectedAssetId}
 							onChange={(updater) => {
 								controller.execute(updater);
 							}}
@@ -935,6 +931,15 @@ export function ProjectEditor(props: ProjectEditorProps) {
 								setEditingClipId(null);
 								setActiveArtboardId(artboardId);
 							}}
+							onImport={(paths) => void importMedia(paths)}
+							onRecord={() => void startRecord()}
+							onRecordAudio={openAudioRecorder}
+							onPreviewAsset={(id) => {
+								setPlaying(false);
+								controller.preview(id);
+							}}
+							onPlaceAsset={addToTimeline}
+							onRemoveAsset={(id) => run((p) => removeAsset(p, id))}
 						/>
 					) : null
 				}

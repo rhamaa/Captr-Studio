@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "@/contexts/I18nContext";
 import { createTimelineProject } from "@/core/timeline/commands";
-import { ensureRepurposeBoard } from "@/core/timeline/repurposeCommands";
+import { addRepurposeArtboard, ensureRepurposeBoard } from "@/core/timeline/repurposeCommands";
 import { ProjectEditor } from "./ProjectEditor";
 import { createProjectAudioRecorderNavigation } from "./projectAudioRecorderNavigation";
 import { ProjectController } from "./useProjectController";
@@ -101,13 +101,19 @@ describe("ProjectEditor audio recording navigation", () => {
 			localStorage: { getItem: () => null, setItem: () => undefined },
 		});
 		let project = createTimelineProject("editor", "Editor");
-		project = ensureRepurposeBoard(project);
+		project = addRepurposeArtboard(project, {
+			aspectRatio: "9:16",
+			name: "Shorts",
+			width: 1080,
+			height: 1920,
+			defaultFitMode: "cover",
+		});
 		const artboardId = project.repurposeBoard!.artboards[0].id;
 
-		const controller = new ProjectController(
-			project,
-			async () => ({ success: true, path: "editor.captr" }),
-		);
+		const controller = new ProjectController(project, async () => ({
+			success: true,
+			path: "editor.captr",
+		}));
 		const markup = renderToStaticMarkup(
 			createElement(
 				I18nProvider,

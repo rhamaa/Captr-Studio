@@ -17,47 +17,7 @@ export function createDefaultRepurposeBoard(project: TimelineProject): Repurpose
 	const totalDurationUs = Math.max(1_000_000, projectDurationUs(project));
 	const defaultSliceId = crypto.randomUUID();
 
-	const artboards: RepurposeArtboard[] = [
-		{
-			id: crypto.randomUUID(),
-			name: "Shorts / Reels",
-			aspectRatio: "9:16",
-			width: 1080,
-			height: 1920,
-			framing: {
-				scale: 1,
-				offsetX: 0,
-				offsetY: 0,
-				fitMode: "cover",
-			},
-		},
-		{
-			id: crypto.randomUUID(),
-			name: "Square Post",
-			aspectRatio: "1:1",
-			width: 1080,
-			height: 1080,
-			framing: {
-				scale: 1,
-				offsetX: 0,
-				offsetY: 0,
-				fitMode: "cover",
-			},
-		},
-		{
-			id: crypto.randomUUID(),
-			name: "Landscape Master",
-			aspectRatio: "16:9",
-			width: 1920,
-			height: 1080,
-			framing: {
-				scale: 1,
-				offsetX: 0,
-				offsetY: 0,
-				fitMode: "contain",
-			},
-		},
-	];
+	const artboards: RepurposeArtboard[] = [];
 
 	const slices: RepurposeSlice[] = [
 		{
@@ -80,7 +40,7 @@ export function createDefaultRepurposeBoard(project: TimelineProject): Repurpose
  * Ensures project has repurposeBoard settings initialized.
  */
 export function ensureRepurposeBoard(project: TimelineProject): TimelineProject {
-	if (project.repurposeBoard && project.repurposeBoard.artboards.length > 0) {
+	if (project.repurposeBoard) {
 		return project;
 	}
 	return {
@@ -113,9 +73,19 @@ export function addRepurposeArtboard(
 			? presetOrConfig.defaultFitMode
 			: (presetOrConfig.fitMode ?? "cover");
 
+	let name = presetOrConfig.name;
+	const existingNames = new Set(board.artboards.map((a) => a.name));
+	if (existingNames.has(name)) {
+		let count = 2;
+		while (existingNames.has(`${name} ${count}`)) {
+			count++;
+		}
+		name = `${name} ${count}`;
+	}
+
 	const newArtboard: RepurposeArtboard = {
 		id: crypto.randomUUID(),
-		name: presetOrConfig.name,
+		name,
 		aspectRatio: presetOrConfig.aspectRatio,
 		width: presetOrConfig.width,
 		height: presetOrConfig.height,
@@ -132,6 +102,32 @@ export function addRepurposeArtboard(
 		repurposeBoard: {
 			...board,
 			artboards: [...board.artboards, newArtboard],
+		},
+		updatedAt: new Date().toISOString(),
+	};
+}
+
+/**
+ * Renames an artboard in the repurpose board.
+ */
+export function renameRepurposeArtboard(
+	project: TimelineProject,
+	artboardId: string,
+	name: string,
+): TimelineProject {
+	const current = ensureRepurposeBoard(project);
+	const board = current.repurposeBoard!;
+
+	const trimmed = name.trim();
+	if (!trimmed) return current;
+
+	return {
+		...current,
+		repurposeBoard: {
+			...board,
+			artboards: board.artboards.map((a) =>
+				a.id === artboardId ? { ...a, name: trimmed } : a,
+			),
 		},
 		updatedAt: new Date().toISOString(),
 	};

@@ -6,43 +6,56 @@ import {
 	FilmStrip,
 	MagnifyingGlassMinus,
 	MagnifyingGlassPlus,
+	Pause,
+	PencilSimple,
+	Play,
 	Trash,
 } from "@phosphor-icons/react";
-import React, { useEffect, useRef, useState } from "react";
+import { type MouseEvent as ReactMouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ProjectPreview } from "@/components/editor/ProjectPreview";
 import type { RepurposeArtboard, RepurposeArtboardFraming } from "@/core/timeline/repurposeTypes";
-import type { TimelineProject } from "@/core/timeline/types";
+import { projectDurationUs, type TimelineProject } from "@/core/timeline/types";
 import { drawArtboardFrame } from "./repurposeFraming";
+
+function formatCardTime(seconds: number): string {
+	const totalSecs = Math.max(0, seconds);
+	const mins = Math.floor(totalSecs / 60);
+	const secs = Math.floor(totalSecs % 60);
+	const centis = Math.floor((totalSecs % 1) * 10);
+	return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${centis}`;
+}
 
 export interface RepurposeArtboardCardProps {
 	artboard: RepurposeArtboard;
+	rootProject: TimelineProject;
 	artboardProject?: TimelineProject;
-	playheadUs?: number;
-	playing?: boolean;
-	masterCanvas: HTMLCanvasElement | null;
+	activePlayingId?: string | null;
 	displayHeight?: number;
+	onPlayingChange?: (isPlaying: boolean) => void;
 	onOpenArtboardEditor?: (artboardId: string) => void;
 	onUpdateFraming: (patch: Partial<RepurposeArtboardFraming>) => void;
 	onRemove: () => void;
 	onResetFraming: () => void;
 	onDuplicate?: () => void;
+	onRename?: (newName: string) => void;
 }
 
 export function RepurposeArtboardCard({
 	artboard,
+	rootProject,
 	artboardProject,
-	playheadUs = 0,
-	playing = false,
-	masterCanvas,
+	activePlayingId,
 	displayHeight = 360,
+	onPlayingChange,
 	onOpenArtboardEditor,
 	onUpdateFraming,
 	onRemove,
 	onResetFraming,
 	onDuplicate,
+	onRename,
 }: RepurposeArtboardCardProps) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
-	const [customCanvas, setCustomCanvas] = useState<HTMLCanvasElement | null>(null);
+	const [renderedCanvas, setRenderedCanvas] = useState<HTMLCanvasElement | null>(null);
 	const [isDragging, setIsDragging] = useState(false);
 	const dragStart = useRef<{
 		x: number;
@@ -51,22 +64,100 @@ export function RepurposeArtboardCard({
 		initialOffsetY: number;
 	}>({ x: 0, y: 0, initialOffsetX: 0, initialOffsetY: 0 });
 
+	// Inline renaming state
+	const [isEditingName, setIsEditingName] = useState(false);
+	const [nameInput, setNameInput] = useState(artboard.name);
+
+	useEffect(() => {
+		setNameInput(artboard.name);
+	}, [artboard.name]);
+
+	const handleSaveName = () => {
+		setIsEditingName(false);
+		const trimmed = nameInput.trim();
+		if (trimmed && trimmed !== artboard.name) {
+			onRename?.(trimmed);
+		} else {
+			setNameInput(artboard.name);
+		}
+	};
+
+	// Determine effective project and duration for this card
+	const targetProject = useMemo(() => {
+		if (artboard.tracks && artboardProject) {
+			return artboardProject;
+		}
+		return rootProject;
+	}, [artboard.tracks, artboardProject, rootProject]);
+
+	const durationUs = useMemo(
+		() => Math.max(1_000_000, projectDurationUs(targetProject)),
+		[targetProject],
+	);
+
+	// Independent Local Playback
+	const [localPlaying, setLocalPlaying] = useState(false);
+	const [localPlayheadUs, setLocalPlayheadUs] = useState(0);
+
+	// Pause if another card starts playing
+	useEffect(() => {
+		if (activePlayingId !== undefined && activePlayingId !== artboard.id && localPlaying) {
+			setLocalPlaying(false);
+		}
+	}, [activePlayingId, artboard.id, localPlaying]);
+
+	const localPlayheadUsRef = useRef(localPlayheadUs);
+	localPlayheadUsRef.current = localPlayheadUs;
+
+	// Local playback animation loop
+	useEffect(() => {
+		if (!localPlaying) return;
+		const startedAt = performance.now();
+		const baseUs = localPlayheadUsRef.current;
+		let animId = 0;
+
+		const tick = (now: number) => {
+			const elapsedUs = Math.round((now - startedAt) * 1000);
+			const nextUs = baseUs + elapsedUs;
+			if (nextUs >= durationUs) {
+				setLocalPlayheadUs(0);
+				setLocalPlaying(false);
+				onPlayingChange?.(false);
+				return;
+			}
+			setLocalPlayheadUs(nextUs);
+			animId = requestAnimationFrame(tick);
+		};
+
+		animId = requestAnimationFrame(tick);
+		return () => cancelAnimationFrame(animId);
+	}, [localPlaying, durationUs, onPlayingChange]);
+
+	const togglePlay = (e: ReactMouseEvent) => {
+		e.stopPropagation();
+		const next = !localPlaying;
+		setLocalPlaying(next);
+		onPlayingChange?.(next);
+	};
+
 	// Calculate display dimensions based on artboard aspect ratio
 	const aspect = artboard.width / Math.max(1, artboard.height);
 	const displayWidth = Math.round(displayHeight * aspect);
 
-	// Render frame to canvas whenever masterCanvas, customCanvas, or framing changes
+	// Render frame to canvas whenever renderedCanvas, or framing changes
 	useEffect(() => {
 		const canvas = canvasRef.current;
 		if (!canvas) return;
 		const ctx = canvas.getContext("2d");
 		if (!ctx) return;
 
-		if (artboard.tracks && customCanvas && customCanvas.width > 0 && customCanvas.height > 0) {
-			ctx.clearRect(0, 0, displayWidth, displayHeight);
-			ctx.drawImage(customCanvas, 0, 0, displayWidth, displayHeight);
-		} else if (masterCanvas && masterCanvas.width > 0 && masterCanvas.height > 0) {
-			drawArtboardFrame(ctx, masterCanvas, artboard, displayWidth, displayHeight);
+		if (renderedCanvas && renderedCanvas.width > 0 && renderedCanvas.height > 0) {
+			if (artboard.tracks) {
+				ctx.clearRect(0, 0, displayWidth, displayHeight);
+				ctx.drawImage(renderedCanvas, 0, 0, displayWidth, displayHeight);
+			} else {
+				drawArtboardFrame(ctx, renderedCanvas, artboard, displayWidth, displayHeight);
+			}
 		} else {
 			// Placeholder pattern
 			ctx.fillStyle = "#151518";
@@ -80,10 +171,10 @@ export function RepurposeArtboardCard({
 				displayHeight / 2,
 			);
 		}
-	}, [masterCanvas, customCanvas, artboard, displayWidth, displayHeight]);
+	}, [renderedCanvas, artboard, displayWidth, displayHeight]);
 
 	// Mouse drag-to-pan handlers
-	const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+	const handleMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
 		e.preventDefault();
 		setIsDragging(true);
 		dragStart.current = {
@@ -133,26 +224,63 @@ export function RepurposeArtboardCard({
 
 	return (
 		<div className="repurpose-artboard-card" style={{ width: displayWidth }}>
-			{/* Hidden Dedicated ProjectPreview if Artboard has its own custom sequence */}
-			{artboard.tracks && artboardProject && (
-				<div style={{ display: "none" }}>
-					<ProjectPreview
-						project={artboardProject}
-						timeUs={playheadUs}
-						playing={playing}
-						onError={() => undefined}
-						onRenderedCanvas={setCustomCanvas}
-					/>
-				</div>
-			)}
+			{/* Hidden Dedicated ProjectPreview running this card's own sequence & playhead */}
+			<div style={{ display: "none" }}>
+				<ProjectPreview
+					project={targetProject}
+					timeUs={localPlayheadUs}
+					playing={localPlaying}
+					onError={() => undefined}
+					onRenderedCanvas={setRenderedCanvas}
+				/>
+			</div>
 
 			{/* Artboard Card Header */}
 			<div className="repurpose-card-header">
 				<div className="repurpose-card-badge">
 					<span className="repurpose-card-aspect">{artboard.aspectRatio}</span>
-					<span className="repurpose-card-name" title={artboard.name}>
-						{artboard.name}
-					</span>
+					{isEditingName ? (
+						<input
+							type="text"
+							className="repurpose-card-name-input"
+							value={nameInput}
+							autoFocus
+							onChange={(e) => setNameInput(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter") handleSaveName();
+								if (e.key === "Escape") {
+									setIsEditingName(false);
+									setNameInput(artboard.name);
+								}
+							}}
+							onBlur={handleSaveName}
+							onClick={(e) => e.stopPropagation()}
+						/>
+					) : (
+						<span
+							className="repurpose-card-name"
+							title="Double-click to rename"
+							onDoubleClick={(e) => {
+								e.stopPropagation();
+								setIsEditingName(true);
+							}}
+						>
+							{artboard.name}
+						</span>
+					)}
+					{!isEditingName && (
+						<button
+							type="button"
+							className="repurpose-card-name-edit-btn"
+							title="Rename video"
+							onClick={(e) => {
+								e.stopPropagation();
+								setIsEditingName(true);
+							}}
+						>
+							<PencilSimple size={10} />
+						</button>
+					)}
 					{artboard.tracks && (
 						<span
 							className="repurpose-card-tag custom"
@@ -247,8 +375,45 @@ export function RepurposeArtboardCard({
 				</div>
 			</div>
 
+			{/* Mini Interactive Scrubber Bar */}
+			<div
+				className="repurpose-card-scrubber"
+				onClick={(e) => {
+					const rect = e.currentTarget.getBoundingClientRect();
+					const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+					const seekUs = Math.round(ratio * durationUs);
+					setLocalPlayheadUs(seekUs);
+				}}
+				title={`Seek: ${formatCardTime(localPlayheadUs / 1_000_000)} / ${formatCardTime(durationUs / 1_000_000)}`}
+			>
+				<div
+					className="repurpose-card-scrubber-fill"
+					style={{
+						width: `${Math.min(100, (localPlayheadUs / durationUs) * 100)}%`,
+					}}
+				/>
+			</div>
+
 			{/* Artboard Card Footer Toolbar */}
 			<div className="repurpose-card-footer">
+				<div className="repurpose-card-playback-controls">
+					<button
+						type="button"
+						className="repurpose-card-play-btn"
+						title={localPlaying ? "Pause (Local)" : "Play preview (Local)"}
+						onClick={togglePlay}
+					>
+						{localPlaying ? (
+							<Pause size={10} weight="fill" />
+						) : (
+							<Play size={10} weight="fill" />
+						)}
+					</button>
+					<span className="repurpose-card-timecode">
+						{formatCardTime(localPlayheadUs / 1_000_000)}
+					</span>
+				</div>
+
 				<div className="repurpose-zoom-controls">
 					<button
 						type="button"

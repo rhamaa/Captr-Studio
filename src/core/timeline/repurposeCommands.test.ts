@@ -10,6 +10,7 @@ import {
 	getArtboardProjectView,
 	removeRepurposeArtboard,
 	removeRepurposeSlice,
+	renameRepurposeArtboard,
 	resetRepurposeFraming,
 	setActiveRepurposeSlice,
 	splitRepurposeSliceAtTime,
@@ -21,18 +22,13 @@ import {
 import { validateTimelineProject } from "./validation";
 
 describe("repurposeCommands", () => {
-	it("initializes default repurpose board with standard artboards and full slice", () => {
+	it("initializes default repurpose board with empty artboards by default and full slice", () => {
 		const project = createTimelineProject("p1", "Test Project");
 		expect(project.repurposeBoard).toBeUndefined();
 
 		const withBoard = ensureRepurposeBoard(project);
 		expect(withBoard.repurposeBoard).toBeDefined();
-		expect(withBoard.repurposeBoard?.artboards).toHaveLength(3);
-		expect(withBoard.repurposeBoard?.artboards.map((a) => a.aspectRatio)).toEqual([
-			"9:16",
-			"1:1",
-			"16:9",
-		]);
+		expect(withBoard.repurposeBoard?.artboards).toHaveLength(0);
 		expect(withBoard.repurposeBoard?.slices).toHaveLength(1);
 		expect(withBoard.repurposeBoard?.slices[0].name).toBe("Full Video");
 		expect(withBoard.repurposeBoard?.activeSliceId).toBe(
@@ -41,6 +37,32 @@ describe("repurposeCommands", () => {
 
 		// Validation should pass
 		expect(() => validateTimelineProject(withBoard)).not.toThrow();
+	});
+
+	it("renames an artboard and auto-numbers duplicate preset additions", () => {
+		let project = createTimelineProject("p1", "Test Project");
+		project = addRepurposeArtboard(project, {
+			aspectRatio: "9:16",
+			name: "Shorts / Reels",
+			width: 1080,
+			height: 1920,
+			defaultFitMode: "cover",
+		});
+		project = addRepurposeArtboard(project, {
+			aspectRatio: "9:16",
+			name: "Shorts / Reels",
+			width: 1080,
+			height: 1920,
+			defaultFitMode: "cover",
+		});
+		expect(project.repurposeBoard?.artboards).toHaveLength(2);
+		expect(project.repurposeBoard?.artboards[0].name).toBe("Shorts / Reels");
+		expect(project.repurposeBoard?.artboards[1].name).toBe("Shorts / Reels 2");
+
+		// Rename
+		const firstId = project.repurposeBoard!.artboards[0].id;
+		project = renameRepurposeArtboard(project, firstId, "TikTok Hook");
+		expect(project.repurposeBoard?.artboards[0].name).toBe("TikTok Hook");
 	});
 
 	it("adds, updates, and removes an artboard", () => {
@@ -75,7 +97,13 @@ describe("repurposeCommands", () => {
 
 	it("updates framing with clamping and resets framing", () => {
 		let project = createTimelineProject("p1", "Test Project");
-		project = ensureRepurposeBoard(project);
+		project = addRepurposeArtboard(project, {
+			aspectRatio: "16:9",
+			name: "Landscape Master",
+			width: 1920,
+			height: 1080,
+			defaultFitMode: "contain",
+		});
 		const targetId = project.repurposeBoard!.artboards[0].id;
 
 		// Update framing with out-of-range values to test clamping
@@ -143,7 +171,13 @@ describe("repurposeCommands", () => {
 
 	it("creates artboard project view and falls back to project tracks until customized", () => {
 		let project = createTimelineProject("p1", "Test Project");
-		project = ensureRepurposeBoard(project);
+		project = addRepurposeArtboard(project, {
+			aspectRatio: "9:16",
+			name: "Shorts / Reels",
+			width: 1080,
+			height: 1920,
+			defaultFitMode: "cover",
+		});
 		const artboard916 = project.repurposeBoard!.artboards.find(
 			(a) => a.aspectRatio === "9:16",
 		)!;
@@ -157,7 +191,13 @@ describe("repurposeCommands", () => {
 
 	it("updates artboard independent sequence and syncs shared assets", () => {
 		let project = createTimelineProject("p1", "Test Project");
-		project = ensureRepurposeBoard(project);
+		project = addRepurposeArtboard(project, {
+			aspectRatio: "9:16",
+			name: "Shorts / Reels",
+			width: 1080,
+			height: 1920,
+			defaultFitMode: "cover",
+		});
 		const artboardId = project.repurposeBoard!.artboards[0].id;
 
 		// Initial root tracks has 2 default tracks
@@ -216,7 +256,13 @@ describe("repurposeCommands", () => {
 
 	it("forks sequence and duplicates artboard with cloned tracks", () => {
 		let project = createTimelineProject("p1", "Test Project");
-		project = ensureRepurposeBoard(project);
+		project = addRepurposeArtboard(project, {
+			aspectRatio: "9:16",
+			name: "Shorts / Reels",
+			width: 1080,
+			height: 1920,
+			defaultFitMode: "cover",
+		});
 		const artboardId = project.repurposeBoard!.artboards[0].id;
 
 		// Fork sequence
@@ -226,8 +272,8 @@ describe("repurposeCommands", () => {
 
 		// Duplicate artboard
 		project = duplicateRepurposeArtboard(project, artboardId);
-		expect(project.repurposeBoard!.artboards).toHaveLength(4);
-		const duplicated = project.repurposeBoard!.artboards[3];
+		expect(project.repurposeBoard!.artboards).toHaveLength(2);
+		const duplicated = project.repurposeBoard!.artboards[1];
 		expect(duplicated.name).toContain("(Copy)");
 		expect(duplicated.tracks).toBeDefined();
 		expect(duplicated.tracks).toEqual(targetArtboard.tracks);
