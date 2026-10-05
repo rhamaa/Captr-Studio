@@ -14,7 +14,7 @@ import {
 export interface TranscribeAssetParams {
 	assetId: string;
 	assetMediaFilePath: string;
-	assetDir: string;
+	assetDir?: string;
 	options?: WhisperRunOptions;
 }
 
@@ -47,10 +47,11 @@ export async function transcribeAsset(
 		}
 
 		// 3. Ensure target asset directory exists
-		await fs.mkdir(params.assetDir, { recursive: true });
+		const targetDir = params.assetDir?.trim() || path.dirname(params.assetMediaFilePath);
+		await fs.mkdir(targetDir, { recursive: true });
 
-		const jsonPath = path.join(params.assetDir, "transcript.json");
-		const vttPath = path.join(params.assetDir, "captions.vtt");
+		const jsonPath = path.join(targetDir, "transcript.json");
+		const vttPath = path.join(targetDir, "captions.vtt");
 
 		// 4. Save transcript.json and captions.vtt
 		await fs.writeFile(jsonPath, JSON.stringify(transcript, null, 2), "utf-8");
@@ -78,12 +79,26 @@ export async function transcribeAsset(
 
 /**
  * Loads an existing transcript for an asset if present.
+ * Accepts either an asset directory or a media/json file path.
  */
 export async function loadAssetTranscript(
-	assetDir: string,
+	assetDirOrPath: string,
 ): Promise<AssetTranscript | null> {
 	try {
-		const jsonPath = path.join(assetDir, "transcript.json");
+		if (!assetDirOrPath) return null;
+		let jsonPath = assetDirOrPath;
+		if (!jsonPath.endsWith(".json")) {
+			try {
+				const stat = await fs.stat(assetDirOrPath);
+				if (stat.isDirectory()) {
+					jsonPath = path.join(assetDirOrPath, "transcript.json");
+				} else {
+					jsonPath = path.join(path.dirname(assetDirOrPath), "transcript.json");
+				}
+			} catch {
+				jsonPath = path.join(path.dirname(assetDirOrPath), "transcript.json");
+			}
+		}
 		const content = await fs.readFile(jsonPath, "utf-8");
 		return JSON.parse(content) as AssetTranscript;
 	} catch {

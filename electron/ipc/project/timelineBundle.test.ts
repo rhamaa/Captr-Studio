@@ -207,6 +207,45 @@ it("timelineBundle_loadsOldV3WithoutVisualEffectFields", async () => {
 	expect(reopened.clipTransitions).toBeUndefined();
 });
 
+it("timelineBundle_bundlesAndPreservesTranscriptSidecars", async () => {
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-transcript-bundle-"));
+	roots.push(root);
+	const sources = path.join(root, "sources");
+	await fs.mkdir(sources);
+	await fs.writeFile(path.join(sources, "video.mp4"), "fake-video-bytes");
+	await fs.writeFile(path.join(sources, "transcript.json"), JSON.stringify({ projectId: "proj-transcript", assetId: "v1", segments: [] }));
+	await fs.writeFile(path.join(sources, "captions.vtt"), "WEBVTT\n\n00:00.000 --> 00:01.000\nHello");
+
+	const project = registerMedia(
+		createTimelineProject("proj-transcript", "Caption Test"),
+		{
+			id: "v1",
+			kind: "video",
+			name: "video.mp4",
+			durationUs: 5_000_000,
+			width: 1920,
+			height: 1080,
+			source: { path: path.join(sources, "video.mp4"), durationUs: 5_000_000, offsetUs: 0 },
+		},
+	);
+
+	const workspace = path.join(root, "workspace");
+	await stageTimelineProject(project, workspace);
+
+	// Verify transcript and captions were bundled into assets/v1/
+	expect(await fs.readFile(path.join(workspace, "assets", "v1", "transcript.json"), "utf8")).toContain('"proj-transcript"');
+	expect(await fs.readFile(path.join(workspace, "assets", "v1", "captions.vtt"), "utf8")).toContain("WEBVTT");
+
+	// Pack to .captr and unpack to verify preservation
+	const bundle = path.join(root, "project.captr");
+	await packProjectWorkspace(workspace, bundle);
+	const loaded = path.join(root, "loaded");
+	await unpackProjectBundle(bundle, loaded);
+
+	expect(await fs.readFile(path.join(loaded, "assets", "v1", "transcript.json"), "utf8")).toContain('"proj-transcript"');
+	expect(await fs.readFile(path.join(loaded, "assets", "v1", "captions.vtt"), "utf8")).toContain("WEBVTT");
+});
+
 it("timelineBundle_rejectsMalformedTransitionWithoutPartialLoad", async () => {
 	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-invalid-transition-"));
 	roots.push(root);
@@ -218,3 +257,4 @@ it("timelineBundle_rejectsMalformedTransitionWithoutPartialLoad", async () => {
 	await expect(stageTimelineProject(project, workspace)).rejects.toThrow(/transition|clip|preset/i);
 	await expect(fs.access(workspace)).rejects.toThrow();
 });
+

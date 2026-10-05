@@ -21,6 +21,7 @@ export interface AssetLibraryProps {
 	onPreview: (id: string) => void;
 	onPlace: (id: string) => void;
 	onRemove: (id: string) => void;
+	onTranscribe?: (id: string) => void;
 }
 export function AssetLibrary({
 	assets,
@@ -32,6 +33,7 @@ export function AssetLibrary({
 	onPreview,
 	onPlace,
 	onRemove,
+	onTranscribe,
 }: AssetLibraryProps) {
 	const m = useProjectMessages();
 	const [view, setView] = useState<"grid" | "list">("grid"),
@@ -130,6 +132,7 @@ export function AssetLibrary({
 							onPreview={() => onPreview(asset.id)}
 							onPlace={() => onPlace(asset.id)}
 							onRemove={() => onRemove(asset.id)}
+							onTranscribe={onTranscribe ? () => onTranscribe(asset.id) : undefined}
 						/>
 					))
 				)}
