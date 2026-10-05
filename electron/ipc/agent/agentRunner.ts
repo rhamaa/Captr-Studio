@@ -10,7 +10,7 @@ import {
 } from "../../../src/core/timeline/agentPayload";
 import type { AssetTranscript } from "../../../src/core/timeline/transcriptTypes";
 import type { TimelineProject } from "../../../src/core/timeline/types";
-import { KNOWN_AGENTS } from "./agentDetector";
+import { KNOWN_AGENTS, getAugmentedEnv } from "./agentDetector";
 
 export interface RunAgentTaskParams {
 	agentId: string;
@@ -43,6 +43,30 @@ INSTRUCTIONS:
 2. Apply the requested edits (trimming clips, cutting pauses, deleting or reordering clips).
 3. Ensure all clip startUs, duration, and source range properties match the TimelineProject schema and do not overlap.
 4. Save the modified JSON directly back to "${draftFileName}" OR print the updated JSON as your final response.`;
+}
+
+/**
+ * Builds the exact CLI arguments for the specified agent.
+ * Automatically injects non-interactive and permission bypass flags so the agent runs smoothly.
+ */
+export function buildAgentCommandArgs(
+	agentId: string,
+	taskPrompt: string,
+	defaultArgs?: string[],
+): string[] {
+	if (agentId === "agy") {
+		return ["-p", taskPrompt, "--dangerously-skip-permissions"];
+	}
+	if (agentId === "claude") {
+		return ["-p", taskPrompt, "--dangerously-skip-permissions"];
+	}
+	if (agentId === "opencode") {
+		return ["run", taskPrompt, "--auto"];
+	}
+	if (defaultArgs && defaultArgs.length > 0) {
+		return [...defaultArgs, taskPrompt];
+	}
+	return [taskPrompt];
 }
 
 /**
@@ -91,23 +115,16 @@ export async function runAgentTask(
 		const known = KNOWN_AGENTS.find((a) => a.id === params.agentId);
 		const command = params.customCommand?.trim() || known?.command || params.agentId;
 		const taskPrompt = formatAgentTaskPrompt(params.userPrompt, "project_draft.json");
-
-		let args: string[] = [];
-		if (params.agentId === "claude" || params.agentId === "agy") {
-			args = ["-p", taskPrompt];
-		} else if (params.agentId === "opencode") {
-			args = ["run", taskPrompt];
-		} else {
-			args = [taskPrompt];
-		}
+		const args = buildAgentCommandArgs(params.agentId, taskPrompt, known?.defaultArgs);
 
 		log(`[Captr Studio] Launching agent: ${command} in ${tempDir}...\n`);
 
 		const child = spawn(command, args, {
 			cwd: tempDir,
 			shell: process.platform === "win32",
+			stdio: ["ignore", "pipe", "pipe"],
 			env: {
-				...process.env,
+				...getAugmentedEnv(),
 				FORCE_COLOR: "0",
 			},
 		});
@@ -151,12 +168,25 @@ export async function runAgentTask(
 		}
 
 		if (!parsedResult.success || !parsedResult.project) {
+			let friendlyError = parsedResult.error;
+			const combinedLogs = `${stdoutAccumulator}\n${stderrAccumulator}`;
+
+			if (combinedLogs.includes("Not logged in")) {
+				friendlyError = `Agent "${command}" is not logged in. Run "${command}" or "${command} /login" in your terminal to authenticate, or switch to "Antigravity (agy)".`;
+			} else if (
+				combinedLogs.includes("Auth method") ||
+				combinedLogs.includes("API_KEY") ||
+				combinedLogs.includes("GEMINI_API_KEY")
+			) {
+				friendlyError = `Agent "${command}" requires an API key. For instant zero-setup timeline editing, choose "Antigravity (agy)" which uses your active logged-in session.`;
+			}
+
 			return {
 				success: false,
 				logs,
 				error:
-					parsedResult.error ||
-					`Agent completed without writing valid project edits. Error logs: ${stderrAccumulator.slice(-300)}`,
+					friendlyError ||
+					`Agent completed without writing valid project edits. Error: ${stderrAccumulator.slice(-300) || stdoutAccumulator.slice(-300)}`,
 			};
 		}
 

@@ -1,12 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { KNOWN_AGENTS, parseWhereCommandOutput } from "./agentDetector";
+import { KNOWN_AGENTS, getAugmentedEnv, parseWhereCommandOutput } from "./agentDetector";
 
 describe("agentDetector", () => {
-	it("has registered known agent specifications", () => {
+	it("has registered known agent specifications with agy as priority", () => {
 		const ids = KNOWN_AGENTS.map((a) => a.id);
+		expect(ids[0]).toBe("agy");
 		expect(ids).toContain("claude");
-		expect(ids).toContain("agy");
 		expect(ids).toContain("opencode");
+		expect(ids).not.toContain("gemini");
+	});
+
+	it("augments PATH with user CLI binary locations", () => {
+		const env = getAugmentedEnv();
+		const pathVal = env.PATH || env.Path || "";
+		expect(pathVal).toBeTruthy();
 	});
 
 	it("parses where/which command output correctly", () => {

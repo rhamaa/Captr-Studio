@@ -68,20 +68,20 @@ export function AIAssistantModal({
 	onApplyChanges,
 }: AIAssistantModalProps) {
 	const [prompt, setPrompt] = useState("");
-	const [selectedAgent, setSelectedAgent] = useState("claude");
+	const [selectedAgent, setSelectedAgent] = useState("agy");
 	const [agents, setAgents] = useState<DetectedAgent[]>([
+		{
+			id: "agy",
+			name: "Antigravity (agy)",
+			command: "agy",
+			description: "Google DeepMind Antigravity CLI — zero setup, uses active session directly",
+			available: true,
+		},
 		{
 			id: "claude",
 			name: "Claude Code",
 			command: "claude",
 			description: "Anthropic Claude autonomous coding CLI",
-			available: true,
-		},
-		{
-			id: "agy",
-			name: "Antigravity",
-			command: "agy",
-			description: "Google DeepMind Antigravity CLI",
 			available: true,
 		},
 		{
@@ -117,7 +117,8 @@ export function AIAssistantModal({
 			.then((detected) => {
 				if (detected && detected.length > 0) {
 					setAgents(detected);
-					const firstAvailable = detected.find((a) => a.available);
+					const agyAgent = detected.find((a) => a.id === "agy" && a.available);
+					const firstAvailable = agyAgent || detected.find((a) => a.available);
 					if (firstAvailable) {
 						setSelectedAgent(firstAvailable.id);
 					}
