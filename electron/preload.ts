@@ -1071,6 +1071,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
 	// ── AI Assistant / Agent Bridge ────────────────────────────────────
 	getAvailableAgents: () => ipcRenderer.invoke("agent:get-available"),
+	checkCustomAgent: (command: string) => ipcRenderer.invoke("agent:check-custom", command),
 	runAgentTask: (params: {
 		agentId: string;
 		customCommand?: string;
@@ -1083,5 +1084,23 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		const listener = (_event: Electron.IpcRendererEvent, chunk: string) => callback(chunk);
 		ipcRenderer.on("agent:log-stream", listener);
 		return () => ipcRenderer.removeListener("agent:log-stream", listener);
+	},
+	runHyperframeAgentTask: (params: {
+		agentId: string;
+		customCommand?: string;
+		userPrompt: string;
+		hyperframeId: string;
+		hyperframeName: string;
+		currentHtml: string;
+		width: number;
+		height: number;
+		durationSec: number;
+		projectContext: Record<string, unknown>;
+	}) => ipcRenderer.invoke("agent:run-hyperframe-task", params),
+	cancelHyperframeAgentTask: () => ipcRenderer.invoke("agent:cancel-hyperframe-task"),
+	onHyperframeAgentLogStream: (callback: (chunk: string) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, chunk: string) => callback(chunk);
+		ipcRenderer.on("agent:hyperframe-log-stream", listener);
+		return () => ipcRenderer.removeListener("agent:hyperframe-log-stream", listener);
 	},
 });

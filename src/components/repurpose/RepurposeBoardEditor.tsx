@@ -8,13 +8,11 @@ import {
 	MagnifyingGlassMinus,
 	MagnifyingGlassPlus,
 	Plus,
-	SquaresFour,
-	Code,
 	Sparkle,
+	SquaresFour,
 } from "@phosphor-icons/react";
 import { type MouseEvent as ReactMouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AssetLibrary } from "@/components/editor/AssetLibrary";
-import { HyperframePreview } from "@/components/hyperframe/HyperframePreview";
 import { createDefaultHyperframeTemplate } from "@/core/story/storyUtils";
 import type { HyperframeComposition } from "@/core/story/storyTypes";
 import {
@@ -28,8 +26,14 @@ import {
 	resetRepurposeFraming,
 	updateRepurposeFraming,
 } from "@/core/timeline/repurposeCommands";
-import { ARTBOARD_PRESETS, type ArtboardPreset } from "@/core/timeline/repurposeTypes";
+import {
+	ARTBOARD_PRESETS,
+	type ArtboardPreset,
+	type RepurposeAspectRatio,
+} from "@/core/timeline/repurposeTypes";
 import type { TimelineProject } from "@/core/timeline/types";
+import { HyperframeCard } from "./HyperframeCard";
+import { HyperframeEditorDrawer } from "./HyperframeEditorDrawer";
 import { RepurposeArtboardCard } from "./RepurposeArtboardCard";
 import { RepurposeBatchExportDialog } from "./RepurposeBatchExportDialog";
 
@@ -50,6 +54,18 @@ export interface RepurposeBoardEditorProps {
 	onRemoveAsset?: (id: string) => void;
 }
 
+const HYPERFRAME_ASPECT_PRESETS: Array<{
+	aspectRatio: RepurposeAspectRatio;
+	name: string;
+	width: number;
+	height: number;
+}> = [
+	{ aspectRatio: "16:9", name: "16:9 Landscape (YouTube)", width: 1920, height: 1080 },
+	{ aspectRatio: "9:16", name: "9:16 Vertical (Shorts/TikTok)", width: 1080, height: 1920 },
+	{ aspectRatio: "1:1", name: "1:1 Square (Instagram)", width: 1080, height: 1080 },
+	{ aspectRatio: "4:5", name: "4:5 Portrait (Feed)", width: 1080, height: 1350 },
+];
+
 export function RepurposeBoardEditor({
 	project,
 	projectTitle,
@@ -67,62 +83,23 @@ export function RepurposeBoardEditor({
 }: RepurposeBoardEditorProps) {
 	const [error, setError] = useState<string | null>(null);
 	const [showAddMenu, setShowAddMenu] = useState(false);
+	const [showAddHyperframeMenu, setShowAddHyperframeMenu] = useState(false);
 	const [showExportModal, setShowExportModal] = useState(false);
 	const [assetsCollapsed, setAssetsCollapsed] = useState(false);
 	const [activePlayingId, setActivePlayingId] = useState<string | null>(null);
-	const [activeTab, setActiveTab] = useState<"stories" | "hyperframes">("stories");
-	const [selectedHyperframeId, setSelectedHyperframeId] = useState<string | null>(null);
-
-	const currentHyperframe = useMemo(() => {
-		const hfs = project.hyperframes ?? [];
-		if (hfs.length === 0) return null;
-		return hfs.find((h) => h.id === selectedHyperframeId) ?? hfs[0];
-	}, [project.hyperframes, selectedHyperframeId]);
-
-	const handleCreateHyperframe = (presetTitle = "Kinetic Title Card") => {
-		const hfId = `hf-${Date.now().toString(36)}`;
-		const hfName = `${presetTitle} ${(project.hyperframes?.length ?? 0) + 1}`;
-		const { html } = createDefaultHyperframeTemplate(hfId, hfName, {
-			title: projectTitle || "Captr Studio Production",
-			subtitle: "Automated Code-Driven Motion Graphic",
-			badge: "HYPERFRAME",
-			durationSec: 5,
-			width: 1920,
-			height: 1080,
-		});
-
-		const newHf: HyperframeComposition = {
-			id: hfId,
-			name: hfName,
-			entryHtml: `hyperframe/hyperframe-${hfId}.html`,
-			specJson: `hyperframe/hyperframe-${hfId}.json`,
-			htmlContent: html,
-			durationUs: 5_000_000,
-			width: 1920,
-			height: 1080,
-			fps: 60,
-			createdAt: new Date().toISOString(),
-		};
-
-		onChange((prev) => ({
-			...prev,
-			hyperframes: [...(prev.hyperframes ?? []), newHf],
-		}));
-		setSelectedHyperframeId(hfId);
-	};
-
-	const handleUpdateHyperframeHtml = (hfId: string, newHtml: string) => {
-		onChange((prev) => ({
-			...prev,
-			hyperframes: (prev.hyperframes ?? []).map((h) =>
-				h.id === hfId ? { ...h, htmlContent: newHtml, updatedAt: new Date().toISOString() } : h,
-			),
-		}));
-	};
+	const [editingHyperframeId, setEditingHyperframeId] = useState<string | null>(null);
 
 	// Ensure project has repurposeBoard initialized
 	const boardProject = useMemo(() => ensureRepurposeBoard(project), [project]);
 	const board = boardProject.repurposeBoard!;
+	const hyperframes = useMemo(() => project.hyperframes ?? [], [project.hyperframes]);
+
+	const editingHyperframe = useMemo(() => {
+		if (!editingHyperframeId) return null;
+		return hyperframes.find((h) => h.id === editingHyperframeId) ?? null;
+	}, [hyperframes, editingHyperframeId]);
+
+	const totalVideoCards = board.artboards.length + hyperframes.length;
 
 	// Memoized project views for each artboard sequence
 	const artboardProjectViews = useMemo(() => {
@@ -156,7 +133,7 @@ export function RepurposeBoardEditor({
 		initialY: 0,
 	});
 
-	// Keyboard shortcut listener (Esc = back to home)
+	// Keyboard shortcut listener (Esc = back to home if no drawer open)
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			const target = e.target;
@@ -168,7 +145,7 @@ export function RepurposeBoardEditor({
 				return;
 			}
 
-			if (e.key === "Escape") {
+			if (e.key === "Escape" && !editingHyperframeId) {
 				e.preventDefault();
 				onClose?.();
 			}
@@ -176,11 +153,16 @@ export function RepurposeBoardEditor({
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [onClose]);
+	}, [onClose, editingHyperframeId]);
 
 	// Stage pan listeners
 	const handleStageMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
-		if ((e.target as HTMLElement).closest(".repurpose-artboard-card")) return;
+		if (
+			(e.target as HTMLElement).closest(".repurpose-artboard-card") ||
+			(e.target as HTMLElement).closest(".repurpose-hyperframe-card")
+		) {
+			return;
+		}
 		e.preventDefault();
 		setIsPanningStage(true);
 		stagePanStart.current = {
@@ -223,12 +205,12 @@ export function RepurposeBoardEditor({
 		}
 	};
 
-	// Card Dragging listeners
-	const handleStartDragCard = (artboardId: string, e: ReactMouseEvent) => {
+	// Card Dragging listeners (works for both Story & Hyperframe cards)
+	const handleStartDragCard = (cardId: string, e: ReactMouseEvent) => {
 		e.preventDefault();
 		e.stopPropagation();
-		setDraggingCardId(artboardId);
-		const currentPos = cardPositions[artboardId] || { x: 0, y: 0 };
+		setDraggingCardId(cardId);
+		const currentPos = cardPositions[cardId] || { x: 0, y: 0 };
 		cardDragStart.current = {
 			mouseX: e.clientX,
 			mouseY: e.clientY,
@@ -269,6 +251,81 @@ export function RepurposeBoardEditor({
 	const handleAddPreset = (preset: ArtboardPreset) => {
 		onChange((p) => addRepurposeArtboard(p, preset));
 		setShowAddMenu(false);
+	};
+
+	const handleCreateHyperframe = (preset = HYPERFRAME_ASPECT_PRESETS[0]) => {
+		const hfId = `hf-${Date.now().toString(36)}`;
+		const hfName = `Hyperframe ${(project.hyperframes?.length ?? 0) + 1} (${preset.aspectRatio})`;
+		const { html } = createDefaultHyperframeTemplate(hfId, hfName, {
+			title: projectTitle || "Captr Studio Production",
+			subtitle: "Automated Code-Driven Motion Graphic",
+			badge: "HYPERFRAME",
+			durationSec: 5,
+			width: preset.width,
+			height: preset.height,
+		});
+
+		const newHf: HyperframeComposition = {
+			id: hfId,
+			name: hfName,
+			entryHtml: `hyperframe/hyperframe-${hfId}.html`,
+			specJson: `hyperframe/hyperframe-${hfId}.json`,
+			htmlContent: html,
+			durationUs: 5_000_000,
+			width: preset.width,
+			height: preset.height,
+			fps: 60,
+			aspectRatio: preset.aspectRatio,
+			createdAt: new Date().toISOString(),
+		};
+
+		onChange((prev) => ({
+			...prev,
+			hyperframes: [...(prev.hyperframes ?? []), newHf],
+		}));
+		setShowAddHyperframeMenu(false);
+		setEditingHyperframeId(hfId);
+	};
+
+	const handleUpdateHyperframe = (hfId: string, patch: Partial<HyperframeComposition>) => {
+		onChange((prev) => ({
+			...prev,
+			hyperframes: (prev.hyperframes ?? []).map((h) =>
+				h.id === hfId ? { ...h, ...patch, updatedAt: new Date().toISOString() } : h,
+			),
+		}));
+	};
+
+	const handleRenameHyperframe = (hfId: string, newName: string) => {
+		handleUpdateHyperframe(hfId, { name: newName });
+	};
+
+	const handleDuplicateHyperframe = (hfId: string) => {
+		const target = (project.hyperframes ?? []).find((h) => h.id === hfId);
+		if (!target) return;
+		const dupId = `hf-${Date.now().toString(36)}`;
+		const dup: HyperframeComposition = {
+			...target,
+			id: dupId,
+			name: `${target.name} (Copy)`,
+			entryHtml: `hyperframe/hyperframe-${dupId}.html`,
+			specJson: `hyperframe/hyperframe-${dupId}.json`,
+			createdAt: new Date().toISOString(),
+		};
+		onChange((prev) => ({
+			...prev,
+			hyperframes: [...(prev.hyperframes ?? []), dup],
+		}));
+	};
+
+	const handleRemoveHyperframe = (hfId: string) => {
+		onChange((prev) => ({
+			...prev,
+			hyperframes: (prev.hyperframes ?? []).filter((h) => h.id !== hfId),
+		}));
+		if (editingHyperframeId === hfId) {
+			setEditingHyperframeId(null);
+		}
 	};
 
 	const handlePlaceAssetFromSidebar = (id: string) => {
@@ -313,35 +370,15 @@ export function RepurposeBoardEditor({
 					<span className="repurpose-breadcrumb-active">Multi-Artboard Hub</span>
 				</div>
 
-				{/* Center Summary Indicator & Tab Switcher */}
+				{/* Center Summary Indicator */}
 				<div className="repurpose-header-summary flex items-center gap-3">
-					<div className="repurpose-tab-switch inline-flex items-center bg-[#15171C] border border-[#343A46] rounded-md p-0.5">
-						<button
-							type="button"
-							className={`px-2.5 py-0.5 text-xs font-semibold rounded transition ${
-								activeTab === "stories"
-									? "bg-[#6FA8FF] text-[#15171C] shadow-sm"
-									: "text-[#A8AFBD] hover:text-white"
-							}`}
-							onClick={() => setActiveTab("stories")}
-						>
-							Stories ({board.artboards.length})
-						</button>
-						<button
-							type="button"
-							className={`px-2.5 py-0.5 text-xs font-semibold rounded transition ${
-								activeTab === "hyperframes"
-									? "bg-[#6FA8FF] text-[#15171C] shadow-sm"
-									: "text-[#A8AFBD] hover:text-white"
-							}`}
-							onClick={() => setActiveTab("hyperframes")}
-						>
-							Hyperframes ({project.hyperframes?.length ?? 0})
-						</button>
-					</div>
 					<span className="repurpose-stat-badge">
-						{board.artboards.length}{" "}
-						{board.artboards.length === 1 ? "Video Card" : "Video Cards"}
+						{totalVideoCards} {totalVideoCards === 1 ? "Video Card" : "Video Cards"}
+						{hyperframes.length > 0 && board.artboards.length > 0 && (
+							<span className="ml-1 text-[11px] text-[#A8AFBD]">
+								({board.artboards.length} Stories · {hyperframes.length} Hyperframes)
+							</span>
+						)}
 					</span>
 					<span className="repurpose-stat-dot">·</span>
 					<span className="repurpose-stat-badge">
@@ -349,14 +386,18 @@ export function RepurposeBoardEditor({
 					</span>
 				</div>
 
-				{/* Header Actions: Add Artboard & Batch Export */}
+				{/* Header Actions: Add Story Artboard, Add Hyperframe & Batch Export */}
 				<div className="repurpose-header-right">
+					{/* Add Story Video Card */}
 					<div className="repurpose-add-wrapper">
 						<button
 							type="button"
 							className="repurpose-add-btn"
-							onClick={() => setShowAddMenu((v) => !v)}
-							title="Add target aspect ratio artboard"
+							onClick={() => {
+								setShowAddMenu((v) => !v);
+								setShowAddHyperframeMenu(false);
+							}}
+							title="Add target aspect ratio story artboard"
 						>
 							<Plus size={13} weight="bold" />
 							<span>Add Video</span>
@@ -380,11 +421,45 @@ export function RepurposeBoardEditor({
 						)}
 					</div>
 
+					{/* Add Hyperframe HTML Video Card */}
+					<div className="repurpose-add-wrapper">
+						<button
+							type="button"
+							className="repurpose-add-btn repurpose-add-hyperframe-btn"
+							onClick={() => {
+								setShowAddHyperframeMenu((v) => !v);
+								setShowAddMenu(false);
+							}}
+							title="Add code-driven Hyperframe video card"
+						>
+							<Sparkle size={13} weight="bold" className="text-[#A879F5]" />
+							<span>Hyperframe</span>
+						</button>
+						{showAddHyperframeMenu && (
+							<div className="repurpose-add-menu">
+								{HYPERFRAME_ASPECT_PRESETS.map((preset) => (
+									<button
+										key={preset.aspectRatio}
+										type="button"
+										className="repurpose-menu-item"
+										onClick={() => handleCreateHyperframe(preset)}
+									>
+										<span className="repurpose-menu-aspect font-mono text-[#c5a7fb]">
+											{preset.aspectRatio}
+										</span>
+										<span className="repurpose-menu-name">{preset.name}</span>
+									</button>
+								))}
+							</div>
+						)}
+					</div>
+
+					{/* Batch Export */}
 					<button
 						type="button"
 						className="repurpose-export-btn"
 						title="Export videos"
-						disabled={board.artboards.length === 0}
+						disabled={totalVideoCards === 0}
 						onClick={() => {
 							if (onOpenExportModal) {
 								onOpenExportModal();
@@ -406,85 +481,8 @@ export function RepurposeBoardEditor({
 				</div>
 			)}
 
-			{activeTab === "hyperframes" ? (
-				<div className="repurpose-hyperframe-stage flex-1 flex bg-[#111214] overflow-hidden p-6 gap-6 min-h-[500px]">
-					{/* Hyperframe List Sidebar */}
-					<div className="w-80 bg-[#1C1F26] border border-[#343A46] rounded-xl flex flex-col overflow-hidden shadow-xl">
-						<div className="p-3.5 border-b border-[#343A46] flex items-center justify-between bg-[#15171C]">
-							<div className="flex items-center gap-2">
-								<Code size={16} className="text-[#6FA8FF]" weight="bold" />
-								<h4 className="text-xs font-bold text-white uppercase tracking-wider">Hyperframes</h4>
-							</div>
-							<button
-								type="button"
-								onClick={() => handleCreateHyperframe("Kinetic Title Card")}
-								className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-[#6FA8FF] hover:bg-[#85b7ff] text-[#15171C] rounded-md transition shadow"
-							>
-								<Plus size={12} weight="bold" />
-								<span>New</span>
-							</button>
-						</div>
-						<div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-							{(project.hyperframes ?? []).length === 0 ? (
-								<div className="p-6 text-center text-[#A8AFBD] text-xs">
-									Belum ada Hyperframe code. Klik tombol di atas untuk membuat animasi baru!
-								</div>
-							) : (
-								(project.hyperframes ?? []).map((hf) => {
-									const isSelected = (currentHyperframe?.id ?? project.hyperframes?.[0]?.id) === hf.id;
-									return (
-										<button
-											key={hf.id}
-											type="button"
-											onClick={() => setSelectedHyperframeId(hf.id)}
-											className={`w-full text-left p-2.5 rounded-lg border transition ${
-												isSelected
-													? "bg-[#6FA8FF]/15 border-[#6FA8FF]/40 text-white shadow-sm"
-													: "bg-[#15171C]/60 border-[#343A46] hover:border-[#6FA8FF]/30 text-[#A8AFBD]"
-											}`}
-										>
-											<div className="text-xs font-semibold">{hf.name}</div>
-											<div className="text-[10px] text-[#A8AFBD] font-mono mt-0.5">
-												{hf.width}x{hf.height} &bull; {(hf.durationUs / 1_000_000).toFixed(1)}s
-											</div>
-										</button>
-									);
-								})
-							)}
-						</div>
-					</div>
-
-					{/* Main Hyperframe Preview */}
-					<div className="flex-1 h-full min-w-0">
-						{currentHyperframe ? (
-							<HyperframePreview
-								hyperframe={currentHyperframe}
-								onUpdateHtml={(newHtml) => handleUpdateHyperframeHtml(currentHyperframe.id, newHtml)}
-							/>
-						) : (
-							<div className="h-full flex flex-col items-center justify-center border border-dashed border-[#343A46] rounded-xl p-8 text-center bg-[#1C1F26]/60">
-								<div className="p-3 bg-[#A879F5]/15 text-[#c5a7fb] rounded-2xl mb-4 border border-[#A879F5]/25">
-									<Sparkle size={36} weight="duotone" />
-								</div>
-								<h3 className="text-base font-semibold text-white mb-2">Code-Driven Hyperframe Studio</h3>
-								<p className="text-xs text-[#A8AFBD] max-w-md mb-6 leading-relaxed">
-									Hyperframe memungkinkan animasi motion graphic, kinetic typography, dan kartu informasi diproduksi menggunakan kode HTML5, CSS, dan GSAP secara pixel-perfect dan siap diorkestrasi oleh AI Agent.
-								</p>
-								<button
-									type="button"
-									onClick={() => handleCreateHyperframe("Kinetic Title Card")}
-									className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-[#6FA8FF] hover:bg-[#85b7ff] text-[#15171C] rounded-lg transition shadow-lg"
-								>
-									<Sparkle size={15} weight="bold" />
-									<span>Generate Kinetic Intro Hyperframe</span>
-								</button>
-							</div>
-						)}
-					</div>
-				</div>
-			) : (
-				/* Main Split Layout: Left Docked Asset Library & Right Artboard Canvas */
-				<div className="repurpose-main-layout">
+			{/* Main Split Layout: Left Docked Asset Library & Right Artboard Canvas */}
+			<div className="repurpose-main-layout">
 				{/* Left Docked Assets Sidebar */}
 				<aside className={`repurpose-assets-sidebar ${assetsCollapsed ? "collapsed" : ""}`}>
 					<div className="repurpose-sidebar-top">
@@ -524,7 +522,7 @@ export function RepurposeBoardEditor({
 					)}
 				</aside>
 
-				{/* Right Artboard Canvas Stage */}
+				{/* Right Unified Artboard Canvas Stage */}
 				<div
 					className={`repurpose-board-stage ${isPanningStage ? "panning" : ""}`}
 					onMouseDown={handleStageMouseDown}
@@ -569,16 +567,18 @@ export function RepurposeBoardEditor({
 						</button>
 					</div>
 
-					{board.artboards.length === 0 ? (
+					{totalVideoCards === 0 ? (
 						<div className="repurpose-empty-board">
 							<div className="repurpose-empty-icon">
 								<SquaresFour size={40} weight="duotone" />
 							</div>
 							<h3 className="repurpose-empty-title">Artboard Belum Memiliki Video</h3>
 							<p className="repurpose-empty-sub">
-								Pilih format aspek rasio di bawah untuk mulai memproduksi video dari
-								aset project:
+								Pilih format video di bawah untuk mulai memproduksi Story dari aset
+								atau animasi Hyperframe berbasis kode:
 							</p>
+
+							{/* Story Presets */}
 							<div className="repurpose-empty-presets-grid">
 								{ARTBOARD_PRESETS.map((preset) => (
 									<button
@@ -599,6 +599,18 @@ export function RepurposeBoardEditor({
 									</button>
 								))}
 							</div>
+
+							{/* Hyperframe Quick Add CTA */}
+							<div className="mt-6 flex flex-col items-center">
+								<button
+									type="button"
+									onClick={() => handleCreateHyperframe(HYPERFRAME_ASPECT_PRESETS[0])}
+									className="flex items-center gap-2 rounded-xl border border-[#A879F5]/40 bg-[#A879F5]/15 px-4 py-2 text-xs font-bold text-white shadow transition hover:bg-[#A879F5]/25"
+								>
+									<Sparkle size={15} weight="fill" className="text-[#A879F5]" />
+									<span>Buat Animasi Hyperframe (16:9)</span>
+								</button>
+							</div>
 						</div>
 					) : (
 						<div
@@ -608,6 +620,7 @@ export function RepurposeBoardEditor({
 							}}
 						>
 							<div className="repurpose-artboards-grid">
+								{/* Render Story Artboard Cards */}
 								{board.artboards.map((artboard) => {
 									const pos = cardPositions[artboard.id];
 									return (
@@ -690,11 +703,52 @@ export function RepurposeBoardEditor({
 										</div>
 									);
 								})}
+
+								{/* Render Unified Hyperframe Cards */}
+								{hyperframes.map((hf) => {
+									const pos = cardPositions[hf.id];
+									return (
+										<div
+											key={hf.id}
+											className="repurpose-card-slot"
+											style={
+												pos
+													? {
+															transform: `translate(${pos.x}px, ${pos.y}px)`,
+															position: "relative",
+															zIndex:
+																draggingCardId === hf.id ? 20 : 1,
+														}
+													: { position: "relative" }
+											}
+										>
+											<HyperframeCard
+												hyperframe={hf}
+												displayHeight={360}
+												onOpenEditor={() => setEditingHyperframeId(hf.id)}
+												onRename={(newName) => handleRenameHyperframe(hf.id, newName)}
+												onDuplicate={() => handleDuplicateHyperframe(hf.id)}
+												onRemove={() => handleRemoveHyperframe(hf.id)}
+												onStartDragCard={(e) => handleStartDragCard(hf.id, e)}
+											/>
+										</div>
+									);
+								})}
 							</div>
 						</div>
 					)}
 				</div>
 			</div>
+
+			{/* Slide-over Hyperframe Editor Drawer */}
+			{editingHyperframe && (
+				<HyperframeEditorDrawer
+					hyperframe={editingHyperframe}
+					project={boardProject}
+					projectTitle={projectTitle}
+					onUpdate={(patch) => handleUpdateHyperframe(editingHyperframe.id, patch)}
+					onClose={() => setEditingHyperframeId(null)}
+				/>
 			)}
 
 			{/* Batch Export Modal Dialog */}

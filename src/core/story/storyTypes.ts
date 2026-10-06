@@ -61,6 +61,7 @@ export interface HyperframeComposition {
 	durationUs: number;
 	width: number;
 	height: number;
+	aspectRatio?: RepurposeAspectRatio;
 	fps?: number;
 	createdAt?: string;
 	updatedAt?: string;
@@ -76,4 +77,5 @@ export interface HyperframeManifestItem {
 	specJson?: string;
 	targetStoryId?: string;
 	durationUs: number;
+	aspectRatio?: RepurposeAspectRatio;
 }

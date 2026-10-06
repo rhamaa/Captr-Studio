@@ -86,6 +86,34 @@ export const KNOWN_AGENTS: AgentSpec[] = [
 		description: "OpenAI Codex CLI tool for autonomous coding",
 		defaultArgs: [],
 	},
+	{
+		id: "kiro",
+		name: "Kiro CLI",
+		command: "kiro",
+		description: "Kiro autonomous developer CLI agent",
+		defaultArgs: ["-p"],
+	},
+	{
+		id: "trae",
+		name: "Trae CLI",
+		command: "trae",
+		description: "ByteDance Trae autonomous agent CLI",
+		defaultArgs: ["-p"],
+	},
+	{
+		id: "cline",
+		name: "Cline CLI",
+		command: "cline",
+		description: "Cline autonomous coding CLI assistant",
+		defaultArgs: ["-p"],
+	},
+	{
+		id: "hermes",
+		name: "Hermes Agent",
+		command: "hermes",
+		description: "Nous Research Hermes local autonomous reasoning agent",
+		defaultArgs: ["-p"],
+	},
 ];
 
 export function parseWhereCommandOutput(output: string): string | null {
@@ -135,4 +163,21 @@ export async function detectAvailableAgents(): Promise<DetectedAgent[]> {
 		}
 		return a.available ? -1 : 1;
 	});
+}
+
+/**
+ * Checks a custom user-supplied command binary name.
+ */
+export async function checkCustomAgent(command: string): Promise<DetectedAgent> {
+	const sanitized = command.trim();
+	const executablePath = await checkAgentAvailability(sanitized);
+	return {
+		id: `custom-${sanitized.toLowerCase()}`,
+		name: sanitized,
+		command: sanitized,
+		description: "Custom user-configured CLI agent",
+		defaultArgs: ["-p"],
+		available: Boolean(executablePath),
+		executablePath: executablePath ?? undefined,
+	};
 }

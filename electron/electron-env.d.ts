@@ -1035,6 +1035,33 @@ interface Window {
 		}>;
 		cancelAgentTask?: () => Promise<boolean>;
 		onAgentLogStream?: (callback: (chunk: string) => void) => () => void;
+		checkCustomAgent?: (command: string) => Promise<{
+			id: string;
+			name: string;
+			command: string;
+			description: string;
+			available: boolean;
+			executablePath?: string;
+		}>;
+		runHyperframeAgentTask?: (params: {
+			agentId: string;
+			customCommand?: string;
+			userPrompt: string;
+			hyperframeId: string;
+			hyperframeName: string;
+			currentHtml: string;
+			width: number;
+			height: number;
+			durationSec: number;
+			projectContext: Record<string, unknown>;
+		}) => Promise<{
+			success: boolean;
+			html?: string;
+			logs: string[];
+			error?: string;
+		}>;
+		cancelHyperframeAgentTask?: () => Promise<boolean>;
+		onHyperframeAgentLogStream?: (callback: (chunk: string) => void) => () => void;
 	};
 }
 

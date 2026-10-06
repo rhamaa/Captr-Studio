@@ -7,7 +7,7 @@ import { addRepurposeArtboard, ensureRepurposeBoard } from "@/core/timeline/repu
 import { RepurposeBoardEditor } from "./RepurposeBoardEditor";
 
 describe("RepurposeBoardEditor", () => {
-	it("renders empty state by default with preset selection buttons", () => {
+	it("renders empty state by default with preset selection buttons and + Hyperframe option", () => {
 		const base = createTimelineProject("p1", "Test Project");
 		const project = ensureRepurposeBoard(base);
 
@@ -34,6 +34,9 @@ describe("RepurposeBoardEditor", () => {
 		expect(html).toContain("16:9");
 		// Docked asset library
 		expect(html).toContain("Project Assets");
+		// Header buttons
+		expect(html).toContain("Add Video");
+		expect(html).toContain("Hyperframe");
 	});
 
 	it("renders artboard cards with rename button and individual playback controls", () => {
@@ -74,14 +77,22 @@ describe("RepurposeBoardEditor", () => {
 		expect(html).toContain("repurpose-card-scrubber");
 		expect(html).toContain("repurpose-card-play-btn");
 		expect(html).toContain("repurpose-card-name-edit-btn");
-		// Tab Switcher
-		expect(html).toContain("Stories (2)");
-		expect(html).toContain("Hyperframes (0)");
+		// Header actions
+		expect(html).toContain("Add Video");
+		expect(html).toContain("Hyperframe");
 	});
 
-	it("displays registered hyperframes when project has hyperframes", () => {
+	it("renders unified canvas with both Story cards and Hyperframe cards simultaneously", () => {
 		const base = createTimelineProject("p1", "Test Project");
-		base.hyperframes = [
+		let project = ensureRepurposeBoard(base);
+		project = addRepurposeArtboard(project, {
+			aspectRatio: "16:9",
+			name: "Main Feature",
+			width: 1920,
+			height: 1080,
+			defaultFitMode: "cover",
+		});
+		project.hyperframes = [
 			{
 				id: "hf-promo",
 				name: "Kinetic Promo Card",
@@ -90,9 +101,9 @@ describe("RepurposeBoardEditor", () => {
 				durationUs: 3_000_000,
 				width: 1920,
 				height: 1080,
+				aspectRatio: "16:9",
 			},
 		];
-		const project = ensureRepurposeBoard(base);
 
 		const html = renderToStaticMarkup(
 			createElement(
@@ -107,7 +118,13 @@ describe("RepurposeBoardEditor", () => {
 			),
 		);
 
-		expect(html).toContain("Stories (0)");
-		expect(html).toContain("Hyperframes (1)");
+		// Shows combined total
+		expect(html).toContain("2 Video Cards");
+		// Shows story card
+		expect(html).toContain("Main Feature");
+		// Shows hyperframe card on the same canvas stage!
+		expect(html).toContain("Kinetic Promo Card");
+		expect(html).toContain("HYPERFRAME");
+		expect(html).toContain("repurpose-hyperframe-card");
 	});
 });
