@@ -143,6 +143,33 @@ export function formatAssetDetail(a: TaggedAsset): string {
 	return str;
 }
 
+export async function getHyperframeRulesContent(): Promise<string> {
+	const candidatePaths = [
+		path.join(process.cwd(), "src/components/hyperframe/templates/HYPERFRAME_RULES.md"),
+		path.resolve(__dirname, "../../../src/components/hyperframe/templates/HYPERFRAME_RULES.md"),
+		path.resolve(__dirname, "../../src/components/hyperframe/templates/HYPERFRAME_RULES.md"),
+		path.resolve(__dirname, "HYPERFRAME_RULES.md"),
+	];
+
+	for (const candidate of candidatePaths) {
+		try {
+			const content = await fsPromises.readFile(candidate, "utf-8");
+			if (content && content.length > 200) {
+				return content;
+			}
+		} catch {}
+	}
+
+	return `# Hyperframe Master Specification (Captr Studio Edition)
+Authoritative specification for HTML5/CSS/JavaScript video compositions in Captr Studio.
+- Container: <div id="root" data-composition-id="main" data-duration="...">
+- Timeline: const tl = gsap.timeline({ paused: true }); window.tl = tl;
+- Scrubber contract: window.seekFrame(timeInSeconds, isPlaying)
+- Media: Always use loopback URLs (http://127.0.0.1:...), never C:\\ or file:///.
+- Companion Audio: Screen recording MP4 files DO NOT contain mic speech. Always embed <audio id="voiceover" src="..." preload="auto"> unmuted.
+`;
+}
+
 export function formatHyperframeTaskPrompt(ctx: HyperframeTaskContext): string {
 	let taggedSection = "";
 	if (ctx.taggedAssets && ctx.taggedAssets.length > 0) {
@@ -154,6 +181,10 @@ export function formatHyperframeTaskPrompt(ctx: HyperframeTaskContext): string {
 The composition file is located at: "${ctx.draftFilePath}".
 Composition specs: ${ctx.width}x${ctx.height} px, duration: ${ctx.durationSec}s.
 Target Title: "${ctx.hyperframeName}".
+
+MANDATORY REFERENCE:
+Before modifying or generating code, READ "HYPERFRAME_RULES.md" located in this workspace directory!
+"HYPERFRAME_RULES.md" is the authoritative Captr Studio & HeyGen HyperFrames master guide containing technical contracts (seekFrame, duration, live video, companion mic audio), layout patterns (macOS window mockups, webcam PiP, split screen, kinetic captions), and complete copy-paste ready code recipes.
 
 Available Project Assets:
 ${ctx.assetsSummary}${taggedSection}
@@ -205,10 +236,11 @@ window.getDuration = function() { return ${ctx.durationSec}; };
 \`\`\`
 
 INSTRUCTIONS:
-1. Open and inspect "${ctx.draftFilePath}".
-2. Implement the requested motion design (e.g. kinetic typography, CSS keyframes, HTML5 Canvas animation, CSS variables, glassmorphic layout, embedding videos or images).
-3. Follow Captr Studio soft pastel aesthetics: soft blue (#6FA8FF), lavender (#A879F5), sage mint (#8DDB9B), honey amber (#F6C768), coral rose (#FF6B81). Avoid radioactive neon cyan.
-4. Save the revised HTML code directly back to "${ctx.draftFilePath}" OR return the complete HTML inside a \`\`\`html code block in your response.`;
+1. First, inspect "HYPERFRAME_RULES.md" in this workspace for authoritative templates, audio rules, and recipes.
+2. Open and inspect "${ctx.draftFilePath}".
+3. Implement the requested motion design (e.g. kinetic typography, CSS keyframes, HTML5 Canvas animation, CSS variables, glassmorphic layout, embedding videos or images).
+4. Follow Captr Studio soft pastel aesthetics: soft blue (#6FA8FF), lavender (#A879F5), sage mint (#8DDB9B), honey amber (#F6C768), coral rose (#FF6B81). Avoid radioactive neon cyan.
+5. Save the revised HTML code directly back to "${ctx.draftFilePath}" OR return the complete HTML inside a \`\`\`html code block in your response.`;
 }
 
 export function extractHtmlFromAgentOutput(output: string): string {
@@ -517,6 +549,18 @@ export async function runHyperframeAgentTask(
 			),
 			"utf-8",
 		);
+
+		// Write HYPERFRAME_RULES.md into workspace so agent can inspect full rules and recipes
+		try {
+			const rulesContent = await getHyperframeRulesContent();
+			await fsPromises.writeFile(
+				path.join(workspaceDir, "HYPERFRAME_RULES.md"),
+				rulesContent,
+				"utf-8",
+			);
+		} catch (err) {
+			log(`[Captr Studio] Warning: Could not write HYPERFRAME_RULES.md: ${err}`);
+		}
 
 		const taskPrompt = formatHyperframeTaskPrompt({
 			userPrompt: params.userPrompt,

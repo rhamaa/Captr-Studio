@@ -114,13 +114,22 @@ Hope this helps!`;
 		expect(prompt).toContain("http://127.0.0.1:5000/video?path=screen.mp4");
 		expect(prompt).toContain("Webcam Overlay Video");
 		expect(prompt).toContain("Microphone Voice Audio Track");
-		expect(prompt).toContain("<audio src=\"http://127.0.0.1:5000/video?path=mic.wav\"");
+		expect(prompt).toContain("<audio id=\"voiceover\" src=\"http://127.0.0.1:5000/video?path=mic.wav\"");
 		expect(prompt).toContain("Speech Transcript & Captions");
 		expect(prompt).toContain("Welcome to our application walkthrough");
 		expect(prompt).toContain("420 points, 5 mouse clicks recorded");
 		expect(prompt).toContain("cursor_telemetry.json");
 		expect(prompt).toContain("transcript.json");
 		expect(prompt).toContain("captions.vtt");
-		expect(prompt).toContain("CRITICAL HTML5 VIDEO & AUDIO EMBEDDING & SYNC RULES");
+		expect(prompt).toContain("CRITICAL HYPERFRAMES COMPOSITION RULES:");
+		expect(prompt).toContain("HYPERFRAME_RULES.md");
+	});
+
+	it("reads or provides authoritative HYPERFRAME_RULES.md content", async () => {
+		const { getHyperframeRulesContent } = await import("./hyperframeAgentRunner");
+		const rules = await getHyperframeRulesContent();
+		expect(rules).toContain("Hyperframe Master Specification");
+		expect(rules).toContain("window.seekFrame");
+		expect(rules).toContain("voiceover");
 	});
 });

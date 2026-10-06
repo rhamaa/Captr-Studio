@@ -174,6 +174,17 @@
   - Skrip sinkronisasi host diinjeksi ke dalam iframe untuk memblokir `requestAnimationFrame` loop mandiri saat dikendalikan scrubber timeline host (`arguments.length >= 3`).
 - **Status Pengujian & Build:**
   - 8/8 tests lulus di suite Hyperframe (`HyperframeEditor.test.tsx`, `HyperframePromptInput.test.tsx`, `HyperframePreview.test.tsx`).
+  - 6/6 tests lulus di `electron/ipc/agent/hyperframeAgentRunner.test.ts`.
   - `npx tsc --noEmit` lulus dengan 0 errors.
-  - `graft build` terbarui (4.920 nodes, 11.917 edges).
+  - `graft build` terbarui (4.921 nodes, 11.920 edges).
+
+## Konsolidasi 21 Skill HyperFrames ke Master Context `HYPERFRAME_RULES.md` (6 Oktober 2026)
+
+- **Master Specification Terpadu (`src/components/hyperframe/templates/HYPERFRAME_RULES.md`):**
+  - Mengompilasikan best practices dari seluruh 21 skill resmi HeyGen HyperFrames ke dalam dokumen komprehensif 634 baris yang disesuaikan khusus untuk arsitektur Captr Studio.
+  - Memuat 7 bab mendalam: Core Architecture (`#root`, paused GSAP timeline, `window.seekFrame`, `window.getDuration`), Captr Media Pipeline (video live, companion `<audio id="voiceover">`, loopback URLs `http://127.0.0.1:...`, kursor `cursor_telemetry.json`, subtitle `transcript.json`), Layout Patterns (macOS browser mockup, PiP webcam, split screen), Kinetic Typography & Badges, Captr Pastel Design System, 2 Resep Kode Siap Salin (Software Demo Walkthrough & Kinetic Typo Launch), serta Checklist Kualitas.
+- **Injeksi Konteks Otomatis ke Semua Agen CLI (`hyperframeAgentRunner.ts`):**
+  - Berkas `HYPERFRAME_RULES.md` otomatis disalin ke dalam direktori kerja sementara (`workspaceDir/HYPERFRAME_RULES.md`) setiap kali agent dijalankan.
+  - Prompt CLI (`-p`) dan berkas instruksi `TASK.md` memuat arahan wajib agar agen membaca `HYPERFRAME_RULES.md` sebelum menyunting atau menulis kode.
+  - Kompatibel 100% lintas CLI agent (`claude`, `agy`, `gemini`, `cursor`, `ollama`, `opencode`, `aider`, dll.) tanpa risiko melanggar batas panjang argumen command-line Windows (`lpCommandLine`).
 
