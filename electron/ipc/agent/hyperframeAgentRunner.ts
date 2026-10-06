@@ -200,16 +200,26 @@ export async function runHyperframeAgentTask(
 		const defaultArgs = KNOWN_AGENTS.find((a) => a.id === params.agentId)?.defaultArgs;
 		const args = buildHyperframeAgentArgs(params.agentId, taskPrompt, workspaceDir, defaultArgs);
 
-		log(`[Captr Studio] Spawning ${commandName} in ${workspaceDir}…`);
+		// Write TASK.md in workspace so agent can also inspect full task spec directly
+		await fsPromises.writeFile(path.join(workspaceDir, "TASK.md"), taskPrompt, "utf-8");
+
+		log(`[Captr Studio] Spawning ${execPath} in ${workspaceDir}…`);
 
 		let combinedStdout = "";
 		let combinedStderr = "";
 
+		// Windows: If command is an .exe, run without cmd.exe shell so arguments aren't broken by cmd.exe word-splitting
+		const useShell =
+			process.platform === "win32" && !execPath.toLowerCase().endsWith(".exe");
+
 		const exitCode = await new Promise<number | null>((resolve) => {
-			const child = spawn(commandName, args, {
+			const child = spawn(execPath, args, {
 				cwd: workspaceDir,
-				env: getAugmentedEnv(),
-				shell: process.platform === "win32",
+				env: {
+					...getAugmentedEnv(),
+					FORCE_COLOR: "0",
+				},
+				shell: useShell,
 				stdio: ["ignore", "pipe", "pipe"],
 			}) as ChildProcess;
 			activeProcess = child;
