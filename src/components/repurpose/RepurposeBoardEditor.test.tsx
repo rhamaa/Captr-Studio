@@ -74,5 +74,40 @@ describe("RepurposeBoardEditor", () => {
 		expect(html).toContain("repurpose-card-scrubber");
 		expect(html).toContain("repurpose-card-play-btn");
 		expect(html).toContain("repurpose-card-name-edit-btn");
+		// Tab Switcher
+		expect(html).toContain("Stories (2)");
+		expect(html).toContain("Hyperframes (0)");
+	});
+
+	it("displays registered hyperframes when project has hyperframes", () => {
+		const base = createTimelineProject("p1", "Test Project");
+		base.hyperframes = [
+			{
+				id: "hf-promo",
+				name: "Kinetic Promo Card",
+				entryHtml: "hyperframe/hf-promo.html",
+				htmlContent: "<div>Promo Card</div>",
+				durationUs: 3_000_000,
+				width: 1920,
+				height: 1080,
+			},
+		];
+		const project = ensureRepurposeBoard(base);
+
+		const html = renderToStaticMarkup(
+			createElement(
+				I18nProvider,
+				null,
+				createElement(RepurposeBoardEditor, {
+					project,
+					projectTitle: "Test Project",
+					onChange: vi.fn(),
+					onClose: vi.fn(),
+				}),
+			),
+		);
+
+		expect(html).toContain("Stories (0)");
+		expect(html).toContain("Hyperframes (1)");
 	});
 });

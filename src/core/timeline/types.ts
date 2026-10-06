@@ -121,6 +121,11 @@ export interface TimelineProject {
 	tracks: TimelineTrack[];
 	clipTransitions?: ClipTransition[];
 	repurposeBoard?: RepurposeBoardSettings;
+	stories?: import("../story/storyTypes").StoryComposition[];
+	storyManifest?: import("../story/storyTypes").StoryManifestItem[];
+	defaultStoryId?: string;
+	hyperframes?: import("../story/storyTypes").HyperframeComposition[];
+	hyperframeManifest?: import("../story/storyTypes").HyperframeManifestItem[];
 	createdAt: string;
 	updatedAt: string;
 }

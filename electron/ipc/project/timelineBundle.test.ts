@@ -7,7 +7,7 @@ import { addClipTransition, setComponentAnimation } from "../../../src/core/time
 import { createAndPlaceShape, setShapeStyleOverride } from "../../../src/core/timeline/shapeCommands";
 import type { ShapeDefinition } from "../../../src/core/timeline/types";
 import { resolveTimelineProject, stageTimelineProject } from "./timelineBundle";
-import { packProjectWorkspace, unpackProjectBundle } from "./projectBundle";
+import { inspectProjectBundle, packProjectWorkspace, unpackProjectBundle } from "./projectBundle";
 
 const roots:string[]=[];afterEach(async()=>{for(const r of roots.splice(0))await fs.rm(r,{recursive:true,force:true});});
 it("bundles unused recording assets with every sidecar and no Slide folders",async()=>{
@@ -257,4 +257,68 @@ it("timelineBundle_rejectsMalformedTransitionWithoutPartialLoad", async () => {
 	await expect(stageTimelineProject(project, workspace)).rejects.toThrow(/transition|clip|preset/i);
 	await expect(fs.access(workspace)).rejects.toThrow();
 });
+
+it("timelineBundle_stagesModularStoryAndHyperframeAndCategorizesEntries", async () => {
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-story-hf-bundle-"));
+	roots.push(root);
+
+	let project = createTimelineProject("story-project", "Multi-Story Project");
+	project.hyperframes = [
+		{
+			id: "intro-card",
+			name: "Kinetic Intro",
+			entryHtml: "hyperframe/hyperframe-intro-card.html",
+			htmlContent: "<!DOCTYPE html><html><body><h1>Kinetic Title</h1></body></html>",
+			durationUs: 3_000_000,
+			width: 1920,
+			height: 1080,
+		},
+	];
+
+	const workspace = path.join(root, "workspace");
+	const staged = await stageTimelineProject(project, workspace);
+
+	// Verify Story folder and files were generated
+	expect(staged.stories).toBeDefined();
+	expect(staged.stories!.length).toBeGreaterThan(0);
+	expect(staged.storyManifest).toBeDefined();
+
+	const storyDir = path.join(workspace, "Story");
+	const storyFiles = await fs.readdir(storyDir);
+	expect(storyFiles).toContain("story-story-main.json");
+
+	// Verify Hyperframe folder and HTML were generated
+	const hfDir = path.join(workspace, "hyperframe");
+	const hfFiles = await fs.readdir(hfDir);
+	expect(hfFiles).toContain("hyperframe-intro-card.html");
+	expect(await fs.readFile(path.join(hfDir, "hyperframe-intro-card.html"), "utf8")).toContain("Kinetic Title");
+
+	// Pack to .captr bundle and inspect
+	const bundle = path.join(root, "multistory.captr");
+	await packProjectWorkspace(workspace, bundle);
+
+	const inspection = await inspectProjectBundle(bundle);
+	expect(inspection.success).toBe(true);
+
+	const storyEntry = inspection.entries.find((e) => e.path.startsWith("Story/"));
+	expect(storyEntry).toBeDefined();
+	expect(storyEntry?.category).toBe("story");
+
+	const hfEntry = inspection.entries.find((e) => e.path.startsWith("hyperframe/"));
+	expect(hfEntry).toBeDefined();
+	expect(hfEntry?.category).toBe("hyperframe");
+
+	// Unpack and resolve
+	const unpacked = path.join(root, "unpacked");
+	await unpackProjectBundle(bundle, unpacked);
+	const reopened = resolveTimelineProject(
+		JSON.parse(await fs.readFile(path.join(unpacked, "project.json"), "utf8")),
+		unpacked,
+	);
+
+	expect(reopened.stories).toHaveLength(staged.stories!.length);
+	expect(reopened.hyperframes).toHaveLength(1);
+	expect(path.isAbsolute(reopened.hyperframes![0].entryHtml)).toBe(true);
+});
+
 

@@ -9,9 +9,14 @@ import {
 	MagnifyingGlassPlus,
 	Plus,
 	SquaresFour,
+	Code,
+	Sparkle,
 } from "@phosphor-icons/react";
 import { type MouseEvent as ReactMouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AssetLibrary } from "@/components/editor/AssetLibrary";
+import { HyperframePreview } from "@/components/hyperframe/HyperframePreview";
+import { createDefaultHyperframeTemplate } from "@/core/story/storyUtils";
+import type { HyperframeComposition } from "@/core/story/storyTypes";
 import {
 	addRepurposeArtboard,
 	duplicateRepurposeArtboard,
@@ -65,6 +70,55 @@ export function RepurposeBoardEditor({
 	const [showExportModal, setShowExportModal] = useState(false);
 	const [assetsCollapsed, setAssetsCollapsed] = useState(false);
 	const [activePlayingId, setActivePlayingId] = useState<string | null>(null);
+	const [activeTab, setActiveTab] = useState<"stories" | "hyperframes">("stories");
+	const [selectedHyperframeId, setSelectedHyperframeId] = useState<string | null>(null);
+
+	const currentHyperframe = useMemo(() => {
+		const hfs = project.hyperframes ?? [];
+		if (hfs.length === 0) return null;
+		return hfs.find((h) => h.id === selectedHyperframeId) ?? hfs[0];
+	}, [project.hyperframes, selectedHyperframeId]);
+
+	const handleCreateHyperframe = (presetTitle = "Kinetic Title Card") => {
+		const hfId = `hf-${Date.now().toString(36)}`;
+		const hfName = `${presetTitle} ${(project.hyperframes?.length ?? 0) + 1}`;
+		const { html } = createDefaultHyperframeTemplate(hfId, hfName, {
+			title: projectTitle || "Captr Studio Production",
+			subtitle: "Automated Code-Driven Motion Graphic",
+			badge: "HYPERFRAME",
+			durationSec: 5,
+			width: 1920,
+			height: 1080,
+		});
+
+		const newHf: HyperframeComposition = {
+			id: hfId,
+			name: hfName,
+			entryHtml: `hyperframe/hyperframe-${hfId}.html`,
+			specJson: `hyperframe/hyperframe-${hfId}.json`,
+			htmlContent: html,
+			durationUs: 5_000_000,
+			width: 1920,
+			height: 1080,
+			fps: 60,
+			createdAt: new Date().toISOString(),
+		};
+
+		onChange((prev) => ({
+			...prev,
+			hyperframes: [...(prev.hyperframes ?? []), newHf],
+		}));
+		setSelectedHyperframeId(hfId);
+	};
+
+	const handleUpdateHyperframeHtml = (hfId: string, newHtml: string) => {
+		onChange((prev) => ({
+			...prev,
+			hyperframes: (prev.hyperframes ?? []).map((h) =>
+				h.id === hfId ? { ...h, htmlContent: newHtml, updatedAt: new Date().toISOString() } : h,
+			),
+		}));
+	};
 
 	// Ensure project has repurposeBoard initialized
 	const boardProject = useMemo(() => ensureRepurposeBoard(project), [project]);
@@ -259,8 +313,32 @@ export function RepurposeBoardEditor({
 					<span className="repurpose-breadcrumb-active">Multi-Artboard Hub</span>
 				</div>
 
-				{/* Center Summary Indicator */}
-				<div className="repurpose-header-summary">
+				{/* Center Summary Indicator & Tab Switcher */}
+				<div className="repurpose-header-summary flex items-center gap-3">
+					<div className="repurpose-tab-switch inline-flex items-center bg-slate-900 border border-slate-800 rounded-md p-0.5">
+						<button
+							type="button"
+							className={`px-2.5 py-0.5 text-xs font-semibold rounded transition ${
+								activeTab === "stories"
+									? "bg-sky-500 text-slate-950 shadow-sm"
+									: "text-slate-400 hover:text-white"
+							}`}
+							onClick={() => setActiveTab("stories")}
+						>
+							Stories ({board.artboards.length})
+						</button>
+						<button
+							type="button"
+							className={`px-2.5 py-0.5 text-xs font-semibold rounded transition ${
+								activeTab === "hyperframes"
+									? "bg-sky-500 text-slate-950 shadow-sm"
+									: "text-slate-400 hover:text-white"
+							}`}
+							onClick={() => setActiveTab("hyperframes")}
+						>
+							Hyperframes ({project.hyperframes?.length ?? 0})
+						</button>
+					</div>
 					<span className="repurpose-stat-badge">
 						{board.artboards.length}{" "}
 						{board.artboards.length === 1 ? "Video Card" : "Video Cards"}
@@ -328,8 +406,85 @@ export function RepurposeBoardEditor({
 				</div>
 			)}
 
-			{/* Main Split Layout: Left Docked Asset Library & Right Artboard Canvas */}
-			<div className="repurpose-main-layout">
+			{activeTab === "hyperframes" ? (
+				<div className="repurpose-hyperframe-stage flex-1 flex bg-slate-950 overflow-hidden p-6 gap-6 min-h-[500px]">
+					{/* Hyperframe List Sidebar */}
+					<div className="w-80 bg-slate-900 border border-slate-800 rounded-xl flex flex-col overflow-hidden shadow-xl">
+						<div className="p-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+							<div className="flex items-center gap-2">
+								<Code size={16} className="text-sky-400" weight="bold" />
+								<h4 className="text-xs font-bold text-white uppercase tracking-wider">Hyperframes</h4>
+							</div>
+							<button
+								type="button"
+								onClick={() => handleCreateHyperframe("Kinetic Title Card")}
+								className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-md transition shadow"
+							>
+								<Plus size={12} weight="bold" />
+								<span>New</span>
+							</button>
+						</div>
+						<div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+							{(project.hyperframes ?? []).length === 0 ? (
+								<div className="p-6 text-center text-slate-500 text-xs">
+									Belum ada Hyperframe code. Klik tombol di atas untuk membuat animasi baru!
+								</div>
+							) : (
+								(project.hyperframes ?? []).map((hf) => {
+									const isSelected = (currentHyperframe?.id ?? project.hyperframes?.[0]?.id) === hf.id;
+									return (
+										<button
+											key={hf.id}
+											type="button"
+											onClick={() => setSelectedHyperframeId(hf.id)}
+											className={`w-full text-left p-2.5 rounded-lg border transition ${
+												isSelected
+													? "bg-sky-500/10 border-sky-500/50 text-white"
+													: "bg-slate-950/40 border-slate-800 hover:border-slate-700 text-slate-300"
+											}`}
+										>
+											<div className="text-xs font-semibold">{hf.name}</div>
+											<div className="text-[10px] text-slate-400 font-mono mt-0.5">
+												{hf.width}x{hf.height} &bull; {(hf.durationUs / 1_000_000).toFixed(1)}s
+											</div>
+										</button>
+									);
+								})
+							)}
+						</div>
+					</div>
+
+					{/* Main Hyperframe Preview */}
+					<div className="flex-1 h-full min-w-0">
+						{currentHyperframe ? (
+							<HyperframePreview
+								hyperframe={currentHyperframe}
+								onUpdateHtml={(newHtml) => handleUpdateHyperframeHtml(currentHyperframe.id, newHtml)}
+							/>
+						) : (
+							<div className="h-full flex flex-col items-center justify-center border border-dashed border-slate-800 rounded-xl p-8 text-center bg-slate-900/40">
+								<div className="p-3 bg-sky-500/10 text-sky-400 rounded-2xl mb-4 border border-sky-500/20">
+									<Sparkle size={36} weight="duotone" />
+								</div>
+								<h3 className="text-base font-semibold text-white mb-2">Code-Driven Hyperframe Studio</h3>
+								<p className="text-xs text-slate-400 max-w-md mb-6 leading-relaxed">
+									Hyperframe memungkinkan animasi motion graphic, kinetic typography, dan kartu informasi diproduksi menggunakan kode HTML5, CSS, dan GSAP secara pixel-perfect dan siap diorkestrasi oleh AI Agent.
+								</p>
+								<button
+									type="button"
+									onClick={() => handleCreateHyperframe("Kinetic Title Card")}
+									className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-lg transition shadow-lg"
+								>
+									<Sparkle size={15} weight="bold" />
+									<span>Generate Kinetic Intro Hyperframe</span>
+								</button>
+							</div>
+						)}
+					</div>
+				</div>
+			) : (
+				/* Main Split Layout: Left Docked Asset Library & Right Artboard Canvas */
+				<div className="repurpose-main-layout">
 				{/* Left Docked Assets Sidebar */}
 				<aside className={`repurpose-assets-sidebar ${assetsCollapsed ? "collapsed" : ""}`}>
 					<div className="repurpose-sidebar-top">
@@ -540,6 +695,7 @@ export function RepurposeBoardEditor({
 					)}
 				</div>
 			</div>
+			)}
 
 			{/* Batch Export Modal Dialog */}
 			{showExportModal && (

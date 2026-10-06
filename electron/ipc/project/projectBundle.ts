@@ -156,7 +156,7 @@ export interface ProjectInspectionEntry {
 	compressedSize: number;
 	isDirectory: boolean;
 	assetId?: string;
-	category: "config" | "thumbnail" | "video" | "audio" | "graphic" | "telemetry" | "other";
+	category: "config" | "thumbnail" | "video" | "audio" | "graphic" | "telemetry" | "story" | "hyperframe" | "other";
 }
 
 export interface ProjectInspectionResult {
@@ -186,6 +186,12 @@ function categorizeEntry(relativePath: string): {
 	}
 	if (norm === "thumbnail.png" || norm.endsWith(".thumb.png")) {
 		return { category: "thumbnail", assetId };
+	}
+	if (norm.startsWith("story/") || norm.startsWith("Story/")) {
+		return { category: "story", assetId };
+	}
+	if (norm.startsWith("hyperframe/") || ext === ".html") {
+		return { category: "hyperframe", assetId };
 	}
 	if ([".mp4", ".webm", ".mov", ".mkv"].includes(ext)) {
 		return { category: "video", assetId };

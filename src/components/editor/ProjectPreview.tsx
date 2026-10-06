@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
 import { evaluateProject } from "@/core/timeline/evaluation";
-import type { TimelineProject } from "@/core/timeline/types";
+import type { ClipTransform, TimelineProject } from "@/core/timeline/types";
 import { renderProjectAudio } from "@/lib/exporter/projectAudioRenderer";
 import { ProjectFrameRenderer } from "@/lib/exporter/projectFrameRenderer";
+import { CanvasTransformGizmo } from "./CanvasTransformGizmo";
 import { PreviewQueue } from "./previewQueue";
 import { SubtitleOverlay } from "./SubtitleOverlay";
 
@@ -12,12 +13,18 @@ export function ProjectPreview({
 	playing = false,
 	onError,
 	onRenderedCanvas,
+	selectedClipId,
+	onSelectClip,
+	onUpdateClipTransform,
 }: {
 	project: TimelineProject;
 	timeUs: number;
 	playing?: boolean;
 	onError: (error: string) => void;
 	onRenderedCanvas?: (canvas: HTMLCanvasElement) => void;
+	selectedClipId?: string | null;
+	onSelectClip?: (clipId: string) => void;
+	onUpdateClipTransform?: (clipId: string, transform: ClipTransform) => void;
 }) {
 	const canvas = useRef<HTMLCanvasElement>(null),
 		queue =
@@ -113,6 +120,15 @@ export function ProjectPreview({
 				data-project-preview-ready="false"
 			/>
 			<SubtitleOverlay project={project} timeUs={timeUs} />
+			<CanvasTransformGizmo
+				project={project}
+				timeUs={timeUs}
+				selectedClipId={selectedClipId}
+				canvasElement={canvas.current}
+				onSelectClip={onSelectClip}
+				onUpdateClipTransform={onUpdateClipTransform}
+				disabled={playing}
+			/>
 		</div>
 	);
 }

@@ -25,6 +25,7 @@ import {
 	placeAsset,
 	registerMedia,
 	removeAsset,
+	updateClip,
 	updateComposition,
 } from "@/core/timeline/commands";
 import type { ProjectCommand } from "@/core/timeline/history";
@@ -959,6 +960,11 @@ export function ProjectEditor(props: ProjectEditorProps) {
 											: "16:9")
 							}
 							clipTransform={editedClip?.transform}
+							onClipTransformChange={(transform) => {
+								if (editingClipId) {
+									run((p) => updateClip(p, editingClipId, { transform }));
+								}
+							}}
 							onChange={(next) =>
 								controller.execute((p) =>
 									updateComposition(p, composition.id, next),
@@ -1059,6 +1065,11 @@ export function ProjectEditor(props: ProjectEditorProps) {
 										)}
 										playing={playing && !editingClipId}
 										onError={setError}
+										selectedClipId={state.selection[0] ?? null}
+										onSelectClip={(clipId) => controller.select(clipId ? [clipId] : [])}
+										onUpdateClipTransform={(clipId, transform) => {
+											run((p) => updateClip(p, clipId, { transform }));
+										}}
 									/>
 								) : (
 									<ProjectWelcome

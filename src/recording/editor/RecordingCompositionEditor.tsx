@@ -56,6 +56,7 @@ export interface RecordingCompositionEditorProps {
 	canvas?: { width: number; height: number; fps?: number };
 	aspectRatio?: AspectRatio;
 	clipTransform?: { x: number; y: number; scale: number; rotation: number; opacity: number };
+	onClipTransformChange?: (transform: { x: number; y: number; scale: number; rotation: number; opacity: number }) => void;
 	onAspectRatioChange?: (ratio: AspectRatio) => void;
 	onChange: (next: RecordComposition) => void;
 	onClose: () => void;
@@ -121,10 +122,21 @@ export function RecordingCompositionEditor({
 	canvas: propCanvas,
 	aspectRatio: propAspectRatio,
 	clipTransform,
+	onClipTransformChange,
 	onAspectRatioChange,
 	onChange,
 	onClose,
 }: RecordingCompositionEditorProps) {
+	const [currentTransform, setCurrentTransform] = useState(
+		clipTransform ?? { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+	);
+
+	useEffect(() => {
+		if (clipTransform) {
+			setCurrentTransform(clipTransform);
+		}
+	}, [clipTransform]);
+
 	const settings = useMemo(() => resolveRecordingSettings(pkg, composition), [pkg, composition]);
 
 	const initialAspectRatio: AspectRatio = useMemo(() => {
@@ -205,8 +217,8 @@ export function RecordingCompositionEditor({
 		};
 	}, [webcamPath]);
 	const previewProject = useMemo(
-		() => recordingPreviewProject(pkg, composition, previewCanvas, clipTransform),
-		[pkg, composition, previewCanvas, clipTransform],
+		() => recordingPreviewProject(pkg, composition, previewCanvas, currentTransform),
+		[pkg, composition, previewCanvas, currentTransform],
 	);
 	const clipName = useMemo(() => {
 		const p = pkg.screen.path;
@@ -578,6 +590,12 @@ export function RecordingCompositionEditor({
 								timeUs={outputUs}
 								playing={playing}
 								onError={setError}
+								selectedClipId="preview-clip"
+								onSelectClip={() => {}}
+								onUpdateClipTransform={(_, nextTransform) => {
+									setCurrentTransform(nextTransform);
+									onClipTransformChange?.(nextTransform);
+								}}
 							/>
 						</div>
 					</div>

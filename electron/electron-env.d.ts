@@ -219,7 +219,7 @@ interface ProjectInspectionEntry {
 	compressedSize: number;
 	isDirectory: boolean;
 	slideId?: string;
-	category: "config" | "thumbnail" | "video" | "audio" | "graphic" | "telemetry" | "other";
+	category: "config" | "thumbnail" | "video" | "audio" | "graphic" | "telemetry" | "story" | "hyperframe" | "other";
 }
 
 interface ProjectInspectionResult {

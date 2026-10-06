@@ -580,5 +580,38 @@ export function validateTimelineProject(value: unknown): TimelineProject {
 			requireValue(slice.endUs > slice.startUs, "Slice end must be after start");
 		}
 	}
+	if (p.stories) {
+		requireValue(Array.isArray(p.stories), "Invalid stories: must be an array");
+		for (const story of p.stories) {
+			requireValue(typeof story.id === "string" && story.id.length > 0, "Invalid story ID");
+			requireValue(typeof story.name === "string" && story.name.length > 0, "Invalid story name");
+			requireValue(story.canvas && integer(story.canvas.width) && integer(story.canvas.height), "Invalid story canvas");
+			requireValue(Array.isArray(story.tracks), "Invalid story tracks");
+		}
+	}
+	if (p.storyManifest) {
+		requireValue(Array.isArray(p.storyManifest), "Invalid story manifest");
+		for (const item of p.storyManifest) {
+			requireValue(typeof item.id === "string" && item.id.length > 0, "Invalid story manifest ID");
+			requireValue(typeof item.file === "string" && !item.file.includes(".."), "Invalid story manifest file path");
+		}
+	}
+	if (p.hyperframes) {
+		requireValue(Array.isArray(p.hyperframes), "Invalid hyperframes: must be an array");
+		for (const hf of p.hyperframes) {
+			requireValue(typeof hf.id === "string" && hf.id.length > 0, "Invalid hyperframe ID");
+			requireValue(typeof hf.name === "string" && hf.name.length > 0, "Invalid hyperframe name");
+			requireValue(typeof hf.entryHtml === "string" && !hf.entryHtml.includes(".."), "Invalid hyperframe entry path");
+			requireValue(integer(hf.width) && hf.width > 0 && integer(hf.height) && hf.height > 0, "Invalid hyperframe dimensions");
+			requireValue(positive(hf.durationUs), "Invalid hyperframe duration");
+		}
+	}
+	if (p.hyperframeManifest) {
+		requireValue(Array.isArray(p.hyperframeManifest), "Invalid hyperframe manifest");
+		for (const item of p.hyperframeManifest) {
+			requireValue(typeof item.id === "string" && item.id.length > 0, "Invalid hyperframe manifest ID");
+			requireValue(typeof item.entryHtml === "string" && !item.entryHtml.includes(".."), "Invalid hyperframe manifest entry path");
+		}
+	}
 	return p;
 }
