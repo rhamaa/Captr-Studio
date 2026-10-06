@@ -127,4 +127,38 @@ describe("RepurposeBoardEditor", () => {
 		expect(html).toContain("HYPERFRAME");
 		expect(html).toContain("repurpose-hyperframe-card");
 	});
+
+	it("passes onOpenHyperframeEditor handler and renders without crashing", () => {
+		const base = createTimelineProject("p1", "Test Project");
+		const project = ensureRepurposeBoard(base);
+		project.hyperframes = [
+			{
+				id: "hf-test-1",
+				name: "Intro Frame",
+				entryHtml: "hyperframe/hf-test-1.html",
+				htmlContent: "<div>Intro</div>",
+				durationUs: 2_000_000,
+				width: 1920,
+				height: 1080,
+				aspectRatio: "16:9",
+			},
+		];
+
+		const onOpenHyperframeEditor = vi.fn();
+		const html = renderToStaticMarkup(
+			createElement(
+				I18nProvider,
+				null,
+				createElement(RepurposeBoardEditor, {
+					project,
+					projectTitle: "Test Project",
+					onChange: vi.fn(),
+					onOpenHyperframeEditor,
+				}),
+			),
+		);
+
+		expect(html).toContain("Intro Frame");
+		expect(html).toContain("Open Code");
+	});
 });

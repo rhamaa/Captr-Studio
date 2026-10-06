@@ -4,6 +4,13 @@ import os from "node:os";
 import path from "node:path";
 import { KNOWN_AGENTS, checkAgentAvailability, getAugmentedEnv } from "./agentDetector";
 
+export interface TaggedAsset {
+	id: string;
+	name: string;
+	kind: string;
+	path?: string;
+}
+
 export interface HyperframeTaskContext {
 	userPrompt: string;
 	hyperframeName: string;
@@ -12,6 +19,7 @@ export interface HyperframeTaskContext {
 	durationSec: number;
 	assetsSummary: string;
 	draftFilePath: string;
+	taggedAssets?: TaggedAsset[];
 }
 
 export interface RunHyperframeTaskParams {
@@ -24,6 +32,7 @@ export interface RunHyperframeTaskParams {
 	width: number;
 	height: number;
 	durationSec: number;
+	taggedAssets?: TaggedAsset[];
 	projectContext: {
 		projectTitle: string;
 		aspectRatio: string;
@@ -48,13 +57,21 @@ export interface RunHyperframeTaskResult {
 let activeProcess: ChildProcess | null = null;
 
 export function formatHyperframeTaskPrompt(ctx: HyperframeTaskContext): string {
+	let taggedSection = "";
+	if (ctx.taggedAssets && ctx.taggedAssets.length > 0) {
+		const list = ctx.taggedAssets
+			.map((a) => `- @${a.name} (Kind: ${a.kind}${a.path ? `, Path: ${a.path}` : ""})`)
+			.join("\n");
+		taggedSection = `\n\nPRIORITY TAGGED MEDIA (CRITICAL):\nThe user explicitly tagged the following project assets to be used and animated in this Hyperframe:\n${list}\nYou MUST integrate these tagged media elements into the HTML composition (using <video src="..." autoplay muted loop> for video, <img src="..." /> for images, or <audio> for audio) and apply the motion animations to them!\n`;
+	}
+
 	return `You are crafting an HTML5/CSS/JavaScript video composition ("Hyperframe") for Captr Studio.
 The composition file is located at: "${ctx.draftFilePath}".
 Composition specs: ${ctx.width}x${ctx.height} px, duration: ${ctx.durationSec}s.
 Target Title: "${ctx.hyperframeName}".
 
 Available Project Assets:
-${ctx.assetsSummary}
+${ctx.assetsSummary}${taggedSection}
 
 USER REQUEST:
 "${ctx.userPrompt}"
@@ -178,6 +195,7 @@ export async function runHyperframeAgentTask(
 					width: params.width,
 					height: params.height,
 					durationSec: params.durationSec,
+					taggedAssets: params.taggedAssets,
 					assets: params.projectContext.assets,
 					transcripts: params.projectContext.transcripts,
 				},
@@ -195,6 +213,7 @@ export async function runHyperframeAgentTask(
 			durationSec: params.durationSec,
 			assetsSummary,
 			draftFilePath: draftHtmlPath,
+			taggedAssets: params.taggedAssets,
 		});
 
 		const defaultArgs = KNOWN_AGENTS.find((a) => a.id === params.agentId)?.defaultArgs;

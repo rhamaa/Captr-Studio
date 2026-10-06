@@ -33,7 +33,7 @@ import {
 } from "@/core/timeline/repurposeTypes";
 import type { TimelineProject } from "@/core/timeline/types";
 import { HyperframeCard } from "./HyperframeCard";
-import { HyperframeEditorDrawer } from "./HyperframeEditorDrawer";
+import { HyperframeEditor } from "@/components/hyperframe/HyperframeEditor";
 import { RepurposeArtboardCard } from "./RepurposeArtboardCard";
 import { RepurposeBatchExportDialog } from "./RepurposeBatchExportDialog";
 
@@ -45,6 +45,7 @@ export interface RepurposeBoardEditorProps {
 	onClose?: () => void;
 	onOpenExportModal?: () => void;
 	onOpenArtboardEditor?: (artboardId: string) => void;
+	onOpenHyperframeEditor?: (hyperframeId: string) => void;
 	// Asset management integration
 	onImport?: (paths?: string[]) => void;
 	onRecord?: () => void;
@@ -74,6 +75,7 @@ export function RepurposeBoardEditor({
 	onClose,
 	onOpenExportModal,
 	onOpenArtboardEditor,
+	onOpenHyperframeEditor,
 	onImport,
 	onRecord,
 	onRecordAudio,
@@ -284,7 +286,11 @@ export function RepurposeBoardEditor({
 			hyperframes: [...(prev.hyperframes ?? []), newHf],
 		}));
 		setShowAddHyperframeMenu(false);
-		setEditingHyperframeId(hfId);
+		if (onOpenHyperframeEditor) {
+			onOpenHyperframeEditor(hfId);
+		} else {
+			setEditingHyperframeId(hfId);
+		}
 	};
 
 	const handleUpdateHyperframe = (hfId: string, patch: Partial<HyperframeComposition>) => {
@@ -725,7 +731,13 @@ export function RepurposeBoardEditor({
 											<HyperframeCard
 												hyperframe={hf}
 												displayHeight={360}
-												onOpenEditor={() => setEditingHyperframeId(hf.id)}
+												onOpenEditor={() => {
+													if (onOpenHyperframeEditor) {
+														onOpenHyperframeEditor(hf.id);
+													} else {
+														setEditingHyperframeId(hf.id);
+													}
+												}}
 												onRename={(newName) => handleRenameHyperframe(hf.id, newName)}
 												onDuplicate={() => handleDuplicateHyperframe(hf.id)}
 												onRemove={() => handleRemoveHyperframe(hf.id)}
@@ -740,9 +752,9 @@ export function RepurposeBoardEditor({
 				</div>
 			</div>
 
-			{/* Slide-over Hyperframe Editor Drawer */}
+			{/* Fallback In-Place Hyperframe Editor (when not handled by parent router) */}
 			{editingHyperframe && (
-				<HyperframeEditorDrawer
+				<HyperframeEditor
 					hyperframe={editingHyperframe}
 					project={boardProject}
 					projectTitle={projectTitle}

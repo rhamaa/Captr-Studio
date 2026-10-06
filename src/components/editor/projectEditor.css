@@ -3064,7 +3064,8 @@
 	border-color: #4b4b58;
 }
 
-.project-repurpose-subeditor {
+.project-repurpose-subeditor,
+.project-hyperframe-subeditor {
 	flex: 1;
 	min-height: 0;
 	min-width: 0;
@@ -3072,6 +3073,7 @@
 	flex-direction: column;
 	overflow: hidden;
 	background: #101012;
+	position: relative;
 }
 
 .repurpose-board-editor {
@@ -3082,6 +3084,7 @@
 	min-height: 0;
 	overflow: hidden;
 	background: #101012;
+	position: relative;
 	color: #d9d9e1;
 	font:
 		12px Inter,

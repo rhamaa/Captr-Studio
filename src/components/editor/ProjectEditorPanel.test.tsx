@@ -54,4 +54,23 @@ describe("ProjectEditorPanel", () => {
 		expect(html).toContain('aria-label="Repurpose studio"');
 		expect(html).not.toContain('aria-label="Project timeline"');
 	});
+
+	it("shows hyperframe sub-editor when hyperframeEditor is provided and recordingEditor is null", () => {
+		const html = renderToStaticMarkup(
+			createElement(
+				ProjectEditorPanel,
+				{
+					recordingEditor: null,
+					hyperframeEditor: createElement("section", {
+						"aria-label": "Hyperframe full editor",
+					}),
+				},
+				createElement("section", { "aria-label": "Project timeline" }),
+			),
+		);
+
+		expect(html).toContain('class="project-hyperframe-subeditor"');
+		expect(html).toContain('aria-label="Hyperframe full editor"');
+		expect(html).not.toContain('aria-label="Project timeline"');
+	});
 });

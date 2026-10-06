@@ -45,6 +45,7 @@ import { RecordingCompositionEditor } from "@/recording/editor/RecordingComposit
 import { probeMedia } from "@/recording/mediaProbe";
 import type { AspectRatio } from "@/utils/aspectRatioUtils";
 import { RepurposeBoardEditor } from "../repurpose/RepurposeBoardEditor";
+import { HyperframeEditor } from "../hyperframe/HyperframeEditor";
 import { AssetLibrary } from "./AssetLibrary";
 import { AssetSourcePreview } from "./AssetSourcePreview";
 import { AIAssistantModal } from "./AIAssistantModal";
@@ -88,7 +89,8 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		[editingClipId, setEditingClipId] = useState<string | null>(null),
 		[activeArtboardId, setActiveArtboardId] = useState<string | null>(
 			props.initialArtboardId ?? null,
-		);
+		),
+		[activeHyperframeId, setActiveHyperframeId] = useState<string | null>(null);
 
 	const activeArtboard = useMemo(() => {
 		if (!activeArtboardId) return null;
@@ -97,6 +99,11 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	}, [state.project, activeArtboardId]);
 
 	const currentActiveArtboardId = activeArtboard ? activeArtboard.id : null;
+
+	const activeHyperframe = useMemo(() => {
+		if (!activeHyperframeId) return null;
+		return (state.project.hyperframes ?? []).find((h) => h.id === activeHyperframeId) ?? null;
+	}, [state.project, activeHyperframeId]);
 
 	const activeProject = useMemo(() => {
 		if (!currentActiveArtboardId) return state.project;
@@ -603,6 +610,9 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					} else if (playingRef.current) {
 						e.preventDefault();
 						setPlaying(false);
+					} else if (activeHyperframeId) {
+						e.preventDefault();
+						setActiveHyperframeId(null);
 					} else if (currentActiveArtboardId) {
 						e.preventDefault();
 						setActiveArtboardId(null);
@@ -681,7 +691,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 			window.removeEventListener("keydown", keydown);
 			unsub.forEach((u) => u?.());
 		};
-	}, [controller, currentActiveArtboardId, activeProject]);
+	}, [controller, currentActiveArtboardId, activeHyperframeId, activeProject]);
 	useEffect(() => {
 		if (!playing) return;
 		const started = performance.now(),
@@ -739,6 +749,21 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					>
 						<ArrowLeft size={14} weight="bold" />
 						<span>Artboards</span>
+						<kbd className="project-kbd">Esc</kbd>
+					</button>
+				) : activeHyperframe ? (
+					<button
+						type="button"
+						className="project-back-artboards-button"
+						aria-label="Back to Stories Hub"
+						title="Back to Stories Hub (Esc)"
+						onClick={() => {
+							setPlaying(false);
+							setActiveHyperframeId(null);
+						}}
+					>
+						<ArrowLeft size={14} weight="bold" />
+						<span>Stories</span>
 						<kbd className="project-kbd">Esc</kbd>
 					</button>
 				) : (
@@ -815,6 +840,11 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				{activeArtboard && (
 					<span className="project-artboard-tag" title="Active artboard sequence">
 						{activeArtboard.name} ({activeArtboard.aspectRatio})
+					</span>
+				)}
+				{activeHyperframe && (
+					<span className="project-artboard-tag" title="Active Hyperframe Composition">
+						{activeHyperframe.name} ({activeHyperframe.aspectRatio || "16:9"})
 					</span>
 				)}
 				<span className="project-save-status">
@@ -974,8 +1004,30 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						/>
 					) : null
 				}
+				hyperframeEditor={
+					activeHyperframe ? (
+						<HyperframeEditor
+							hyperframe={activeHyperframe}
+							project={state.project}
+							projectTitle={projectFileName(state.path)}
+							onUpdate={(patch) => {
+								controller.execute((prev) => ({
+									...prev,
+									hyperframes: (prev.hyperframes ?? []).map((h) =>
+										h.id === activeHyperframe.id
+											? { ...h, ...patch, updatedAt: new Date().toISOString() }
+											: h,
+									),
+								}));
+							}}
+							onClose={() => {
+								setActiveHyperframeId(null);
+							}}
+						/>
+					) : null
+				}
 				repurposeEditor={
-					!currentActiveArtboardId ? (
+					!currentActiveArtboardId && !activeHyperframeId ? (
 						<RepurposeBoardEditor
 							project={state.project}
 							projectTitle={projectFileName(state.path)}
@@ -989,6 +1041,10 @@ export function ProjectEditor(props: ProjectEditorProps) {
 								setEditingClipId(null);
 								setActiveArtboardId(artboardId);
 								controller.seek(0);
+							}}
+							onOpenHyperframeEditor={(hyperframeId) => {
+								setPlaying(false);
+								setActiveHyperframeId(hyperframeId);
 							}}
 							onImport={(paths) => void importMedia(paths)}
 							onRecord={() => void startRecord()}

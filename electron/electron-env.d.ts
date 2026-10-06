@@ -1053,6 +1053,7 @@ interface Window {
 			width: number;
 			height: number;
 			durationSec: number;
+			taggedAssets?: Array<{ id: string; name: string; kind: string; path?: string }>;
 			projectContext: Record<string, unknown>;
 		}) => Promise<{
 			success: boolean;

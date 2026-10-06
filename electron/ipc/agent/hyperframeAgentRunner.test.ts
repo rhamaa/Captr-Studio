@@ -43,4 +43,23 @@ Hope this helps!`;
 		const raw = "<!DOCTYPE html><html><body><h1>Direct</h1></body></html>";
 		expect(extractHtmlFromAgentOutput(raw)).toBe(raw);
 	});
+
+	it("formats task prompt with tagged media priority section when taggedAssets are provided", () => {
+		const prompt = formatHyperframeTaskPrompt({
+			userPrompt: "Animate @logo.png and bounce it",
+			hyperframeName: "Intro",
+			width: 1920,
+			height: 1080,
+			durationSec: 5,
+			assetsSummary: "logo.png (image, id: a1)",
+			draftFilePath: "index.html",
+			taggedAssets: [
+				{ id: "a1", name: "logo.png", kind: "image", path: "/path/to/logo.png" },
+			],
+		});
+
+		expect(prompt).toContain("PRIORITY TAGGED MEDIA");
+		expect(prompt).toContain("@logo.png");
+		expect(prompt).toContain("/path/to/logo.png");
+	});
 });
