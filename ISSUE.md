@@ -158,3 +158,22 @@
   - Seluruh 21/21 vitest tests pada suite AI Assistant & Whisper lulus (100% green).
   - `npx tsc --noEmit` lulus dengan 0 errors. Biome check bersih.
 
+## Hyperframe HTML5 Video & Audio Media Pipeline, Port Re-basing & Official Skills (6 Oktober 2026)
+
+- **Official HyperFrames Skills Added:**
+  - Terpasang 21 skills resmi HeyGen HyperFrames di `.agents/skills/` via `npx skills add heygen-com/hyperframes` (`hyperframes`, `hyperframes-core`, `hyperframes-animation`, `hyperframes-audio`, `media-use`, `embedded-captions`, dll.).
+- **Dynamic Ephemeral Port Re-basing & Fuzzy Prefix Matching (`preprocessHyperframeHtml`):**
+  - Mengatasi issue video layar & webcam hitam (`ERR_CONNECTION_REFUSED`): Electron media server menggunakan port dinamis acak di setiap start. HTML hyperframe yang menyimpan port lama kini otomatis di-rebase ke port aktif live via `buildProjectMediaUrlMap`.
+  - Prefix stripping fuzzy match menangani perbedaan prefiks file saat unbundling `.captr` (misal `0-0-0-0-recording-...` vs `0-0-0-0-0-recording-...`).
+- **Companion Audio Auto-Injection & Chromium Autoplay Policy:**
+  - Mengatasi issue audio rekaman tidak terdengar: video screen recording Captr Studio tidak membawa audio mik di dalam stream video MP4, melainkan file terpisah `*.mic.wav`.
+  - `preprocessHyperframeHtml` secara otomatis menginjeksi companion `<audio id="__captr_companion_mic" src="${micUrl}">` jika belum ditulis dalam template.
+  - Ditambahkan switch Electron `autoplay-policy: no-user-gesture-required` di `electron/main.ts` agar audio pada sandboxed iframe dapat langsung diputar tanpa gestur klik terpisah.
+- **Dynamic Timeline Duration Synchronization:**
+  - Mengatasi timeline mentok di 5 detik: saat aset rekaman di-tag (`@asset`), durasi hyperframe (`durationUs`) secara otomatis mengadopsi durasi media sebenarnya (misal 40.9 detik).
+  - Skrip sinkronisasi host diinjeksi ke dalam iframe untuk memblokir `requestAnimationFrame` loop mandiri saat dikendalikan scrubber timeline host (`arguments.length >= 3`).
+- **Status Pengujian & Build:**
+  - 8/8 tests lulus di suite Hyperframe (`HyperframeEditor.test.tsx`, `HyperframePromptInput.test.tsx`, `HyperframePreview.test.tsx`).
+  - `npx tsc --noEmit` lulus dengan 0 errors.
+  - `graft build` terbarui (4.920 nodes, 11.917 edges).
+
