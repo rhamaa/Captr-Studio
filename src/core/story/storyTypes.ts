@@ -47,6 +47,20 @@ export interface StoryManifestItem {
 	thumbnailPath?: string;
 }
 
+export interface HyperframeVersionSnapshot {
+	id: string; // e.g. "v1", "v2"
+	versionNumber: number; // 1, 2, ...
+	timestamp: number;
+	label: string;
+	htmlContent: string;
+	durationUs?: number;
+	agentId?: string;
+	agentName?: string;
+	prompt?: string;
+	taggedAssetNames?: string[];
+	logs?: string[];
+}
+
 /**
  * A code-driven motion graphics or programmatic video composition.
  * Driven by HTML5, Web Canvas, CSS, and GSAP timeline scripts.
@@ -65,6 +79,7 @@ export interface HyperframeComposition {
 	fps?: number;
 	createdAt?: string;
 	updatedAt?: string;
+	versions?: HyperframeVersionSnapshot[];
 }
 
 /**

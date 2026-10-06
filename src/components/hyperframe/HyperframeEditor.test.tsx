@@ -243,4 +243,81 @@ describe("HyperframeEditor", () => {
 			'src="http://127.0.0.1:63893/video?path=C%3A%5Cassets%5C2-2-2-2-2-recording-1791200003951.mic.wav"',
 		);
 	});
+
+	it("renders Chatbot UI thread with version history ribbon and initial draft snapshot", () => {
+		const html = renderToStaticMarkup(
+			createElement(HyperframeEditor, {
+				hyperframe: mockHyperframe,
+				project: mockProject,
+				onUpdate: vi.fn(),
+				onClose: vi.fn(),
+			}),
+		);
+
+		// Version History Ribbon
+		expect(html).toContain("Version History");
+		expect(html).toContain("1 rev");
+		expect(html).toContain("hyperframe-version-pill-1");
+		expect(html).toContain("Initial Draft");
+
+		// Chatbot message thread
+		expect(html).toContain("Motion Assistant:");
+		expect(html).toContain("Hai! Saya AI Motion Designer untuk Captr Studio.");
+
+		// Preset inspiration buttons
+		expect(html).toContain("Video Showcase");
+		expect(html).toContain("Screen + PiP Webcam");
+		expect(html).toContain("Kinetic Intro");
+	});
+
+	it("renders multiple versions with historical assistant cards and terminal logs", () => {
+		const hyperframeWithVersions: HyperframeComposition = {
+			...mockHyperframe,
+			versions: [
+				{
+					id: "v1",
+					versionNumber: 1,
+					timestamp: 1700000000000,
+					label: "Initial Draft",
+					htmlContent: "<h1>v1</h1>",
+					durationUs: 6_000_000,
+				},
+				{
+					id: "v2",
+					versionNumber: 2,
+					timestamp: 1700000010000,
+					label: "Browser Mockup",
+					prompt: "Embed in browser container",
+					agentId: "claude",
+					agentName: "Claude Code",
+					htmlContent: "<h1>v2 Browser</h1>",
+					durationUs: 6_000_000,
+					logs: ["Compiling GSAP...", "Generated mockup frame"],
+				},
+			],
+		};
+
+		const html = renderToStaticMarkup(
+			createElement(HyperframeEditor, {
+				hyperframe: hyperframeWithVersions,
+				project: mockProject,
+				onUpdate: vi.fn(),
+				onClose: vi.fn(),
+			}),
+		);
+
+		// Shows 2 versions in ribbon
+		expect(html).toContain("2 revs");
+		expect(html).toContain("hyperframe-version-pill-1");
+		expect(html).toContain("hyperframe-version-pill-2");
+
+		// Shows user prompt in chat
+		expect(html).toContain("Embed in browser container");
+
+		// Shows assistant response card with agent name and version
+		expect(html).toContain("Claude Code");
+		expect(html).toContain("Generated Version 2 (Browser Mockup)");
+		expect(html).toContain("Terminal Stream (2 lines)");
+	});
 });
+

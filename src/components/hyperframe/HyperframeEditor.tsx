@@ -3,13 +3,17 @@ import {
 	ArrowCounterClockwise,
 	ArrowLeft,
 	CaretDown,
+	CaretRight,
+	ChatCircleDots,
 	Check,
 	CheckCircle,
 	Clock,
 	Code,
 	Copy,
+	Eye,
 	FloppyDisk,
 	FolderOpen,
+	GitBranch,
 	Pause,
 	PencilSimple,
 	Play,
@@ -19,12 +23,28 @@ import {
 	Sparkle,
 	SpeakerHigh,
 	SpeakerSlash,
+	TerminalWindow,
 	WarningCircle,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { HyperframeComposition } from "@/core/story/storyTypes";
+import type { HyperframeComposition, HyperframeVersionSnapshot } from "@/core/story/storyTypes";
 import type { MediaAsset, TimelineProject } from "@/core/timeline/types";
 import { HyperframePromptInput } from "./HyperframePromptInput";
+
+export interface HyperframeChatMessage {
+	id: string;
+	role: "user" | "assistant" | "system";
+	timestamp: number;
+	content: string;
+	taggedAssets?: Array<{ id: string; name: string; kind: string }>;
+	agentId?: string;
+	agentName?: string;
+	versionId?: string;
+	versionNumber?: number;
+	status?: "pending" | "streaming" | "success" | "error";
+	error?: string;
+	logs?: string[];
+}
 
 export interface HyperframeEditorProps {
 	hyperframe: HyperframeComposition;
@@ -548,13 +568,109 @@ export function HyperframeEditor({
 	// CLI Agent & Tagged Asset State
 	const [availableAgents, setAvailableAgents] = useState<AgentOption[]>(DEFAULT_AGENTS);
 	const [selectedAgentId, setSelectedAgentId] = useState("agy");
+	const selectedAgent = useMemo(() => {
+		return availableAgents.find((a) => a.id === selectedAgentId) || availableAgents[0];
+	}, [availableAgents, selectedAgentId]);
 	const [customCommand, setCustomCommand] = useState("");
 	const [userPrompt, setUserPrompt] = useState("");
 	const [taggedAssets, setTaggedAssets] = useState<MediaAsset[]>([]);
 	const [isAgentRunning, setIsAgentRunning] = useState(false);
 	const [agentLogs, setAgentLogs] = useState<string[]>([]);
-	const [agentError, setAgentError] = useState<string | null>(null);
-	const [agentSuccess, setAgentSuccess] = useState<string | null>(null);
+
+	// Versioning state (Initial v1, v2, v3...)
+	const [versions, setVersions] = useState<HyperframeVersionSnapshot[]>(() => {
+		if (hyperframe.versions && hyperframe.versions.length > 0) {
+			return hyperframe.versions;
+		}
+		return [
+			{
+				id: "v1",
+				versionNumber: 1,
+				timestamp: Date.now(),
+				label: "Initial Draft",
+				htmlContent: hyperframe.htmlContent || "",
+				durationUs: hyperframe.durationUs,
+			},
+		];
+	});
+	const [activeVersionId, setActiveVersionId] = useState<string>(() => {
+		if (hyperframe.versions && hyperframe.versions.length > 0) {
+			return hyperframe.versions[hyperframe.versions.length - 1].id;
+		}
+		return "v1";
+	});
+
+	const activeVersion = useMemo(() => {
+		return versions.find((v) => v.id === activeVersionId) || versions[versions.length - 1] || versions[0];
+	}, [versions, activeVersionId]);
+
+	// Chat conversation thread state
+	const [chatMessages, setChatMessages] = useState<HyperframeChatMessage[]>(() => {
+		const msgs: HyperframeChatMessage[] = [
+			{
+				id: "msg-welcome",
+				role: "system",
+				timestamp: Date.now(),
+				content: "Hai! Saya AI Motion Designer untuk Captr Studio. Masukkan prompt Anda di bawah atau pilih preset untuk mulai membuat atau merevisi Hyperframe.",
+			},
+		];
+		if (hyperframe.versions && hyperframe.versions.length > 1) {
+			hyperframe.versions.slice(1).forEach((v) => {
+				if (v.prompt) {
+					msgs.push({
+						id: `user-${v.id}`,
+						role: "user",
+						timestamp: v.timestamp,
+						content: v.prompt,
+						agentId: v.agentId,
+						agentName: v.agentName,
+						taggedAssets: v.taggedAssetNames?.map((n) => ({ id: n, name: n, kind: "video" })),
+					});
+				}
+				msgs.push({
+					id: `assistant-${v.id}`,
+					role: "assistant",
+					timestamp: v.timestamp,
+					content: `Generated Version ${v.versionNumber} (${v.label})`,
+					versionId: v.id,
+					versionNumber: v.versionNumber,
+					agentId: v.agentId,
+					agentName: v.agentName,
+					status: "success",
+					logs: v.logs,
+				});
+			});
+		}
+		return msgs;
+	});
+
+	const [expandedLogIds, setExpandedLogIds] = useState<Set<string>>(new Set());
+	const chatScrollRef = useRef<HTMLDivElement>(null);
+
+	const toggleLogs = (msgId: string) => {
+		setExpandedLogIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(msgId)) next.delete(msgId);
+			else next.add(msgId);
+			return next;
+		});
+	};
+
+	const handleSwitchVersion = (versionId: string) => {
+		const target = versions.find((v) => v.id === versionId);
+		if (!target) return;
+		setActiveVersionId(target.id);
+		setCodeDraft(target.htmlContent);
+		onUpdate({
+			htmlContent: target.htmlContent,
+			durationUs: target.durationUs || hyperframe.durationUs,
+			versions,
+		});
+		setCurrentTimeSec(0);
+		if (iframeRef.current) {
+			iframeRef.current.srcdoc = preprocessHyperframeHtml(target.htmlContent, mediaUrlMap);
+		}
+	};
 
 	const handleTaggedAssetsChange = (newTagged: MediaAsset[]) => {
 		setTaggedAssets(newTagged);
@@ -636,11 +752,26 @@ export function HyperframeEditor({
 		if (!window.electronAPI?.onHyperframeAgentLogStream) return;
 		const unsubscribe = window.electronAPI.onHyperframeAgentLogStream((chunk) => {
 			setAgentLogs((prev) => [...prev, chunk]);
+			setChatMessages((prev) => {
+				const last = prev[prev.length - 1];
+				if (last && last.role === "assistant" && last.status === "streaming") {
+					return [
+						...prev.slice(0, -1),
+						{ ...last, logs: [...(last.logs || []), chunk] },
+					];
+				}
+				return prev;
+			});
 		});
 		return () => {
 			unsubscribe();
 		};
 	}, []);
+
+	// Auto scroll chat to bottom when messages or logs update
+	useEffect(() => {
+		chatScrollRef.current?.scrollIntoView({ behavior: "smooth" });
+	}, [chatMessages, agentLogs]);
 
 	// Auto scroll logs
 	useEffect(() => {
@@ -776,10 +907,43 @@ export function HyperframeEditor({
 
 	const handleRunAgent = async () => {
 		if (!userPrompt.trim()) return;
-		setAgentError(null);
-		setAgentSuccess(null);
+		const promptText = userPrompt.trim();
+		const currentSelectedAgent = availableAgents.find((a) => a.id === selectedAgentId);
+		const agentName = currentSelectedAgent?.name || selectedAgentId;
+
 		setIsAgentRunning(true);
 		setAgentLogs([`🚀 Invoking CLI Agent: ${selectedAgentId}...`]);
+
+		const nextVerNum = versions.length + 1;
+		const nextVerId = `v${nextVerNum}`;
+		const userMsgId = `user-${Date.now()}`;
+		const assistantMsgId = `assistant-${Date.now()}`;
+
+		const userMsg: HyperframeChatMessage = {
+			id: userMsgId,
+			role: "user",
+			timestamp: Date.now(),
+			content: promptText,
+			taggedAssets: taggedAssets.map((a) => ({ id: a.id, name: a.name, kind: a.kind })),
+			agentId: selectedAgentId,
+			agentName,
+		};
+
+		const assistantMsg: HyperframeChatMessage = {
+			id: assistantMsgId,
+			role: "assistant",
+			timestamp: Date.now(),
+			content: `Generating Version ${nextVerNum} with ${agentName}...`,
+			agentId: selectedAgentId,
+			agentName,
+			versionId: nextVerId,
+			versionNumber: nextVerNum,
+			status: "streaming",
+			logs: [`🚀 Invoking CLI Agent: ${selectedAgentId}...`],
+		};
+
+		setChatMessages((prev) => [...prev, userMsg, assistantMsg]);
+		setExpandedLogIds((prev) => new Set(prev).add(assistantMsgId));
 
 		try {
 			if (!window.electronAPI?.runHyperframeAgentTask) {
@@ -844,10 +1008,10 @@ export function HyperframeEditor({
 			const res = await window.electronAPI.runHyperframeAgentTask({
 				agentId: selectedAgentId,
 				customCommand: selectedAgentId === "custom" ? customCommand : undefined,
-				userPrompt: userPrompt.trim(),
+				userPrompt: promptText,
 				hyperframeId: hyperframe.id,
 				hyperframeName: hyperframe.name,
-				currentHtml: hyperframe.htmlContent || "",
+				currentHtml: activeVersion.htmlContent || hyperframe.htmlContent || "",
 				width: hyperframe.width,
 				height: hyperframe.height,
 				durationSec: targetDurationSec,
@@ -867,22 +1031,79 @@ export function HyperframeEditor({
 			}
 
 			if (res.success && res.html) {
+				const newSnapshot: HyperframeVersionSnapshot = {
+					id: nextVerId,
+					versionNumber: nextVerNum,
+					timestamp: Date.now(),
+					label: promptText.slice(0, 36) + (promptText.length > 36 ? "..." : "") || `Version ${nextVerNum}`,
+					htmlContent: res.html,
+					durationUs: Math.round(targetDurationSec * 1_000_000),
+					agentId: selectedAgentId,
+					agentName,
+					prompt: promptText,
+					taggedAssetNames: taggedAssets.map((a) => a.name),
+					logs: res.logs || agentLogs,
+				};
+				const nextVersions = [...versions, newSnapshot];
+				setVersions(nextVersions);
+				setActiveVersionId(nextVerId);
+
 				onUpdate({
 					htmlContent: res.html,
 					durationUs: Math.round(targetDurationSec * 1_000_000),
+					versions: nextVersions,
 				});
 				setCodeDraft(res.html);
-				setAgentSuccess("Hyperframe updated successfully by agent!");
 				setCurrentTimeSec(0);
 				setIsPlaying(true);
 				if (iframeRef.current) {
 					iframeRef.current.srcdoc = preprocessHyperframeHtml(res.html, mediaUrlMap);
 				}
+
+				setChatMessages((prev) =>
+					prev.map((m) =>
+						m.id === assistantMsgId
+							? {
+									...m,
+									status: "success",
+									content: `Version ${nextVerNum} created! Applied directly to live source code and preview.`,
+									logs: res.logs || m.logs,
+							  }
+							: m,
+					),
+				);
+				setUserPrompt("");
+				setTaggedAssets([]);
 			} else {
-				setAgentError(res.error || "Agent execution failed without returning valid HTML.");
+				const errMsg = res.error || "Agent execution failed without returning valid HTML.";
+				setChatMessages((prev) =>
+					prev.map((m) =>
+						m.id === assistantMsgId
+							? {
+									...m,
+									status: "error",
+									content: "Agent failed to generate code.",
+									error: errMsg,
+									logs: res.logs || m.logs,
+							  }
+							: m,
+					),
+				);
 			}
 		} catch (err) {
-			setAgentError(err instanceof Error ? err.message : String(err));
+			const errMsg = err instanceof Error ? err.message : String(err);
+			setChatMessages((prev) =>
+				prev.map((m) =>
+					m.id === assistantMsgId
+						? {
+								...m,
+								status: "error",
+								content: "Agent execution error.",
+								error: errMsg,
+						  }
+						: m,
+				),
+			);
 		} finally {
 			setIsAgentRunning(false);
 		}
@@ -894,9 +1115,22 @@ export function HyperframeEditor({
 		}
 		setIsAgentRunning(false);
 		setAgentLogs((prev) => [...prev, "🛑 Agent task cancelled by user."]);
+		setChatMessages((prev) => {
+			const last = prev[prev.length - 1];
+			if (last && last.role === "assistant" && last.status === "streaming") {
+				return [
+					...prev.slice(0, -1),
+					{
+						...last,
+						status: "error",
+						content: "Agent task cancelled by user.",
+						error: "Cancelled by user.",
+					},
+				];
+			}
+			return prev;
+		});
 	};
-
-	const selectedAgent = availableAgents.find((a) => a.id === selectedAgentId);
 
 	return (
 		<div className="flex h-full w-full flex-col bg-[#111214] text-[#F5F6F8] overflow-hidden select-none">
@@ -1057,6 +1291,26 @@ export function HyperframeEditor({
 						ref={stageContainerRef}
 						className="relative flex flex-1 items-center justify-center overflow-hidden p-8"
 					>
+						{/* Floating Historical Version Notice (When inspecting an older version snapshot) */}
+						{activeVersionId !== versions[versions.length - 1]?.id && (
+							<div
+								data-testid="hyperframe-historical-version-banner"
+								className="absolute top-6 z-30 flex items-center gap-3 rounded-full border border-[#F6C768]/60 bg-[#15171C]/95 px-4 py-2 text-xs text-[#F6C768] shadow-2xl backdrop-blur-md transition animate-fadeIn"
+							>
+								<span className="flex h-2 w-2 rounded-full bg-[#F6C768] animate-pulse" />
+								<span className="font-semibold">
+									Previewing Version {activeVersion.versionNumber} ({activeVersion.label})
+								</span>
+								<button
+									type="button"
+									onClick={() => handleSwitchVersion(versions[versions.length - 1].id)}
+									className="rounded-full bg-[#F6C768]/20 px-2.5 py-0.5 text-[11px] font-bold text-white hover:bg-[#F6C768]/30 transition"
+								>
+									Back to Latest (v{versions[versions.length - 1].versionNumber})
+								</button>
+							</div>
+						)}
+
 						<div
 							className="relative overflow-hidden rounded-xl border border-white/10 bg-transparent shadow-2xl transition-transform"
 							style={{
@@ -1230,9 +1484,9 @@ export function HyperframeEditor({
 
 				{/* Right Sidebar: CLI Agent & Source Code (Collapsible) */}
 				{sidebarOpen && (
-					<aside className="flex w-[460px] shrink-0 flex-col border-l border-[#343A46] bg-[#1C1F26] shadow-2xl z-20">
+					<aside className="flex w-[460px] shrink-0 flex-col border-l border-[#343A46] bg-[#1C1F26] shadow-2xl z-20 overflow-hidden">
 						{/* Tab Switcher */}
-						<div className="flex border-b border-[#343A46] bg-[#15171C] p-2 gap-1.5">
+						<div className="flex border-b border-[#343A46] bg-[#15171C] p-2 gap-1.5 shrink-0">
 							<button
 								type="button"
 								onClick={() => setActiveTab("agent")}
@@ -1244,6 +1498,9 @@ export function HyperframeEditor({
 							>
 								<Robot size={16} weight="bold" className="text-[#A879F5]" />
 								<span>CLI Agent</span>
+								<span className="rounded-full bg-[#A879F5]/20 px-1.5 py-0.5 text-[10px] font-mono text-[#d4b9fc]">
+									v{activeVersion.versionNumber}
+								</span>
 							</button>
 
 							<button
@@ -1260,102 +1517,303 @@ export function HyperframeEditor({
 							</button>
 						</div>
 
-						{/* Tab 1: AI Agent Studio */}
+						{/* Tab 1: AI Agent Chat & Versioning Studio */}
 						{activeTab === "agent" && (
-							<div className="flex flex-1 flex-col overflow-y-auto p-4 space-y-4">
-								{/* Agent Selector Card */}
-								<div className="rounded-xl border border-[#343A46] bg-[#15171C] p-3.5 space-y-3">
+							<div className="flex flex-1 flex-col overflow-hidden">
+								{/* Header 1: Agent Selector & Status */}
+								<div className="border-b border-[#343A46] bg-[#15171C] px-3.5 py-2.5 space-y-2 shrink-0">
 									<div className="flex items-center justify-between">
-										<label className="text-xs font-bold uppercase tracking-wider text-[#A8AFBD]">
-											CLI Agent Runner
-										</label>
+										<div className="flex items-center gap-2">
+											<span className="text-[11px] font-bold uppercase tracking-wider text-[#A8AFBD]">
+												Agent Runner:
+											</span>
+											<div className="relative">
+												<select
+													value={selectedAgentId}
+													onChange={(e) => setSelectedAgentId(e.target.value)}
+													className="appearance-none rounded-lg border border-[#343A46] bg-[#1C1F26] pl-2.5 pr-6 py-1 text-xs font-semibold text-white outline-none focus:border-[#6FA8FF] transition"
+												>
+													{availableAgents.map((agent) => (
+														<option key={agent.id} value={agent.id}>
+															{agent.name} {agent.available ? "✓" : ""}
+														</option>
+													))}
+												</select>
+												<CaretDown
+													size={11}
+													className="pointer-events-none absolute right-2 top-2 text-[#A8AFBD]"
+												/>
+											</div>
+										</div>
+
 										<div className="flex items-center gap-1.5">
 											{selectedAgent?.available ? (
 												<span className="inline-flex items-center gap-1 rounded-full bg-[#8DDB9B]/15 px-2 py-0.5 text-[10px] font-semibold text-[#8DDB9B]">
-													<CheckCircle size={12} weight="fill" />
+													<CheckCircle size={11} weight="fill" />
 													Ready
 												</span>
 											) : (
 												<span className="inline-flex items-center gap-1 rounded-full bg-[#F6C768]/15 px-2 py-0.5 text-[10px] font-semibold text-[#F6C768]">
-													<WarningCircle size={12} weight="fill" />
-													Not in PATH
+													<WarningCircle size={11} weight="fill" />
+													CLI missing
 												</span>
 											)}
 										</div>
 									</div>
 
-									<div className="relative">
-										<select
-											value={selectedAgentId}
-											onChange={(e) => setSelectedAgentId(e.target.value)}
-											className="w-full appearance-none rounded-lg border border-[#343A46] bg-[#1C1F26] px-3 py-2 text-xs font-semibold text-white outline-none focus:border-[#6FA8FF] transition"
-										>
-											{availableAgents.map((agent) => (
-												<option key={agent.id} value={agent.id}>
-													{agent.name} ({agent.command || "custom"}) {agent.available ? "✓" : ""}
-												</option>
-											))}
-										</select>
-										<CaretDown
-											size={13}
-											className="pointer-events-none absolute right-3 top-3 text-[#A8AFBD]"
-										/>
-									</div>
-
 									{selectedAgentId === "custom" && (
-										<div className="flex gap-2">
-											<input
-												type="text"
-												value={customCommand}
-												onChange={(e) => setCustomCommand(e.target.value)}
-												placeholder="Binary name e.g. hermes or /usr/bin/my-cli"
-												className="flex-1 rounded-lg border border-[#343A46] bg-[#1C1F26] px-3 py-1.5 text-xs text-white placeholder-[#717887] outline-none focus:border-[#6FA8FF]"
-											/>
-										</div>
+										<input
+											type="text"
+											value={customCommand}
+											onChange={(e) => setCustomCommand(e.target.value)}
+											placeholder="Binary name e.g. hermes or /usr/bin/my-cli"
+											className="w-full rounded-lg border border-[#343A46] bg-[#1C1F26] px-3 py-1.5 text-xs text-white placeholder-[#717887] outline-none focus:border-[#6FA8FF]"
+										/>
 									)}
 
-									{/* Project Context Chips */}
-									<div className="flex flex-wrap items-center gap-1.5 pt-1">
-										<span className="inline-flex items-center gap-1 rounded bg-[#242832] px-2 py-0.5 text-[10px] text-[#A8AFBD] font-medium">
-											<FolderOpen size={11} className="text-[#6FA8FF]" />
+									{/* Quick Project Context Pills */}
+									<div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+										<span className="inline-flex items-center gap-1 rounded bg-[#242832] px-2 py-0.5 text-[#A8AFBD]">
+											<FolderOpen size={10} className="text-[#6FA8FF]" />
 											{project.assets.length} {project.assets.length === 1 ? "Asset" : "Assets"}
 										</span>
-										<span className="rounded bg-[#242832] px-2 py-0.5 text-[10px] font-mono text-[#A8AFBD]">
+										<span className="rounded bg-[#242832] px-2 py-0.5 font-mono text-[#A8AFBD]">
 											{hyperframe.width}×{hyperframe.height}
 										</span>
-										<span className="rounded bg-[#242832] px-2 py-0.5 text-[10px] font-mono text-[#A8AFBD]">
+										<span className="rounded bg-[#242832] px-2 py-0.5 font-mono text-[#A8AFBD]">
 											{durationSec.toFixed(1)}s
 										</span>
-										<span className="rounded bg-[#A879F5]/20 px-2 py-0.5 text-[10px] font-mono text-[#c5a7fb]">
+										<span className="rounded bg-[#A879F5]/20 px-2 py-0.5 font-mono text-[#c5a7fb]">
 											GSAP 3
 										</span>
 									</div>
 								</div>
 
-								{/* Prompt Presets */}
-								<div className="space-y-1.5">
-									<span className="text-[11px] font-semibold text-[#A8AFBD]">
-										Inspiration Presets:
-									</span>
-									<div className="flex flex-wrap gap-1.5">
+								{/* Header 2: Version History Ribbon (Initial v1, v2, v3...) */}
+								<div className="border-b border-[#343A46] bg-[#181B22] px-3.5 py-2 shrink-0">
+									<div className="flex items-center justify-between mb-1.5">
+										<div className="flex items-center gap-1.5">
+											<GitBranch size={12} weight="bold" className="text-[#A879F5]" />
+											<span className="text-[11px] font-bold uppercase tracking-wider text-[#A8AFBD]">
+												Version History
+											</span>
+										</div>
+										<span className="rounded-full bg-[#242832] px-2 py-0.5 text-[10px] font-mono text-[#A8AFBD]">
+											{versions.length} {versions.length === 1 ? "rev" : "revs"}
+										</span>
+									</div>
+
+									<div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+										{versions.map((ver) => {
+											const isActive = ver.id === activeVersionId;
+											return (
+												<button
+													key={ver.id}
+													type="button"
+													data-testid={`hyperframe-version-pill-${ver.versionNumber}`}
+													onClick={() => handleSwitchVersion(ver.id)}
+													className={`group flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs transition shrink-0 ${
+														isActive
+															? "border-[#6FA8FF] bg-[#6FA8FF]/20 text-white font-bold ring-1 ring-[#6FA8FF]/40 shadow-sm"
+															: "border-[#343A46] bg-[#15171C] text-[#A8AFBD] hover:border-white/20 hover:text-white"
+													}`}
+													title={`Switch to Version ${ver.versionNumber}: ${ver.label}`}
+												>
+													<span
+														className={`rounded px-1 py-0.2 text-[10px] font-mono font-bold ${
+															isActive
+																? "bg-[#6FA8FF] text-[#15171C]"
+																: "bg-[#252A35] text-[#A8AFBD] group-hover:text-white"
+														}`}
+													>
+														v{ver.versionNumber}
+													</span>
+													<span className="max-w-[100px] truncate text-[11px]">
+														{ver.label || `v${ver.versionNumber}`}
+													</span>
+													{isActive && <Check size={11} weight="bold" className="text-[#6FA8FF]" />}
+												</button>
+											);
+										})}
+									</div>
+								</div>
+
+								{/* Chat Thread (Conversation Messages Feed) */}
+								<div className="flex-1 overflow-y-auto p-3.5 space-y-3.5">
+									{chatMessages.map((msg) => {
+										if (msg.role === "system") {
+											return (
+												<div
+													key={msg.id}
+													className="flex items-start gap-2.5 rounded-xl border border-[#343A46]/70 bg-[#15171C] p-3 text-xs text-[#A8AFBD]"
+												>
+													<ChatCircleDots size={16} weight="bold" className="text-[#6FA8FF] shrink-0 mt-0.5" />
+													<div className="leading-relaxed">
+														<span className="font-semibold text-white">Motion Assistant:</span>{" "}
+														{msg.content}
+													</div>
+												</div>
+											);
+										}
+
+										if (msg.role === "user") {
+											return (
+												<div key={msg.id} className="flex flex-col items-end space-y-1 pl-6">
+													<div className="flex items-center gap-1.5 text-[10px] text-[#717887]">
+														<span>You</span>
+														{msg.agentName && <span>• to {msg.agentName}</span>}
+													</div>
+													<div className="rounded-2xl rounded-tr-sm bg-gradient-to-r from-[#293249] to-[#252836] border border-[#6FA8FF]/30 p-3 text-xs leading-relaxed text-white shadow-md">
+														<p className="whitespace-pre-wrap">{msg.content}</p>
+
+														{msg.taggedAssets && msg.taggedAssets.length > 0 && (
+															<div className="flex flex-wrap items-center gap-1 pt-2 mt-1.5 border-t border-white/10">
+																{msg.taggedAssets.map((asset) => (
+																	<span
+																		key={asset.id}
+																		className="inline-flex items-center gap-1 rounded bg-[#6FA8FF]/20 px-1.5 py-0.5 text-[10px] font-medium text-[#8cc2ff]"
+																	>
+																		@{asset.name}
+																	</span>
+																))}
+															</div>
+														)}
+													</div>
+												</div>
+											);
+										}
+
+										// Assistant Message Card
+										const isLogsExpanded = expandedLogIds.has(msg.id) || msg.status === "streaming";
+										const hasLogs = msg.logs && msg.logs.length > 0;
+
+										return (
+											<div
+												key={msg.id}
+												className="flex flex-col space-y-2 pr-4 rounded-xl border border-[#343A46] bg-[#15171C] p-3 shadow-md"
+											>
+												{/* Assistant Header */}
+												<div className="flex items-center justify-between">
+													<div className="flex items-center gap-2">
+														<div className="flex h-5 w-5 items-center justify-center rounded-md bg-[#A879F5]/20 text-[#A879F5]">
+															<Robot size={13} weight="bold" />
+														</div>
+														<span className="text-xs font-bold text-white">
+															{msg.agentName || "Motion Agent"}
+														</span>
+														{msg.versionNumber && (
+															<span className="rounded bg-[#A879F5]/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#cbaefa]">
+																v{msg.versionNumber}
+															</span>
+														)}
+													</div>
+
+													<div className="flex items-center gap-1.5">
+														{msg.status === "streaming" && (
+															<span className="flex items-center gap-1.5 rounded-full bg-[#6FA8FF]/15 px-2 py-0.5 text-[10px] font-semibold text-[#6FA8FF]">
+																<span className="h-1.5 w-1.5 rounded-full bg-[#6FA8FF] animate-ping" />
+																Streaming...
+															</span>
+														)}
+														{msg.status === "success" && (
+															<span className="flex items-center gap-1 rounded-full bg-[#8DDB9B]/15 px-2 py-0.5 text-[10px] font-semibold text-[#8DDB9B]">
+																<CheckCircle size={11} weight="fill" />
+																Applied
+															</span>
+														)}
+														{msg.status === "error" && (
+															<span className="flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-400">
+																<WarningCircle size={11} weight="fill" />
+																Error
+															</span>
+														)}
+													</div>
+												</div>
+
+												{/* Assistant Body Content */}
+												<div className="text-xs leading-relaxed text-slate-200">
+													<p>{msg.content}</p>
+													{msg.error && (
+														<div className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 p-2 text-[11px] text-red-300 font-mono">
+															{msg.error}
+														</div>
+													)}
+												</div>
+
+												{/* Version Action Pill (If message generated a version) */}
+												{msg.versionId && (
+													<div className="flex items-center gap-2 pt-1 border-t border-[#343A46]/60">
+														{msg.versionId === activeVersionId ? (
+															<span className="inline-flex items-center gap-1 rounded-lg bg-[#6FA8FF]/20 px-2 py-1 text-[11px] font-bold text-[#8cc2ff]">
+																<Check size={12} weight="bold" />
+																Active in Stage & Source Code
+															</span>
+														) : (
+															<button
+																type="button"
+																onClick={() => handleSwitchVersion(msg.versionId!)}
+																className="inline-flex items-center gap-1.5 rounded-lg border border-[#343A46] bg-[#1C1F26] px-2 py-1 text-[11px] font-semibold text-white hover:border-[#6FA8FF] hover:bg-[#6FA8FF]/15 transition"
+															>
+																<Eye size={12} weight="bold" className="text-[#6FA8FF]" />
+																<span>Switch Canvas to v{msg.versionNumber}</span>
+															</button>
+														)}
+													</div>
+												)}
+
+												{/* Collapsible Monospace Terminal Output */}
+												{hasLogs && (
+													<div className="pt-1">
+														<button
+															type="button"
+															onClick={() => toggleLogs(msg.id)}
+															className="flex w-full items-center justify-between rounded-lg border border-[#343A46]/60 bg-[#111214] px-2.5 py-1.5 text-[11px] text-[#A8AFBD] hover:border-white/20 hover:text-white transition"
+														>
+															<div className="flex items-center gap-1.5">
+																<TerminalWindow size={13} className="text-[#A879F5]" />
+																<span>Terminal Stream ({msg.logs!.length} lines)</span>
+															</div>
+															{isLogsExpanded ? <CaretDown size={11} /> : <CaretRight size={11} />}
+														</button>
+
+														{isLogsExpanded && (
+															<div className="mt-1.5 max-h-48 overflow-y-auto rounded-lg border border-[#262A34] bg-[#0C0D10] p-2.5 font-mono text-[10.5px] leading-relaxed text-slate-300 select-text">
+																{msg.logs!.map((log, i) => (
+																	<div key={i} className="whitespace-pre-wrap">
+																		{log}
+																	</div>
+																))}
+																<div ref={logsEndRef} />
+															</div>
+														)}
+													</div>
+												)}
+											</div>
+										);
+									})}
+									<div ref={chatScrollRef} />
+								</div>
+
+								{/* Bottom Docked Input Form */}
+								<div className="border-t border-[#343A46] bg-[#15171C] p-3 space-y-2 shrink-0">
+									{/* Inspiration Presets */}
+									<div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+										<span className="text-[10px] font-semibold text-[#717887] uppercase tracking-wider shrink-0">
+											Presets:
+										</span>
 										{PRESET_PROMPTS.map((p) => (
 											<button
 												key={p.label}
 												type="button"
 												onClick={() => setUserPrompt(p.prompt)}
-												className="rounded-md border border-[#343A46] bg-[#15171C] px-2 py-1 text-[11px] text-[#A8AFBD] hover:border-[#A879F5]/50 hover:text-white transition"
+												className="rounded-md border border-[#343A46] bg-[#1C1F26] px-2 py-0.5 text-[10px] text-[#A8AFBD] hover:border-[#A879F5]/50 hover:text-white transition shrink-0"
 											>
 												{p.label}
 											</button>
 										))}
 									</div>
-								</div>
 
-								{/* Prompt Input with @ Mention Autocomplete & Tagged Media Chips */}
-								<div className="flex flex-col space-y-2">
-									<label className="text-xs font-bold text-white">
-										Instructions for Agent
-									</label>
+									{/* Prompt Input with @ Mention Autocomplete & Tagged Media Chips */}
 									<HyperframePromptInput
 										value={userPrompt}
 										onChange={setUserPrompt}
@@ -1366,66 +1824,33 @@ export function HyperframeEditor({
 										onSubmit={handleRunAgent}
 									/>
 
-									<div className="flex items-center gap-2 pt-1">
-										<button
-											type="button"
-											onClick={handleRunAgent}
-											disabled={isAgentRunning || !userPrompt.trim()}
-											className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#6FA8FF] to-[#A879F5] py-2.5 text-xs font-bold text-[#15171C] shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
-										>
-											<Sparkle size={15} weight="bold" />
-											<span>{isAgentRunning ? "Running Agent..." : "Run Agent"}</span>
-										</button>
+									{/* Action Bar */}
+									<div className="flex items-center justify-between pt-0.5">
+										<span className="text-[10px] text-[#717887]">
+											Ctrl+Enter to send • @ to tag asset
+										</span>
 
-										{isAgentRunning && (
+										<div className="flex items-center gap-2">
+											{isAgentRunning && (
+												<button
+													type="button"
+													onClick={handleCancelAgent}
+													className="rounded-xl border border-red-500/40 bg-red-500/15 px-3 py-1.5 text-xs font-bold text-red-300 hover:bg-red-500/25 transition"
+												>
+													Cancel
+												</button>
+											)}
+
 											<button
 												type="button"
-												onClick={handleCancelAgent}
-												className="rounded-xl border border-red-500/40 bg-red-500/15 px-3 py-2.5 text-xs font-bold text-red-300 hover:bg-red-500/25 transition"
+												onClick={handleRunAgent}
+												disabled={isAgentRunning || !userPrompt.trim()}
+												className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#6FA8FF] to-[#A879F5] px-4 py-2 text-xs font-bold text-[#15171C] shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
 											>
-												Cancel
+												<Sparkle size={14} weight="bold" />
+												<span>{isAgentRunning ? "Running Agent..." : "Run Agent"}</span>
 											</button>
-										)}
-									</div>
-								</div>
-
-								{/* Status Notices */}
-								{agentError && (
-									<div className="rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-300">
-										<p className="font-semibold">Agent Error:</p>
-										<p className="mt-1 font-mono text-[11px] leading-relaxed">{agentError}</p>
-									</div>
-								)}
-
-								{agentSuccess && (
-									<div className="flex items-center gap-2 rounded-xl border border-[#8DDB9B]/40 bg-[#8DDB9B]/10 p-3 text-xs text-[#8DDB9B]">
-										<Check size={16} weight="bold" />
-										<span>{agentSuccess}</span>
-									</div>
-								)}
-
-								{/* Execution Logs */}
-								<div className="flex flex-1 flex-col rounded-xl border border-[#343A46] bg-[#111214] overflow-hidden min-h-[140px]">
-									<div className="flex items-center justify-between border-b border-[#343A46] bg-[#15171C] px-3 py-1.5 text-[11px] font-semibold text-[#A8AFBD]">
-										<span>Terminal Stream Logs</span>
-										{isAgentRunning && (
-											<span className="flex items-center gap-1.5 text-[#6FA8FF]">
-												<span className="h-1.5 w-1.5 animate-ping rounded-full bg-[#6FA8FF]" />
-												Streaming
-											</span>
-										)}
-									</div>
-									<div className="flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-relaxed text-slate-300 max-h-48 select-text">
-										{agentLogs.length === 0 ? (
-											<span className="text-[#555E6D]">No logs yet. Run an agent prompt above.</span>
-										) : (
-											agentLogs.map((log, i) => (
-												<div key={i} className="whitespace-pre-wrap">
-													{log}
-												</div>
-											))
-										)}
-										<div ref={logsEndRef} />
+										</div>
 									</div>
 								</div>
 							</div>
@@ -1435,7 +1860,12 @@ export function HyperframeEditor({
 						{activeTab === "code" && (
 							<div className="flex flex-1 flex-col overflow-hidden p-4 space-y-3">
 								<div className="flex items-center justify-between">
-									<span className="text-xs font-bold text-white">Direct HTML Source</span>
+									<div className="flex items-center gap-2">
+										<span className="text-xs font-bold text-white">Direct HTML Source</span>
+										<span className="rounded bg-[#242832] px-1.5 py-0.5 font-mono text-[10px] text-[#A8AFBD]">
+											v{activeVersion.versionNumber}
+										</span>
+									</div>
 									<div className="flex items-center gap-2">
 										<button
 											type="button"

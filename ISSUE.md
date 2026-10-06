@@ -188,3 +188,23 @@
   - Prompt CLI (`-p`) dan berkas instruksi `TASK.md` memuat arahan wajib agar agen membaca `HYPERFRAME_RULES.md` sebelum menyunting atau menulis kode.
   - Kompatibel 100% lintas CLI agent (`claude`, `agy`, `gemini`, `cursor`, `ollama`, `opencode`, `aider`, dll.) tanpa risiko melanggar batas panjang argumen command-line Windows (`lpCommandLine`).
 
+## Hyperframe Chatbot Thread UI, Instant Live Code Update & Snapshot Versioning (6 Oktober 2026)
+
+- **Chatbot Conversation Thread (`HyperframeEditor.tsx`):**
+  - Redesign panel agent Hyperframe menjadi tampilan thread percakapan modern layaknya UI chatbot (ChatGPT/Claude/Copilot).
+  - Postingan pengguna (*user bubble*) menampilkan teks prompt, chip aset ter-tag (`@asset`), target agent, dan timestamp.
+  - Respon asisten AI (*assistant card*) menampilkan status eksekusi real-time (*Streaming*, *Applied*, *Error*), ringkasan versi yang dibuat, serta tombol aksi cepat untuk mengaktifkan versi tersebut pada canvas.
+  - Monospace terminal stream logs kini dibuat *collapsible* per pesan (`Terminal Stream (X lines)` + Caret toggle), auto-expand saat streaming berjalan agar pengguna dapat memantau log proses CLI tanpa memakan ruang layar permanen setelah selesai.
+- **Instant Live Code & Stage Preview Update:**
+  - Begitu agen CLI selesai menghasilkan kode HTML, output langsung memperbarui state `codeDraft` dan `hyperframe.htmlContent` seketika tanpa perlu tindakan manual.
+  - Iframe stage canvas langsung memuat ulang preview (`srcDoc = preprocessHyperframeHtml(...)`) sehingga perubahan visual langsung terlihat di stage.
+- **Sistem Versioning Snapshot Sebelum Save (`HyperframeVersionSnapshot`):**
+  - Struktur snapshot versi (`v1`, `v2`, `v3`, dst.) disematkan pada skema `HyperframeComposition` (`src/core/story/storyTypes.ts`).
+  - *Version Ribbon Strip* di bagian atas panel menampilkan pil untuk setiap versi (`v1 Initial Draft`, `v2 Showcase`, dll.) beserta indikator versi aktif.
+  - Pengguna dapat melompat maju-mundur antar versi (`handleSwitchVersion`) sebelum memutuskan menyimpan project: canvas dan editor kode langsung berganti ke versi yang dipilih.
+  - Banner mengambang (*Historical Version Notice*) otomatis tampil di atas viewport canvas saat melihat versi terdahulu, dengan tombol *Back to Latest* untuk kembali cepat ke versi mutakhir.
+- **Status Pengujian & Build:**
+  - 7/7 tests lolos di `src/components/hyperframe/HyperframeEditor.test.tsx` (100% green).
+  - `npx tsc --noEmit` lolos 0 errors.
+  - `graft build` terbarui (4.925 nodes, 11.927 edges).
+
