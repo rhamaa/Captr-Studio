@@ -152,16 +152,32 @@ USER REQUEST:
 "${ctx.userPrompt}"
 
 CRITICAL HTML5 VIDEO EMBEDDING & SYNC RULES:
-1. NEVER use raw local Windows paths (e.g. "C:\\...") or "file:///" in <video src="..."> or <img src="..."> tags. Web browsers and sandboxed iframes block local file schemes for security. ALWAYS use the provided Media URL ("http://127.0.0.1:...").
-2. ALWAYS include 'autoplay muted loop playsinline' on <video> tags so the browser permits instant playback.
-3. IN 'window.seekFrame(timeInSeconds)', seek all video elements synchronously so scrubber playback stays in lockstep:
+1. LIVE PLAYING VIDEO (CRITICAL):
+   - When a video or screen recording is tagged, it MUST be embedded as a real, continuous playing <video src="..." autoplay muted loop playsinline></video> element.
+   - NEVER capture or replace it with a static image, snapshot, or canvas screenshot. The video must run as live video during the composition.
+2. PRESERVE VIDEO ASPECT RATIO & CLEAN LAYOUT:
+   - For screen recordings (usually 16:9), do NOT awkwardly crop or cut off parts of the screen.
+   - Use 'object-fit: contain' or embed the video inside an elegant container/device mockup (e.g. browser bar mockup with mac-style traffic light dots, rounded corners, soft pastel glow shadow).
+   - If designing a full-bleed video canvas, use width: 100%; height: 100%; object-fit: contain (or cover), and layer animated typography, badges, or stats on top.
+3. NEVER use raw local Windows paths (e.g. "C:\\...") or "file:///" in <video src="..."> or <img src="..."> tags. Web browsers and sandboxed iframes block local file schemes for security. ALWAYS use the provided Media URL ("http://127.0.0.1:...").
+4. IN 'window.seekFrame(timeInSeconds, isPlaying)', keep animations in sync without stalling the video decoder:
 \`\`\`javascript
-const video = document.querySelector("video");
-window.seekFrame = function(timeInSeconds) {
-  if (video && !isNaN(timeInSeconds)) {
-    video.currentTime = Math.max(0, Math.min(video.duration || ${ctx.durationSec}, timeInSeconds));
-  }
+window.seekFrame = function(timeInSeconds, isPlaying) {
   if (window.tl) window.tl.seek(timeInSeconds);
+  const video = document.querySelector("video");
+  if (video) {
+    if (isPlaying) {
+      if (video.paused) video.play().catch(()=>{});
+      if (Math.abs(video.currentTime - timeInSeconds) > 0.25) {
+        video.currentTime = timeInSeconds;
+      }
+    } else {
+      if (!video.paused) video.pause();
+      if (Math.abs(video.currentTime - timeInSeconds) > 0.04) {
+        video.currentTime = timeInSeconds;
+      }
+    }
+  }
 };
 \`\`\`
 

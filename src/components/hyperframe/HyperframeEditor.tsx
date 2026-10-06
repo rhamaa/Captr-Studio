@@ -76,6 +76,27 @@ export function preprocessHyperframeHtml(
 		const syncScript = `
 <script id="__captr_hyperframe_sync">
 (function() {
+  window.__captr_is_playing = false;
+
+  // Protect HTMLMediaElement against 60fps seek stalls during continuous playback:
+  var originalDescriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'currentTime');
+  if (originalDescriptor && originalDescriptor.set) {
+    var origSet = originalDescriptor.set;
+    Object.defineProperty(HTMLMediaElement.prototype, 'currentTime', {
+      get: originalDescriptor.get,
+      set: function(val) {
+        if (window.__captr_is_playing && !this.paused) {
+          // If actively playing, ignore micro-seeks that stall Chromium video decoders
+          if (Math.abs(this.currentTime - val) < 0.25) {
+            return;
+          }
+        }
+        return origSet.call(this, val);
+      },
+      configurable: true,
+    });
+  }
+
   function syncMediaElements(t, isPlaying) {
     var els = document.querySelectorAll('video, audio');
     els.forEach(function(el) {
@@ -100,6 +121,7 @@ export function preprocessHyperframeHtml(
 
   var existingSeek = window.seekFrame;
   window.seekFrame = function(timeInSeconds, isPlaying) {
+    window.__captr_is_playing = !!isPlaying;
     if (typeof existingSeek === 'function' && existingSeek !== window.seekFrame) {
       try { existingSeek(timeInSeconds, isPlaying); } catch(e) {}
     }
@@ -204,6 +226,8 @@ const DEFAULT_AGENTS: AgentOption[] = [
 ];
 
 const PRESET_PROMPTS = [
+	{ label: "Video Showcase", prompt: "Embed the tagged video in a sleek browser mockup container with floating pastel title, glowing border, and smooth entry animation." },
+	{ label: "Screen + PiP Webcam", prompt: "Play the screen recording full-width with a floating circular webcam overlay in the corner, synced kinetic captions, and subtle pulsing glow." },
 	{ label: "Kinetic Intro", prompt: "Animate a bold title with smooth GSAP elastic bounce, glowing pastel subtitle, and floating particle badges." },
 	{ label: "Lower Third", prompt: "Create a modern lower-third graphic with frosted glass card, speaker name, and animated accent bar." },
 	{ label: "Stat Counter", prompt: "Display a clean metric card with an animated number counter from 0 to 100K and a pastel progress ring." },
@@ -226,9 +250,9 @@ export function HyperframeEditor({
 	const [sidebarOpen, setSidebarOpen] = useState(true);
 	const [activeTab, setActiveTab] = useState<"agent" | "code">("agent");
 
-	// Playback Transport State
+	// Playback Transport State: default playing so video and animations immediately run in a smooth loop
 	const [currentTimeSec, setCurrentTimeSec] = useState(0);
-	const [isPlaying, setIsPlaying] = useState(false);
+	const [isPlaying, setIsPlaying] = useState(true);
 	const [isLooping, setIsLooping] = useState(true);
 	const [scale, setScale] = useState(0.5);
 
@@ -536,6 +560,8 @@ export function HyperframeEditor({
 				onUpdate({ htmlContent: res.html });
 				setCodeDraft(res.html);
 				setAgentSuccess("Hyperframe updated successfully by agent!");
+				setCurrentTimeSec(0);
+				setIsPlaying(true);
 				if (iframeRef.current) {
 					iframeRef.current.srcdoc = preprocessHyperframeHtml(res.html, mediaUrlMap);
 				}
