@@ -99,6 +99,25 @@ ${formattedTranscripts}
 ## User Editing Request
 ${userPrompt}
 
+## Optional: Programmatic B-Roll Graphics (Hyperframe)
+If the user requests visual B-Roll, kinetic titles, callout cards, or stat graphics, you can specify them by writing a file named \`broll_specs.json\` in this workspace folder.
+Format:
+\`\`\`json
+[
+  {
+    "id": "broll-1",
+    "timelineStartUs": 4500000,
+    "durationUs": 3000000,
+    "type": "kinetic_typography",
+    "title": "Key Concept",
+    "subtitle": "Important takeaway",
+    "theme": "dark_modern"
+  }
+]
+\`\`\`
+Supported types: \`"kinetic_typography"\`, \`"title_card"\`, \`"callout_card"\`, \`"stat_counter"\`, \`"code_snippet"\`.
+Captr Studio will automatically render these into MP4 video clips and place them on the B-Roll track above the A-Roll!
+
 ## Instructions
 Please modify the project JSON to fulfill the user request. Respond with the modified JSON.`;
 

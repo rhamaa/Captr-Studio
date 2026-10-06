@@ -1,15 +1,22 @@
 import { type ChildProcess, spawn } from "node:child_process";
+import fs from "node:fs";
 import fsPromises from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { app } from "electron";
 import {
 	type AgentDiffSummary,
 	assembleAgentEditingContext,
 	parseAgentProjectOutput,
 	summarizeProjectDiff,
 } from "../../../src/core/timeline/agentPayload";
+import {
+	injectBRollClipsIntoProject,
+	validateBRollSpecs,
+} from "../../../src/core/timeline/brollTypes";
 import type { AssetTranscript } from "../../../src/core/timeline/transcriptTypes";
 import type { TimelineProject } from "../../../src/core/timeline/types";
+import { renderHyperframeBRoll } from "../hyperframe/hyperframeRenderer";
 import { KNOWN_AGENTS, checkAgentAvailability, getAugmentedEnv } from "./agentDetector";
 
 export interface RunAgentTaskParams {
@@ -211,10 +218,47 @@ export async function runAgentTask(
 			};
 		}
 
-		const diff = summarizeProjectDiff(params.project, parsedResult.project);
+		let finalProject = parsedResult.project;
+
+		// 3. Stage 2: Check for broll_specs.json and render Hyperframe B-Roll animations
+		const brollSpecFile = path.join(tempDir, "broll_specs.json");
+		try {
+			if (fs.existsSync(brollSpecFile)) {
+				const rawBroll = JSON.parse(await fsPromises.readFile(brollSpecFile, "utf-8"));
+				const validatedSpecs = validateBRollSpecs(rawBroll);
+				if (validatedSpecs.length > 0) {
+					log(`\n[Captr Studio] Detected ${validatedSpecs.length} B-Roll specifications in broll_specs.json.\n`);
+					log(`[Captr Studio] Rendering motion graphics via Hyperframe Engine...\n`);
+
+					const userDataPath = app?.getPath?.("userData") ?? os.tmpdir();
+					const brollStorageDir = path.join(userDataPath, "hyperframe_assets");
+					await fsPromises.mkdir(brollStorageDir, { recursive: true });
+
+					const renderResults = [];
+					for (const spec of validatedSpecs) {
+						const assetDir = path.join(brollStorageDir, `broll-${spec.id}`);
+						log(`  • Rendering B-Roll [${spec.type}]: "${spec.title}"...\n`);
+						const res = await renderHyperframeBRoll(spec, assetDir, finalProject.canvas);
+						if (res.success) {
+							log(`    ✓ Rendered successfully (${(res.durationUs / 1_000_000).toFixed(1)}s)\n`);
+						} else {
+							log(`    ⚠ Render notice: ${res.error}\n`);
+						}
+						renderResults.push(res);
+					}
+
+					finalProject = injectBRollClipsIntoProject(finalProject, renderResults);
+				}
+			}
+		} catch (brollErr) {
+			const brollMsg = brollErr instanceof Error ? brollErr.message : String(brollErr);
+			log(`[Captr Studio] B-Roll processing notice: ${brollMsg}\n`);
+		}
+
+		const diff = summarizeProjectDiff(params.project, finalProject);
 		return {
 			success: true,
-			project: parsedResult.project,
+			project: finalProject,
 			diff,
 			logs,
 		};

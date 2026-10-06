@@ -47,6 +47,11 @@ const PRESET_PROMPTS = [
 			"Identify and cut out speech hesitations, filler words, and awkward false starts based on the transcript word timings.",
 	},
 	{
+		title: "A-Roll speech + Hyperframe B-Roll",
+		prompt:
+			"Keep the main spoken dialogue as A-Roll, cut out dead air, and generate visual Hyperframe B-Roll motion graphics for the main highlight points.",
+	},
+	{
 		title: "Trim to key highlights",
 		prompt:
 			"Keep only the sections where the main key points are discussed and remove repetitive or tangential discussion.",
@@ -297,11 +302,42 @@ export function AIAssistantModal({
 
 				{/* Prompt Textarea */}
 				<div className="ai-assistant-section">
-					<label className="ai-assistant-label">Instruction Prompt</label>
+					<div className="flex items-center justify-between mb-1">
+						<label className="ai-assistant-label">Instruction Prompt</label>
+						{project.assets.length > 0 && (
+							<span className="text-[11px] text-zinc-400">Click asset to tag:</span>
+						)}
+					</div>
+
+					{project.assets.length > 0 && (
+						<div className="ai-assistant-asset-mentions">
+							{project.assets.map((asset) => {
+								const hasTranscript = Boolean(transcripts[asset.id]);
+								const tag = `@${asset.name.replace(/\s+/g, "_")}`;
+								return (
+									<button
+										key={asset.id}
+										type="button"
+										className="ai-assistant-mention-chip"
+										title={`Tag asset "${asset.name}" in your instructions`}
+										onClick={() => {
+											setPrompt((prev) => (prev ? `${prev} ${tag}` : tag));
+										}}
+									>
+										<span>{tag}</span>
+										{hasTranscript && (
+											<span className="ai-assistant-mention-badge-cc">CC</span>
+										)}
+									</button>
+								);
+							})}
+						</div>
+					)}
+
 					<textarea
 						className="ai-assistant-textarea"
 						rows={3}
-						placeholder="Describe how the AI should edit your video (e.g., 'Trim out silent parts, keep the demonstration of feature X, and arrange the flow chronologically')..."
+						placeholder="Describe how the AI should edit your video (e.g., 'Use @My_Recording as A-Roll, cut dead air, and add Hyperframe B-Roll for key topics')..."
 						value={prompt}
 						onChange={(e) => setPrompt(e.target.value)}
 						disabled={isRunning}
