@@ -27,7 +27,7 @@ export const DEFAULT_SUBTITLE_STYLE: SubtitleStyle = {
 	position: "bottom",
 	fontSizePx: 20,
 	textColor: "#ffffff",
-	highlightColor: "#34d399", // Emerald highlight
+	highlightColor: "#8DDB9B", // Sage mint highlight
 	backgroundColor: "rgba(0, 0, 0, 0.72)",
 	highlightActiveWord: true,
 };
@@ -295,9 +295,10 @@ export function SubtitleOverlay({
 						<span>Highlight Color</span>
 						<div className="subtitle-color-presets">
 							{[
-								{ label: "Emerald", color: "#34d399" },
-								{ label: "Yellow", color: "#facc15" },
-								{ label: "Cyan", color: "#38bdf8" },
+								{ label: "Sage Mint", color: "#8DDB9B" },
+								{ label: "Honey Yellow", color: "#F6C768" },
+								{ label: "Soft Blue", color: "#6FA8FF" },
+								{ label: "Lavender", color: "#A879F5" },
 								{ label: "White", color: "#ffffff" },
 							].map((p) => (
 								<button

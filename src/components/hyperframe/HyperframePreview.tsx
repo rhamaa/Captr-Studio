@@ -109,18 +109,18 @@ export function HyperframePreview({
 
 	return (
 		<div
-			className="hyperframe-preview-container flex flex-col h-full w-full bg-slate-950 text-slate-100 rounded-xl overflow-hidden border border-slate-800 shadow-2xl"
+			className="hyperframe-preview-container flex flex-col h-full w-full bg-[#15171C] text-[#F5F6F8] rounded-xl overflow-hidden border border-[#343A46] shadow-xl"
 			data-testid="hyperframe-preview"
 		>
 			{/* Header Toolbar */}
-			<div className="flex items-center justify-between px-4 py-2.5 bg-slate-900 border-b border-slate-800">
+			<div className="flex items-center justify-between px-4 py-2.5 bg-[#1C1F26] border-b border-[#343A46]">
 				<div className="flex items-center gap-2.5">
-					<span className="p-1.5 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
-						<Sparkle size={18} weight="bold" />
+					<span className="p-1.5 rounded-lg bg-[#6FA8FF]/15 text-[#6FA8FF] border border-[#6FA8FF]/25">
+						<Sparkle size={17} weight="bold" />
 					</span>
 					<div>
 						<h3 className="text-sm font-semibold text-white tracking-wide">{hyperframe.name}</h3>
-						<span className="text-xs text-slate-400 font-mono">
+						<span className="text-xs text-[#A8AFBD] font-mono">
 							{hyperframe.width}x{hyperframe.height} &bull; {durationSec.toFixed(1)}s &bull; HTML5 + GSAP
 						</span>
 					</div>
@@ -130,7 +130,7 @@ export function HyperframePreview({
 					<button
 						type="button"
 						onClick={handleReload}
-						className="p-1.5 rounded-md hover:bg-slate-800 text-slate-400 hover:text-white transition"
+						className="p-1.5 rounded-md hover:bg-white/10 text-[#A8AFBD] hover:text-white transition"
 						title="Reload Frame"
 					>
 						<ArrowClockwise size={16} />
@@ -140,8 +140,8 @@ export function HyperframePreview({
 						onClick={() => setShowCode(!showCode)}
 						className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md font-medium transition ${
 							showCode
-								? "bg-sky-500 text-slate-950 font-bold"
-								: "bg-slate-800 hover:bg-slate-700 text-slate-300"
+								? "bg-[#6FA8FF] text-[#15171C] font-semibold"
+								: "bg-white/10 hover:bg-white/15 text-[#F5F6F8]"
 						}`}
 						title="View Source HTML"
 					>
@@ -156,10 +156,10 @@ export function HyperframePreview({
 				{/* Viewport Canvas Stage */}
 				<div
 					ref={containerRef}
-					className="flex-1 relative flex items-center justify-center p-6 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px] bg-slate-950 overflow-hidden"
+					className="flex-1 relative flex items-center justify-center p-6 bg-[#111214] overflow-hidden"
 				>
 					<div
-						className="relative shadow-2xl rounded-lg overflow-hidden border border-slate-700/60 bg-transparent transition-transform"
+						className="relative shadow-2xl rounded-lg overflow-hidden border border-white/10 bg-transparent transition-transform"
 						style={{
 							width: `${hyperframe.width}px`,
 							height: `${hyperframe.height}px`,
@@ -179,14 +179,14 @@ export function HyperframePreview({
 
 				{/* Code Viewer Panel */}
 				{showCode && (
-					<div className="w-96 border-l border-slate-800 bg-slate-900 flex flex-col text-xs font-mono">
-						<div className="px-3 py-2 bg-slate-950 border-b border-slate-800 font-sans text-slate-400 font-semibold flex items-center justify-between">
+					<div className="w-96 border-l border-[#343A46] bg-[#1C1F26] flex flex-col text-xs font-mono">
+						<div className="px-3 py-2 bg-[#15171C] border-b border-[#343A46] font-sans text-[#A8AFBD] font-semibold flex items-center justify-between">
 							<span>Hyperframe HTML Source</span>
-							<span className="text-[10px] bg-sky-900/60 text-sky-300 px-1.5 py-0.5 rounded">
+							<span className="text-[10px] bg-[#A879F5]/20 text-[#c5a7fb] px-1.5 py-0.5 rounded font-mono font-medium">
 								GSAP Driven
 							</span>
 						</div>
-						<div className="flex-1 overflow-auto p-3 text-sky-200/90 whitespace-pre leading-relaxed select-text">
+						<div className="flex-1 overflow-auto p-3 text-slate-300 whitespace-pre leading-relaxed select-text">
 							{hyperframe.htmlContent || "// No inline source loaded"}
 						</div>
 					</div>
@@ -194,17 +194,17 @@ export function HyperframePreview({
 			</div>
 
 			{/* Playback Controls & Timeline Scrubber */}
-			<div className="px-4 py-3 bg-slate-900 border-t border-slate-800 flex items-center gap-4">
+			<div className="px-4 py-3 bg-[#1C1F26] border-t border-[#343A46] flex items-center gap-4">
 				<button
 					type="button"
 					onClick={togglePlay}
-					className="p-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold transition shadow-md flex items-center justify-center"
+					className="p-2 rounded-lg bg-[#6FA8FF] hover:bg-[#85b7ff] text-[#15171C] font-semibold transition shadow flex items-center justify-center"
 					title={isPlaying ? "Pause" : "Play"}
 				>
 					{isPlaying ? <Pause size={18} weight="fill" /> : <Play size={18} weight="fill" />}
 				</button>
 
-				<span className="text-xs font-mono text-slate-400 w-12 text-right">
+				<span className="text-xs font-mono text-[#A8AFBD] w-12 text-right">
 					{currentTimeSec.toFixed(2)}s
 				</span>
 
@@ -218,10 +218,10 @@ export function HyperframePreview({
 						setIsPlaying(false);
 						setCurrentTimeSec(Number.parseFloat(e.target.value));
 					}}
-					className="flex-1 accent-sky-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer"
+					className="flex-1 accent-[#6FA8FF] h-1.5 bg-[#242832] rounded-lg cursor-pointer"
 				/>
 
-				<span className="text-xs font-mono text-slate-400 w-12">
+				<span className="text-xs font-mono text-[#A8AFBD] w-12">
 					{durationSec.toFixed(2)}s
 				</span>
 			</div>

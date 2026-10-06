@@ -303,7 +303,7 @@ export function CanvasTransformGizmo({
 				>
 					{/* Bounding outline */}
 					<div
-						className="absolute inset-0 border-2 border-cyan-400/90 rounded-[2px] shadow-[0_0_8px_rgba(6,182,212,0.4)] cursor-move"
+						className="absolute inset-0 border-2 border-[#6FA8FF] rounded-[2px] shadow-[0_2px_10px_rgba(0,0,0,0.3)] cursor-move"
 						onPointerDown={startTranslate}
 					/>
 
@@ -313,8 +313,8 @@ export function CanvasTransformGizmo({
 						onPointerDown={startRotate}
 						title="Drag to rotate"
 					>
-						<div className="w-3.5 h-3.5 rounded-full bg-cyan-400 border-2 border-white shadow-md hover:scale-125 transition-transform" />
-						<div className="w-0.5 h-3.5 bg-cyan-400" />
+						<div className="w-3.5 h-3.5 rounded-full bg-[#6FA8FF] border-2 border-white shadow-md hover:scale-125 transition-transform" />
+						<div className="w-0.5 h-3.5 bg-[#6FA8FF]" />
 					</div>
 
 					{/* 8 Resize Handles */}
@@ -332,7 +332,7 @@ export function CanvasTransformGizmo({
 					).map(({ dir, style }) => (
 						<div
 							key={dir}
-							className={`absolute w-2.5 h-2.5 bg-white border border-cyan-500 rounded-sm shadow-sm hover:scale-125 transition-transform ${style}`}
+							className={`absolute w-2.5 h-2.5 bg-white border border-[#6FA8FF] rounded-sm shadow-sm hover:scale-125 transition-transform ${style}`}
 							onPointerDown={(e) => startResize(e, dir)}
 						/>
 					))}

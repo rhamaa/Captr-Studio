@@ -1719,9 +1719,9 @@
 }
 
 .subtitle-toggle-pill.active {
-	background: rgba(16, 185, 129, 0.25);
-	border-color: rgba(52, 211, 153, 0.5);
-	color: #34d399;
+	background: rgba(141, 219, 155, 0.2);
+	border-color: rgba(141, 219, 155, 0.45);
+	color: #8DDB9B;
 }
 
 .subtitle-toggle-pill:hover {
@@ -1792,8 +1792,8 @@
 }
 
 .subtitle-btn-group button.selected {
-	background: #3b82f6;
-	color: #ffffff;
+	background: #6FA8FF;
+	color: #15171C;
 	font-weight: 600;
 }
 
@@ -1807,9 +1807,9 @@
 }
 
 .subtitle-toggle-switch.on {
-	background: rgba(16, 185, 129, 0.2);
-	color: #34d399;
-	border-color: rgba(52, 211, 153, 0.35);
+	background: rgba(141, 219, 155, 0.2);
+	color: #8DDB9B;
+	border-color: rgba(141, 219, 155, 0.35);
 }
 
 .subtitle-toggle-switch.off {
@@ -1832,7 +1832,7 @@
 }
 
 .subtitle-color-presets .color-dot.selected {
-	outline: 2px solid #3b82f6;
+	outline: 2px solid #6FA8FF;
 	outline-offset: 1px;
 }
 

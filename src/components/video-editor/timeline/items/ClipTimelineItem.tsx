@@ -77,13 +77,13 @@ export function ClipTimelineItem({
 						{/* 1. Screen Record Preview Badge */}
 						{media4in1?.videoPath ? (
 							<div
-								className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-950/70 border border-sky-400/30 text-sky-300 text-[9px] font-medium shrink-0"
+								className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#6FA8FF]/15 border border-[#6FA8FF]/30 text-[#8ec0ff] text-[9px] font-medium shrink-0"
 								title="Screen Recording Video Track"
 							>
 								<DesktopIcon
 									size={11}
 									weight="fill"
-									className="text-sky-400 shrink-0"
+									className="text-[#6FA8FF] shrink-0"
 								/>
 								<span className="truncate max-w-[70px]">Screen</span>
 							</div>
@@ -166,8 +166,8 @@ export function ClipTimelineItem({
 				{/* Bottom Row: Dual Audio Previews (3. System Audio + 4. Mic Audio) */}
 				<div className="flex flex-col gap-1.5 w-full pt-1.5">
 					{/* 3. System Audio Track Lane */}
-					<div className="relative w-full h-[20px] rounded-md bg-sky-950/60 border border-sky-400/30 overflow-hidden flex items-center px-1.5">
-						<div className="flex items-center gap-1 text-sky-300 z-10 shrink-0 mr-1.5 pointer-events-none select-none">
+					<div className="relative w-full h-[20px] rounded-md bg-[#6FA8FF]/10 border border-[#6FA8FF]/30 overflow-hidden flex items-center px-1.5">
+						<div className="flex items-center gap-1 text-[#8ec0ff] z-10 shrink-0 mr-1.5 pointer-events-none select-none">
 							<SpeakerHighIcon size={11} weight="fill" />
 							<span className="text-[8px] font-bold font-mono tracking-wider">
 								SYS
@@ -178,11 +178,11 @@ export function ClipTimelineItem({
 								peaks={media4in1.systemPeaks}
 								segmentStartMs={waveformSegmentSpan?.start ?? span.start}
 								segmentEndMs={waveformSegmentSpan?.end ?? span.end}
-								waveColor="rgba(56, 189, 248, 0.85)"
+								waveColor="rgba(111, 168, 255, 0.85)"
 								className="absolute inset-0 w-full h-full pointer-events-none"
 							/>
 						) : (
-							<div className="flex-1 h-[1px] bg-sky-400/20" />
+							<div className="flex-1 h-[1px] bg-[#6FA8FF]/20" />
 						)}
 						{media4in1?.systemMuted && (
 							<SpeakerX className="w-3 h-3 text-red-400 ml-auto z-10 shrink-0" />
@@ -190,8 +190,8 @@ export function ClipTimelineItem({
 					</div>
 
 					{/* 4. Mic Audio Track Lane */}
-					<div className="relative w-full h-[20px] rounded-md bg-emerald-950/60 border border-emerald-400/30 overflow-hidden flex items-center px-1.5">
-						<div className="flex items-center gap-1 text-emerald-300 z-10 shrink-0 mr-1.5 pointer-events-none select-none">
+					<div className="relative w-full h-[20px] rounded-md bg-[#8DDB9B]/10 border border-[#8DDB9B]/30 overflow-hidden flex items-center px-1.5">
+						<div className="flex items-center gap-1 text-[#a5eec0] z-10 shrink-0 mr-1.5 pointer-events-none select-none">
 							<MicrophoneIcon size={11} weight="fill" />
 							<span className="text-[8px] font-bold font-mono tracking-wider">
 								MIC
@@ -202,11 +202,11 @@ export function ClipTimelineItem({
 								peaks={media4in1.micPeaks}
 								segmentStartMs={waveformSegmentSpan?.start ?? span.start}
 								segmentEndMs={waveformSegmentSpan?.end ?? span.end}
-								waveColor="rgba(52, 211, 153, 0.85)"
+								waveColor="rgba(141, 219, 155, 0.85)"
 								className="absolute inset-0 w-full h-full pointer-events-none"
 							/>
 						) : (
-							<div className="flex-1 h-[1px] bg-emerald-400/20" />
+							<div className="flex-1 h-[1px] bg-[#8DDB9B]/20" />
 						)}
 						{media4in1?.micMuted && (
 							<MicrophoneSlashIcon className="w-3 h-3 text-red-400 ml-auto z-10 shrink-0" />

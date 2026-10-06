@@ -315,13 +315,13 @@ export function RepurposeBoardEditor({
 
 				{/* Center Summary Indicator & Tab Switcher */}
 				<div className="repurpose-header-summary flex items-center gap-3">
-					<div className="repurpose-tab-switch inline-flex items-center bg-slate-900 border border-slate-800 rounded-md p-0.5">
+					<div className="repurpose-tab-switch inline-flex items-center bg-[#15171C] border border-[#343A46] rounded-md p-0.5">
 						<button
 							type="button"
 							className={`px-2.5 py-0.5 text-xs font-semibold rounded transition ${
 								activeTab === "stories"
-									? "bg-sky-500 text-slate-950 shadow-sm"
-									: "text-slate-400 hover:text-white"
+									? "bg-[#6FA8FF] text-[#15171C] shadow-sm"
+									: "text-[#A8AFBD] hover:text-white"
 							}`}
 							onClick={() => setActiveTab("stories")}
 						>
@@ -331,8 +331,8 @@ export function RepurposeBoardEditor({
 							type="button"
 							className={`px-2.5 py-0.5 text-xs font-semibold rounded transition ${
 								activeTab === "hyperframes"
-									? "bg-sky-500 text-slate-950 shadow-sm"
-									: "text-slate-400 hover:text-white"
+									? "bg-[#6FA8FF] text-[#15171C] shadow-sm"
+									: "text-[#A8AFBD] hover:text-white"
 							}`}
 							onClick={() => setActiveTab("hyperframes")}
 						>
@@ -407,18 +407,18 @@ export function RepurposeBoardEditor({
 			)}
 
 			{activeTab === "hyperframes" ? (
-				<div className="repurpose-hyperframe-stage flex-1 flex bg-slate-950 overflow-hidden p-6 gap-6 min-h-[500px]">
+				<div className="repurpose-hyperframe-stage flex-1 flex bg-[#111214] overflow-hidden p-6 gap-6 min-h-[500px]">
 					{/* Hyperframe List Sidebar */}
-					<div className="w-80 bg-slate-900 border border-slate-800 rounded-xl flex flex-col overflow-hidden shadow-xl">
-						<div className="p-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+					<div className="w-80 bg-[#1C1F26] border border-[#343A46] rounded-xl flex flex-col overflow-hidden shadow-xl">
+						<div className="p-3.5 border-b border-[#343A46] flex items-center justify-between bg-[#15171C]">
 							<div className="flex items-center gap-2">
-								<Code size={16} className="text-sky-400" weight="bold" />
+								<Code size={16} className="text-[#6FA8FF]" weight="bold" />
 								<h4 className="text-xs font-bold text-white uppercase tracking-wider">Hyperframes</h4>
 							</div>
 							<button
 								type="button"
 								onClick={() => handleCreateHyperframe("Kinetic Title Card")}
-								className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-md transition shadow"
+								className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-[#6FA8FF] hover:bg-[#85b7ff] text-[#15171C] rounded-md transition shadow"
 							>
 								<Plus size={12} weight="bold" />
 								<span>New</span>
@@ -426,7 +426,7 @@ export function RepurposeBoardEditor({
 						</div>
 						<div className="flex-1 overflow-y-auto p-2 space-y-1.5">
 							{(project.hyperframes ?? []).length === 0 ? (
-								<div className="p-6 text-center text-slate-500 text-xs">
+								<div className="p-6 text-center text-[#A8AFBD] text-xs">
 									Belum ada Hyperframe code. Klik tombol di atas untuk membuat animasi baru!
 								</div>
 							) : (
@@ -439,12 +439,12 @@ export function RepurposeBoardEditor({
 											onClick={() => setSelectedHyperframeId(hf.id)}
 											className={`w-full text-left p-2.5 rounded-lg border transition ${
 												isSelected
-													? "bg-sky-500/10 border-sky-500/50 text-white"
-													: "bg-slate-950/40 border-slate-800 hover:border-slate-700 text-slate-300"
+													? "bg-[#6FA8FF]/15 border-[#6FA8FF]/40 text-white shadow-sm"
+													: "bg-[#15171C]/60 border-[#343A46] hover:border-[#6FA8FF]/30 text-[#A8AFBD]"
 											}`}
 										>
 											<div className="text-xs font-semibold">{hf.name}</div>
-											<div className="text-[10px] text-slate-400 font-mono mt-0.5">
+											<div className="text-[10px] text-[#A8AFBD] font-mono mt-0.5">
 												{hf.width}x{hf.height} &bull; {(hf.durationUs / 1_000_000).toFixed(1)}s
 											</div>
 										</button>
@@ -462,18 +462,18 @@ export function RepurposeBoardEditor({
 								onUpdateHtml={(newHtml) => handleUpdateHyperframeHtml(currentHyperframe.id, newHtml)}
 							/>
 						) : (
-							<div className="h-full flex flex-col items-center justify-center border border-dashed border-slate-800 rounded-xl p-8 text-center bg-slate-900/40">
-								<div className="p-3 bg-sky-500/10 text-sky-400 rounded-2xl mb-4 border border-sky-500/20">
+							<div className="h-full flex flex-col items-center justify-center border border-dashed border-[#343A46] rounded-xl p-8 text-center bg-[#1C1F26]/60">
+								<div className="p-3 bg-[#A879F5]/15 text-[#c5a7fb] rounded-2xl mb-4 border border-[#A879F5]/25">
 									<Sparkle size={36} weight="duotone" />
 								</div>
 								<h3 className="text-base font-semibold text-white mb-2">Code-Driven Hyperframe Studio</h3>
-								<p className="text-xs text-slate-400 max-w-md mb-6 leading-relaxed">
+								<p className="text-xs text-[#A8AFBD] max-w-md mb-6 leading-relaxed">
 									Hyperframe memungkinkan animasi motion graphic, kinetic typography, dan kartu informasi diproduksi menggunakan kode HTML5, CSS, dan GSAP secara pixel-perfect dan siap diorkestrasi oleh AI Agent.
 								</p>
 								<button
 									type="button"
 									onClick={() => handleCreateHyperframe("Kinetic Title Card")}
-									className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-lg transition shadow-lg"
+									className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-[#6FA8FF] hover:bg-[#85b7ff] text-[#15171C] rounded-lg transition shadow-lg"
 								>
 									<Sparkle size={15} weight="bold" />
 									<span>Generate Kinetic Intro Hyperframe</span>

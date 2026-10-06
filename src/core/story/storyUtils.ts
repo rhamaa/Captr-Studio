@@ -192,12 +192,12 @@ export function createDefaultHyperframeTemplate(
       position: relative;
       width: 760px;
       padding: 40px 48px;
-      background: rgba(15, 23, 42, 0.88);
+      background: rgba(28, 31, 38, 0.88);
       backdrop-filter: blur(24px);
       -webkit-backdrop-filter: blur(24px);
-      border: 1.5px solid rgba(56, 189, 248, 0.45);
-      border-radius: 28px;
-      box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.6), 0 0 40px rgba(56, 189, 248, 0.15);
+      border: 1.5px solid rgba(111, 168, 255, 0.25);
+      border-radius: 24px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 30px rgba(168, 121, 245, 0.08);
       color: #ffffff;
       opacity: 0;
       transform: translateY(30px) scale(0.92);
@@ -208,15 +208,15 @@ export function createDefaultHyperframeTemplate(
     .badge {
       display: inline-flex;
       align-self: flex-start;
-      background: linear-gradient(135deg, #38bdf8, #818cf8);
-      color: #030712;
+      background: linear-gradient(135deg, #6FA8FF, #A879F5);
+      color: #0c0e12;
       font-size: 13px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
+      font-weight: 700;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
       padding: 6px 16px;
       border-radius: 9999px;
-      box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+      box-shadow: 0 4px 14px rgba(111, 168, 255, 0.25);
     }
     .title {
       font-size: 42px;

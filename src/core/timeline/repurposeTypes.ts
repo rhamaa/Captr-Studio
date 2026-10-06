@@ -74,11 +74,11 @@ export const ARTBOARD_PRESETS: ArtboardPreset[] = [
 ];
 
 export const SLICE_COLORS = [
-	"#3b82f6", // Blue
-	"#10b981", // Emerald
-	"#f59e0b", // Amber
-	"#8b5cf6", // Purple
-	"#ec4899", // Pink
-	"#06b6d4", // Cyan
-	"#f97316", // Orange
+	"#6FA8FF", // Soft Blue
+	"#8DDB9B", // Sage Mint
+	"#F6C768", // Honey Amber
+	"#A879F5", // Lavender
+	"#FF6B81", // Coral Rose
+	"#38bdf8", // Sky Soft
+	"#fb923c", // Warm Peach
 ];
