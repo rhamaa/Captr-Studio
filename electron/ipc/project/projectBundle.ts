@@ -416,3 +416,98 @@ export async function inspectProjectBundle(captrPath: string): Promise<ProjectIn
 		};
 	}
 }
+
+/**
+ * Reads a single specific entry (text/json/html or image) from inside a .captr bundle
+ * without extracting the entire archive to disk.
+ */
+export async function readProjectBundleEntry(
+	captrPath: string,
+	entryPath: string,
+): Promise<{
+	success: boolean;
+	content?: string;
+	dataUrl?: string;
+	size?: number;
+	error?: string;
+}> {
+	try {
+		const isBundle = await isProjectBundle(captrPath);
+		if (!isBundle) {
+			return { success: false, error: "Not a valid .captr bundle" };
+		}
+
+		return await new Promise((resolve) => {
+			yauzl.open(captrPath, { lazyEntries: true }, (openErr, zipfile) => {
+				if (openErr || !zipfile) {
+					return resolve({
+						success: false,
+						error: openErr ? String(openErr) : "Failed to open project bundle",
+					});
+				}
+
+				const normalizedTarget = entryPath.replace(/\\/g, "/");
+				let found = false;
+
+				zipfile.on("error", (err) => {
+					resolve({ success: false, error: String(err) });
+				});
+
+				zipfile.on("end", () => {
+					if (!found) {
+						resolve({ success: false, error: `Entry "${entryPath}" not found in bundle` });
+					}
+				});
+
+				zipfile.readEntry();
+
+				zipfile.on("entry", async (entry: yauzl.Entry) => {
+					const rawName = entry.fileName.replace(/\\/g, "/");
+					if (rawName === normalizedTarget && !entry.fileName.endsWith("/")) {
+						found = true;
+						try {
+							const buf = await readEntryToBuffer(zipfile, entry);
+							try {
+								zipfile.close();
+							} catch {}
+
+							const ext = path.extname(rawName).toLowerCase();
+							const isImage = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"].includes(ext);
+
+							if (isImage) {
+								const mime =
+									ext === ".svg"
+										? "image/svg+xml"
+										: ext === ".jpg" || ext === ".jpeg"
+											? "image/jpeg"
+											: ext === ".webp"
+												? "image/webp"
+												: ext === ".gif"
+													? "image/gif"
+													: "image/png";
+								return resolve({
+									success: true,
+									dataUrl: `data:${mime};base64,${buf.toString("base64")}`,
+									size: entry.uncompressedSize,
+								});
+							}
+
+							return resolve({
+								success: true,
+								content: buf.toString("utf-8"),
+								size: entry.uncompressedSize,
+							});
+						} catch (readErr) {
+							return resolve({ success: false, error: String(readErr) });
+						}
+					}
+
+					zipfile.readEntry();
+				});
+			});
+		});
+	} catch (err) {
+		return { success: false, error: String(err) };
+	}
+}
+

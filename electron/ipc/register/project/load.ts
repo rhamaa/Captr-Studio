@@ -7,7 +7,7 @@ import {
 	loadProjectFromPath,
 	releaseLegacyProjectCandidate,
 } from "../../project/manager";
-import { inspectProjectBundle } from "../../project/projectBundle";
+import { inspectProjectBundle, readProjectBundleEntry } from "../../project/projectBundle";
 import { currentProjectPath } from "../../state";
 import { consumePendingProjectOpen } from "../../../pendingProjectOpen";
 
@@ -176,6 +176,21 @@ export function registerProjectLoadHandlers() {
 			return await inspectProjectBundle(result.filePaths[0]);
 		} catch (error) {
 			console.error("Failed to pick and inspect project file:", error);
+			return {
+				success: false,
+				error: String(error),
+			};
+		}
+	});
+
+	ipcMain.handle("read-project-bundle-entry", async (_, filePath: string, entryPath: string) => {
+		try {
+			if (!filePath || !entryPath) {
+				return { success: false, error: "Project file and entry path are required" };
+			}
+			return await readProjectBundleEntry(filePath, entryPath);
+		} catch (error) {
+			console.error("Failed to read project bundle entry:", error);
 			return {
 				success: false,
 				error: String(error),

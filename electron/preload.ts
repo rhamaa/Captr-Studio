@@ -791,6 +791,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	pickAndInspectProjectFile: () => {
 		return ipcRenderer.invoke("pick-and-inspect-project-file");
 	},
+	readProjectBundleEntry: (filePath: string, entryPath: string) => {
+		return ipcRenderer.invoke("read-project-bundle-entry", filePath, entryPath);
+	},
 	saveRecordedAudio: (payload: {
 		audioBuffer: ArrayBuffer | Uint8Array | number[];
 		extension?: string;

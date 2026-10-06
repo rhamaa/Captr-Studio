@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { ArrowClockwise, FolderOpen, Plus, Minus, Square, X, Gear } from "@phosphor-icons/react";
+import { ArrowClockwise, FolderOpen, Plus, Minus, Square, X, Gear, Package } from "@phosphor-icons/react";
 import { CaptrLogo } from "@/components/brand/CaptrLogo";
 import { useProjectMessages } from "@/components/editor/useProjectMessages";
 import type { ProjectLibraryEntry } from "@/components/video-editor/ProjectBrowserDialog";
+import { CaptrInspectorModal } from "./CaptrInspectorModal";
 import { ProjectCard } from "./ProjectCard";
 import "./projectHome.css";
 export interface WelcomeScreenProps {
@@ -19,6 +20,8 @@ export interface WelcomeScreenProps {
 export function WelcomeScreen(props: WelcomeScreenProps) {
 	const m = useProjectMessages();
 	const [query, setQuery] = useState("");
+	const [inspectorOpen, setInspectorOpen] = useState(false);
+	const [inspectorFilePath, setInspectorFilePath] = useState<string | null>(null);
 	const projects = useMemo(
 		() =>
 			props.recentProjects.filter((p) =>
@@ -82,6 +85,20 @@ export function WelcomeScreen(props: WelcomeScreenProps) {
 							<small>{m("openProjectHint")}</small>
 						</span>
 					</button>
+					<button
+						disabled={props.busy}
+						onClick={() => {
+							setInspectorFilePath(null);
+							setInspectorOpen(true);
+						}}
+						title="Inspect & preview .captr files"
+					>
+						<Package size={24} className="text-[#A879F5]" />
+						<span>
+							<strong>{m("inspectProject")}</strong>
+							<small>{m("inspectProjectHint")}</small>
+						</span>
+					</button>
 				</section>
 				<section className="home-library">
 					<div className="home-library-toolbar">
@@ -121,6 +138,10 @@ export function WelcomeScreen(props: WelcomeScreenProps) {
 									onOpen={
 										props.busy ? () => undefined : props.onOpenRecentProject
 									}
+									onInspect={(path) => {
+										setInspectorFilePath(path);
+										setInspectorOpen(true);
+									}}
 								/>
 							))}
 						</div>
@@ -133,6 +154,17 @@ export function WelcomeScreen(props: WelcomeScreenProps) {
 					)}
 				</section>
 			</div>
+
+			<CaptrInspectorModal
+				open={inspectorOpen}
+				onClose={() => {
+					setInspectorOpen(false);
+					setInspectorFilePath(null);
+				}}
+				initialFilePath={inspectorFilePath}
+				recentProjects={props.recentProjects}
+				onOpenProject={props.onOpenRecentProject}
+			/>
 		</main>
 	);
 }

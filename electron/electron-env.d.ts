@@ -798,6 +798,16 @@ interface Window {
 		}>;
 		inspectProjectFile: (filePath: string) => Promise<ProjectInspectionResult>;
 		pickAndInspectProjectFile: () => Promise<ProjectInspectionResult>;
+		readProjectBundleEntry?: (
+			filePath: string,
+			entryPath: string,
+		) => Promise<{
+			success: boolean;
+			content?: string;
+			dataUrl?: string;
+			size?: number;
+			error?: string;
+		}>;
 		saveRecordedAudio?: (payload: {
 			audioBuffer: ArrayBuffer | Uint8Array | number[];
 			extension?: string;

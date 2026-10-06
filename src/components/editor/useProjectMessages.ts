@@ -48,6 +48,8 @@ export const projectMessages = {
 	quickActions: "Quick actions",
 	newProjectHint: "Start with an empty timeline",
 	openProjectHint: "Browse your .captr files",
+	inspectProject: "Inspect .captr",
+	inspectProjectHint: "Preview & explore bundle contents",
 	yourProjects: "Your projects",
 	searchProjects: "Search projects",
 	refresh: "Refresh projects",

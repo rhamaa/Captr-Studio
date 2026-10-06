@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { FolderOpen, Trash } from "@phosphor-icons/react";
+import { Eye, FolderOpen, Trash } from "@phosphor-icons/react";
 import { CaptrLogo } from "@/components/brand/CaptrLogo";
 import { LocalMediaImage } from "@/components/LocalMediaImage";
 import type { ProjectLibraryEntry } from "@/components/video-editor/ProjectBrowserDialog";
 interface ProjectCardProps {
 	entry: ProjectLibraryEntry;
 	onOpen: (path: string) => void;
+	onInspect?: (path: string) => void;
 	onReveal?: (path: string) => void;
 	onDelete?: (path: string) => void;
 	viewMode?: "grid" | "list";
@@ -13,6 +14,7 @@ interface ProjectCardProps {
 export function ProjectCard({
 	entry,
 	onOpen,
+	onInspect,
 	onReveal,
 	onDelete,
 	viewMode = "grid",
@@ -47,8 +49,20 @@ export function ProjectCard({
 					</time>
 				</div>
 			</button>
-			{(onReveal || onDelete) && (
+			{(onInspect || onReveal || onDelete) && (
 				<div className="home-project-actions">
+					{onInspect && (
+						<button
+							aria-label="Inspect project package"
+							title="Lihat isi file .captr"
+							onClick={(e) => {
+								e.stopPropagation();
+								onInspect(entry.path);
+							}}
+						>
+							<Eye size={16} />
+						</button>
+					)}
 					{onReveal && (
 						<button aria-label="Show in folder" onClick={() => onReveal(entry.path)}>
 							<FolderOpen size={16} />

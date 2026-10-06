@@ -65,8 +65,8 @@
 }
 .home-quick-actions {
 	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-	max-width: 760px;
+	grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+	max-width: 1120px;
 	gap: 16px;
 	margin: 32px 0 44px;
 }
@@ -86,12 +86,15 @@
 }
 .home-quick-actions button:hover {
 	background: #24262e;
-	border-color: #758dcc;
+	border-color: #6FA8FF;
 }
 .home-quick-actions .home-primary {
 	background: #242c41;
 	border-color: #475a89;
 	color: #aec4ff;
+}
+.home-quick-actions .home-primary:hover {
+	border-color: #6FA8FF;
 }
 .home-quick-actions span {
 	display: grid;
