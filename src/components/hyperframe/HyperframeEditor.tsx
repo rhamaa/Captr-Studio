@@ -17,7 +17,7 @@ import {
 	Sparkle,
 	WarningCircle,
 } from "@phosphor-icons/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { HyperframeComposition } from "@/core/story/storyTypes";
 import type { MediaAsset, TimelineProject } from "@/core/timeline/types";
 import { HyperframePromptInput } from "./HyperframePromptInput";
@@ -26,9 +26,160 @@ export interface HyperframeEditorProps {
 	hyperframe: HyperframeComposition;
 	project: TimelineProject;
 	projectTitle?: string;
+	transcripts?: Record<string, any>;
 	onUpdate: (updated: Partial<HyperframeComposition>) => void;
 	onClose: () => void;
 	onExport?: () => void;
+}
+
+export function preprocessHyperframeHtml(
+	html: string,
+	mediaUrlMap?: Map<string, string>,
+): string {
+	if (!html) return "";
+	let processed = html;
+
+	if (mediaUrlMap && mediaUrlMap.size > 0) {
+		// Sort keys descending by length to replace longer paths (full path, file://) before basenames
+		const sortedEntries = Array.from(mediaUrlMap.entries())
+			.filter(([key, url]) => Boolean(key && url && key !== url))
+			.sort((a, b) => b[0].length - a[0].length);
+
+		for (const [key, mediaUrl] of sortedEntries) {
+			const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+			// If key is a basename (no slashes or backslashes), ensure it's not preceded by path= or %5C or %2F
+			if (!key.includes("/") && !key.includes("\\")) {
+				const regex = new RegExp(`(?<=["'\\(\\s>])${escaped}(?=["'\\)\\s<#?])`, "g");
+				processed = processed.replace(regex, mediaUrl);
+			} else {
+				// Full path or file URL: replace all occurrences
+				const regex = new RegExp(escaped, "g");
+				processed = processed.replace(regex, mediaUrl);
+			}
+		}
+	}
+
+	// Ensure all <video> tags have muted and playsinline
+	processed = processed.replace(/<video\b([^>]*)>/gi, (_match, attrs) => {
+		let updatedAttrs = attrs;
+		if (!/\bmuted\b/i.test(updatedAttrs)) {
+			updatedAttrs += " muted";
+		}
+		if (!/\bplaysinline\b/i.test(updatedAttrs)) {
+			updatedAttrs += " playsinline";
+		}
+		return `<video${updatedAttrs}>`;
+	});
+
+	// Inject media synchronizer script if not present
+	if (!processed.includes("__captr_hyperframe_sync")) {
+		const syncScript = `
+<script id="__captr_hyperframe_sync">
+(function() {
+  function syncMediaElements(t, isPlaying) {
+    var els = document.querySelectorAll('video, audio');
+    els.forEach(function(el) {
+      el.muted = true;
+      if (isPlaying) {
+        if (el.paused) {
+          try { el.play(); } catch(e) {}
+        }
+        if (Math.abs(el.currentTime - t) > 0.25) {
+          try { el.currentTime = t; } catch(e) {}
+        }
+      } else {
+        if (!el.paused) {
+          try { el.pause(); } catch(e) {}
+        }
+        if (Math.abs(el.currentTime - t) > 0.04) {
+          try { el.currentTime = t; } catch(e) {}
+        }
+      }
+    });
+  }
+
+  var existingSeek = window.seekFrame;
+  window.seekFrame = function(timeInSeconds, isPlaying) {
+    if (typeof existingSeek === 'function' && existingSeek !== window.seekFrame) {
+      try { existingSeek(timeInSeconds, isPlaying); } catch(e) {}
+    }
+    syncMediaElements(timeInSeconds, !!isPlaying);
+  };
+
+  window.addEventListener('message', function(ev) {
+    if (ev && ev.data && ev.data.type === 'SEEK_FRAME') {
+      var t = typeof ev.data.timeSec === 'number' ? ev.data.timeSec : 0;
+      var isPlay = !!ev.data.isPlaying;
+      window.seekFrame(t, isPlay);
+    }
+  });
+})();
+</script>`;
+		if (processed.includes("</body>")) {
+			processed = processed.replace("</body>", `${syncScript}\n</body>`);
+		} else {
+			processed += syncScript;
+		}
+	}
+
+	return processed;
+}
+
+export async function buildProjectMediaUrlMap(
+	project: TimelineProject,
+	getLocalMediaUrl?: (path: string) => Promise<{ success: boolean; url?: string; error?: string }>,
+): Promise<Map<string, string>> {
+	const map = new Map<string, string>();
+	if (!getLocalMediaUrl) return map;
+
+	const candidatePaths = new Set<string>();
+
+	for (const asset of project.assets || []) {
+		if (asset.source?.path) {
+			candidatePaths.add(asset.source.path);
+		}
+	}
+
+	for (const pkg of project.packages || []) {
+		if (pkg.screen?.path) candidatePaths.add(pkg.screen.path);
+		if (pkg.webcam?.path) candidatePaths.add(pkg.webcam.path);
+		if (pkg.microphone?.path) candidatePaths.add(pkg.microphone.path);
+		const sys = pkg.system || (pkg as any).systemAudio;
+		if (sys?.path) candidatePaths.add(sys.path);
+	}
+
+	for (const filePath of candidatePaths) {
+		try {
+			const res = await getLocalMediaUrl(filePath);
+			if (res.success && res.url) {
+				const mediaUrl = res.url;
+				map.set(filePath, mediaUrl);
+				const forward = filePath.replace(/\\/g, "/");
+				map.set(forward, mediaUrl);
+				const parts = forward.split("/");
+				const basename = parts[parts.length - 1];
+				if (basename) {
+					map.set(basename, mediaUrl);
+				}
+				try {
+					const normalizedPath = forward.startsWith("/") ? forward : `/${forward}`;
+					map.set(`file://${normalizedPath}`, mediaUrl);
+				} catch {}
+			}
+		} catch {}
+	}
+
+	for (const asset of project.assets || []) {
+		const pkg = project.packages?.find((p) => p.id === (asset.packageId || asset.id));
+		const resolvedPath = pkg?.screen?.path ?? asset.source?.path;
+		if (resolvedPath && map.has(resolvedPath)) {
+			const resolvedUrl = map.get(resolvedPath)!;
+			if (asset.name) map.set(asset.name, resolvedUrl);
+			if (asset.id) map.set(asset.id, resolvedUrl);
+		}
+	}
+
+	return map;
 }
 
 interface AgentOption {
@@ -63,6 +214,7 @@ export function HyperframeEditor({
 	hyperframe,
 	project,
 	projectTitle,
+	transcripts,
 	onUpdate,
 	onClose,
 }: HyperframeEditorProps) {
@@ -98,6 +250,32 @@ export function HyperframeEditor({
 	const [agentLogs, setAgentLogs] = useState<string[]>([]);
 	const [agentError, setAgentError] = useState<string | null>(null);
 	const [agentSuccess, setAgentSuccess] = useState<string | null>(null);
+
+	const [mediaUrlMap, setMediaUrlMap] = useState<Map<string, string>>(new Map());
+
+	// Resolve local media URLs for all project assets and recording packages
+	useEffect(() => {
+		let isMounted = true;
+		if (window.electronAPI?.getLocalMediaUrl) {
+			buildProjectMediaUrlMap(project, window.electronAPI.getLocalMediaUrl)
+				.then((map) => {
+					if (isMounted) {
+						setMediaUrlMap(map);
+					}
+				})
+				.catch((err) => {
+					console.warn("Failed to build media URL map:", err);
+				});
+		}
+		return () => {
+			isMounted = false;
+		};
+	}, [project]);
+
+	// Preprocessed HTML with resolved media URLs, browser playback attributes, and sync script
+	const processedHtml = useMemo(() => {
+		return preprocessHyperframeHtml(hyperframe.htmlContent || "", mediaUrlMap);
+	}, [hyperframe.htmlContent, mediaUrlMap]);
 
 	const durationSec = Math.max(0.1, hyperframe.durationUs / 1_000_000);
 
@@ -202,20 +380,20 @@ export function HyperframeEditor({
 		if (!iframeRef.current?.contentWindow) return;
 		try {
 			const win = iframeRef.current.contentWindow as unknown as {
-				seekFrame?: (time: number) => void;
+				seekFrame?: (time: number, isPlaying?: boolean) => void;
 			};
 			if (typeof win.seekFrame === "function") {
-				win.seekFrame(currentTimeSec);
+				win.seekFrame(currentTimeSec, isPlaying);
 			} else {
 				iframeRef.current.contentWindow.postMessage(
-					{ type: "SEEK_FRAME", timeSec: currentTimeSec },
+					{ type: "SEEK_FRAME", timeSec: currentTimeSec, isPlaying },
 					"*",
 				);
 			}
 		} catch {
 			// Ignore cross-origin error
 		}
-	}, [currentTimeSec]);
+	}, [currentTimeSec, isPlaying]);
 
 	// Keyboard shortcuts listener
 	useEffect(() => {
@@ -255,7 +433,7 @@ export function HyperframeEditor({
 
 	const handleReload = () => {
 		if (iframeRef.current) {
-			iframeRef.current.srcdoc = hyperframe.htmlContent || "";
+			iframeRef.current.srcdoc = processedHtml;
 			setCurrentTimeSec(0);
 		}
 	};
@@ -290,6 +468,45 @@ export function HyperframeEditor({
 				throw new Error("Electron Agent API is not available in this environment.");
 			}
 
+			const resolveAssetPackage = (a: MediaAsset) => {
+				if (a.kind === "recording" || a.packageId) {
+					return project.packages?.find((p) => p.id === (a.packageId || a.id));
+				}
+				return undefined;
+			};
+
+			const resolveAssetPath = (a: MediaAsset) => {
+				const pkg = resolveAssetPackage(a);
+				return pkg?.screen?.path ?? a.source?.path;
+			};
+
+			const buildAssetPayload = (a: MediaAsset) => {
+				const pkg = resolveAssetPackage(a);
+				const resolvedPath = resolveAssetPath(a);
+				const mediaUrl = resolvedPath ? mediaUrlMap.get(resolvedPath) : undefined;
+				return {
+					id: a.id,
+					name: a.name,
+					kind: a.kind,
+					path: resolvedPath,
+					mediaUrl,
+					packageId: a.packageId || pkg?.id,
+					durationMs: a.durationUs ? a.durationUs / 1000 : undefined,
+					recordingPackage: pkg
+						? {
+								id: pkg.id,
+								name: (pkg as any).name || a.name,
+								screenPath: pkg.screen?.path,
+								webcamPath: pkg.webcam?.path,
+								microphonePath: pkg.microphone?.path,
+								systemAudioPath: pkg.system?.path ?? (pkg as any).systemAudio?.path,
+								cursorPath: pkg.cursorPath,
+								settings: pkg.settings,
+						  }
+						: undefined,
+				};
+			};
+
 			const res = await window.electronAPI.runHyperframeAgentTask({
 				agentId: selectedAgentId,
 				customCommand: selectedAgentId === "custom" ? customCommand : undefined,
@@ -300,23 +517,14 @@ export function HyperframeEditor({
 				width: hyperframe.width,
 				height: hyperframe.height,
 				durationSec,
-				taggedAssets: taggedAssets.map((a) => ({
-					id: a.id,
-					name: a.name,
-					kind: a.kind,
-					path: a.source?.path,
-				})),
+				taggedAssets: taggedAssets.map(buildAssetPayload),
 				projectContext: {
 					projectId: project.projectId,
 					projectTitle: projectTitle || project.title,
 					aspectRatio: hyperframe.aspectRatio || "16:9",
-					assets: project.assets.map((a) => ({
-						id: a.id,
-						name: a.name,
-						kind: a.kind,
-						path: a.source?.path,
-						durationMs: a.durationUs ? a.durationUs / 1000 : undefined,
-					})),
+					packages: project.packages,
+					transcripts: transcripts,
+					assets: project.assets.map(buildAssetPayload),
 				},
 			});
 
@@ -329,7 +537,7 @@ export function HyperframeEditor({
 				setCodeDraft(res.html);
 				setAgentSuccess("Hyperframe updated successfully by agent!");
 				if (iframeRef.current) {
-					iframeRef.current.srcdoc = res.html;
+					iframeRef.current.srcdoc = preprocessHyperframeHtml(res.html, mediaUrlMap);
 				}
 			} else {
 				setAgentError(res.error || "Agent execution failed without returning valid HTML.");
@@ -487,7 +695,7 @@ export function HyperframeEditor({
 								data-testid="hyperframe-stage-iframe"
 								title={hyperframe.name}
 								sandbox="allow-scripts allow-same-origin"
-								srcDoc={hyperframe.htmlContent || ""}
+								srcDoc={processedHtml}
 								className="h-full w-full border-none pointer-events-none"
 							/>
 						</div>

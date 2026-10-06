@@ -1053,7 +1053,15 @@ interface Window {
 			width: number;
 			height: number;
 			durationSec: number;
-			taggedAssets?: Array<{ id: string; name: string; kind: string; path?: string }>;
+			taggedAssets?: Array<{
+				id: string;
+				name: string;
+				kind: string;
+				path?: string;
+				mediaUrl?: string;
+				packageId?: string;
+				recordingPackage?: Record<string, unknown>;
+			}>;
 			projectContext: Record<string, unknown>;
 		}) => Promise<{
 			success: boolean;

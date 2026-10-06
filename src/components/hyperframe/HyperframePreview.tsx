@@ -5,8 +5,9 @@ import {
 	Play,
 	Sparkle,
 } from "@phosphor-icons/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { HyperframeComposition } from "@/core/story/storyTypes";
+import { preprocessHyperframeHtml } from "./HyperframeEditor";
 
 export interface HyperframePreviewProps {
 	hyperframe: HyperframeComposition;
@@ -25,6 +26,10 @@ export function HyperframePreview({
 	const containerRef = useRef<HTMLDivElement | null>(null);
 
 	const durationSec = Math.max(0.1, hyperframe.durationUs / 1_000_000);
+
+	const processedHtml = useMemo(() => {
+		return preprocessHyperframeHtml(hyperframe.htmlContent || "");
+	}, [hyperframe.htmlContent]);
 
 	// Adjust scale to fit viewport
 	useEffect(() => {
@@ -48,20 +53,20 @@ export function HyperframePreview({
 		if (!iframeRef.current || !iframeRef.current.contentWindow) return;
 		try {
 			const win = iframeRef.current.contentWindow as unknown as {
-				seekFrame?: (time: number) => void;
+				seekFrame?: (time: number, isPlaying?: boolean) => void;
 			};
 			if (typeof win.seekFrame === "function") {
-				win.seekFrame(currentTimeSec);
+				win.seekFrame(currentTimeSec, isPlaying);
 			} else {
 				iframeRef.current.contentWindow.postMessage(
-					{ type: "SEEK_FRAME", timeSec: currentTimeSec },
+					{ type: "SEEK_FRAME", timeSec: currentTimeSec, isPlaying },
 					"*",
 				);
 			}
 		} catch {
 			// Cross-origin fallback
 		}
-	}, [currentTimeSec]);
+	}, [currentTimeSec, isPlaying]);
 
 	// Playback animation loop
 	useEffect(() => {
@@ -102,7 +107,7 @@ export function HyperframePreview({
 
 	const handleReload = () => {
 		if (iframeRef.current) {
-			iframeRef.current.srcdoc = hyperframe.htmlContent || "";
+			iframeRef.current.srcdoc = processedHtml;
 			setCurrentTimeSec(0);
 		}
 	};
@@ -171,7 +176,7 @@ export function HyperframePreview({
 							ref={iframeRef}
 							title={hyperframe.name}
 							sandbox="allow-scripts allow-same-origin"
-							srcDoc={hyperframe.htmlContent || ""}
+							srcDoc={processedHtml}
 							className="w-full h-full border-none pointer-events-none"
 						/>
 					</div>

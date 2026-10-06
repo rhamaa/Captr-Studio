@@ -1010,6 +1010,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 							hyperframe={activeHyperframe}
 							project={state.project}
 							projectTitle={projectFileName(state.path)}
+							transcripts={transcripts}
 							onUpdate={(patch) => {
 								controller.execute((prev) => ({
 									...prev,
@@ -1032,6 +1033,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 							project={state.project}
 							projectTitle={projectFileName(state.path)}
 							selectedAssetId={state.selectedAssetId}
+							transcripts={transcripts}
 							onChange={(updater) => {
 								controller.execute(updater);
 							}}

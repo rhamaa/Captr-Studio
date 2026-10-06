@@ -41,6 +41,7 @@ export interface RepurposeBoardEditorProps {
 	project: TimelineProject;
 	projectTitle?: string;
 	selectedAssetId?: string | null;
+	transcripts?: Record<string, any>;
 	onChange: (updater: (prev: TimelineProject) => TimelineProject) => void;
 	onClose?: () => void;
 	onOpenExportModal?: () => void;
@@ -71,6 +72,7 @@ export function RepurposeBoardEditor({
 	project,
 	projectTitle,
 	selectedAssetId = null,
+	transcripts,
 	onChange,
 	onClose,
 	onOpenExportModal,
@@ -758,6 +760,7 @@ export function RepurposeBoardEditor({
 					hyperframe={editingHyperframe}
 					project={boardProject}
 					projectTitle={projectTitle}
+					transcripts={transcripts}
 					onUpdate={(patch) => handleUpdateHyperframe(editingHyperframe.id, patch)}
 					onClose={() => setEditingHyperframeId(null)}
 				/>

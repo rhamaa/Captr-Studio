@@ -2,13 +2,49 @@ import { type ChildProcess, spawn } from "node:child_process";
 import fsPromises from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { generateVttFromTranscript } from "../../../src/core/timeline/transcriptTypes";
+import { buildMediaUrl, ensureMediaServer, getMediaServerBaseUrl } from "../../mediaServer";
 import { KNOWN_AGENTS, checkAgentAvailability, getAugmentedEnv } from "./agentDetector";
+
+export interface RecordingStreamInfo {
+	path: string;
+	mediaUrl?: string;
+	width?: number;
+	height?: number;
+	durationSec?: number;
+}
+
+export interface CursorTelemetrySummary {
+	sampleCount: number;
+	clickCount: number;
+	samplesFile?: string;
+	samplePreview?: Array<{ timeMs: number; cx: number; cy: number; interactionType?: string }>;
+}
+
+export interface TranscriptSummary {
+	fullText: string;
+	segments: Array<{ startMs: number; endMs: number; text: string }>;
+}
+
+export interface RecordingPackageDetail {
+	packageId?: string;
+	screen?: RecordingStreamInfo;
+	webcam?: RecordingStreamInfo;
+	microphone?: RecordingStreamInfo;
+	system?: RecordingStreamInfo;
+	cursorPath?: string;
+	cursorTelemetrySummary?: CursorTelemetrySummary;
+	transcript?: TranscriptSummary;
+}
 
 export interface TaggedAsset {
 	id: string;
 	name: string;
 	kind: string;
 	path?: string;
+	mediaUrl?: string;
+	packageId?: string;
+	recordingPackage?: RecordingPackageDetail;
 }
 
 export interface HyperframeTaskContext {
@@ -41,8 +77,12 @@ export interface RunHyperframeTaskParams {
 			name: string;
 			kind: string;
 			path?: string;
+			mediaUrl?: string;
+			packageId?: string;
 			durationMs?: number;
+			recordingPackage?: RecordingPackageDetail;
 		}>;
+		packages?: any[];
 		transcripts?: Record<string, any>;
 	};
 }
@@ -56,13 +96,48 @@ export interface RunHyperframeTaskResult {
 
 let activeProcess: ChildProcess | null = null;
 
+export function formatAssetDetail(a: TaggedAsset): string {
+	let str = `• @${a.name} (Kind: ${a.kind}, ID: ${a.id})\n`;
+	if (a.mediaUrl) {
+		str += `  - Primary Media URL (USE IN HTML): "${a.mediaUrl}"\n`;
+	}
+	if (a.path) {
+		str += `  - Local File: "${a.path}"\n`;
+	}
+	if (a.recordingPackage) {
+		const rec = a.recordingPackage;
+		str += `  - Recording Package Media & Sidecars:\n`;
+		if (rec.screen) {
+			const sUrl = rec.screen.mediaUrl || rec.screen.path;
+			str += `    * Screen Recording Video: "${sUrl}" (${rec.screen.width ?? 1920}x${rec.screen.height ?? 1080}, ${rec.screen.durationSec ?? 0}s)\n`;
+			str += `      -> HTML tag: <video src="${sUrl}" autoplay muted loop playsinline></video>\n`;
+		}
+		if (rec.webcam) {
+			const wUrl = rec.webcam.mediaUrl || rec.webcam.path;
+			str += `    * Webcam Overlay Video: "${wUrl}"\n`;
+			str += `      -> HTML PiP: <video src="${wUrl}" autoplay muted loop playsinline class="webcam-pip"></video>\n`;
+		}
+		if (rec.microphone) {
+			const mUrl = rec.microphone.mediaUrl || rec.microphone.path;
+			str += `    * Microphone Audio Track: "${mUrl}"\n`;
+		}
+		if (rec.transcript && rec.transcript.fullText) {
+			str += `    * Speech Transcript & Captions: "${rec.transcript.fullText}"\n`;
+			str += `      -> Timed sentence & word cues are in "transcript.json" & "captions.vtt" in workspace. Animate kinetic subtitles synced with this speech!\n`;
+		}
+		if (rec.cursorTelemetrySummary) {
+			str += `    * Mouse Cursor Telemetry: ${rec.cursorTelemetrySummary.sampleCount} points, ${rec.cursorTelemetrySummary.clickCount} mouse clicks recorded\n`;
+			str += `      -> Raw samples in "cursor_telemetry.json". You can animate custom cursor markers, spotlight zoom, or click ripple effects!\n`;
+		}
+	}
+	return str;
+}
+
 export function formatHyperframeTaskPrompt(ctx: HyperframeTaskContext): string {
 	let taggedSection = "";
 	if (ctx.taggedAssets && ctx.taggedAssets.length > 0) {
-		const list = ctx.taggedAssets
-			.map((a) => `- @${a.name} (Kind: ${a.kind}${a.path ? `, Path: ${a.path}` : ""})`)
-			.join("\n");
-		taggedSection = `\n\nPRIORITY TAGGED MEDIA (CRITICAL):\nThe user explicitly tagged the following project assets to be used and animated in this Hyperframe:\n${list}\nYou MUST integrate these tagged media elements into the HTML composition (using <video src="..." autoplay muted loop> for video, <img src="..." /> for images, or <audio> for audio) and apply the motion animations to them!\n`;
+		const list = ctx.taggedAssets.map((a) => formatAssetDetail(a)).join("\n");
+		taggedSection = `\n\nPRIORITY TAGGED MEDIA (CRITICAL):\nThe user explicitly tagged the following project assets to be used and animated in this Hyperframe:\n${list}\nYou MUST integrate these tagged media elements into the HTML composition:\n- Use <video src="..." autoplay muted loop playsinline> for video & screen recordings.\n- If webcam is available, you can add it as a floating picture-in-picture circle or rounded badge.\n- If transcript/captions are available, render synced animated kinetic captions.\n- If cursor telemetry is available, you can animate cursor pointers or click ripple effects.\n`;
 	}
 
 	return `You are crafting an HTML5/CSS/JavaScript video composition ("Hyperframe") for Captr Studio.
@@ -75,6 +150,20 @@ ${ctx.assetsSummary}${taggedSection}
 
 USER REQUEST:
 "${ctx.userPrompt}"
+
+CRITICAL HTML5 VIDEO EMBEDDING & SYNC RULES:
+1. NEVER use raw local Windows paths (e.g. "C:\\...") or "file:///" in <video src="..."> or <img src="..."> tags. Web browsers and sandboxed iframes block local file schemes for security. ALWAYS use the provided Media URL ("http://127.0.0.1:...").
+2. ALWAYS include 'autoplay muted loop playsinline' on <video> tags so the browser permits instant playback.
+3. IN 'window.seekFrame(timeInSeconds)', seek all video elements synchronously so scrubber playback stays in lockstep:
+\`\`\`javascript
+const video = document.querySelector("video");
+window.seekFrame = function(timeInSeconds) {
+  if (video && !isNaN(timeInSeconds)) {
+    video.currentTime = Math.max(0, Math.min(video.duration || ${ctx.durationSec}, timeInSeconds));
+  }
+  if (window.tl) window.tl.seek(timeInSeconds);
+};
+\`\`\`
 
 INSTRUCTIONS:
 1. Open and inspect "${ctx.draftFilePath}".
@@ -179,11 +268,187 @@ export async function runHyperframeAgentTask(
 		const draftHtmlPath = path.join(workspaceDir, "index.html");
 		await fsPromises.writeFile(draftHtmlPath, params.currentHtml, "utf-8");
 
-		// Summarize assets
-		const assetsSummaryList = (params.projectContext.assets || []).map(
-			(a) => `- ${a.name} (type: ${a.kind}, id: ${a.id}${a.path ? `, path: ${a.path}` : ""})`,
+		// Ensure media server is ready and obtain base URL
+		const baseUrl = await ensureMediaServer().catch(() => getMediaServerBaseUrl() || "");
+
+		let rememberPathFn: ((p: string) => Promise<any>) | null = null;
+		try {
+			const mgr = await import("../project/manager");
+			rememberPathFn = mgr.rememberApprovedLocalReadPath;
+		} catch {}
+
+		const resolveUrl = async (fp?: string): Promise<string | undefined> => {
+			if (!fp) return undefined;
+			try {
+				if (rememberPathFn) await rememberPathFn(fp);
+				if (baseUrl) return buildMediaUrl(baseUrl, fp);
+			} catch {}
+			return undefined;
+		};
+
+		// Helper to find package by id
+		const findPackage = (pkgId?: string) => {
+			if (!pkgId) return undefined;
+			return (params.projectContext.packages || []).find((p: any) => p.id === pkgId);
+		};
+
+		// Enrich each asset with mediaUrl, screen, webcam, mic, cursor, and transcript
+		const enrichedAssets = await Promise.all(
+			(params.projectContext.assets || []).map(async (a) => {
+				const pkg = findPackage(a.packageId || a.recordingPackage?.packageId);
+				const screenPath = a.path || pkg?.screen?.path;
+				const webcamPath = a.recordingPackage?.webcam?.path || pkg?.webcam?.path;
+				const micPath = a.recordingPackage?.microphone?.path || pkg?.microphone?.path;
+				const systemPath = a.recordingPackage?.system?.path || pkg?.system?.path;
+				let cursorPath = a.recordingPackage?.cursorPath || pkg?.cursorPath;
+				if (!cursorPath && screenPath) {
+					const candidate = `${screenPath}.cursor.json`;
+					try {
+						await fsPromises.access(candidate);
+						cursorPath = candidate;
+					} catch {}
+				}
+
+				const screenMediaUrl = await resolveUrl(screenPath);
+				const webcamMediaUrl = await resolveUrl(webcamPath);
+				const micMediaUrl = await resolveUrl(micPath);
+				const systemMediaUrl = await resolveUrl(systemPath);
+
+				// Cursor telemetry
+				let cursorTelemetrySummary = a.recordingPackage?.cursorTelemetrySummary;
+				if (cursorPath) {
+					try {
+						if (rememberPathFn) await rememberPathFn(cursorPath);
+						const raw = await fsPromises.readFile(cursorPath, "utf-8");
+						const parsed = JSON.parse(raw);
+						const samples = Array.isArray(parsed)
+							? parsed
+							: (parsed.samples || parsed.events || []);
+						const clicks = samples.filter(
+							(s: any) => s.interactionType === "click" || s.type === "click" || s.click,
+						);
+						cursorTelemetrySummary = {
+							sampleCount: samples.length,
+							clickCount: clicks.length,
+							samplesFile: "cursor_telemetry.json",
+							samplePreview: clicks.slice(0, 10).map((c: any) => ({
+								timeMs: c.timeMs ?? c.t ?? 0,
+								cx: c.cx ?? c.x ?? 0,
+								cy: c.cy ?? c.y ?? 0,
+								interactionType: c.interactionType ?? c.type ?? "click",
+							})),
+						};
+						await fsPromises.writeFile(
+							path.join(workspaceDir, "cursor_telemetry.json"),
+							JSON.stringify(parsed, null, 2),
+							"utf-8",
+						);
+					} catch {}
+				}
+
+				// Transcripts
+				let transcriptSummary = a.recordingPackage?.transcript;
+				try {
+					let tData = params.projectContext.transcripts?.[a.id];
+					if (!tData && screenPath) {
+						const tCandidate = path.join(path.dirname(screenPath), "transcript.json");
+						try {
+							const raw = await fsPromises.readFile(tCandidate, "utf-8");
+							tData = JSON.parse(raw);
+						} catch {}
+					}
+					if (tData) {
+						const fullText =
+							tData.fullText ||
+							(tData.segments ? tData.segments.map((s: any) => s.text).join(" ") : "");
+						const segs = (tData.segments || []).map((s: any) => ({
+							startMs: Math.round((s.startUs ?? s.startMs ?? 0) / (s.startUs ? 1000 : 1)),
+							endMs: Math.round((s.endUs ?? s.endMs ?? 0) / (s.endUs ? 1000 : 1)),
+							text: s.text || "",
+						}));
+						transcriptSummary = {
+							fullText,
+							segments: segs,
+						};
+						await fsPromises.writeFile(
+							path.join(workspaceDir, "transcript.json"),
+							JSON.stringify(tData, null, 2),
+							"utf-8",
+						);
+						try {
+							const vtt = generateVttFromTranscript(tData);
+							await fsPromises.writeFile(path.join(workspaceDir, "captions.vtt"), vtt, "utf-8");
+						} catch {}
+					}
+				} catch {}
+
+				let recordingPackage: RecordingPackageDetail | undefined = undefined;
+				if (a.kind === "recording" || pkg || webcamPath || micPath) {
+					recordingPackage = {
+						packageId: pkg?.id || a.packageId,
+						screen: screenPath
+							? {
+									path: screenPath,
+									mediaUrl: screenMediaUrl,
+									width: pkg?.width || a.recordingPackage?.screen?.width,
+									height: pkg?.height || a.recordingPackage?.screen?.height,
+									durationSec:
+										(pkg?.durationUs ? pkg.durationUs / 1_000_000 : undefined) ||
+										(a.durationMs ? a.durationMs / 1000 : undefined),
+								}
+							: undefined,
+						webcam: webcamPath
+							? {
+									path: webcamPath,
+									mediaUrl: webcamMediaUrl,
+								}
+							: undefined,
+						microphone: micPath
+							? {
+									path: micPath,
+									mediaUrl: micMediaUrl,
+								}
+							: undefined,
+						system: systemPath
+							? {
+									path: systemPath,
+									mediaUrl: systemMediaUrl,
+								}
+							: undefined,
+						cursorPath,
+						cursorTelemetrySummary,
+						transcript: transcriptSummary,
+					};
+				}
+
+				return {
+					...a,
+					path: screenPath ?? a.path,
+					mediaUrl: screenMediaUrl ?? (await resolveUrl(a.path)),
+					recordingPackage,
+				};
+			}),
 		);
-		const assetsSummary = assetsSummaryList.length > 0 ? assetsSummaryList.join("\n") : "No media assets";
+
+		// Synchronize tagged assets with enriched data
+		const enrichedTaggedAssets: TaggedAsset[] = (params.taggedAssets || []).map((ta) => {
+			const matching = enrichedAssets.find((ea) => ea.id === ta.id || ea.name === ta.name);
+			if (matching) {
+				return {
+					...ta,
+					path: matching.path ?? ta.path,
+					mediaUrl: matching.mediaUrl ?? ta.mediaUrl,
+					recordingPackage: matching.recordingPackage ?? ta.recordingPackage,
+				};
+			}
+			return ta;
+		});
+
+		// Summarize assets for prompt
+		const assetsSummary =
+			enrichedAssets.length > 0
+				? enrichedAssets.map((a) => formatAssetDetail(a)).join("\n")
+				: "No media assets";
 
 		// Write PROJECT_ASSETS.json
 		await fsPromises.writeFile(
@@ -195,8 +460,8 @@ export async function runHyperframeAgentTask(
 					width: params.width,
 					height: params.height,
 					durationSec: params.durationSec,
-					taggedAssets: params.taggedAssets,
-					assets: params.projectContext.assets,
+					taggedAssets: enrichedTaggedAssets,
+					assets: enrichedAssets,
 					transcripts: params.projectContext.transcripts,
 				},
 				null,
@@ -213,7 +478,7 @@ export async function runHyperframeAgentTask(
 			durationSec: params.durationSec,
 			assetsSummary,
 			draftFilePath: draftHtmlPath,
-			taggedAssets: params.taggedAssets,
+			taggedAssets: enrichedTaggedAssets,
 		});
 
 		const defaultArgs = KNOWN_AGENTS.find((a) => a.id === params.agentId)?.defaultArgs;
