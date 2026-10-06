@@ -138,3 +138,23 @@
 - **Individual Preview Playback per Card:** Setiap card video pada artboard memiliki pemutaran preview independen (`localPlaying`, `localPlayheadUs`), tombol Play/Pause lokal di footer card, display timecode mandiri, dan interactive mini scrubber bar. Memutar satu card secara otomatis mem-pause card lain sehingga audio tidak bentrok.
 - **Status Pengujian:** 25/25 tests lulus (100% green) di suite repurpose, commands, dan editor. `npx tsc --noEmit` lolos 0 errors.
 
+## AI Assistant, Offline Whisper STT, Karaoke Subtitles & Hyperframe B-Roll (6 Oktober 2026)
+
+- **AI Autonomous Video Editor Assistant & CLI Bridge (`electron/agentService.ts`):**
+  - Bridge terhubung langsung ke eksekutor CLI: Antigravity (`agy`), Claude Code (`claude`), Cursor (`cursor`), Gemini CLI (`gemini`), Ollama (`ollama`), OpenCode (`opencode`), dan Aider (`aider`).
+  - Auto-detection lokasi binary lintas `PATH` dan user profile directories.
+  - Penataan flag otomatis (`--dangerously-skip-permissions`, `-y`) sebelum prompt argument `-p` agar eksekusi CLI berjalan otomatis tanpa interupsi prompt manual.
+  - Streaming stdout/stderr real-time ke jendela UI dengan penanganan pembatalan proses atomik (`agent:cancel`).
+- **Context-Aware `@Asset` Tagging:**
+  - Input prompt modal AI Assistant mendukung trigger `@` untuk menyematkan metadata spesifik aset (ID, resolusi, durasi, path absolut, dan sidecar audio/subtitles) ke dalam context LLM.
+- **Offline Whisper Speech-to-Text & Karaoke Subtitles:**
+  - Integrasi runtime native `whisper.cpp` GGML dengan downloader model 1-klik (`tiny`, `base`, `small`, `medium`) dan indikator persentase unduhan.
+  - Penandaan waktu kata-per-kata presisi milidetik disimpan dalam berkas sidecar `transcript.json`.
+  - Komponen `SubtitleOverlay` interaktif dengan 4 gaya visual (*Karaoke Word Pop*, *Classic*, *Cinematic Box*, *Neon Glow*), penyesuaian bounding box on-canvas, dan sinkronisasi otomatis saat klip dipotong (*ripple cut*).
+- **Hyperframe B-Roll Motion Graphics Engine:**
+  - Kompilasi grafis berbasis kode HTML5/CSS3/Canvas untuk kinetic typography, kartu kutipan, counter angka, dan efek visual berlapis.
+  - Penempatan otomatis pada track B-Roll mandiri di atas video utama dengan relasi layering yang non-destruktif.
+- **Status Pengujian & Build:**
+  - Seluruh 21/21 vitest tests pada suite AI Assistant & Whisper lulus (100% green).
+  - `npx tsc --noEmit` lulus dengan 0 errors. Biome check bersih.
+

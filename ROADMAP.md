@@ -4,33 +4,17 @@ Dokumen ini memetakan visi, arsitektur, dan tahapan pengembangan **Captr Studio*
 
 ---
 
-## Status arsitektur terverifikasi — 18 September 2026
+## Status arsitektur terverifikasi — 6 Oktober 2026 (v1.4.0-beta.1)
 
-Target produk: recording polish ala Screen Studio, storyboard/scene ala Tella, serta editing berlapis ala Filmora. Phase 7 masih **parsial**; checklist historis di bawah bukan bukti semua kemampuan tersedia.
+Target produk: recording polish ala Screen Studio, multi-artboard repurpose ala CapCut/Descript, dan kecerdasan editor otonom berbasis AI CLI Bridge.
 
-Fondasi yang diperbaiki:
-- Keyframe anotasi memakai waktu lokal layer; inspector, marker timeline, preview, dan export memakai sampler bersama. Data keyframe rusak disaring saat load.
-- Transisi masuk memakai `transitionIn`; format lama dinormalisasi ke tipe renderer yang didukung. Crossfade/wipe lama belum didukung dan menjadi `none`.
-- Reorder scene mempertahankan setelan audio, speed, dan transisi.
-- Load dan pruning memakai daftar referensi media proyek yang sama, termasuk scene, layer, audio, dan gambar anotasi.
-- Integrasi caption yang telah dihapus dibersihkan dari editor dan preload. Caption belum tersedia kembali.
-
-Status implementasi Phase 7 (19 September 2026):
-- [x] Compositor video berlapis: decoder/source clock per layer, offset, speed, split, z-order, visibility, mute, opacity, dan blend mode.
-- [x] History scene/layer: load, duplicate, undo, redo, dan save layer per scene diuji lewat Electron.
-- [x] Preview/export memakai sampler transform dan envelope fade/slide bersama; GIF mengikuti playhead.
-- [x] MP4 dua video bertumpuk: 120 frame pada 30 fps, warna z-order benar, H.264 dan AAC terbaca.
-- [x] Ekspor dua scene dengan layer berbeda berhasil; pemeriksaan frame detik 1 dan 5 sesuai scene.
-- [x] Custom cubic Bezier dan nilai property keyframe tersedia di inspector.
-
-Gerbang penerimaan penuh sebelum Phase 8:
-- [ ] Perluas matriks paritas visual: semua blend mode, motion blur, GIF disposal, kombinasi trim/speed lintas scene.
-- [ ] Validasi voiceover dengan mikrofon nyata; putaran ini memakai audio sintetis.
-- [ ] Pisahkan orchestration proyek, playback, dan export dari VideoEditor secara bertahap.
-
-Caption tetap di luar lingkup Phase 7 karena fiturnya telah ditarik; pembangunan ulang memerlukan milestone tersendiri.
-
-Kontrak arsitektur: scene menyimpan `annotationRegions` dan `audioRegions`; `mediaTrackLayers` lama dimigrasikan saat load. Record Editor dan Video Editor memakai model layer yang sama. Phase 7 tetap parsial sampai gerbang penerimaan terpenuhi.
+Fondasi yang terverifikasi dan aktif di v1.4.0-beta.1:
+- **Speech-to-Text & Animated Karaoke Captions**: Engine `whisper.cpp` offline dengan downloader model GGML 1-klik, penandaan waktu per kata, JSON sidecar, dan `SubtitleOverlay` interaktif (4 gaya: Classic, Cinematic Box, Karaoke Word Pop, Neon Glow) tersinkronisasi otomatis dengan pemotongan timeline.
+- **Autonomous AI Video Editor Assistant**: CLI Agent Bridge mendukung Antigravity (`agy`), Claude Code, Cursor, Gemini CLI, Ollama, OpenCode, dan Aider dengan streaming log konsol langsung dan auto-permission bypass.
+- **Context-Aware `@Asset` Tagging**: Penyebutan aset proyek langsung di prompt AI Assistant yang meneruskan durasi, resolusi, path, dan transkrip audio ke context LLM.
+- **Hyperframe B-Roll Motion Graphics Engine**: Kompilasi grafis HTML5/CSS3/Canvas untuk kinetic typography, stat counters, kartu kutipan, dan efek suara audio-reaktif pada track B-Roll mandiri.
+- **Multi-Artboard Repurpose Editor**: Inverted hub yang mendukung pengeditan independen untuk rasio 9:16 (Shorts/Reels), 1:1 (Square), 16:9 (Landscape), dan 4:5 (Portrait) secara simultan.
+- **V3 Non-Destructive Storage**: Format `.captr` dengan indeks authoritative `project.json`, isolasi file di `assets/<assetId>/`, dan transaksi atomic save/rename.
 
 ---
 
@@ -136,7 +120,7 @@ flowchart TD
   - Mekanisme *anti-pumping* cerdas dengan *speech interval merging* dan *hold time* (hysteresis).
   - Paritas 100% antara preview player (`VideoPlayback.tsx`) dan pipeline ekspor Web Audio (`audioEncoder.ts`).
   - Pengaturan fleksibel: toggle ducking per-track audio dan kontrol intensitas ducking (-6 dB s.d. -26 dB) di Settings Panel.
-- [ ] **Animated Karaoke Captions (TikTok / Alex Hormozi Style)**:
+- [x] **Animated Karaoke Captions (TikTok / Alex Hormozi Style)**:
   - Penyorotan kata per kata (*word-by-word active highlight*) dengan transisi halus dan sinkronisasi real-time.
   - 5 pilihan preset gaya: *Karaoke Pop*, *Alex Hormozi*, *Neon Glow*, *Box Pill*, dan *Classic*.
   - Palet warna highlight cepat: Neon Yellow (`#FFE600`), Lime Green (`#22C55E`), Electric Cyan (`#06B6D4`), Hot Pink (`#EC4899`), Flame Orange (`#F97316`), serta pemilih warna kustom (*color picker*).
