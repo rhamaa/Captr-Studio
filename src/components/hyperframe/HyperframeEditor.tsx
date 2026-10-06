@@ -5,16 +5,20 @@ import {
 	CaretDown,
 	Check,
 	CheckCircle,
+	Clock,
 	Code,
 	Copy,
 	FloppyDisk,
 	FolderOpen,
 	Pause,
+	PencilSimple,
 	Play,
 	Repeat,
 	Robot,
 	SidebarSimple,
 	Sparkle,
+	SpeakerHigh,
+	SpeakerSlash,
 	WarningCircle,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -59,12 +63,9 @@ export function preprocessHyperframeHtml(
 		}
 	}
 
-	// Ensure all <video> tags have muted and playsinline
+	// Ensure all <video> tags have playsinline
 	processed = processed.replace(/<video\b([^>]*)>/gi, (_match, attrs) => {
 		let updatedAttrs = attrs;
-		if (!/\bmuted\b/i.test(updatedAttrs)) {
-			updatedAttrs += " muted";
-		}
 		if (!/\bplaysinline\b/i.test(updatedAttrs)) {
 			updatedAttrs += " playsinline";
 		}
@@ -97,13 +98,18 @@ export function preprocessHyperframeHtml(
     });
   }
 
-  function syncMediaElements(t, isPlaying) {
+  function syncMediaElements(t, isPlaying, isMuted, volume) {
     var els = document.querySelectorAll('video, audio');
     els.forEach(function(el) {
-      el.muted = true;
+      if (typeof isMuted === 'boolean') {
+        el.muted = isMuted;
+      }
+      if (typeof volume === 'number') {
+        el.volume = volume;
+      }
       if (isPlaying) {
         if (el.paused) {
-          try { el.play(); } catch(e) {}
+          try { el.play().catch(function(){}); } catch(e) {}
         }
         if (Math.abs(el.currentTime - t) > 0.25) {
           try { el.currentTime = t; } catch(e) {}
@@ -120,19 +126,49 @@ export function preprocessHyperframeHtml(
   }
 
   var existingSeek = window.seekFrame;
-  window.seekFrame = function(timeInSeconds, isPlaying) {
+  window.seekFrame = function(timeInSeconds, isPlaying, isMuted, volume) {
     window.__captr_is_playing = !!isPlaying;
     if (typeof existingSeek === 'function' && existingSeek !== window.seekFrame) {
       try { existingSeek(timeInSeconds, isPlaying); } catch(e) {}
     }
-    syncMediaElements(timeInSeconds, !!isPlaying);
+    syncMediaElements(timeInSeconds, !!isPlaying, isMuted, volume);
   };
+
+  // Automatic duration detection from embedded video/audio and GSAP timeline
+  function detectMediaDuration() {
+    var maxD = 0;
+    var els = document.querySelectorAll('video, audio');
+    els.forEach(function(el) {
+      if (el.duration && isFinite(el.duration) && el.duration > maxD) {
+        maxD = el.duration;
+      }
+    });
+    if (window.tl && typeof window.tl.duration === 'function') {
+      try {
+        var tlD = window.tl.duration();
+        if (tlD && isFinite(tlD) && tlD > maxD) maxD = tlD;
+      } catch(e) {}
+    }
+    if (maxD > 0 && isFinite(maxD)) {
+      try {
+        window.parent.postMessage({ type: 'HYPERFRAME_DETECTED_DURATION', durationSec: maxD }, '*');
+      } catch(e) {}
+    }
+  }
+
+  window.addEventListener('loadedmetadata', detectMediaDuration, true);
+  window.addEventListener('canplay', detectMediaDuration, true);
+  setTimeout(detectMediaDuration, 400);
+  setTimeout(detectMediaDuration, 1200);
+  setTimeout(detectMediaDuration, 3000);
 
   window.addEventListener('message', function(ev) {
     if (ev && ev.data && ev.data.type === 'SEEK_FRAME') {
       var t = typeof ev.data.timeSec === 'number' ? ev.data.timeSec : 0;
       var isPlay = !!ev.data.isPlaying;
-      window.seekFrame(t, isPlay);
+      var isMuted = typeof ev.data.isMuted === 'boolean' ? ev.data.isMuted : undefined;
+      var volume = typeof ev.data.volume === 'number' ? ev.data.volume : undefined;
+      window.seekFrame(t, isPlay, isMuted, volume);
     }
   });
 })();
@@ -201,6 +237,28 @@ export async function buildProjectMediaUrlMap(
 		}
 	}
 
+	for (const pkg of project.packages || []) {
+		const parentAsset = project.assets?.find((a) => a.packageId === pkg.id || a.id === pkg.id);
+		const baseName = parentAsset?.name || pkg.id;
+
+		if (pkg.microphone?.path && map.has(pkg.microphone.path)) {
+			const micUrl = map.get(pkg.microphone.path)!;
+			map.set(`${baseName} (Microphone Audio)`, micUrl);
+			map.set(`${pkg.id}-mic`, micUrl);
+		}
+		const sys = pkg.system || (pkg as any).systemAudio;
+		if (sys?.path && map.has(sys.path)) {
+			const sysUrl = map.get(sys.path)!;
+			map.set(`${baseName} (System Audio)`, sysUrl);
+			map.set(`${pkg.id}-sys`, sysUrl);
+		}
+		if (pkg.webcam?.path && map.has(pkg.webcam.path)) {
+			const webUrl = map.get(pkg.webcam.path)!;
+			map.set(`${baseName} (Webcam)`, webUrl);
+			map.set(`${pkg.id}-webcam`, webUrl);
+		}
+	}
+
 	return map;
 }
 
@@ -254,7 +312,41 @@ export function HyperframeEditor({
 	const [currentTimeSec, setCurrentTimeSec] = useState(0);
 	const [isPlaying, setIsPlaying] = useState(true);
 	const [isLooping, setIsLooping] = useState(true);
+	const [isMuted, setIsMuted] = useState(false);
+	const [volume, setVolume] = useState(1.0);
 	const [scale, setScale] = useState(0.5);
+
+	// Duration state & dynamic adjustment
+	const durationSec = Math.max(0.1, hyperframe.durationUs / 1_000_000);
+	const [isEditingDuration, setIsEditingDuration] = useState(false);
+	const [customDurationDraft, setCustomDurationDraft] = useState(String(durationSec.toFixed(1)));
+	const [detectedMediaDuration, setDetectedMediaDuration] = useState<number | null>(null);
+
+	const handleSetDuration = (newSec: number) => {
+		const clamped = Math.max(0.5, Math.min(3600, newSec));
+		onUpdate({ durationUs: Math.round(clamped * 1_000_000) });
+		setIsEditingDuration(false);
+	};
+
+	// Listen for duration detection notifications from embedded iframe
+	useEffect(() => {
+		const handleMessage = (ev: MessageEvent) => {
+			if (ev && ev.data && ev.data.type === "HYPERFRAME_DETECTED_DURATION") {
+				const d = typeof ev.data.durationSec === "number" ? ev.data.durationSec : 0;
+				if (d > 0 && isFinite(d)) {
+					const rounded = Math.round(d * 10) / 10;
+					setDetectedMediaDuration(rounded);
+				}
+			}
+		};
+		window.addEventListener("message", handleMessage);
+		return () => window.removeEventListener("message", handleMessage);
+	}, []);
+
+	// Keep customDurationDraft in sync with durationSec
+	useEffect(() => {
+		setCustomDurationDraft(durationSec.toFixed(1));
+	}, [durationSec]);
 
 	// Code editor state
 	const [codeDraft, setCodeDraft] = useState(hyperframe.htmlContent || "");
@@ -263,6 +355,77 @@ export function HyperframeEditor({
 	// Title editing
 	const [isEditingTitle, setIsEditingTitle] = useState(false);
 	const [titleDraft, setTitleDraft] = useState(hyperframe.name);
+
+	// Synthesize available assets including dedicated audio and webcam tracks for packages
+	const availableAssets = useMemo(() => {
+		const list: MediaAsset[] = [...(project.assets || [])];
+		for (const pkg of project.packages || []) {
+			const parentAsset = project.assets?.find((a) => a.packageId === pkg.id || a.id === pkg.id);
+			const baseName = parentAsset?.name || pkg.id;
+
+			if (pkg.microphone?.path) {
+				const micId = `${pkg.id}-mic`;
+				if (!list.some((a) => a.id === micId)) {
+					list.push({
+						id: micId,
+						kind: "audio",
+						name: `${baseName} (Microphone Audio)`,
+						width: 0,
+						height: 0,
+						source: {
+							path: pkg.microphone.path,
+							durationUs: pkg.microphone.durationUs || pkg.durationUs,
+							offsetUs: pkg.microphone.offsetUs || 0,
+						},
+						durationUs: pkg.microphone.durationUs || pkg.durationUs,
+						packageId: pkg.id,
+					});
+				}
+			}
+
+			const sys = pkg.system || (pkg as any).systemAudio;
+			if (sys?.path) {
+				const sysId = `${pkg.id}-sys`;
+				if (!list.some((a) => a.id === sysId)) {
+					list.push({
+						id: sysId,
+						kind: "audio",
+						name: `${baseName} (System Audio)`,
+						width: 0,
+						height: 0,
+						source: {
+							path: sys.path,
+							durationUs: sys.durationUs || pkg.durationUs,
+							offsetUs: sys.offsetUs || 0,
+						},
+						durationUs: sys.durationUs || pkg.durationUs,
+						packageId: pkg.id,
+					});
+				}
+			}
+
+			if (pkg.webcam?.path) {
+				const webcamId = `${pkg.id}-webcam`;
+				if (!list.some((a) => a.id === webcamId)) {
+					list.push({
+						id: webcamId,
+						kind: "video",
+						name: `${baseName} (Webcam)`,
+						width: 1280,
+						height: 720,
+						source: {
+							path: pkg.webcam.path,
+							durationUs: pkg.webcam.durationUs || pkg.durationUs,
+							offsetUs: pkg.webcam.offsetUs || 0,
+						},
+						durationUs: pkg.webcam.durationUs || pkg.durationUs,
+						packageId: pkg.id,
+					});
+				}
+			}
+		}
+		return list;
+	}, [project.assets, project.packages]);
 
 	// CLI Agent & Tagged Asset State
 	const [availableAgents, setAvailableAgents] = useState<AgentOption[]>(DEFAULT_AGENTS);
@@ -274,6 +437,18 @@ export function HyperframeEditor({
 	const [agentLogs, setAgentLogs] = useState<string[]>([]);
 	const [agentError, setAgentError] = useState<string | null>(null);
 	const [agentSuccess, setAgentSuccess] = useState<string | null>(null);
+
+	const handleTaggedAssetsChange = (newTagged: MediaAsset[]) => {
+		setTaggedAssets(newTagged);
+		// If user tags an asset with duration and hyperframe is at default 5s, adapt automatically
+		const assetWithDuration = newTagged.find((a) => a.durationUs && a.durationUs > 0);
+		if (assetWithDuration && assetWithDuration.durationUs) {
+			const assetSec = Math.round((assetWithDuration.durationUs / 1_000_000) * 10) / 10;
+			if (durationSec === 5 && assetSec !== 5) {
+				onUpdate({ durationUs: Math.round(assetSec * 1_000_000) });
+			}
+		}
+	};
 
 	const [mediaUrlMap, setMediaUrlMap] = useState<Map<string, string>>(new Map());
 
@@ -300,8 +475,6 @@ export function HyperframeEditor({
 	const processedHtml = useMemo(() => {
 		return preprocessHyperframeHtml(hyperframe.htmlContent || "", mediaUrlMap);
 	}, [hyperframe.htmlContent, mediaUrlMap]);
-
-	const durationSec = Math.max(0.1, hyperframe.durationUs / 1_000_000);
 
 	// Sync code draft when hyperframe updates externally
 	useEffect(() => {
@@ -404,20 +577,20 @@ export function HyperframeEditor({
 		if (!iframeRef.current?.contentWindow) return;
 		try {
 			const win = iframeRef.current.contentWindow as unknown as {
-				seekFrame?: (time: number, isPlaying?: boolean) => void;
+				seekFrame?: (time: number, isPlaying?: boolean, isMuted?: boolean, volume?: number) => void;
 			};
 			if (typeof win.seekFrame === "function") {
-				win.seekFrame(currentTimeSec, isPlaying);
+				win.seekFrame(currentTimeSec, isPlaying, isMuted, volume);
 			} else {
 				iframeRef.current.contentWindow.postMessage(
-					{ type: "SEEK_FRAME", timeSec: currentTimeSec, isPlaying },
+					{ type: "SEEK_FRAME", timeSec: currentTimeSec, isPlaying, isMuted, volume },
 					"*",
 				);
 			}
 		} catch {
 			// Ignore cross-origin error
 		}
-	}, [currentTimeSec, isPlaying]);
+	}, [currentTimeSec, isPlaying, isMuted, volume]);
 
 	// Keyboard shortcuts listener
 	useEffect(() => {
@@ -501,6 +674,10 @@ export function HyperframeEditor({
 
 			const resolveAssetPath = (a: MediaAsset) => {
 				const pkg = resolveAssetPackage(a);
+				if (a.source?.path) return a.source.path;
+				if (a.id.endsWith("-mic")) return pkg?.microphone?.path;
+				if (a.id.endsWith("-sys")) return (pkg?.system || (pkg as any)?.systemAudio)?.path;
+				if (a.id.endsWith("-webcam")) return pkg?.webcam?.path;
 				return pkg?.screen?.path ?? a.source?.path;
 			};
 
@@ -548,7 +725,7 @@ export function HyperframeEditor({
 					aspectRatio: hyperframe.aspectRatio || "16:9",
 					packages: project.packages,
 					transcripts: transcripts,
-					assets: project.assets.map(buildAssetPayload),
+					assets: availableAssets.map(buildAssetPayload),
 				},
 			});
 
@@ -662,9 +839,46 @@ export function HyperframeEditor({
 							{hyperframe.width}x{hyperframe.height}
 						</span>
 						<span className="text-[#343A46]">•</span>
-						<span className="font-mono text-[11px] text-[#A8AFBD]">
-							{durationSec.toFixed(1)}s
-						</span>
+						{isEditingDuration ? (
+							<form
+								onSubmit={(e) => {
+									e.preventDefault();
+									const val = parseFloat(customDurationDraft);
+									if (!isNaN(val) && val > 0) handleSetDuration(val);
+								}}
+								className="flex items-center gap-1"
+							>
+								<input
+									type="number"
+									step="0.1"
+									min="0.5"
+									max="3600"
+									autoFocus
+									value={customDurationDraft}
+									onChange={(e) => setCustomDurationDraft(e.target.value)}
+									onBlur={() => {
+										const val = parseFloat(customDurationDraft);
+										if (!isNaN(val) && val > 0) handleSetDuration(val);
+										else setIsEditingDuration(false);
+									}}
+									className="w-16 rounded border border-[#6FA8FF] bg-[#15171C] px-1.5 py-0.5 font-mono text-[11px] text-white outline-none"
+								/>
+								<span className="text-[11px] text-[#A8AFBD]">s</span>
+							</form>
+						) : (
+							<button
+								type="button"
+								onClick={() => {
+									setCustomDurationDraft(durationSec.toFixed(1));
+									setIsEditingDuration(true);
+								}}
+								title="Click to edit duration in seconds"
+								className="group/dur flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[11px] text-[#A8AFBD] hover:bg-white/5 hover:text-white transition"
+							>
+								<span>{durationSec.toFixed(1)}s</span>
+								<PencilSimple size={10} className="opacity-0 group-hover/dur:opacity-100 text-[#6FA8FF]" />
+							</button>
+						)}
 						<span className="text-[#343A46]">•</span>
 						<span className="font-mono text-[11px] text-[#8DDB9B]">60 FPS</span>
 					</div>
@@ -764,6 +978,41 @@ export function HyperframeEditor({
 							<Repeat size={15} weight="bold" />
 						</button>
 
+						{/* Mute/Unmute Audio Toggle & Volume Slider */}
+						<div className="flex items-center gap-1.5">
+							<button
+								type="button"
+								data-testid="hyperframe-transport-mute"
+								onClick={() => setIsMuted((m) => !m)}
+								className={`flex h-8 w-8 items-center justify-center rounded-lg border transition ${
+									!isMuted
+										? "border-[#8DDB9B]/40 bg-[#8DDB9B]/15 text-[#8DDB9B] hover:bg-[#8DDB9B]/25"
+										: "border-[#343A46] bg-[#15171C] text-[#717887] hover:text-white"
+								}`}
+								title={isMuted ? "Unmute Audio (Audio is Muted)" : "Mute Audio (Audio is Playing)"}
+							>
+								{!isMuted ? (
+									<SpeakerHigh size={15} weight="bold" />
+								) : (
+									<SpeakerSlash size={15} weight="bold" />
+								)}
+							</button>
+							<input
+								type="range"
+								min="0"
+								max="1"
+								step="0.05"
+								value={isMuted ? 0 : volume}
+								onChange={(e) => {
+									const v = parseFloat(e.target.value);
+									setVolume(v);
+									if (v > 0 && isMuted) setIsMuted(false);
+								}}
+								className="w-14 h-1.5 cursor-pointer accent-[#8DDB9B] bg-[#242832] rounded"
+								title={`Volume: ${Math.round((isMuted ? 0 : volume) * 100)}%`}
+							/>
+						</div>
+
 						{/* Timecode Current */}
 						<span className="w-16 text-right font-mono text-sm font-semibold text-white">
 							{currentTimeSec.toFixed(2)}s
@@ -784,10 +1033,62 @@ export function HyperframeEditor({
 							className="flex-1 cursor-pointer accent-[#6FA8FF] h-2 rounded-lg bg-[#242832]"
 						/>
 
-						{/* Timecode Total Duration */}
-						<span className="w-16 font-mono text-sm font-semibold text-[#A8AFBD]">
-							{durationSec.toFixed(2)}s
-						</span>
+						{/* Timecode Total Duration (Click to edit) */}
+						{isEditingDuration ? (
+							<form
+								onSubmit={(e) => {
+									e.preventDefault();
+									const val = parseFloat(customDurationDraft);
+									if (!isNaN(val) && val > 0) handleSetDuration(val);
+								}}
+								className="flex items-center gap-1"
+							>
+								<input
+									type="number"
+									step="0.1"
+									min="0.5"
+									max="3600"
+									autoFocus
+									value={customDurationDraft}
+									onChange={(e) => setCustomDurationDraft(e.target.value)}
+									onBlur={() => {
+										const val = parseFloat(customDurationDraft);
+										if (!isNaN(val) && val > 0) handleSetDuration(val);
+										else setIsEditingDuration(false);
+									}}
+									className="w-16 rounded border border-[#6FA8FF] bg-[#15171C] px-1.5 py-1 font-mono text-xs text-white outline-none"
+								/>
+								<span className="text-xs text-[#A8AFBD]">s</span>
+							</form>
+						) : (
+							<button
+								type="button"
+								data-testid="hyperframe-total-duration-btn"
+								onClick={() => {
+									setCustomDurationDraft(durationSec.toFixed(1));
+									setIsEditingDuration(true);
+								}}
+								title="Click to edit total duration in seconds"
+								className="group/tottime flex items-center gap-1 rounded px-1.5 py-1 font-mono text-sm font-semibold text-[#A8AFBD] hover:bg-white/5 hover:text-white transition"
+							>
+								<span>{durationSec.toFixed(2)}s</span>
+								<PencilSimple size={12} className="opacity-0 group-hover/tottime:opacity-100 text-[#6FA8FF]" />
+							</button>
+						)}
+
+						{/* Auto-Fit Media Duration Button (Visible when media duration is detected & differs) */}
+						{detectedMediaDuration && Math.abs(detectedMediaDuration - durationSec) > 0.4 && (
+							<button
+								type="button"
+								data-testid="hyperframe-fit-media-btn"
+								onClick={() => handleSetDuration(detectedMediaDuration)}
+								className="flex items-center gap-1.5 rounded-lg border border-[#6FA8FF]/40 bg-[#6FA8FF]/15 px-2.5 py-1 text-xs font-semibold text-[#8cc2ff] hover:bg-[#6FA8FF]/25 hover:text-white transition shadow-sm animate-pulse"
+								title={`Set timeline duration to match detected video/audio duration (${detectedMediaDuration.toFixed(1)}s)`}
+							>
+								<Clock size={13} weight="bold" />
+								<span>Fit Media ({detectedMediaDuration.toFixed(1)}s)</span>
+							</button>
+						)}
 					</div>
 				</main>
 
@@ -922,9 +1223,9 @@ export function HyperframeEditor({
 									<HyperframePromptInput
 										value={userPrompt}
 										onChange={setUserPrompt}
-										assets={project.assets}
+										assets={availableAssets}
 										taggedAssets={taggedAssets}
-										onTaggedAssetsChange={setTaggedAssets}
+										onTaggedAssetsChange={handleTaggedAssetsChange}
 										disabled={isAgentRunning}
 										onSubmit={handleRunAgent}
 									/>

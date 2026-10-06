@@ -104,7 +104,9 @@ describe("HyperframeEditor", () => {
 
 		// Dedicated Transport Controls
 		expect(html).toContain("hyperframe-transport-play");
+		expect(html).toContain("hyperframe-transport-mute");
 		expect(html).toContain("hyperframe-transport-scrubber");
+		expect(html).toContain("hyperframe-total-duration-btn");
 		expect(html).toContain("0.00s");
 		expect(html).toContain("6.00s");
 
@@ -116,7 +118,7 @@ describe("HyperframeEditor", () => {
 		expect(html).toContain("Source Code");
 	});
 
-	it("renders prompt input with @ asset tagging trigger", () => {
+	it("renders prompt input with @ asset tagging trigger and synthesizes package audio tracks", () => {
 		const html = renderToStaticMarkup(
 			createElement(HyperframeEditor, {
 				hyperframe: mockHyperframe,
@@ -127,10 +129,11 @@ describe("HyperframeEditor", () => {
 		);
 
 		expect(html).toContain("@ Tag Asset");
-		expect(html).toContain("2 available");
+		// 2 project assets + 3 synthesized package tracks (mic, sys, webcam) = 5 available
+		expect(html).toContain("5 available");
 	});
 
-	it("preprocessHyperframeHtml rewrites raw paths and basenames to loopback media URLs, ensures muted/playsinline, and injects sync script", () => {
+	it("preprocessHyperframeHtml rewrites raw paths and basenames to loopback media URLs, ensures playsinline, and injects sync script with duration detector", () => {
 		const map = new Map<string, string>([
 			[
 				"C:\\Users\\FIRDAUS\\recordings\\recording-1791200003951.mp4",
@@ -164,17 +167,18 @@ describe("HyperframeEditor", () => {
 			'src="http://127.0.0.1:62733/video?path=C%3A%5Crecordings%5Cwebcam.mp4"',
 		);
 
-		// Video elements have muted and playsinline attributes
-		expect(processed).toContain("muted");
+		// Video elements have playsinline attribute
 		expect(processed).toContain("playsinline");
 
-		// Synchronizer script is injected before </body>
+		// Synchronizer script is injected before </body> with media duration detection
 		expect(processed).toContain('id="__captr_hyperframe_sync"');
 		expect(processed).toContain("window.seekFrame");
 		expect(processed).toContain("syncMediaElements");
+		expect(processed).toContain("detectMediaDuration");
+		expect(processed).toContain("HYPERFRAME_DETECTED_DURATION");
 	});
 
-	it("buildProjectMediaUrlMap probes package sources (screen, webcam, mic) and assets", async () => {
+	it("buildProjectMediaUrlMap probes package sources (screen, webcam, mic) and maps synthesized audio names", async () => {
 		const mockGetLocalMediaUrl = vi.fn(async (p: string) => {
 			return {
 				success: true,
@@ -188,6 +192,8 @@ describe("HyperframeEditor", () => {
 		expect(map.size).toBeGreaterThan(0);
 		expect(map.has("recording-1791200003951.mp4")).toBe(true);
 		expect(map.has("recording-1791200003951-webcam.mp4")).toBe(true);
+		expect(map.has("recording-1791200003951.mp4 (Microphone Audio)")).toBe(true);
+		expect(map.has("pkg-1-mic")).toBe(true);
 		expect(map.get("recording-1791200003951.mp4")).toContain("http://127.0.0.1:5000/video");
 	});
 });

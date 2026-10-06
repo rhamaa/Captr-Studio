@@ -260,11 +260,19 @@ export function RepurposeBoardEditor({
 	const handleCreateHyperframe = (preset = HYPERFRAME_ASPECT_PRESETS[0]) => {
 		const hfId = `hf-${Date.now().toString(36)}`;
 		const hfName = `Hyperframe ${(project.hyperframes?.length ?? 0) + 1} (${preset.aspectRatio})`;
+
+		// Adapt initial duration to project recording or main video asset if present (otherwise 5s)
+		const primaryDurationUs =
+			project.packages?.[0]?.durationUs ||
+			project.assets?.find((a) => a.durationUs && a.durationUs > 0)?.durationUs ||
+			5_000_000;
+		const primaryDurationSec = Math.max(1, Math.round(primaryDurationUs / 1_000_000));
+
 		const { html } = createDefaultHyperframeTemplate(hfId, hfName, {
 			title: projectTitle || "Captr Studio Production",
 			subtitle: "Automated Code-Driven Motion Graphic",
 			badge: "HYPERFRAME",
-			durationSec: 5,
+			durationSec: primaryDurationSec,
 			width: preset.width,
 			height: preset.height,
 		});
@@ -275,7 +283,7 @@ export function RepurposeBoardEditor({
 			entryHtml: `hyperframe/hyperframe-${hfId}.html`,
 			specJson: `hyperframe/hyperframe-${hfId}.json`,
 			htmlContent: html,
-			durationUs: 5_000_000,
+			durationUs: primaryDurationSec * 1_000_000,
 			width: preset.width,
 			height: preset.height,
 			fps: 60,

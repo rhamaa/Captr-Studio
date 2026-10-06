@@ -119,7 +119,13 @@ export function formatAssetDetail(a: TaggedAsset): string {
 		}
 		if (rec.microphone) {
 			const mUrl = rec.microphone.mediaUrl || rec.microphone.path;
-			str += `    * Microphone Audio Track: "${mUrl}"\n`;
+			str += `    * Microphone Voice Audio Track: "${mUrl}"\n`;
+			str += `      -> HTML tag: <audio src="${mUrl}" preload="auto"></audio>\n`;
+		}
+		if (rec.system) {
+			const sUrl = rec.system.mediaUrl || rec.system.path;
+			str += `    * System Audio Track: "${sUrl}"\n`;
+			str += `      -> HTML tag: <audio src="${sUrl}" preload="auto"></audio>\n`;
 		}
 		if (rec.transcript && rec.transcript.fullText) {
 			str += `    * Speech Transcript & Captions: "${rec.transcript.fullText}"\n`;
@@ -130,6 +136,10 @@ export function formatAssetDetail(a: TaggedAsset): string {
 			str += `      -> Raw samples in "cursor_telemetry.json". You can animate custom cursor markers, spotlight zoom, or click ripple effects!\n`;
 		}
 	}
+	if (a.kind === "audio" && a.mediaUrl) {
+		str += `  - Audio Track URL (USE IN HTML): "${a.mediaUrl}"\n`;
+		str += `    -> HTML tag: <audio src="${a.mediaUrl}" preload="auto"></audio>\n`;
+	}
 	return str;
 }
 
@@ -137,7 +147,7 @@ export function formatHyperframeTaskPrompt(ctx: HyperframeTaskContext): string {
 	let taggedSection = "";
 	if (ctx.taggedAssets && ctx.taggedAssets.length > 0) {
 		const list = ctx.taggedAssets.map((a) => formatAssetDetail(a)).join("\n");
-		taggedSection = `\n\nPRIORITY TAGGED MEDIA (CRITICAL):\nThe user explicitly tagged the following project assets to be used and animated in this Hyperframe:\n${list}\nYou MUST integrate these tagged media elements into the HTML composition:\n- Use <video src="..." autoplay muted loop playsinline> for video & screen recordings.\n- If webcam is available, you can add it as a floating picture-in-picture circle or rounded badge.\n- If transcript/captions are available, render synced animated kinetic captions.\n- If cursor telemetry is available, you can animate cursor pointers or click ripple effects.\n`;
+		taggedSection = `\n\nPRIORITY TAGGED MEDIA (CRITICAL):\nThe user explicitly tagged the following project assets to be used and animated in this Hyperframe:\n${list}\nYou MUST integrate these tagged media elements into the HTML composition:\n- Use <video src="..." autoplay loop playsinline> for video & screen recordings.\n- If microphone audio or audio asset is present, embed <audio src="..." preload="auto"></audio> so voiceover/speech plays in sync with the visual!\n- If webcam is available, you can add it as a floating picture-in-picture circle or rounded badge.\n- If transcript/captions are available, render synced animated kinetic captions.\n- If cursor telemetry is available, you can animate cursor pointers or click ripple effects.\n`;
 	}
 
 	return `You are crafting an HTML5/CSS/JavaScript video composition ("Hyperframe") for Captr Studio.
@@ -151,33 +161,34 @@ ${ctx.assetsSummary}${taggedSection}
 USER REQUEST:
 "${ctx.userPrompt}"
 
-CRITICAL HTML5 VIDEO EMBEDDING & SYNC RULES:
-1. LIVE PLAYING VIDEO (CRITICAL):
-   - When a video or screen recording is tagged, it MUST be embedded as a real, continuous playing <video src="..." autoplay muted loop playsinline></video> element.
-   - NEVER capture or replace it with a static image, snapshot, or canvas screenshot. The video must run as live video during the composition.
+CRITICAL HTML5 VIDEO & AUDIO EMBEDDING & SYNC RULES:
+1. LIVE PLAYING VIDEO & AUDIO (CRITICAL):
+   - When a video or screen recording is tagged, it MUST be embedded as a real, continuous playing <video src="..." autoplay loop playsinline></video> element.
+   - If audio/microphone is available, embed an <audio src="..." preload="auto"></audio> element.
+   - NEVER capture or replace video with a static image, snapshot, or canvas screenshot. The video must run as live video during the composition.
 2. PRESERVE VIDEO ASPECT RATIO & CLEAN LAYOUT:
    - For screen recordings (usually 16:9), do NOT awkwardly crop or cut off parts of the screen.
    - Use 'object-fit: contain' or embed the video inside an elegant container/device mockup (e.g. browser bar mockup with mac-style traffic light dots, rounded corners, soft pastel glow shadow).
    - If designing a full-bleed video canvas, use width: 100%; height: 100%; object-fit: contain (or cover), and layer animated typography, badges, or stats on top.
-3. NEVER use raw local Windows paths (e.g. "C:\\...") or "file:///" in <video src="..."> or <img src="..."> tags. Web browsers and sandboxed iframes block local file schemes for security. ALWAYS use the provided Media URL ("http://127.0.0.1:...").
-4. IN 'window.seekFrame(timeInSeconds, isPlaying)', keep animations in sync without stalling the video decoder:
+3. NEVER use raw local Windows paths (e.g. "C:\\...") or "file:///" in <video src="...">, <audio src="..."> or <img src="..."> tags. Web browsers and sandboxed iframes block local file schemes for security. ALWAYS use the provided Media URL ("http://127.0.0.1:...").
+4. IN 'window.seekFrame(timeInSeconds, isPlaying)', keep both video and audio in lockstep sync:
 \`\`\`javascript
 window.seekFrame = function(timeInSeconds, isPlaying) {
   if (window.tl) window.tl.seek(timeInSeconds);
-  const video = document.querySelector("video");
-  if (video) {
+  const mediaElements = document.querySelectorAll("video, audio");
+  mediaElements.forEach(function(el) {
     if (isPlaying) {
-      if (video.paused) video.play().catch(()=>{});
-      if (Math.abs(video.currentTime - timeInSeconds) > 0.25) {
-        video.currentTime = timeInSeconds;
+      if (el.paused) el.play().catch(function(){});
+      if (Math.abs(el.currentTime - timeInSeconds) > 0.25) {
+        el.currentTime = timeInSeconds;
       }
     } else {
-      if (!video.paused) video.pause();
-      if (Math.abs(video.currentTime - timeInSeconds) > 0.04) {
-        video.currentTime = timeInSeconds;
+      if (!el.paused) el.pause();
+      if (Math.abs(el.currentTime - timeInSeconds) > 0.04) {
+        el.currentTime = timeInSeconds;
       }
     }
-  }
+  });
 };
 \`\`\`
 
