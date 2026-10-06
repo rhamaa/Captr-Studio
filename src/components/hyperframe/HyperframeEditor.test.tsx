@@ -196,4 +196,51 @@ describe("HyperframeEditor", () => {
 		expect(map.has("pkg-1-mic")).toBe(true);
 		expect(map.get("recording-1791200003951.mp4")).toContain("http://127.0.0.1:5000/video");
 	});
+
+	it("preprocessHyperframeHtml re-bases stale loopback URLs with old ports and auto-injects companion audio when missing", () => {
+		const map = new Map<string, string>([
+			[
+				"recording-1791200003951.mp4",
+				"http://127.0.0.1:63893/video?path=C%3A%5Cassets%5C0-0-0-0-0-recording-1791200003951.mp4",
+			],
+			[
+				"recording-1791200003947-webcam.mp4",
+				"http://127.0.0.1:63893/video?path=C%3A%5Cassets%5C1-1-1-1-1-recording-1791200003947-webcam.mp4",
+			],
+			[
+				"recording-1791200003951.mp4 (Microphone Audio)",
+				"http://127.0.0.1:63893/video?path=C%3A%5Cassets%5C2-2-2-2-2-recording-1791200003951.mic.wav",
+			],
+			[
+				"pkg-1-mic",
+				"http://127.0.0.1:63893/video?path=C%3A%5Cassets%5C2-2-2-2-2-recording-1791200003951.mic.wav",
+			],
+		]);
+
+		// HTML produced in a previous run with dead port 49221 and shifted prefix 0-0-0-0-
+		const staleHtml = `<!DOCTYPE html>
+<html>
+<body>
+  <video id="screenVid" src="http://127.0.0.1:49221/video?path=C%3A%5Cworkspaces%5Cold%5Cassets%5C20148%5C0-0-0-0-recording-1791200003951.mp4"></video>
+  <video id="webcamVid" src="http://127.0.0.1:49221/video?path=C%3A%5Cworkspaces%5Cold%5Cassets%5C20148%5C1-1-1-1-recording-1791200003947-webcam.mp4"></video>
+</body>
+</html>`;
+
+		const processed = preprocessHyperframeHtml(staleHtml, map);
+
+		// Dead port 49221 and shifted prefixes are resolved to the live media server port and files
+		expect(processed).not.toContain(":49221");
+		expect(processed).toContain(
+			'src="http://127.0.0.1:63893/video?path=C%3A%5Cassets%5C0-0-0-0-0-recording-1791200003951.mp4"',
+		);
+		expect(processed).toContain(
+			'src="http://127.0.0.1:63893/video?path=C%3A%5Cassets%5C1-1-1-1-1-recording-1791200003947-webcam.mp4"',
+		);
+
+		// Companion microphone audio is automatically injected since video is present without <audio>
+		expect(processed).toContain('<audio id="__captr_companion_mic"');
+		expect(processed).toContain(
+			'src="http://127.0.0.1:63893/video?path=C%3A%5Cassets%5C2-2-2-2-2-recording-1791200003951.mic.wav"',
+		);
+	});
 });

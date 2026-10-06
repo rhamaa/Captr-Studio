@@ -14,9 +14,10 @@ import {
 	WarningCircle,
 	X,
 } from "@phosphor-icons/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { HyperframeComposition } from "@/core/story/storyTypes";
 import type { TimelineProject } from "@/core/timeline/types";
+import { buildProjectMediaUrlMap, preprocessHyperframeHtml } from "@/components/hyperframe/HyperframeEditor";
 
 export interface HyperframeEditorDrawerProps {
 	hyperframe: HyperframeComposition;
@@ -92,6 +93,26 @@ export function HyperframeEditorDrawer({
 	const [agentSuccess, setAgentSuccess] = useState<string | null>(null);
 
 	const durationSec = Math.max(0.1, hyperframe.durationUs / 1_000_000);
+
+	const [mediaUrlMap, setMediaUrlMap] = useState<Map<string, string>>(new Map());
+
+	useEffect(() => {
+		let isMounted = true;
+		if (window.electronAPI?.getLocalMediaUrl) {
+			buildProjectMediaUrlMap(project, window.electronAPI.getLocalMediaUrl)
+				.then((map) => {
+					if (isMounted) setMediaUrlMap(map);
+				})
+				.catch(() => {});
+		}
+		return () => {
+			isMounted = false;
+		};
+	}, [project]);
+
+	const processedHtml = useMemo(() => {
+		return preprocessHyperframeHtml(hyperframe.htmlContent || "", mediaUrlMap);
+	}, [hyperframe.htmlContent, mediaUrlMap]);
 
 	// Sync code draft when hyperframe updates externally
 	useEffect(() => {
@@ -425,7 +446,7 @@ export function HyperframeEditorDrawer({
 									data-testid="hyperframe-drawer-iframe"
 									title={hyperframe.name}
 									sandbox="allow-scripts allow-same-origin"
-									srcDoc={hyperframe.htmlContent || ""}
+									srcDoc={processedHtml}
 									className="h-full w-full border-none pointer-events-none"
 								/>
 							</div>

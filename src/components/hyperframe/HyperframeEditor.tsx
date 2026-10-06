@@ -43,6 +43,56 @@ export function preprocessHyperframeHtml(
 	if (!html) return "";
 	let processed = html;
 
+	// 1. Identify active media server base URL (e.g. http://127.0.0.1:63893)
+	let activeBaseUrl = "";
+	if (mediaUrlMap && mediaUrlMap.size > 0) {
+		for (const url of mediaUrlMap.values()) {
+			if (typeof url === "string" && (url.startsWith("http://") || url.startsWith("https://"))) {
+				try {
+					activeBaseUrl = new URL(url).origin;
+					break;
+				} catch {}
+			}
+		}
+	}
+
+	// 2. Re-base ANY stale or hardcoded loopback media server URLs (e.g. http://127.0.0.1:49221/video?path=...)
+	const mediaUrlRegex = /(?:https?:)?\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?\/video\?path=([^"'()\s<>#]+)/gi;
+	processed = processed.replace(mediaUrlRegex, (fullMatch, encodedPath) => {
+		let rawPath = "";
+		try {
+			rawPath = decodeURIComponent(encodedPath);
+		} catch {
+			rawPath = encodedPath;
+		}
+
+		if (mediaUrlMap && mediaUrlMap.size > 0) {
+			if (mediaUrlMap.has(rawPath)) return mediaUrlMap.get(rawPath)!;
+			const forward = rawPath.replace(/\\/g, "/");
+			if (mediaUrlMap.has(forward)) return mediaUrlMap.get(forward)!;
+
+			const parts = forward.split("/");
+			const base = parts[parts.length - 1];
+			if (base && mediaUrlMap.has(base)) return mediaUrlMap.get(base)!;
+
+			const strippedBase = base ? base.replace(/^(?:\d+-)+/, "") : "";
+			if (strippedBase) {
+				if (mediaUrlMap.has(strippedBase)) return mediaUrlMap.get(strippedBase)!;
+				for (const [key, val] of mediaUrlMap.entries()) {
+					if (key.endsWith(strippedBase)) {
+						return val;
+					}
+				}
+			}
+		}
+
+		if (activeBaseUrl) {
+			return `${activeBaseUrl}/video?path=${encodeURIComponent(rawPath)}`;
+		}
+		return fullMatch;
+	});
+
+	// 3. Replace relative paths, basenames, file URLs, and asset IDs with live media URLs
 	if (mediaUrlMap && mediaUrlMap.size > 0) {
 		// Sort keys descending by length to replace longer paths (full path, file://) before basenames
 		const sortedEntries = Array.from(mediaUrlMap.entries())
@@ -63,7 +113,7 @@ export function preprocessHyperframeHtml(
 		}
 	}
 
-	// Ensure all <video> tags have playsinline
+	// 4. Ensure all <video> tags have playsinline
 	processed = processed.replace(/<video\b([^>]*)>/gi, (_match, attrs) => {
 		let updatedAttrs = attrs;
 		if (!/\bplaysinline\b/i.test(updatedAttrs)) {
@@ -72,12 +122,32 @@ export function preprocessHyperframeHtml(
 		return `<video${updatedAttrs}>`;
 	});
 
-	// Inject media synchronizer script if not present
+	// 5. Auto-inject companion audio track if screen video is present but NO audio element is authored
+	if (mediaUrlMap && !/<audio\b/i.test(processed)) {
+		let micUrl: string | undefined;
+		for (const [key, url] of mediaUrlMap.entries()) {
+			if (key.includes("Microphone Audio") || key.endsWith("-mic") || key.endsWith(".mic.wav")) {
+				micUrl = url;
+				break;
+			}
+		}
+		if (micUrl) {
+			const audioTag = `\n<audio id="__captr_companion_mic" src="${micUrl}" preload="auto" playsinline></audio>`;
+			if (processed.includes("</body>")) {
+				processed = processed.replace("</body>", `${audioTag}\n</body>`);
+			} else {
+				processed += audioTag;
+			}
+		}
+	}
+
+	// 6. Inject media synchronizer script if not present
 	if (!processed.includes("__captr_hyperframe_sync")) {
 		const syncScript = `
 <script id="__captr_hyperframe_sync">
 (function() {
   window.__captr_is_playing = false;
+  var __captr_host_controlled = false;
 
   // Protect HTMLMediaElement against 60fps seek stalls during continuous playback:
   var originalDescriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'currentTime');
@@ -87,7 +157,6 @@ export function preprocessHyperframeHtml(
       get: originalDescriptor.get,
       set: function(val) {
         if (window.__captr_is_playing && !this.paused) {
-          // If actively playing, ignore micro-seeks that stall Chromium video decoders
           if (Math.abs(this.currentTime - val) < 0.25) {
             return;
           }
@@ -101,7 +170,10 @@ export function preprocessHyperframeHtml(
   function syncMediaElements(t, isPlaying, isMuted, volume) {
     var els = document.querySelectorAll('video, audio');
     els.forEach(function(el) {
-      if (typeof isMuted === 'boolean') {
+      if (el.tagName === 'AUDIO') {
+        el.muted = typeof isMuted === 'boolean' ? isMuted : false;
+        if (typeof volume === 'number') el.volume = volume;
+      } else if (typeof isMuted === 'boolean') {
         el.muted = isMuted;
       }
       if (typeof volume === 'number') {
@@ -127,9 +199,17 @@ export function preprocessHyperframeHtml(
 
   var existingSeek = window.seekFrame;
   window.seekFrame = function(timeInSeconds, isPlaying, isMuted, volume) {
+    if (arguments.length >= 3) {
+      __captr_host_controlled = true;
+    } else if (__captr_host_controlled) {
+      return; // Ignore internal animation loops that fight host transport
+    }
     window.__captr_is_playing = !!isPlaying;
     if (typeof existingSeek === 'function' && existingSeek !== window.seekFrame) {
       try { existingSeek(timeInSeconds, isPlaying); } catch(e) {}
+    }
+    if (window.tl && typeof window.tl.seek === 'function') {
+      try { window.tl.seek(timeInSeconds); } catch(e) {}
     }
     syncMediaElements(timeInSeconds, !!isPlaying, isMuted, volume);
   };
@@ -149,6 +229,11 @@ export function preprocessHyperframeHtml(
         if (tlD && isFinite(tlD) && tlD > maxD) maxD = tlD;
       } catch(e) {}
     }
+    var rootEl = document.querySelector('[data-duration]');
+    if (rootEl) {
+      var dAttr = parseFloat(rootEl.getAttribute('data-duration'));
+      if (dAttr && isFinite(dAttr) && dAttr > maxD) maxD = dAttr;
+    }
     if (maxD > 0 && isFinite(maxD)) {
       try {
         window.parent.postMessage({ type: 'HYPERFRAME_DETECTED_DURATION', durationSec: maxD }, '*');
@@ -158,9 +243,9 @@ export function preprocessHyperframeHtml(
 
   window.addEventListener('loadedmetadata', detectMediaDuration, true);
   window.addEventListener('canplay', detectMediaDuration, true);
-  setTimeout(detectMediaDuration, 400);
-  setTimeout(detectMediaDuration, 1200);
-  setTimeout(detectMediaDuration, 3000);
+  setTimeout(detectMediaDuration, 300);
+  setTimeout(detectMediaDuration, 1000);
+  setTimeout(detectMediaDuration, 2500);
 
   window.addEventListener('message', function(ev) {
     if (ev && ev.data && ev.data.type === 'SEEK_FRAME') {
@@ -208,6 +293,9 @@ export async function buildProjectMediaUrlMap(
 
 	for (const filePath of candidatePaths) {
 		try {
+			if (typeof window !== "undefined" && window.electronAPI?.approveLocalMediaPath) {
+				await window.electronAPI.approveLocalMediaPath(filePath).catch(() => {});
+			}
 			const res = await getLocalMediaUrl(filePath);
 			if (res.success && res.url) {
 				const mediaUrl = res.url;
@@ -218,6 +306,14 @@ export async function buildProjectMediaUrlMap(
 				const basename = parts[parts.length - 1];
 				if (basename) {
 					map.set(basename, mediaUrl);
+					const stripped = basename.replace(/^(?:\d+-)+/, "");
+					if (stripped && stripped !== basename) {
+						map.set(stripped, mediaUrl);
+					}
+				}
+				const assetsIndex = forward.indexOf("/assets/");
+				if (assetsIndex !== -1) {
+					map.set(forward.slice(assetsIndex + 1), mediaUrl);
 				}
 				try {
 					const normalizedPath = forward.startsWith("/") ? forward : `/${forward}`;
@@ -245,17 +341,35 @@ export async function buildProjectMediaUrlMap(
 			const micUrl = map.get(pkg.microphone.path)!;
 			map.set(`${baseName} (Microphone Audio)`, micUrl);
 			map.set(`${pkg.id}-mic`, micUrl);
+			const base = pkg.microphone.path.split(/[/\\]/).pop();
+			if (base) {
+				map.set(base, micUrl);
+				const stripped = base.replace(/^(?:\d+-)+/, "");
+				if (stripped && stripped !== base) map.set(stripped, micUrl);
+			}
 		}
 		const sys = pkg.system || (pkg as any).systemAudio;
 		if (sys?.path && map.has(sys.path)) {
 			const sysUrl = map.get(sys.path)!;
 			map.set(`${baseName} (System Audio)`, sysUrl);
 			map.set(`${pkg.id}-sys`, sysUrl);
+			const base = sys.path.split(/[/\\]/).pop();
+			if (base) {
+				map.set(base, sysUrl);
+				const stripped = base.replace(/^(?:\d+-)+/, "");
+				if (stripped && stripped !== base) map.set(stripped, sysUrl);
+			}
 		}
 		if (pkg.webcam?.path && map.has(pkg.webcam.path)) {
 			const webUrl = map.get(pkg.webcam.path)!;
 			map.set(`${baseName} (Webcam)`, webUrl);
 			map.set(`${pkg.id}-webcam`, webUrl);
+			const base = pkg.webcam.path.split(/[/\\]/).pop();
+			if (base) {
+				map.set(base, webUrl);
+				const stripped = base.replace(/^(?:\d+-)+/, "");
+				if (stripped && stripped !== base) map.set(stripped, webUrl);
+			}
 		}
 	}
 
@@ -336,12 +450,16 @@ export function HyperframeEditor({
 				if (d > 0 && isFinite(d)) {
 					const rounded = Math.round(d * 10) / 10;
 					setDetectedMediaDuration(rounded);
+					// Auto-update duration if hyperframe is at default 5s or if difference is significant
+					if (Math.abs(durationSec - rounded) > 0.4 && (durationSec === 5 || !hyperframe.durationUs)) {
+						onUpdate({ durationUs: Math.round(rounded * 1_000_000) });
+					}
 				}
 			}
 		};
 		window.addEventListener("message", handleMessage);
 		return () => window.removeEventListener("message", handleMessage);
-	}, []);
+	}, [durationSec, hyperframe.durationUs, onUpdate]);
 
 	// Keep customDurationDraft in sync with durationSec
 	useEffect(() => {
@@ -440,11 +558,14 @@ export function HyperframeEditor({
 
 	const handleTaggedAssetsChange = (newTagged: MediaAsset[]) => {
 		setTaggedAssets(newTagged);
-		// If user tags an asset with duration and hyperframe is at default 5s, adapt automatically
-		const assetWithDuration = newTagged.find((a) => a.durationUs && a.durationUs > 0);
-		if (assetWithDuration && assetWithDuration.durationUs) {
-			const assetSec = Math.round((assetWithDuration.durationUs / 1_000_000) * 10) / 10;
-			if (durationSec === 5 && assetSec !== 5) {
+		// If user tags an asset with duration, adapt hyperframe duration automatically
+		const assetWithDuration = newTagged.find(
+			(a) => (a.durationUs && a.durationUs > 0) || (a.source?.durationUs && a.source.durationUs > 0),
+		);
+		const durUs = assetWithDuration?.durationUs || assetWithDuration?.source?.durationUs;
+		if (durUs && durUs > 0) {
+			const assetSec = Math.round((durUs / 1_000_000) * 10) / 10;
+			if (assetSec > 0 && Math.abs(durationSec - assetSec) > 0.1) {
 				onUpdate({ durationUs: Math.round(assetSec * 1_000_000) });
 			}
 		}
@@ -708,6 +829,18 @@ export function HyperframeEditor({
 				};
 			};
 
+			// Calculate target duration from tagged assets or detected media duration
+			let targetDurationSec = durationSec;
+			const taggedWithDur = taggedAssets.find(
+				(a) => (a.durationUs && a.durationUs > 0) || (a.source?.durationUs && a.source.durationUs > 0),
+			);
+			const taggedDurUs = taggedWithDur?.durationUs || taggedWithDur?.source?.durationUs;
+			if (taggedDurUs && taggedDurUs > 0) {
+				targetDurationSec = Math.round((taggedDurUs / 1_000_000) * 10) / 10;
+			} else if (detectedMediaDuration && detectedMediaDuration > 0) {
+				targetDurationSec = detectedMediaDuration;
+			}
+
 			const res = await window.electronAPI.runHyperframeAgentTask({
 				agentId: selectedAgentId,
 				customCommand: selectedAgentId === "custom" ? customCommand : undefined,
@@ -717,7 +850,7 @@ export function HyperframeEditor({
 				currentHtml: hyperframe.htmlContent || "",
 				width: hyperframe.width,
 				height: hyperframe.height,
-				durationSec,
+				durationSec: targetDurationSec,
 				taggedAssets: taggedAssets.map(buildAssetPayload),
 				projectContext: {
 					projectId: project.projectId,
@@ -734,7 +867,10 @@ export function HyperframeEditor({
 			}
 
 			if (res.success && res.html) {
-				onUpdate({ htmlContent: res.html });
+				onUpdate({
+					htmlContent: res.html,
+					durationUs: Math.round(targetDurationSec * 1_000_000),
+				});
 				setCodeDraft(res.html);
 				setAgentSuccess("Hyperframe updated successfully by agent!");
 				setCurrentTimeSec(0);

@@ -120,12 +120,12 @@ export function formatAssetDetail(a: TaggedAsset): string {
 		if (rec.microphone) {
 			const mUrl = rec.microphone.mediaUrl || rec.microphone.path;
 			str += `    * Microphone Voice Audio Track: "${mUrl}"\n`;
-			str += `      -> HTML tag: <audio src="${mUrl}" preload="auto"></audio>\n`;
+			str += `      -> HTML tag: <audio id="voiceover" src="${mUrl}" preload="auto" data-start="0" data-duration="${rec.screen?.durationSec || 10}"></audio>\n`;
 		}
 		if (rec.system) {
 			const sUrl = rec.system.mediaUrl || rec.system.path;
 			str += `    * System Audio Track: "${sUrl}"\n`;
-			str += `      -> HTML tag: <audio src="${sUrl}" preload="auto"></audio>\n`;
+			str += `      -> HTML tag: <audio id="system-audio" src="${sUrl}" preload="auto" data-start="0" data-duration="${rec.screen?.durationSec || 10}"></audio>\n`;
 		}
 		if (rec.transcript && rec.transcript.fullText) {
 			str += `    * Speech Transcript & Captions: "${rec.transcript.fullText}"\n`;
@@ -138,7 +138,7 @@ export function formatAssetDetail(a: TaggedAsset): string {
 	}
 	if (a.kind === "audio" && a.mediaUrl) {
 		str += `  - Audio Track URL (USE IN HTML): "${a.mediaUrl}"\n`;
-		str += `    -> HTML tag: <audio src="${a.mediaUrl}" preload="auto"></audio>\n`;
+		str += `    -> HTML tag: <audio id="audio-${a.id}" src="${a.mediaUrl}" preload="auto"></audio>\n`;
 	}
 	return str;
 }
@@ -147,10 +147,10 @@ export function formatHyperframeTaskPrompt(ctx: HyperframeTaskContext): string {
 	let taggedSection = "";
 	if (ctx.taggedAssets && ctx.taggedAssets.length > 0) {
 		const list = ctx.taggedAssets.map((a) => formatAssetDetail(a)).join("\n");
-		taggedSection = `\n\nPRIORITY TAGGED MEDIA (CRITICAL):\nThe user explicitly tagged the following project assets to be used and animated in this Hyperframe:\n${list}\nYou MUST integrate these tagged media elements into the HTML composition:\n- Use <video src="..." autoplay loop playsinline> for video & screen recordings.\n- If microphone audio or audio asset is present, embed <audio src="..." preload="auto"></audio> so voiceover/speech plays in sync with the visual!\n- If webcam is available, you can add it as a floating picture-in-picture circle or rounded badge.\n- If transcript/captions are available, render synced animated kinetic captions.\n- If cursor telemetry is available, you can animate cursor pointers or click ripple effects.\n`;
+		taggedSection = `\n\nPRIORITY TAGGED MEDIA (CRITICAL):\nThe user explicitly tagged the following project assets to be used and animated in this Hyperframe:\n${list}\nYou MUST integrate these tagged media elements into the HTML composition:\n- Use <video src="..." autoplay loop playsinline> for video & screen recordings.\n- MANDATORY AUDIO: In Captr Studio, screen recording MP4s DO NOT contain microphone speech! The microphone voiceover is recorded in a separate companion audio file. You MUST embed <audio id="voiceover" src="..." preload="auto" data-start="0" data-duration="${ctx.durationSec}"></audio> so the speaker's voice is audible! Every <audio> element MUST have a unique id.\n- If webcam is available, you can add it as a floating picture-in-picture circle or rounded badge.\n- If transcript/captions are available, render synced animated kinetic captions.\n- If cursor telemetry is available, you can animate cursor pointers or click ripple effects.\n`;
 	}
 
-	return `You are crafting an HTML5/CSS/JavaScript video composition ("Hyperframe") for Captr Studio.
+	return `You are crafting an HTML5/CSS/JavaScript video composition ("Hyperframe") for Captr Studio using HeyGen HyperFrames specifications.
 The composition file is located at: "${ctx.draftFilePath}".
 Composition specs: ${ctx.width}x${ctx.height} px, duration: ${ctx.durationSec}s.
 Target Title: "${ctx.hyperframeName}".
@@ -161,35 +161,47 @@ ${ctx.assetsSummary}${taggedSection}
 USER REQUEST:
 "${ctx.userPrompt}"
 
-CRITICAL HTML5 VIDEO & AUDIO EMBEDDING & SYNC RULES:
-1. LIVE PLAYING VIDEO & AUDIO (CRITICAL):
+CRITICAL HYPERFRAMES COMPOSITION RULES:
+1. DURATION & TIMING COMPLIANCE (CRITICAL):
+   - The composition duration is ${ctx.durationSec}s.
+   - All animations, GSAP timeline, kinetic subtitles, and media elements MUST span the entire ${ctx.durationSec}s duration.
+   - DO NOT clamp time to 5s.
+   - DO NOT create self-running requestAnimationFrame loops or setInterval tickers in the page. Playback is driven exclusively by the outer player calling window.seekFrame(t).
+2. LIVE PLAYING VIDEO & MANDATORY COMPANION AUDIO (CRITICAL):
    - When a video or screen recording is tagged, it MUST be embedded as a real, continuous playing <video src="..." autoplay loop playsinline></video> element.
-   - If audio/microphone is available, embed an <audio src="..." preload="auto"></audio> element.
+   - In Captr Studio, screen recording MP4 files DO NOT contain microphone speech! The microphone voiceover is recorded in a separate companion audio file. If a microphone audio track or audio asset is tagged/present, you MUST embed:
+     <audio id="voiceover" src="..." preload="auto" data-start="0" data-duration="${ctx.durationSec}"></audio>
+     Every <audio> element MUST have a unique id attribute.
    - NEVER capture or replace video with a static image, snapshot, or canvas screenshot. The video must run as live video during the composition.
-2. PRESERVE VIDEO ASPECT RATIO & CLEAN LAYOUT:
+3. PRESERVE VIDEO ASPECT RATIO & CLEAN LAYOUT:
    - For screen recordings (usually 16:9), do NOT awkwardly crop or cut off parts of the screen.
    - Use 'object-fit: contain' or embed the video inside an elegant container/device mockup (e.g. browser bar mockup with mac-style traffic light dots, rounded corners, soft pastel glow shadow).
    - If designing a full-bleed video canvas, use width: 100%; height: 100%; object-fit: contain (or cover), and layer animated typography, badges, or stats on top.
-3. NEVER use raw local Windows paths (e.g. "C:\\...") or "file:///" in <video src="...">, <audio src="..."> or <img src="..."> tags. Web browsers and sandboxed iframes block local file schemes for security. ALWAYS use the provided Media URL ("http://127.0.0.1:...").
-4. IN 'window.seekFrame(timeInSeconds, isPlaying)', keep both video and audio in lockstep sync:
+4. NEVER use raw local Windows paths (e.g. "C:\\...") or "file:///" in <video src="...">, <audio src="..."> or <img src="..."> tags. Web browsers and sandboxed iframes block local file schemes for security. ALWAYS use the provided Media URL ("http://127.0.0.1:...").
+5. TIMELINE SYNC ARCHITECTURE:
+   - Root container: <div id="root" data-composition-id="main" data-duration="${ctx.durationSec}" style="width:100%;height:100%;">
+   - Create exactly one paused GSAP timeline: const tl = gsap.timeline({ paused: true }); window.tl = tl;
+   - Implement 'window.seekFrame(timeInSeconds, isPlaying)' to seek window.tl and sync media elements up to ${ctx.durationSec}s:
 \`\`\`javascript
 window.seekFrame = function(timeInSeconds, isPlaying) {
-  if (window.tl) window.tl.seek(timeInSeconds);
+  const clampedTime = Math.max(0, Math.min(${ctx.durationSec}, timeInSeconds));
+  if (window.tl) window.tl.seek(clampedTime);
   const mediaElements = document.querySelectorAll("video, audio");
   mediaElements.forEach(function(el) {
     if (isPlaying) {
       if (el.paused) el.play().catch(function(){});
-      if (Math.abs(el.currentTime - timeInSeconds) > 0.25) {
-        el.currentTime = timeInSeconds;
+      if (Math.abs(el.currentTime - clampedTime) > 0.25) {
+        el.currentTime = clampedTime;
       }
     } else {
       if (!el.paused) el.pause();
-      if (Math.abs(el.currentTime - timeInSeconds) > 0.04) {
-        el.currentTime = timeInSeconds;
+      if (Math.abs(el.currentTime - clampedTime) > 0.04) {
+        el.currentTime = clampedTime;
       }
     }
   });
 };
+window.getDuration = function() { return ${ctx.durationSec}; };
 \`\`\`
 
 INSTRUCTIONS:
@@ -477,6 +489,15 @@ export async function runHyperframeAgentTask(
 				? enrichedAssets.map((a) => formatAssetDetail(a)).join("\n")
 				: "No media assets";
 
+		// Calculate effective duration: if tagged asset has known duration, use it
+		let effectiveDurationSec = params.durationSec;
+		for (const ta of enrichedTaggedAssets) {
+			const d = ta.recordingPackage?.screen?.durationSec;
+			if (d && d > 0 && (effectiveDurationSec === 5 || d > effectiveDurationSec)) {
+				effectiveDurationSec = Math.round(d * 10) / 10;
+			}
+		}
+
 		// Write PROJECT_ASSETS.json
 		await fsPromises.writeFile(
 			path.join(workspaceDir, "PROJECT_ASSETS.json"),
@@ -486,7 +507,7 @@ export async function runHyperframeAgentTask(
 					aspectRatio: params.projectContext.aspectRatio,
 					width: params.width,
 					height: params.height,
-					durationSec: params.durationSec,
+					durationSec: effectiveDurationSec,
 					taggedAssets: enrichedTaggedAssets,
 					assets: enrichedAssets,
 					transcripts: params.projectContext.transcripts,
@@ -502,7 +523,7 @@ export async function runHyperframeAgentTask(
 			hyperframeName: params.hyperframeName,
 			width: params.width,
 			height: params.height,
-			durationSec: params.durationSec,
+			durationSec: effectiveDurationSec,
 			assetsSummary,
 			draftFilePath: draftHtmlPath,
 			taggedAssets: enrichedTaggedAssets,
