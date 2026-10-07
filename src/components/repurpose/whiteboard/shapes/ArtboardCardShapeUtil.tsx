@@ -1,4 +1,3 @@
-import React from "react";
 import { BaseBoxShapeUtil, HTMLContainer, T, type TLBaseShape } from "@tldraw/tldraw";
 import { useWhiteboardContext } from "../WhiteboardContext";
 import { RepurposeArtboardCard } from "../../RepurposeArtboardCard";
@@ -14,7 +13,7 @@ export type ArtboardCardShape = TLBaseShape<
 	}
 >;
 
-export class ArtboardCardShapeUtil extends BaseBoxShapeUtil<ArtboardCardShape> {
+export class ArtboardCardShapeUtil extends BaseBoxShapeUtil<any> {
 	static override type = ARTBOARD_CARD_SHAPE_TYPE;
 	static override props = {
 		artboardId: T.string,
@@ -40,6 +39,12 @@ export class ArtboardCardShapeUtil extends BaseBoxShapeUtil<ArtboardCardShape> {
 			w: 202,
 			h: 448,
 		};
+	}
+
+	override getIndicatorPath(shape: ArtboardCardShape) {
+		const path = new Path2D();
+		path.rect(0, 0, shape.props.w, shape.props.h);
+		return path;
 	}
 
 	override component(shape: ArtboardCardShape) {

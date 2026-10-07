@@ -1,4 +1,3 @@
-import React from "react";
 import { BaseBoxShapeUtil, HTMLContainer, T, type TLBaseShape } from "@tldraw/tldraw";
 import { useWhiteboardContext } from "../WhiteboardContext";
 import { HyperframeCard } from "../../HyperframeCard";
@@ -14,7 +13,7 @@ export type HyperframeCardShape = TLBaseShape<
 	}
 >;
 
-export class HyperframeCardShapeUtil extends BaseBoxShapeUtil<HyperframeCardShape> {
+export class HyperframeCardShapeUtil extends BaseBoxShapeUtil<any> {
 	static override type = HYPERFRAME_CARD_SHAPE_TYPE;
 	static override props = {
 		hyperframeId: T.string,
@@ -40,6 +39,12 @@ export class HyperframeCardShapeUtil extends BaseBoxShapeUtil<HyperframeCardShap
 			w: 640,
 			h: 448,
 		};
+	}
+
+	override getIndicatorPath(shape: HyperframeCardShape) {
+		const path = new Path2D();
+		path.rect(0, 0, shape.props.w, shape.props.h);
+		return path;
 	}
 
 	override component(shape: HyperframeCardShape) {

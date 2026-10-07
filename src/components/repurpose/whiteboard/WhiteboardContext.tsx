@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from "react";
+import { createContext, useContext } from "react";
 import type { TimelineProject } from "@/core/timeline/types";
 import type { RepurposeArtboardFraming } from "@/core/timeline/repurposeTypes";
 

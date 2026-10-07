@@ -1,17 +1,14 @@
 import {
 	ArrowLeft,
-	ArrowsInSimple,
 	CaretLeft,
 	CaretRight,
 	Export,
 	FolderOpen,
-	MagnifyingGlassMinus,
-	MagnifyingGlassPlus,
 	Plus,
 	Sparkle,
 	SquaresFour,
 } from "@phosphor-icons/react";
-import { type MouseEvent as ReactMouseEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AssetLibrary } from "@/components/editor/AssetLibrary";
 import { createDefaultHyperframeTemplate } from "@/core/story/storyUtils";
 import type { HyperframeComposition } from "@/core/story/storyTypes";
@@ -32,10 +29,10 @@ import {
 	type RepurposeAspectRatio,
 } from "@/core/timeline/repurposeTypes";
 import type { TimelineProject } from "@/core/timeline/types";
-import { HyperframeCard } from "./HyperframeCard";
 import { HyperframeEditor } from "@/components/hyperframe/HyperframeEditor";
-import { RepurposeArtboardCard } from "./RepurposeArtboardCard";
 import { RepurposeBatchExportDialog } from "./RepurposeBatchExportDialog";
+import { RepurposeWhiteboardCanvas } from "./whiteboard/RepurposeWhiteboardCanvas";
+
 
 export interface RepurposeBoardEditorProps {
 	project: TimelineProject;
@@ -116,27 +113,6 @@ export function RepurposeBoardEditor({
 		return map;
 	}, [boardProject, board.artboards]);
 
-	// Interactive Canvas Stage Pan and Zoom state
-	const [stagePan, setStagePan] = useState({ x: 0, y: 0 });
-	const [stageZoom, setStageZoom] = useState(1);
-	const [isPanningStage, setIsPanningStage] = useState(false);
-	const stagePanStart = useRef({ x: 0, y: 0 });
-
-	// Card Dragging (Repositioning) state
-	const [cardPositions, setCardPositions] = useState<Record<string, { x: number; y: number }>>({});
-	const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
-	const cardDragStart = useRef<{
-		mouseX: number;
-		mouseY: number;
-		initialX: number;
-		initialY: number;
-	}>({
-		mouseX: 0,
-		mouseY: 0,
-		initialX: 0,
-		initialY: 0,
-	});
-
 	// Keyboard shortcut listener (Esc = back to home if no drawer open)
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -158,99 +134,6 @@ export function RepurposeBoardEditor({
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, [onClose, editingHyperframeId]);
-
-	// Stage pan listeners
-	const handleStageMouseDown = (e: ReactMouseEvent<HTMLDivElement>) => {
-		if (
-			(e.target as HTMLElement).closest(".repurpose-artboard-card") ||
-			(e.target as HTMLElement).closest(".repurpose-hyperframe-card")
-		) {
-			return;
-		}
-		e.preventDefault();
-		setIsPanningStage(true);
-		stagePanStart.current = {
-			x: e.clientX - stagePan.x,
-			y: e.clientY - stagePan.y,
-		};
-	};
-
-	useEffect(() => {
-		if (!isPanningStage) return;
-		const handleMouseMove = (e: MouseEvent) => {
-			setStagePan({
-				x: e.clientX - stagePanStart.current.x,
-				y: e.clientY - stagePanStart.current.y,
-			});
-		};
-		const handleMouseUp = () => {
-			setIsPanningStage(false);
-		};
-		window.addEventListener("mousemove", handleMouseMove);
-		window.addEventListener("mouseup", handleMouseUp);
-		return () => {
-			window.removeEventListener("mousemove", handleMouseMove);
-			window.removeEventListener("mouseup", handleMouseUp);
-		};
-	}, [isPanningStage]);
-
-	const handleStageWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-		if (e.ctrlKey || e.metaKey) {
-			e.preventDefault();
-			const zoomFactor = e.deltaY < 0 ? 1.08 : 0.92;
-			setStageZoom((prev) =>
-				Math.max(0.3, Math.min(2.5, Number((prev * zoomFactor).toFixed(2)))),
-			);
-		} else {
-			setStagePan((prev) => ({
-				x: prev.x - e.deltaX,
-				y: prev.y - e.deltaY,
-			}));
-		}
-	};
-
-	// Card Dragging listeners (works for both Story & Hyperframe cards)
-	const handleStartDragCard = (cardId: string, e: ReactMouseEvent) => {
-		e.preventDefault();
-		e.stopPropagation();
-		setDraggingCardId(cardId);
-		const currentPos = cardPositions[cardId] || { x: 0, y: 0 };
-		cardDragStart.current = {
-			mouseX: e.clientX,
-			mouseY: e.clientY,
-			initialX: currentPos.x,
-			initialY: currentPos.y,
-		};
-	};
-
-	useEffect(() => {
-		if (!draggingCardId) return;
-		const handleMouseMove = (e: MouseEvent) => {
-			const dx = (e.clientX - cardDragStart.current.mouseX) / stageZoom;
-			const dy = (e.clientY - cardDragStart.current.mouseY) / stageZoom;
-			setCardPositions((prev) => ({
-				...prev,
-				[draggingCardId]: {
-					x: Math.round(cardDragStart.current.initialX + dx),
-					y: Math.round(cardDragStart.current.initialY + dy),
-				},
-			}));
-		};
-		const handleMouseUp = () => {
-			setDraggingCardId(null);
-		};
-		window.addEventListener("mousemove", handleMouseMove);
-		window.addEventListener("mouseup", handleMouseUp);
-		return () => {
-			window.removeEventListener("mousemove", handleMouseMove);
-			window.removeEventListener("mouseup", handleMouseUp);
-		};
-	}, [draggingCardId, stageZoom]);
-
-	const handleResetView = () => {
-		setStagePan({ x: 0, y: 0 });
-		setStageZoom(1);
-	};
 
 	const handleAddPreset = (preset: ArtboardPreset) => {
 		onChange((p) => addRepurposeArtboard(p, preset));
@@ -539,51 +422,8 @@ export function RepurposeBoardEditor({
 				</aside>
 
 				{/* Right Unified Artboard Canvas Stage */}
-				<div
-					className={`repurpose-board-stage ${isPanningStage ? "panning" : ""}`}
-					onMouseDown={handleStageMouseDown}
-					onWheel={handleStageWheel}
-				>
-					{/* Floating Canvas Navigation Toolbar */}
-					<div
-						className="repurpose-canvas-controls"
-						onClick={(e) => e.stopPropagation()}
-					>
-						<button
-							type="button"
-							className="repurpose-canvas-ctrl-btn"
-							title="Zoom Out"
-							onClick={() =>
-								setStageZoom((z) => Math.max(0.3, Number((z - 0.1).toFixed(2))))
-							}
-						>
-							<MagnifyingGlassMinus size={13} />
-						</button>
-						<span className="repurpose-canvas-zoom-label" title="Current Zoom">
-							{Math.round(stageZoom * 100)}%
-						</span>
-						<button
-							type="button"
-							className="repurpose-canvas-ctrl-btn"
-							title="Zoom In"
-							onClick={() =>
-								setStageZoom((z) => Math.min(2.5, Number((z + 0.1).toFixed(2))))
-							}
-						>
-							<MagnifyingGlassPlus size={13} />
-						</button>
-						<button
-							type="button"
-							className="repurpose-canvas-ctrl-btn"
-							title="Reset View (Center & 100%)"
-							onClick={handleResetView}
-						>
-							<ArrowsInSimple size={13} />
-							<span>Center</span>
-						</button>
-					</div>
-
-					{totalVideoCards === 0 ? (
+				<div className="repurpose-board-stage">
+					{totalVideoCards === 0 && !project.whiteboardSnapshot ? (
 						<div className="repurpose-empty-board">
 							<div className="repurpose-empty-icon">
 								<SquaresFour size={40} weight="duotone" />
@@ -629,135 +469,43 @@ export function RepurposeBoardEditor({
 							</div>
 						</div>
 					) : (
-						<div
-							className="repurpose-canvas-world"
-							style={{
-								transform: `translate(${stagePan.x}px, ${stagePan.y}px) scale(${stageZoom})`,
+						<RepurposeWhiteboardCanvas
+							project={project}
+							boardProject={boardProject}
+							artboardProjectViews={artboardProjectViews}
+							activePlayingId={activePlayingId}
+							setActivePlayingId={setActivePlayingId}
+							onChange={onChange}
+							onOpenArtboardEditor={onOpenArtboardEditor}
+							onOpenHyperframeEditor={(hfId) => {
+								if (onOpenHyperframeEditor) {
+									onOpenHyperframeEditor(hfId);
+								} else {
+									setEditingHyperframeId(hfId);
+								}
 							}}
-						>
-							<div className="repurpose-artboards-grid">
-								{/* Render Story Artboard Cards */}
-								{board.artboards.map((artboard) => {
-									const pos = cardPositions[artboard.id];
-									return (
-										<div
-											key={artboard.id}
-											className="repurpose-card-slot"
-											style={
-												pos
-													? {
-															transform: `translate(${pos.x}px, ${pos.y}px)`,
-															position: "relative",
-															zIndex:
-																draggingCardId === artboard.id
-																	? 20
-																	: 1,
-														}
-													: { position: "relative" }
-											}
-										>
-											<RepurposeArtboardCard
-												artboard={artboard}
-												rootProject={boardProject}
-												artboardProject={artboardProjectViews.get(
-													artboard.id,
-												)}
-												activePlayingId={activePlayingId}
-												displayHeight={360}
-												onPlayingChange={(isPlaying) =>
-													setActivePlayingId(
-														isPlaying ? artboard.id : null,
-													)
-												}
-												onOpenArtboardEditor={onOpenArtboardEditor}
-												onRename={(newName) =>
-													onChange((p) =>
-														renameRepurposeArtboard(
-															p,
-															artboard.id,
-															newName,
-														),
-													)
-												}
-												onUpdateFraming={(patch) =>
-													onChange((p) =>
-														updateRepurposeFraming(
-															p,
-															artboard.id,
-															patch,
-														),
-													)
-												}
-												onResetFraming={() =>
-													onChange((p) =>
-														resetRepurposeFraming(p, artboard.id),
-													)
-												}
-												onRemove={() =>
-													onChange((p) =>
-														removeRepurposeArtboard(p, artboard.id),
-													)
-												}
-												onDuplicate={() =>
-													onChange((p) =>
-														duplicateRepurposeArtboard(p, artboard.id),
-													)
-												}
-												onStartDragCard={(e) =>
-													handleStartDragCard(artboard.id, e)
-												}
-												onDropAsset={(assetId) =>
-													onChange((p) =>
-														placeAssetIntoArtboard(
-															p,
-															artboard.id,
-															assetId,
-														),
-													)
-												}
-											/>
-										</div>
-									);
-								})}
-
-								{/* Render Unified Hyperframe Cards */}
-								{hyperframes.map((hf) => {
-									const pos = cardPositions[hf.id];
-									return (
-										<div
-											key={hf.id}
-											className="repurpose-card-slot"
-											style={
-												pos
-													? {
-															transform: `translate(${pos.x}px, ${pos.y}px)`,
-															position: "relative",
-															zIndex:
-																draggingCardId === hf.id ? 20 : 1,
-														}
-													: { position: "relative" }
-											}
-										>
-											<HyperframeCard
-												hyperframe={hf}
-												displayHeight={360}
-												onOpenEditor={() => {
-													if (onOpenHyperframeEditor) {
-														onOpenHyperframeEditor(hf.id);
-													} else {
-														setEditingHyperframeId(hf.id);
-													}
-												}}
-												onRename={(newName) => handleRenameHyperframe(hf.id, newName)}
-												onDuplicate={() => handleDuplicateHyperframe(hf.id)}
-												onRemove={() => handleRemoveHyperframe(hf.id)}
-												onStartDragCard={(e) => handleStartDragCard(hf.id, e)}
-											/>
-										</div>
-									);
-								})}
-							</div>
-						</div>
+							onUpdateFraming={(artboardId, patch) =>
+								onChange((p) => updateRepurposeFraming(p, artboardId, patch))
+							}
+							onResetFraming={(artboardId) =>
+								onChange((p) => resetRepurposeFraming(p, artboardId))
+							}
+							onRemoveArtboard={(artboardId) =>
+								onChange((p) => removeRepurposeArtboard(p, artboardId))
+							}
+							onDuplicateArtboard={(artboardId) =>
+								onChange((p) => duplicateRepurposeArtboard(p, artboardId))
+							}
+							onRenameArtboard={(artboardId, newName) =>
+								onChange((p) => renameRepurposeArtboard(p, artboardId, newName))
+							}
+							onRemoveHyperframe={handleRemoveHyperframe}
+							onDuplicateHyperframe={handleDuplicateHyperframe}
+							onRenameHyperframe={handleRenameHyperframe}
+							onDropAsset={(artboardId, assetId) =>
+								onChange((p) => placeAssetIntoArtboard(p, artboardId, assetId))
+							}
+						/>
 					)}
 				</div>
 			</div>
