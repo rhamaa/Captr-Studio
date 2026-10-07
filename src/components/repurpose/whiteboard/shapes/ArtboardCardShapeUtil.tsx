@@ -33,6 +33,14 @@ export class ArtboardCardShapeUtil extends BaseBoxShapeUtil<any> {
 		return true;
 	}
 
+	override hideRotateHandle() {
+		return true;
+	}
+
+	override hideResizeHandles() {
+		return true;
+	}
+
 	override getDefaultProps(): ArtboardCardShape["props"] {
 		return {
 			artboardId: "",
@@ -92,8 +100,17 @@ function ArtboardCardComponent({ shape }: { shape: ArtboardCardShape }) {
 				height: `${shape.props.h}px`,
 			}}
 			onPointerDown={(e) => {
-				// Prevent canvas selection/pan when interacting directly with card controls
-				e.stopPropagation();
+				// Isolate pointer events on interactive controls (buttons, inputs, scrubber, camera framing viewport)
+				// so interacting with them does not trigger tldraw shape drag or selection.
+				// Clicking header or card background bubbles to tldraw to allow selecting and dragging the card.
+				const target = e.target as HTMLElement | null;
+				if (
+					target?.closest(
+						"button, input, select, textarea, [role='button'], .repurpose-card-actions, .repurpose-card-scrubber, .repurpose-card-viewport",
+					)
+				) {
+					e.stopPropagation();
+				}
 			}}
 		>
 			<RepurposeArtboardCard

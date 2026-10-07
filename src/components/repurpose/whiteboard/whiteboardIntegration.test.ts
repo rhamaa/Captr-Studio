@@ -43,4 +43,29 @@ describe("Whiteboard .captr Bundle Integration", () => {
 		expect(validated.whiteboardSnapshot).toEqual(fakeTldrawSnapshot);
 		expect(validated.repurposeBoard!.artboards.length).toBeGreaterThan(0);
 	});
+
+	it("maintains backward compatibility with projects lacking whiteboardSnapshot", () => {
+		const oldProject = createTimelineProject("old-proj", "Old V3 Project");
+		expect(oldProject.whiteboardSnapshot).toBeUndefined();
+
+		const validated = validateTimelineProject(oldProject);
+		expect(validated.whiteboardSnapshot).toBeUndefined();
+	});
+
+	it("rejects invalid whiteboard snapshot structures", () => {
+		const base = createTimelineProject("proj-invalid", "Invalid Snapshot Test");
+		expect(() =>
+			validateTimelineProject({
+				...base,
+				whiteboardSnapshot: ["not", "an", "object"] as any,
+			}),
+		).toThrow("Invalid whiteboard snapshot");
+
+		expect(() =>
+			validateTimelineProject({
+				...base,
+				whiteboardSnapshot: null as any,
+			}),
+		).toThrow("Invalid whiteboard snapshot");
+	});
 });

@@ -3,7 +3,11 @@ import { Tldraw, type Editor } from "@tldraw/tldraw";
 import "@tldraw/tldraw/tldraw.css";
 import "./whiteboardTheme.css";
 import { getTldrawOfflineAssetUrls } from "./tldrawAssets";
-import { customShapeUtils } from "./shapes/customShapes";
+import {
+	customShapeUtils,
+	ARTBOARD_CARD_SHAPE_TYPE,
+	HYPERFRAME_CARD_SHAPE_TYPE,
+} from "./shapes/customShapes";
 import { WhiteboardContext, type WhiteboardContextValue } from "./WhiteboardContext";
 import { syncProjectCardsToCanvas } from "./whiteboardSync";
 import type { TimelineProject } from "@/core/timeline/types";
@@ -55,6 +59,17 @@ export function RepurposeWhiteboardCanvas({
 }: RepurposeWhiteboardCanvasProps) {
 	const editorRef = useRef<Editor | null>(null);
 	const [, setEditorInstance] = useState<Editor | null>(null);
+	const initialSnapshotRef = useRef(project.whiteboardSnapshot);
+	const onChangeRef = useRef(onChange);
+	const projectRef = useRef(project);
+
+	useEffect(() => {
+		onChangeRef.current = onChange;
+	}, [onChange]);
+
+	useEffect(() => {
+		projectRef.current = project;
+	}, [project]);
 
 	const contextValue: WhiteboardContextValue = useMemo(
 		() => ({
@@ -109,8 +124,23 @@ export function RepurposeWhiteboardCanvas({
 		// Initialize user preferences for dark studio theme
 		editor.user.updateUserPreferences({ colorScheme: "dark" });
 
+		// Protect video cards from accidental canvas deletion via Backspace/Delete keyboard shortcuts
+		const removeBeforeDelete = editor.sideEffects.registerBeforeDeleteHandler(
+			"shape",
+			(shape, source) => {
+				if (
+					source === "user" &&
+					((shape.type as string) === ARTBOARD_CARD_SHAPE_TYPE ||
+						(shape.type as string) === HYPERFRAME_CARD_SHAPE_TYPE)
+				) {
+					// Disallow deleting cards via whiteboard canvas key; users should use the card's trash button
+					return false;
+				}
+			},
+		);
+
 		// Initial synchronization of cards onto canvas
-		syncProjectCardsToCanvas(editor, project);
+		syncProjectCardsToCanvas(editor, projectRef.current);
 
 		let timeoutId: any = null;
 		const removeListener = editor.store.listen(
@@ -118,7 +148,7 @@ export function RepurposeWhiteboardCanvas({
 				if (timeoutId) clearTimeout(timeoutId);
 				timeoutId = setTimeout(() => {
 					const snapshot = editor.store.getStoreSnapshot();
-					onChange((prev) =>
+					onChangeRef.current((prev) =>
 						setWhiteboardSnapshot(
 							prev,
 							snapshot as unknown as Record<string, unknown>,
@@ -130,10 +160,11 @@ export function RepurposeWhiteboardCanvas({
 		);
 
 		return () => {
+			removeBeforeDelete();
 			if (timeoutId) {
 				clearTimeout(timeoutId);
 				const snapshot = editor.store.getStoreSnapshot();
-				onChange((prev) =>
+				onChangeRef.current((prev) =>
 					setWhiteboardSnapshot(
 						prev,
 						snapshot as unknown as Record<string, unknown>,
@@ -193,9 +224,10 @@ export function RepurposeWhiteboardCanvas({
 		<WhiteboardContext.Provider value={contextValue}>
 			<div className="tldraw-whiteboard-wrapper tl-theme__dark">
 				<Tldraw
+					key={project.projectId}
 					assetUrls={offlineAssetUrls}
 					shapeUtils={customShapeUtils}
-					snapshot={project.whiteboardSnapshot as any}
+					snapshot={initialSnapshotRef.current as any}
 					onMount={handleMount}
 				/>
 			</div>

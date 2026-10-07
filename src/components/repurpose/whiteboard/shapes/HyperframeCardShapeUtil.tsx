@@ -33,6 +33,14 @@ export class HyperframeCardShapeUtil extends BaseBoxShapeUtil<any> {
 		return true;
 	}
 
+	override hideRotateHandle() {
+		return true;
+	}
+
+	override hideResizeHandles() {
+		return true;
+	}
+
 	override getDefaultProps(): HyperframeCardShape["props"] {
 		return {
 			hyperframeId: "",
@@ -90,8 +98,17 @@ function HyperframeCardComponent({ shape }: { shape: HyperframeCardShape }) {
 				height: `${shape.props.h}px`,
 			}}
 			onPointerDown={(e) => {
-				// Prevent canvas selection/pan when interacting directly with card controls
-				e.stopPropagation();
+				// Isolate pointer events on interactive controls (buttons, inputs, iframe preview)
+				// so interacting with them does not trigger tldraw shape drag or selection.
+				// Clicking header or card background bubbles to tldraw to allow selecting and dragging the card.
+				const target = e.target as HTMLElement | null;
+				if (
+					target?.closest(
+						"button, input, select, textarea, [role='button'], .repurpose-card-actions, iframe",
+					)
+				) {
+					e.stopPropagation();
+				}
 			}}
 		>
 			<HyperframeCard

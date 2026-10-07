@@ -24,7 +24,8 @@ export function createArtboardShapeProps(
 	height: number,
 	displayHeight = 360,
 ) {
-	const aspectRatio = width / height;
+	const safeHeight = Math.max(1, height);
+	const aspectRatio = width / safeHeight;
 	const cardWidth = Math.round(displayHeight * aspectRatio);
 	const cardHeight = displayHeight + 88;
 	return {
@@ -40,7 +41,8 @@ export function createHyperframeShapeProps(
 	height: number,
 	displayHeight = 360,
 ) {
-	const aspectRatio = width / height;
+	const safeHeight = Math.max(1, height);
+	const aspectRatio = width / safeHeight;
 	const cardWidth = Math.round(displayHeight * aspectRatio);
 	const cardHeight = displayHeight + 88;
 	return {

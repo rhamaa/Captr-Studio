@@ -57,8 +57,16 @@ export function reconcileProjectCardsWithStore(
 		const isPresent =
 			shapeSet.has(id) ||
 			shapeSet.has(`shape:${id}`) ||
+			shapeSet.has(`shape:artboard-${id}`) ||
+			shapeSet.has(`shape:hyperframe-${id}`) ||
 			Array.from(shapeSet).some(
-				(shapeId) => shapeId === id || shapeId === `shape:${id}` || shapeId.endsWith(`:${id}`),
+				(shapeId) =>
+					shapeId === id ||
+					shapeId === `shape:${id}` ||
+					shapeId === `shape:artboard-${id}` ||
+					shapeId === `shape:hyperframe-${id}` ||
+					shapeId.endsWith(`:${id}`) ||
+					shapeId.endsWith(`-${id}`),
 			);
 		if (!isPresent) {
 			missing.push(id);
@@ -70,7 +78,7 @@ export function reconcileProjectCardsWithStore(
 
 /**
  * Synchronizes artboard and hyperframe cards from TimelineProject into the tldraw canvas.
- * Creates missing shapes and removes shapes whose underlying entity has been deleted.
+ * Creates missing shapes, removes obsolete shapes, and updates dimensions of modified cards.
  */
 export function syncProjectCardsToCanvas(
 	editor: Editor,
@@ -95,6 +103,65 @@ export function syncProjectCardsToCanvas(
 
 	const artboardIds = artboards.map((a) => a.id);
 	const hyperframeIds = hyperframes.map((h) => h.id);
+
+	// Synchronize dimensions of existing shapes if artboard width/height changed
+	for (const artboard of artboards) {
+		const shapeId = existingArtboardCardShapes.get(artboard.id);
+		if (shapeId) {
+			const shape = editor.getShape(shapeId as any);
+			if (shape) {
+				const expectedProps = createArtboardShapeProps(
+					artboard.id,
+					artboard.width ?? 1080,
+					artboard.height ?? 1920,
+					360,
+				);
+				if (
+					(shape.props as any)?.w !== expectedProps.w ||
+					(shape.props as any)?.h !== expectedProps.h
+				) {
+					editor.updateShape({
+						id: shape.id,
+						type: shape.type,
+						props: {
+							...(shape.props as any),
+							w: expectedProps.w,
+							h: expectedProps.h,
+						},
+					});
+				}
+			}
+		}
+	}
+
+	for (const hyperframe of hyperframes) {
+		const shapeId = existingHyperframeCardShapes.get(hyperframe.id);
+		if (shapeId) {
+			const shape = editor.getShape(shapeId as any);
+			if (shape) {
+				const expectedProps = createHyperframeShapeProps(
+					hyperframe.id,
+					hyperframe.width || 1920,
+					hyperframe.height || 1080,
+					360,
+				);
+				if (
+					(shape.props as any)?.w !== expectedProps.w ||
+					(shape.props as any)?.h !== expectedProps.h
+				) {
+					editor.updateShape({
+						id: shape.id,
+						type: shape.type,
+						props: {
+							...(shape.props as any),
+							w: expectedProps.w,
+							h: expectedProps.h,
+						},
+					});
+				}
+			}
+		}
+	}
 
 	// Missing cards
 	const missingArtboardIds = artboardIds.filter((id) => !existingArtboardCardShapes.has(id));
@@ -132,8 +199,9 @@ export function syncProjectCardsToCanvas(
 		let maxX = 100;
 		for (const shape of allShapes) {
 			const bounds = editor.getShapePageBounds(shape.id);
-			if (bounds && bounds.maxX > maxX) {
-				maxX = bounds.maxX;
+			const right = bounds ? bounds.maxX : (shape.x ?? 0) + ((shape.props as any)?.w ?? 320);
+			if (right > maxX) {
+				maxX = right;
 			}
 		}
 		startX = maxX + 48;
