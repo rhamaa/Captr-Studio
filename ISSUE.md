@@ -208,3 +208,29 @@
   - `npx tsc --noEmit` lolos 0 errors.
   - `graft build` terbarui (4.925 nodes, 11.927 edges).
 
+## Hyperframe MP4 Video Export & Offscreen Chromium Rendering Pipeline (7 Oktober 2026)
+
+- **Offscreen Chromium Frame Stepper & Exporter Engine (`hyperframeExportEngine.ts`):**
+  - Membuat engine rendering offscreen berbasis Electron `BrowserWindow` (`offscreen: true`) yang memuat komposisi HTML Hyperframe tanpa menampilkan jendela fisik.
+  - Mengendalikan timeline GSAP dan elemen media frame-per-frame secara presisi (`window.seekFrame(timeSec)` dan deteksi event `seeked` pada seluruh elemen `<video>`), mencegah stuttering dan frame drop.
+  - Menangkap buffer frame mentah 32-bit BGRA secara native di proses utama Electron (`webContents.capturePage({ width, height })`), mengeliminasi overhead transfer IPC dari renderer ke main process.
+- **Hardware-Accelerated Encoding & Audio Muxing via FFmpeg:**
+  - Streaming buffer bitmap mentah langsung ke `stdin` proses FFmpeg (`-f rawvideo -pix_fmt bgra`).
+  - Auto-resolusi hardware encoder tercepat (`h264_nvenc`, `h264_qsv`, `h264_amf`, `h264_videotoolbox`, atau fallback `libx264`).
+  - Muxing otomatis companion audio (`*.mic.wav` / `*.sys.wav`) ke dalam berkas akhir MP4 dengan `-c:v copy -c:a aac -b:a 192k` tanpa desinkronisasi suara.
+- **Export Modal UI & Integrasi Header (`HyperframeExportModal.tsx`, `HyperframeEditor.tsx`):**
+  - Tombol **Export MP4** disematkan di top header `HyperframeEditor`.
+  - Dialog modal interaktif menyediakan pilihan preset:
+    - Resolusi: Native 100% (1920×1080 / 1080×1920 / 1:1), 4K Ultra HD, 720p.
+    - Framerate: 60 fps (Smooth Motion, recommended) atau 30 fps (Standard Web).
+    - Kualitas: Balanced (12 Mbps), High Quality (24 Mbps), Fast (6 Mbps).
+    - Audio Toggle: Opsi menyertakan companion audio track atau video bisu (*mute*).
+    - File destination picker via native `showSaveDialog`.
+  - Tampilan progress bar animasi real-time dengan status per frame (`Rendering frame X of Y`, persentase, dan indikator stage).
+  - Tampilan sukses dengan tombol *Open in Folder* untuk langsung melihat file video hasil export di file explorer.
+- **Status Pengujian & Build:**
+  - 12/12 unit tests lulus (100% green) di `hyperframeExportEngine.test.ts`, `HyperframeExportModal.test.tsx`, dan `HyperframeEditor.test.tsx`.
+  - `npx tsc --noEmit` lolos dengan 0 errors.
+  - `graft build` terbarui (4.946 nodes, 11.973 edges).
+
+
