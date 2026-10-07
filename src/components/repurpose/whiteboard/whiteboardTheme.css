@@ -1,0 +1,29 @@
+/* Dark theme styling for Captr Studio Repurpose Infinite Canvas */
+.tldraw__editor,
+.tl-container,
+.tl-theme__dark {
+	--color-panel: #15171c;
+	--color-muted-panel: #1c1f26;
+	--color-accent: #6fa8ff;
+	--color-selected: #a879f5;
+
+	/* Tldraw dark theme overrides to match Captr Studio palette */
+	--tl-color-background: #0d0f12;
+	--tl-color-panel: #15171c;
+	--tl-color-panel-contrast: #222630;
+	--tl-color-panel-overlay: rgba(21, 23, 28, 0.85);
+	--tl-color-low: #181b22;
+	--tl-color-low-border: #222631;
+	--tl-color-divider: #262b36;
+	--tl-color-selected: #a879f5;
+	--tl-color-primary: #6fa8ff;
+	--tl-color-focus: #6fa8ff;
+}
+
+.tldraw-whiteboard-wrapper {
+	width: 100%;
+	height: 100%;
+	position: relative;
+	background-color: #0d0f12;
+	overflow: hidden;
+}

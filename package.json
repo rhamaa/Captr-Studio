@@ -47,6 +47,8 @@
 	},
 	"dependencies": {
 		"@phosphor-icons/react": "^2.1.10",
+		"@tldraw/assets": "^5.5.2",
+		"@tldraw/tldraw": "^5.5.2",
 		"archiver": "^8.0.0",
 		"capturekit": "^1.0.13",
 		"electron-updater": "^6.8.3",
