@@ -10,6 +10,7 @@ import {
 	Clock,
 	Code,
 	Copy,
+	DownloadSimple,
 	Eye,
 	FloppyDisk,
 	FolderOpen,
@@ -30,6 +31,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { HyperframeComposition, HyperframeVersionSnapshot } from "@/core/story/storyTypes";
 import type { MediaAsset, TimelineProject } from "@/core/timeline/types";
 import { HyperframePromptInput } from "./HyperframePromptInput";
+import { HyperframeExportModal } from "./HyperframeExportModal";
 
 export interface HyperframeChatMessage {
 	id: string;
@@ -563,6 +565,28 @@ export function HyperframeEditor({
 			}
 		}
 		return list;
+	}, [project.assets, project.packages]);
+
+	// Export MP4 modal state & companion audio resolution
+	const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+	const companionAudioInfo = useMemo(() => {
+		for (const pkg of project.packages || []) {
+			if (pkg.microphone?.path) {
+				const parentAsset = project.assets?.find((a) => a.packageId === pkg.id || a.id === pkg.id);
+				return {
+					path: pkg.microphone.path,
+					name: parentAsset?.name ? `${parentAsset.name} (Microphone)` : "Microphone Audio",
+				};
+			}
+		}
+		const audioAsset = project.assets?.find((a) => a.kind === "audio" && a.source?.path);
+		if (audioAsset?.source?.path) {
+			return {
+				path: audioAsset.source.path,
+				name: audioAsset.name,
+			};
+		}
+		return { path: null, name: null };
 	}, [project.assets, project.packages]);
 
 	// CLI Agent & Tagged Asset State
@@ -1268,6 +1292,17 @@ export function HyperframeEditor({
 
 					<button
 						type="button"
+						data-testid="hyperframe-export-btn"
+						onClick={() => setIsExportModalOpen(true)}
+						className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#6FA8FF] to-[#A879F5] px-3 py-1.5 text-xs font-bold text-[#15171C] shadow-md transition hover:brightness-110 active:scale-95"
+						title="Export as MP4 Video"
+					>
+						<DownloadSimple size={14} weight="bold" />
+						<span>Export MP4</span>
+					</button>
+
+					<button
+						type="button"
 						onClick={() => setSidebarOpen((v) => !v)}
 						className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
 							sidebarOpen
@@ -1902,6 +1937,19 @@ export function HyperframeEditor({
 					</aside>
 				)}
 			</div>
+
+			{/* Hyperframe Video Export Modal */}
+			<HyperframeExportModal
+				isOpen={isExportModalOpen}
+				hyperframeName={hyperframe.name}
+				htmlContent={processedHtml}
+				width={hyperframe.width}
+				height={hyperframe.height}
+				durationSec={durationSec}
+				companionAudioPath={companionAudioInfo.path}
+				companionAudioName={companionAudioInfo.name}
+				onClose={() => setIsExportModalOpen(false)}
+			/>
 		</div>
 	);
 }

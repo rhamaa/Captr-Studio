@@ -101,6 +101,8 @@ describe("HyperframeEditor", () => {
 		expect(html).toContain("1920x1080");
 		expect(html).toContain("6.0s");
 		expect(html).toContain("Back");
+		expect(html).toContain("hyperframe-export-btn");
+		expect(html).toContain("Export MP4");
 
 		// Dedicated Transport Controls
 		expect(html).toContain("hyperframe-transport-play");
