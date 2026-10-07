@@ -126,6 +126,7 @@ export interface TimelineProject {
 	defaultStoryId?: string;
 	hyperframes?: import("../story/storyTypes").HyperframeComposition[];
 	hyperframeManifest?: import("../story/storyTypes").HyperframeManifestItem[];
+	whiteboardSnapshot?: Record<string, unknown>;
 	createdAt: string;
 	updatedAt: string;
 }

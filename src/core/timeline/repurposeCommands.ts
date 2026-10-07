@@ -53,6 +53,20 @@ export function ensureRepurposeBoard(project: TimelineProject): TimelineProject 
 }
 
 /**
+ * Sets or updates the whiteboard snapshot for infinite canvas state persistence.
+ */
+export function setWhiteboardSnapshot(
+	project: TimelineProject,
+	snapshot: Record<string, unknown>,
+): TimelineProject {
+	return {
+		...project,
+		whiteboardSnapshot: snapshot,
+		updatedAt: new Date().toISOString(),
+	};
+}
+
+/**
  * Adds a new artboard to the repurpose board.
  */
 export function addRepurposeArtboard(

@@ -613,5 +613,13 @@ export function validateTimelineProject(value: unknown): TimelineProject {
 			requireValue(typeof item.entryHtml === "string" && !item.entryHtml.includes(".."), "Invalid hyperframe manifest entry path");
 		}
 	}
+	if (p.whiteboardSnapshot !== undefined) {
+		requireValue(
+			p.whiteboardSnapshot !== null &&
+				typeof p.whiteboardSnapshot === "object" &&
+				!Array.isArray(p.whiteboardSnapshot),
+			"Invalid whiteboard snapshot: must be an object",
+		);
+	}
 	return p;
 }
