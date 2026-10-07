@@ -233,4 +233,32 @@
   - `npx tsc --noEmit` lolos dengan 0 errors.
   - `graft build` terbarui (4.946 nodes, 11.973 edges).
 
+## Tldraw Infinite Canvas Whiteboard Integration (7 Oktober 2026)
+
+**Status:** Selesai dan terverifikasi penuh (7 Oktober 2026).
+
+**Tujuan & Ringkasan:**
+Mengintegrasikan infinite canvas whiteboard menggunakan `@tldraw/tldraw` ke dalam Repurpose Hub Captr Studio, memungkinkan brainstorming visual bebas (catatan teks/sticky notes, panah konektor, bentuk geometris, bingkai, sketsa tangan bebas) berdampingan langsung dengan video artboard (Story) dan Hyperframe code-driven cards interaktif secara live.
+
+**Kontrak Desain & Implementasi:**
+1. **Offline & Air-Gapped Asset Bundling (`tldrawAssets.ts`):**
+   - Menghubungkan asset URLs tldraw ke bundel lokal offline (`@tldraw/assets/urls`) tanpa dependensi jaringan ke unpkg atau CDN publik (`getTldrawOfflineAssetUrls()`).
+   - Mencegah kegagalan rendering icon/font/translation pada mesin terisolasi tanpa internet.
+2. **Studio Dark Theme Styling (`whiteboardTheme.css`):**
+   - Mengintegrasikan styling tldraw dengan tema dark slate Captr Studio (`#15171C`, `#1C1F26`, aksen `#6FA8FF`, dan seleksi `#A879F5`).
+3. **Custom Tldraw Shapes & Pointer Event Isolation (`ArtboardCardShapeUtil`, `HyperframeCardShapeUtil`):**
+   - Kartu artboard Story dan Hyperframe dirender sebagai custom tldraw box shape (`artboard-card` dan `hyperframe-card`).
+   - Pointer events pada kontrol pemutaran video, scrubber timecode, framing pan/zoom, dan tombol aksi diisolasi penuh (`stopPropagation()`), sehingga manipulasi video tidak memicu seleksi kotak tldraw atau pergeseran canvas yang tidak disengaja.
+   - Guardrail `activePlayingId`: hanya satu kartu video/audio decode yang aktif berputar dalam satu waktu untuk mencegah overhead hardware.
+4. **V3 Persistence Contract & Round-trip Compatibility:**
+   - Menyimpan seluruh status canvas dan anotasi ke field opsional `TimelineProject.whiteboardSnapshot` di dalam berkas authoritative `.captr` (`project.json`).
+   - Sepenuhnya backward-compatible dengan project V3 yang belum memiliki snapshot. Proyek baru/lama tanpa snapshot otomatis menata artboard dalam layout kisi bersih (`calculateInitialCardPositions`).
+   - Validasi ketat pada `validateTimelineProject`: snapshot harus berupa objek valid, tidak mengganggu pipeline ekspor video maupun metadata timeline.
+   - Sinkronisasi dua arah otomatis (`syncProjectCardsToCanvas`): penambahan atau penghapusan kartu artboard/hyperframe langsung menyelaraskan shape di canvas tldraw.
+5. **Status Pengujian & Verifikasi:**
+   - Unit tests offline assets, schema validation, custom shapes, whiteboard sync, dan e2e persistence bundle (`tldrawAssets.test.ts`, `whiteboardSnapshot.test.ts`, `customShapes.test.ts`, `whiteboardSync.test.ts`, `whiteboardIntegration.test.ts`) lolos 100%.
+   - Seluruh test suite Repurpose (`8/8` test files, `19/19` tests) lolos tanpa regresi.
+   - `npx tsc --noEmit` lolos dengan 0 errors.
+
+
 
