@@ -1103,4 +1103,49 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		ipcRenderer.on("agent:hyperframe-log-stream", listener);
 		return () => ipcRenderer.removeListener("agent:hyperframe-log-stream", listener);
 	},
+
+	// ── Hyperframe Video Export ─────────────────────────────────────────
+	exportHyperframeVideo: (options: {
+		sessionId?: string;
+		htmlContent: string;
+		width: number;
+		height: number;
+		fps: number;
+		durationSec: number;
+		bitrate?: number;
+		encodingMode?: "fast" | "balanced" | "quality";
+		audioSourcePath?: string | null;
+		outputPath: string;
+	}) =>
+		ipcRenderer.invoke("hyperframe:export-video", options) as Promise<{
+			success: boolean;
+			outputPath?: string;
+			error?: string;
+			totalFrames?: number;
+			durationSec?: number;
+		}>,
+	cancelHyperframeExport: (sessionId: string) =>
+		ipcRenderer.invoke("hyperframe:cancel-export", sessionId) as Promise<{ success: boolean }>,
+	onHyperframeExportProgress: (
+		callback: (progress: {
+			sessionId?: string;
+			currentFrame: number;
+			totalFrames: number;
+			percentage: number;
+			stage?: "preparing" | "rendering" | "muxing" | "completed";
+		}) => void,
+	) => {
+		const listener = (
+			_event: Electron.IpcRendererEvent,
+			progress: {
+				sessionId?: string;
+				currentFrame: number;
+				totalFrames: number;
+				percentage: number;
+				stage?: "preparing" | "rendering" | "muxing" | "completed";
+			},
+		) => callback(progress);
+		ipcRenderer.on("hyperframe:export-progress", listener);
+		return () => ipcRenderer.removeListener("hyperframe:export-progress", listener);
+	},
 });

@@ -8,6 +8,7 @@ import { registerRecordingHandlers } from "./register/recording";
 import { registerSettingsHandlers } from "./register/settings";
 import { registerSourceHandlers } from "./register/sources";
 import { registerTranscriptionHandlers } from "./register/transcription";
+import { registerHyperframeExportHandlers } from "./register/hyperframeExport";
 import {
 	selectedSource,
 	setNativeScreenRecordingActive,
@@ -71,4 +72,5 @@ export function registerIpcHandlers(
 	registerSettingsHandlers();
 	registerTranscriptionHandlers();
 	registerAgentHandlers();
+	registerHyperframeExportHandlers();
 }

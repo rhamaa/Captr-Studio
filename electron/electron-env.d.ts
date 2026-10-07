@@ -1071,6 +1071,36 @@ interface Window {
 		}>;
 		cancelHyperframeAgentTask?: () => Promise<boolean>;
 		onHyperframeAgentLogStream?: (callback: (chunk: string) => void) => () => void;
+
+		// Hyperframe Video Export
+		exportHyperframeVideo?: (options: {
+			sessionId?: string;
+			htmlContent: string;
+			width: number;
+			height: number;
+			fps: number;
+			durationSec: number;
+			bitrate?: number;
+			encodingMode?: "fast" | "balanced" | "quality";
+			audioSourcePath?: string | null;
+			outputPath: string;
+		}) => Promise<{
+			success: boolean;
+			outputPath?: string;
+			error?: string;
+			totalFrames?: number;
+			durationSec?: number;
+		}>;
+		cancelHyperframeExport?: (sessionId: string) => Promise<{ success: boolean }>;
+		onHyperframeExportProgress?: (
+			callback: (progress: {
+				sessionId?: string;
+				currentFrame: number;
+				totalFrames: number;
+				percentage: number;
+				stage?: "preparing" | "rendering" | "muxing" | "completed";
+			}) => void,
+		) => () => void;
 	};
 }
 
