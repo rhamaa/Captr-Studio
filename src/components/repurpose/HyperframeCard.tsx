@@ -90,8 +90,8 @@ export function HyperframeCard({
 
 	return (
 		<div
-			className="repurpose-artboard-card repurpose-hyperframe-card relative rounded-2xl bg-[#161820] border border-[#2B2F3D] hover:border-[#6FA8FF]/40 shadow-xl overflow-hidden flex flex-col transition group select-none"
-			style={{ width: displayWidth }}
+			className="repurpose-artboard-card repurpose-hyperframe-card relative rounded-2xl bg-[#161820] border border-[#2B2F3D] hover:border-[#6FA8FF]/40 shadow-xl overflow-hidden flex flex-col transition group select-none w-full h-full"
+			style={{ width: displayWidth, minHeight: displayHeight + 42 }}
 			data-hyperframe-id={hyperframe.id}
 			onDoubleClick={() => onOpenEditor?.(hyperframe.id)}
 		>
@@ -194,8 +194,8 @@ export function HyperframeCard({
 
 			{/* Sandboxed Live HTML Iframe Preview Stage */}
 			<div
-				className="relative bg-[#0F1014] overflow-hidden flex items-center justify-center flex-1"
-				style={{ height: displayHeight }}
+				className="relative bg-[#0F1014] overflow-hidden flex items-center justify-center w-full shrink-0"
+				style={{ width: displayWidth, height: displayHeight, minHeight: displayHeight }}
 			>
 				<iframe
 					ref={iframeRef}

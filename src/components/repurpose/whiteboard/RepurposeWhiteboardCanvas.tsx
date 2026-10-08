@@ -121,8 +121,9 @@ export function RepurposeWhiteboardCanvas({
 		editorRef.current = editor;
 		setEditorInstance(editor);
 
-		// Initialize user preferences for dark studio theme
+		// Initialize user preferences for dark studio theme and enable dot grid
 		editor.user.updateUserPreferences({ colorScheme: "dark" });
+		editor.updateInstanceState({ isGridMode: true });
 
 		// Protect video cards from accidental canvas deletion via Backspace/Delete keyboard shortcuts
 		const removeBeforeDelete = editor.sideEffects.registerBeforeDeleteHandler(

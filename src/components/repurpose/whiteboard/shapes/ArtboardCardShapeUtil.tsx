@@ -1,4 +1,10 @@
-import { BaseBoxShapeUtil, HTMLContainer, T, type TLBaseShape } from "@tldraw/tldraw";
+import {
+	BaseBoxShapeUtil,
+	HTMLContainer,
+	Rectangle2d,
+	T,
+	type TLBaseShape,
+} from "@tldraw/tldraw";
 import { useWhiteboardContext } from "../WhiteboardContext";
 import { RepurposeArtboardCard } from "../../RepurposeArtboardCard";
 
@@ -49,9 +55,21 @@ export class ArtboardCardShapeUtil extends BaseBoxShapeUtil<any> {
 		};
 	}
 
+	override getGeometry(shape: ArtboardCardShape) {
+		const w = Math.max(120, Number(shape.props.w) || 202);
+		const h = Math.max(120, Number(shape.props.h) || 448);
+		return new Rectangle2d({
+			width: w,
+			height: h,
+			isFilled: true,
+		});
+	}
+
 	override getIndicatorPath(shape: ArtboardCardShape) {
+		const w = Math.max(120, Number(shape.props.w) || 202);
+		const h = Math.max(120, Number(shape.props.h) || 448);
 		const path = new Path2D();
-		path.rect(0, 0, shape.props.w, shape.props.h);
+		path.rect(0, 0, w, h);
 		return path;
 	}
 
@@ -60,10 +78,12 @@ export class ArtboardCardShapeUtil extends BaseBoxShapeUtil<any> {
 	}
 
 	override indicator(shape: ArtboardCardShape) {
+		const w = Math.max(120, Number(shape.props.w) || 202);
+		const h = Math.max(120, Number(shape.props.h) || 448);
 		return (
 			<rect
-				width={shape.props.w}
-				height={shape.props.h}
+				width={w}
+				height={h}
 				rx={16}
 				ry={16}
 			/>
@@ -90,14 +110,16 @@ function ArtboardCardComponent({ shape }: { shape: ArtboardCardShape }) {
 	}
 
 	const artboardProject = ctx.artboardProjectViews.get(artboardId);
+	const width = Math.max(120, Number(shape.props.w) || 202);
+	const height = Math.max(120, Number(shape.props.h) || 448);
 
 	return (
 		<HTMLContainer
 			style={{
 				pointerEvents: "all",
 				overflow: "visible",
-				width: `${shape.props.w}px`,
-				height: `${shape.props.h}px`,
+				width: `${width}px`,
+				height: `${height}px`,
 			}}
 			onPointerDown={(e) => {
 				// Isolate pointer events on interactive controls (buttons, inputs, scrubber, camera framing viewport)
@@ -113,23 +135,25 @@ function ArtboardCardComponent({ shape }: { shape: ArtboardCardShape }) {
 				}
 			}}
 		>
-			<RepurposeArtboardCard
-				artboard={artboard}
-				rootProject={ctx.boardProject}
-				artboardProject={artboardProject}
-				activePlayingId={ctx.activePlayingId}
-				displayHeight={360}
-				onPlayingChange={(isPlaying) =>
-					ctx.setActivePlayingId(isPlaying ? artboard.id : null)
-				}
-				onOpenArtboardEditor={ctx.onOpenArtboardEditor}
-				onUpdateFraming={(patch) => ctx.onUpdateFraming(artboard.id, patch)}
-				onResetFraming={() => ctx.onResetFraming(artboard.id)}
-				onRemove={() => ctx.onRemoveArtboard(artboard.id)}
-				onDuplicate={() => ctx.onDuplicateArtboard(artboard.id)}
-				onRename={(newName) => ctx.onRenameArtboard(artboard.id, newName)}
-				onDropAsset={(assetId) => ctx.onDropAsset?.(artboard.id, assetId)}
-			/>
+			<div className="w-full h-full flex flex-col" style={{ width, height }}>
+				<RepurposeArtboardCard
+					artboard={artboard}
+					rootProject={ctx.boardProject}
+					artboardProject={artboardProject}
+					activePlayingId={ctx.activePlayingId}
+					displayHeight={360}
+					onPlayingChange={(isPlaying) =>
+						ctx.setActivePlayingId(isPlaying ? artboard.id : null)
+					}
+					onOpenArtboardEditor={ctx.onOpenArtboardEditor}
+					onUpdateFraming={(patch) => ctx.onUpdateFraming(artboard.id, patch)}
+					onResetFraming={() => ctx.onResetFraming(artboard.id)}
+					onRemove={() => ctx.onRemoveArtboard(artboard.id)}
+					onDuplicate={() => ctx.onDuplicateArtboard(artboard.id)}
+					onRename={(newName) => ctx.onRenameArtboard(artboard.id, newName)}
+					onDropAsset={(assetId) => ctx.onDropAsset?.(artboard.id, assetId)}
+				/>
+			</div>
 		</HTMLContainer>
 	);
 }

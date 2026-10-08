@@ -294,8 +294,8 @@ export function RepurposeArtboardCard({
 
 	return (
 		<div
-			className={`repurpose-artboard-card ${isDragOver ? "drag-over" : ""}`}
-			style={{ width: displayWidth }}
+			className={`repurpose-artboard-card w-full h-full ${isDragOver ? "drag-over" : ""}`}
+			style={{ width: displayWidth, minHeight: displayHeight + 70 }}
 			onDragOver={handleDragOver}
 			onDragLeave={handleDragLeave}
 			onDrop={handleDrop}

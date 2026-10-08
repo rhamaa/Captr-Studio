@@ -422,7 +422,7 @@ export function RepurposeBoardEditor({
 				</aside>
 
 				{/* Right Unified Artboard Canvas Stage */}
-				<div className="repurpose-board-stage">
+				<div className={`repurpose-board-stage ${totalVideoCards > 0 || project.whiteboardSnapshot ? "has-whiteboard" : ""}`}>
 					{totalVideoCards === 0 && !project.whiteboardSnapshot ? (
 						<div className="repurpose-empty-board">
 							<div className="repurpose-empty-icon">

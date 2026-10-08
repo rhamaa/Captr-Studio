@@ -54,6 +54,19 @@ function electronMainCjsGuardPlugin(): Plugin {
 	};
 }
 
+function copyTldrawAssetsPlugin(): Plugin {
+	return {
+		name: "recordly-copy-tldraw-assets",
+		buildStart() {
+			const scriptPath = path.resolve(__dirname, "scripts/copy-tldraw-assets.mjs");
+			spawnSync(process.execPath, [scriptPath], {
+				cwd: __dirname,
+				stdio: "ignore",
+			});
+		},
+	};
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
 	server: {
@@ -71,6 +84,7 @@ export default defineConfig({
 		},
 	},
 	plugins: [
+		copyTldrawAssetsPlugin(),
 		react(),
 		electron({
 			main: {

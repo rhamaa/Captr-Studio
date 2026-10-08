@@ -43,4 +43,18 @@ describe("Custom Tldraw Shapes", () => {
 			expect(util.hideResizeHandles()).toBe(true);
 		}
 	});
+
+	it("computes proper bounding box geometry for shapes with fallback for empty/zero dimensions", () => {
+		for (const UtilClass of customShapeUtils) {
+			const util = new (UtilClass as any)({} as any);
+			const normalGeom = util.getGeometry({ props: { w: 640, h: 448 } });
+			expect(normalGeom.bounds.w).toBe(640);
+			expect(normalGeom.bounds.h).toBe(448);
+
+			// Test safety fallback for zero or uninitialized props
+			const fallbackGeom = util.getGeometry({ props: { w: 0, h: 0 } });
+			expect(fallbackGeom.bounds.w).toBeGreaterThanOrEqual(120);
+			expect(fallbackGeom.bounds.h).toBeGreaterThanOrEqual(120);
+		}
+	});
 });

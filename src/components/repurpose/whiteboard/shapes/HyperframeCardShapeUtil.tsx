@@ -1,4 +1,10 @@
-import { BaseBoxShapeUtil, HTMLContainer, T, type TLBaseShape } from "@tldraw/tldraw";
+import {
+	BaseBoxShapeUtil,
+	HTMLContainer,
+	Rectangle2d,
+	T,
+	type TLBaseShape,
+} from "@tldraw/tldraw";
 import { useWhiteboardContext } from "../WhiteboardContext";
 import { HyperframeCard } from "../../HyperframeCard";
 
@@ -49,9 +55,21 @@ export class HyperframeCardShapeUtil extends BaseBoxShapeUtil<any> {
 		};
 	}
 
+	override getGeometry(shape: HyperframeCardShape) {
+		const w = Math.max(120, Number(shape.props.w) || 640);
+		const h = Math.max(120, Number(shape.props.h) || 448);
+		return new Rectangle2d({
+			width: w,
+			height: h,
+			isFilled: true,
+		});
+	}
+
 	override getIndicatorPath(shape: HyperframeCardShape) {
+		const w = Math.max(120, Number(shape.props.w) || 640);
+		const h = Math.max(120, Number(shape.props.h) || 448);
 		const path = new Path2D();
-		path.rect(0, 0, shape.props.w, shape.props.h);
+		path.rect(0, 0, w, h);
 		return path;
 	}
 
@@ -60,10 +78,12 @@ export class HyperframeCardShapeUtil extends BaseBoxShapeUtil<any> {
 	}
 
 	override indicator(shape: HyperframeCardShape) {
+		const w = Math.max(120, Number(shape.props.w) || 640);
+		const h = Math.max(120, Number(shape.props.h) || 448);
 		return (
 			<rect
-				width={shape.props.w}
-				height={shape.props.h}
+				width={w}
+				height={h}
 				rx={16}
 				ry={16}
 			/>
@@ -89,13 +109,16 @@ function HyperframeCardComponent({ shape }: { shape: HyperframeCardShape }) {
 		);
 	}
 
+	const width = Math.max(120, Number(shape.props.w) || 640);
+	const height = Math.max(120, Number(shape.props.h) || 448);
+
 	return (
 		<HTMLContainer
 			style={{
 				pointerEvents: "all",
 				overflow: "visible",
-				width: `${shape.props.w}px`,
-				height: `${shape.props.h}px`,
+				width: `${width}px`,
+				height: `${height}px`,
 			}}
 			onPointerDown={(e) => {
 				// Isolate pointer events on interactive controls (buttons, inputs, iframe preview)
@@ -111,18 +134,20 @@ function HyperframeCardComponent({ shape }: { shape: HyperframeCardShape }) {
 				}
 			}}
 		>
-			<HyperframeCard
-				hyperframe={hyperframe}
-				activePlayingId={ctx.activePlayingId}
-				displayHeight={360}
-				onPlayingChange={(isPlaying) =>
-					ctx.setActivePlayingId(isPlaying ? hyperframe.id : null)
-				}
-				onOpenEditor={ctx.onOpenHyperframeEditor}
-				onRemove={ctx.onRemoveHyperframe}
-				onDuplicate={ctx.onDuplicateHyperframe}
-				onRename={ctx.onRenameHyperframe}
-			/>
+			<div className="w-full h-full flex flex-col" style={{ width, height }}>
+				<HyperframeCard
+					hyperframe={hyperframe}
+					activePlayingId={ctx.activePlayingId}
+					displayHeight={360}
+					onPlayingChange={(isPlaying) =>
+						ctx.setActivePlayingId(isPlaying ? hyperframe.id : null)
+					}
+					onOpenEditor={ctx.onOpenHyperframeEditor}
+					onRemove={ctx.onRemoveHyperframe}
+					onDuplicate={ctx.onDuplicateHyperframe}
+					onRename={ctx.onRenameHyperframe}
+				/>
+			</div>
 		</HTMLContainer>
 	);
 }
