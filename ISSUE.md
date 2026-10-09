@@ -260,5 +260,39 @@ Mengintegrasikan infinite canvas whiteboard menggunakan `@tldraw/tldraw` ke dala
    - Seluruh test suite Repurpose (`8/8` test files, `19/19` tests) lolos tanpa regresi.
    - `npx tsc --noEmit` lolos dengan 0 errors.
 
+## Seamless AI Agent CLI Integration, Local MCP Server & Speculative Timeline Preview (9 Oktober 2026)
+
+**Status:** Selesai dan terverifikasi penuh (9 Oktober 2026).
+
+**Tujuan & Ringkasan:**
+Mentransformasikan integrasi AI Agent CLI (`agy`, `claude`, `opencode`) yang sebelumnya kaku (modal pop-up tertutup, one-shot prompt, edit raw JSON file mentah) menjadi integrasi terpadu yang seamless:
+1. **In-Context Copilot Dock / Sidebar (`CopilotSidebar.tsx`):**
+   - Menggantikan modal pop-up dengan panel samping terintegrasi di `ProjectEditor.tsx`.
+   - Non-blocking: Pengguna bebas scrub playhead timeline, play/pause video, klik clip, dan melihat whiteboard secara simultan selagi agen memproses.
+   - Context-aware: Panel otomatis menampilkan playhead saat ini, klip yang sedang dipilih, artboard aktif, dan status koneksi MCP Server.
+2. **Local Captr MCP Server & Structured Editing Tools (`mcpServer.ts`, `agentTools.ts`):**
+   - Menyediakan server Model Context Protocol (MCP) lokal berbasis HTTP SSE & JSON-RPC di proses Electron.
+   - Menyediakan toolset terstruktur:
+     - `get_project_context`: Mengembalikan ringkasan proyek lengkap termasuk trek, klip, durasi, paket rekaman, transkrip kata, telemetri kursor, artboards, dan catatan whiteboard.
+     - `propose_edit_plan`: Mengirimkan rencana editing sebelum mengeksekusi.
+     - `split_clip`: Memotong klip pada timestamp tertentu (mendukung format mikrodetik maupun detik).
+     - `trim_clip`: Mengatur ulang in/out boundaries klip.
+     - `remove_silence`: Menghapus jeda hening tersinkronisasi lintas semua trek yang tidak dikunci.
+     - `add_broll_or_overlay`: Menambahkan B-Roll atau teks overlay.
+     - `preview_speculative_edits`: Menghasilkan ghost preview diff di timeline.
+     - `commit_edits`: Menerapkan perubahan langsung ke `ProjectController.execute` dengan riwayat Undo/Redo penuh.
+3. **Speculative Ghost Preview Timeline (`ProjectTimeline.tsx`, `projectEditor.css`):**
+   - Menampilkan klip rancangan spekulatif sebagai klip semi-transparan bergaris putus-putus (*ghost clips*) di timeline sebelum di-commit.
+   - Mendukung penambahan track baru dari spekulasi (`✨ Draft Track`) dan ekspansi durasi visual timeline otomatis.
+   - UI menyediakan banner konfirmasi dengan tombol **Accept Changes** (masuk ke Undo stack) dan **Reject**.
+4. **Dual Connection Mode (UI Runner + External Terminal MCP Connect):**
+   - UI Copilot Sidebar dapat menjalankan agen CLI lokal secara otomatis (`agy`, `claude`).
+   - Agen eksternal di terminal mana pun (VSCode/Windows Terminal) dapat terhubung ke Captr Studio yang sedang berjalan via endpoint SSE MCP (`http://127.0.0.1:39420/sse`).
+5. **Status Pengujian & Build:**
+   - 39/39 targeted agent tests lolos 100% di `agentTools.test.ts`, `mcpServer.test.ts`, `CopilotSidebar.test.tsx`, `ProjectTimeline.test.tsx`, `ProjectEditor.test.tsx`, `agentRunner.test.ts`, dan `agentDetector.test.ts`.
+   - `npx tsc --noEmit` bersih tanpa error (exit code 0).
+   - `graft build` diperbarui (5.044 nodes, 12.229 edges).
+
+
 
 
