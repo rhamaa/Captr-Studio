@@ -9,9 +9,11 @@ import {
 	Moon as MoonIcon,
 	Palette as PaletteIcon,
 	Sun as SunIcon,
+	Terminal as TerminalIcon,
 } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { CaptrLogo } from "@/components/brand/CaptrLogo";
+import { ProjectTerminal } from "@/components/terminal/ProjectTerminal";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -110,7 +112,11 @@ export function AppSettingsDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-2xl bg-editor-dialog border border-foreground/10 text-foreground shadow-2xl p-0 overflow-hidden rounded-2xl">
+			<DialogContent
+				className={`transition-all duration-200 ${
+					activeTab === "terminal" ? "max-w-4xl" : "max-w-2xl"
+				} bg-editor-dialog border border-foreground/10 text-foreground shadow-2xl p-0 overflow-hidden rounded-2xl`}
+			>
 				<DialogHeader className="px-6 pt-6 pb-2 border-b border-foreground/5 bg-foreground/[0.02]">
 					<div className="flex items-center gap-3">
 						<div className="p-2 rounded-xl bg-primary/10 border border-primary/20 text-primary">
@@ -155,6 +161,13 @@ export function AppSettingsDialog({
 								{t("settings.shortcuts", "Shortcuts")}
 							</TabsTrigger>
 							<TabsTrigger
+								value="terminal"
+								className="data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-1 py-2 text-xs font-semibold gap-2 border-b-2 border-transparent transition-all"
+							>
+								<TerminalIcon className="w-4 h-4" />
+								{t("settings.terminal", "Terminal / Dev")}
+							</TabsTrigger>
+							<TabsTrigger
 								value="about"
 								className="data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-1 py-2 text-xs font-semibold gap-2 border-b-2 border-transparent transition-all"
 							>
@@ -164,7 +177,7 @@ export function AppSettingsDialog({
 						</TabsList>
 					</div>
 
-					<div className="p-6 max-h-[480px] overflow-y-auto">
+					<div className={`p-6 ${activeTab === "terminal" ? "p-4 max-h-[600px]" : "max-h-[480px]"} overflow-y-auto`}>
 						{/* GENERAL TAB */}
 						<TabsContent value="general" className="mt-0 space-y-6">
 							<div>
@@ -464,6 +477,11 @@ export function AppSettingsDialog({
 									</span>
 								</div>
 							</div>
+						</TabsContent>
+
+						{/* TERMINAL / DEV TAB */}
+						<TabsContent value="terminal" className="mt-0">
+							<ProjectTerminal />
 						</TabsContent>
 					</div>
 				</Tabs>

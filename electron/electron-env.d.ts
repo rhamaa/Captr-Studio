@@ -1140,6 +1140,26 @@ interface Window {
 				stage?: "preparing" | "rendering" | "muxing" | "completed";
 			}) => void,
 		) => () => void;
+
+		// ── Interactive Project Terminal ───────────────────────────────────
+		startTerminal?: (options?: { shell?: "powershell" | "cmd" | "bash" | "default" }) => Promise<{
+			sessionId: string;
+			cwd: string;
+			shell: string;
+			mcpPort: number;
+			mcpUrl: string;
+			projectName: string | null;
+		}>;
+		writeTerminal?: (sessionId: string, data: string) => Promise<boolean>;
+		killTerminal?: (sessionId: string) => Promise<boolean>;
+		openExternalTerminal?: (cwd?: string) => Promise<{ success: boolean; error?: string }>;
+		openInCodeEditor?: (cwd?: string) => Promise<{ success: boolean; error?: string }>;
+		onTerminalData?: (
+			callback: (payload: { sessionId: string; data: string }) => void,
+		) => () => void;
+		onTerminalExit?: (
+			callback: (payload: { sessionId: string; code: number }) => void,
+		) => () => void;
 	};
 }
 

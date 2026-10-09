@@ -1168,4 +1168,35 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		ipcRenderer.on("hyperframe:export-progress", listener);
 		return () => ipcRenderer.removeListener("hyperframe:export-progress", listener);
 	},
+
+	// ── Interactive Project Terminal ───────────────────────────────────
+	startTerminal: (options?: { shell?: "powershell" | "cmd" | "bash" | "default" }) =>
+		ipcRenderer.invoke("terminal:start", options) as Promise<{
+			sessionId: string;
+			cwd: string;
+			shell: string;
+			mcpPort: number;
+			mcpUrl: string;
+			projectName: string | null;
+		}>,
+	writeTerminal: (sessionId: string, data: string) =>
+		ipcRenderer.invoke("terminal:write", sessionId, data) as Promise<boolean>,
+	killTerminal: (sessionId: string) =>
+		ipcRenderer.invoke("terminal:kill", sessionId) as Promise<boolean>,
+	openExternalTerminal: (cwd?: string) =>
+		ipcRenderer.invoke("terminal:open-external", cwd) as Promise<{ success: boolean; error?: string }>,
+	openInCodeEditor: (cwd?: string) =>
+		ipcRenderer.invoke("terminal:open-code", cwd) as Promise<{ success: boolean; error?: string }>,
+	onTerminalData: (callback: (payload: { sessionId: string; data: string }) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, payload: { sessionId: string; data: string }) =>
+			callback(payload);
+		ipcRenderer.on("terminal:data", listener);
+		return () => ipcRenderer.removeListener("terminal:data", listener);
+	},
+	onTerminalExit: (callback: (payload: { sessionId: string; code: number }) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, payload: { sessionId: string; code: number }) =>
+			callback(payload);
+		ipcRenderer.on("terminal:exit", listener);
+		return () => ipcRenderer.removeListener("terminal:exit", listener);
+	},
 });
