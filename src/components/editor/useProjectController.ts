@@ -73,6 +73,9 @@ export class ProjectController {
 	get snapshot(): ProjectControllerState {
 		return this.state;
 	}
+	get isExited(): boolean {
+		return this.exited;
+	}
 	subscribe = (listener: () => void) => {
 		this.listeners.add(listener);
 		return () => {

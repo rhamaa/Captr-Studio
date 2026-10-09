@@ -1035,7 +1035,24 @@ export function ProjectEditor(props: ProjectEditorProps) {
 							selectedAssetId={state.selectedAssetId}
 							transcripts={transcripts}
 							onChange={(updater) => {
-								controller.execute(updater);
+								try {
+									if (
+										controller.snapshot.navigationPending ||
+										controller.snapshot.fileOperation ||
+										controller.isExited
+									) {
+										return;
+									}
+									controller.execute(updater);
+								} catch (err) {
+									if (
+										err instanceof Error &&
+										err.message === "Finish the file operation before editing."
+									) {
+										return;
+									}
+									throw err;
+								}
 							}}
 							onClose={() => navigate(props.onRequestHome)}
 							onOpenArtboardEditor={(artboardId) => {

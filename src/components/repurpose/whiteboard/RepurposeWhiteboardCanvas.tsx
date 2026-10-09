@@ -144,33 +144,41 @@ export function RepurposeWhiteboardCanvas({
 		syncProjectCardsToCanvas(editor, projectRef.current);
 
 		let timeoutId: any = null;
+		let isUnmounted = false;
 		const removeListener = editor.store.listen(
 			() => {
+				if (isUnmounted) return;
 				if (timeoutId) clearTimeout(timeoutId);
 				timeoutId = setTimeout(() => {
-					const snapshot = editor.store.getStoreSnapshot();
-					onChangeRef.current((prev) =>
-						setWhiteboardSnapshot(
-							prev,
-							snapshot as unknown as Record<string, unknown>,
-						),
-					);
+					if (isUnmounted) return;
+					try {
+						const snapshot = editor.store.getStoreSnapshot();
+						onChangeRef.current((prev) =>
+							setWhiteboardSnapshot(
+								prev,
+								snapshot as unknown as Record<string, unknown>,
+							),
+						);
+					} catch (err) {
+						if (
+							err instanceof Error &&
+							err.message === "Finish the file operation before editing."
+						) {
+							return;
+						}
+						console.warn("Failed to persist whiteboard snapshot:", err);
+					}
 				}, 400);
 			},
 			{ scope: "document" },
 		);
 
 		return () => {
+			isUnmounted = true;
 			removeBeforeDelete();
 			if (timeoutId) {
 				clearTimeout(timeoutId);
-				const snapshot = editor.store.getStoreSnapshot();
-				onChangeRef.current((prev) =>
-					setWhiteboardSnapshot(
-						prev,
-						snapshot as unknown as Record<string, unknown>,
-					),
-				);
+				timeoutId = null;
 			}
 			removeListener();
 		};
