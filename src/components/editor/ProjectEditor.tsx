@@ -7,8 +7,6 @@ import {
 	FolderOpen,
 	Keyboard,
 	Minus,
-	Pause,
-	Play,
 	Plus,
 	Sparkle,
 	Square,
@@ -38,7 +36,6 @@ import {
 	clipDurationUs,
 	type MediaAsset,
 	projectDurationUs,
-	type ShapeDefinition,
 	type TimelineProject,
 } from "@/core/timeline/types";
 import { TimelineProjectExporter } from "@/lib/exporter/timelineProjectExporter";
@@ -47,18 +44,12 @@ import { probeMedia } from "@/recording/mediaProbe";
 import type { AspectRatio } from "@/utils/aspectRatioUtils";
 import { RepurposeBoardEditor } from "../repurpose/RepurposeBoardEditor";
 import { HyperframeEditor } from "../hyperframe/HyperframeEditor";
-import { AssetLibrary } from "./AssetLibrary";
-import { AssetSourcePreview } from "./AssetSourcePreview";
-import { CopilotSidebar, type EditPlan } from "./CopilotSidebar";
+import type { EditPlan } from "./CopilotSidebar";
 import type { AgentDiffSummary } from "@/core/timeline/agentPayload";
 import type { AssetTranscript } from "@/core/timeline/transcriptTypes";
 import { ProjectEditorPanel } from "./ProjectEditorPanel";
-import { ProjectInspector } from "./ProjectInspector";
 import { ProjectNameDialog } from "./ProjectNameDialog";
-import { ProjectPreview } from "./ProjectPreview";
-import { ProjectTimeline, shapePlacementCommand } from "./ProjectTimeline";
-import { ProjectToolRail } from "./ProjectToolRail";
-import { ProjectWelcome } from "./ProjectWelcome";
+import { StoryEditor } from "./StoryEditor";
 import { captureProjectThumbnail } from "./projectThumbnail";
 import { timelineActionCommand } from "./timelineInteractions";
 import { type ProjectController, useProjectController } from "./useProjectController";
@@ -111,15 +102,6 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		if (!currentActiveArtboardId) return state.project;
 		return getArtboardProjectView(state.project, currentActiveArtboardId);
 	}, [state.project, currentActiveArtboardId]);
-
-	const [selectedTransitionId, setSelectedTransitionId] = useState<string | null>(null);
-	useEffect(() => {
-		if (
-			selectedTransitionId &&
-			!activeProject.clipTransitions?.some((item) => item.id === selectedTransitionId)
-		)
-			setSelectedTransitionId(null);
-	}, [selectedTransitionId, activeProject.clipTransitions]);
 	const [scale, setScale] = useState(65);
 	const [snappingEnabled, setSnappingEnabled] = useState(true);
 	const playingRef = useRef(playing);
@@ -348,14 +330,6 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		} catch (e) {
 			errorMessage(e);
 		}
-	};
-	const addShape = (kind: ShapeDefinition["kind"]) => {
-		const ids = {
-			assetId: crypto.randomUUID(),
-			clipId: crypto.randomUUID(),
-			trackId: crypto.randomUUID(),
-		};
-		run(shapePlacementCommand(kind, state.playheadUs, ids), [ids.clipId]);
 	};
 	const save = async (saveAs = false) => {
 		try {
@@ -801,10 +775,6 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				(c) => c.id === editedClip?.compositionId,
 			) ?? state.project.compositions.find((c) => c.id === editedClip?.compositionId),
 		pkg = state.project.packages.find((p) => p.id === composition?.packageId);
-	const sourceAsset = state.project.assets.find((a) => a.id === state.selectedAssetId),
-		sourcePath =
-			sourceAsset?.source?.path ??
-			state.project.packages.find((p) => p.id === sourceAsset?.packageId)?.screen.path;
 	return (
 		<main
 			className="project-editor dark"
@@ -1154,170 +1124,49 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					) : null
 				}
 			>
-				<>
-					<div className={`project-workspace ${copilotOpen ? "with-copilot" : ""}`}>
-						<ProjectToolRail onAddShape={addShape} />
-						<AssetLibrary
-							assets={state.project.assets}
-							packages={state.project.packages}
-							selectedAssetId={state.selectedAssetId}
-							onImport={(paths) => void importMedia(paths)}
-							onRecord={() => void startRecord()}
-							onRecordAudio={openAudioRecorder}
-							onPreview={(id) => {
-								setPlaying(false);
-								controller.preview(id);
-							}}
-							onPlace={addToTimeline}
-							onRemove={(id) => run((p) => removeAsset(p, id))}
-						/>
-						<section className="project-preview-panel">
-							<header className="project-panel-header">
-								<h2>{sourceAsset ? m("sourcePreview") : m("preview")}</h2>
-								<span>
-									{activeProject.canvas.width} × {activeProject.canvas.height}
-								</span>
-								{!sourceAsset && currentActiveArtboardId && (
-									<button
-										type="button"
-										className="project-stage-repurpose-btn"
-										title="Return to Multi-Artboard Hub"
-										onClick={() => {
-											setPlaying(false);
-											setEditingClipId(null);
-											setActiveArtboardId(null);
-										}}
-									>
-										<SquaresFour size={14} weight="bold" />
-										All Artboards
-									</button>
-								)}
-								{sourceAsset && (
-									<button onClick={() => controller.preview(null)}>
-										{m("backTimeline")}
-									</button>
-								)}
-							</header>
-							<div className="project-preview-stage" ref={previewStage}>
-								{sourceAsset ? (
-									<AssetSourcePreview
-										key={sourceAsset.id}
-										asset={sourceAsset}
-										path={sourcePath ?? ""}
-										onError={setError}
-									/>
-								) : projectDurationUs(activeProject) > 0 ? (
-									<ProjectPreview
-										key={`${state.openingKey}-${currentActiveArtboardId}`}
-										project={activeProject}
-										timeUs={Math.min(
-											state.playheadUs,
-											Math.max(0, projectDurationUs(activeProject) - 1),
-										)}
-										playing={playing && !editingClipId}
-										onError={setError}
-										selectedClipId={state.selection[0] ?? null}
-										onSelectClip={(clipId) => controller.select(clipId ? [clipId] : [])}
-										onUpdateClipTransform={(clipId, transform) => {
-											run((p) => updateClip(p, clipId, { transform }));
-										}}
-									/>
-								) : (
-									<ProjectWelcome
-										hasAssets={Boolean(state.project.assets.length)}
-										onImport={() => void importMedia()}
-										onRecord={() => void startRecord()}
-									/>
-								)}
-							</div>
-							<div className="project-preview-transport">
-								<span>{(state.playheadUs / 1_000_000).toFixed(2)}</span>
-								<button
-									aria-label={playing ? "Pause timeline" : "Play timeline"}
-									disabled={!projectDurationUs(activeProject)}
-									onClick={() => {
-										controller.preview(null);
-										if (state.playheadUs >= projectDurationUs(activeProject))
-											controller.seek(0, projectDurationUs(activeProject));
-										setPlaying((v) => !v);
-									}}
-								>
-									{playing ? (
-										<Pause size={20} weight="fill" />
-									) : (
-										<Play size={20} weight="fill" />
-									)}
-								</button>
-								<span>
-									{(projectDurationUs(activeProject) / 1_000_000).toFixed(2)}
-								</span>
-							</div>
-						</section>
-						<ProjectInspector
-							project={activeProject}
-							selection={state.selection}
-							selectedTransitionId={selectedTransitionId}
-							playheadUs={state.playheadUs}
-							onCommand={run}
-							onOpenRecording={setEditingClipId}
-						/>
-						{copilotOpen && (
-							<CopilotSidebar
-								project={activeProject}
-								transcripts={transcripts}
-								playheadUs={state.playheadUs}
-								selection={state.selection}
-								activeArtboardId={currentActiveArtboardId}
-								speculativeDraft={speculativeDraft}
-								editPlan={editPlan}
-								onClose={() => setCopilotOpen(false)}
-								onApplyDraft={handleApplyDraft}
-								onDiscardDraft={handleDiscardDraft}
-								onDraftReady={(draft) => setSpeculativeDraft(draft)}
-								onSeekTo={(timeUs) => controller.seek(timeUs, projectDurationUs(activeProject))}
-							/>
-						)}
-					</div>
-					<ProjectTimeline
-						project={activeProject}
-						selection={state.selection}
-						selectedTransitionId={selectedTransitionId}
-						playheadUs={state.playheadUs}
-						onCommand={run}
-						onSelect={(ids) => {
-							setSelectedTransitionId(null);
-							controller.select(ids);
-						}}
-						onSelectTransition={(id) => {
-							controller.select([]);
-							setSelectedTransitionId(id);
-						}}
-						onSeek={(time) => {
-							setPlaying(false);
-							controller.preview(null);
-							controller.seek(time, projectDurationUs(activeProject));
-						}}
-						onOpenRecording={(id) => {
-							setPlaying(false);
-							setEditingClipId(id);
-						}}
-						scale={scale}
-						onScaleChange={setScale}
-						playing={playing}
-						snappingEnabled={snappingEnabled}
-						onToggleSnapping={() => setSnappingEnabled((v) => !v)}
-						speculativeProject={speculativeDraft?.project ?? null}
-						speculativeDiff={speculativeDraft?.diff ?? null}
-						onAcceptSpeculative={() => speculativeDraft && handleApplyDraft(speculativeDraft.project)}
-						onRejectSpeculative={handleDiscardDraft}
-					/>
-					<footer className="project-footer">
-						<span>
-							{busy ? "Importing media…" : `${state.project.assets.length} assets`}
-						</span>
-						<span>{state.project.canvas.fps} fps</span>
-					</footer>
-				</>
+				<StoryEditor
+					storyProject={activeProject}
+					rootProject={state.project}
+					storyId={currentActiveArtboardId}
+					storyName={activeArtboard?.name}
+					controller={controller}
+					transcripts={transcripts}
+					copilotOpen={copilotOpen}
+					onCloseCopilot={() => setCopilotOpen(false)}
+					speculativeDraft={speculativeDraft}
+					editPlan={editPlan}
+					onApplyDraft={handleApplyDraft}
+					onDiscardDraft={handleDiscardDraft}
+					onDraftReady={(draft) => setSpeculativeDraft(draft)}
+					onBackToBoard={
+						currentActiveArtboardId
+							? () => {
+									setPlaying(false);
+									setEditingClipId(null);
+									setActiveArtboardId(null);
+								}
+							: undefined
+					}
+					onImportMedia={(paths) => void importMedia(paths)}
+					onStartRecord={() => void startRecord()}
+					onOpenAudioRecorder={openAudioRecorder}
+					onOpenRecording={(id) => {
+						setPlaying(false);
+						setEditingClipId(id);
+					}}
+					playing={playing}
+					setPlaying={setPlaying}
+					editingClipId={editingClipId}
+					setEditingClipId={setEditingClipId}
+					onCommand={run}
+					onError={setError}
+					busy={Boolean(busy)}
+					previewStageRef={previewStage}
+					scale={scale}
+					onScaleChange={setScale}
+					snappingEnabled={snappingEnabled}
+					onToggleSnapping={() => setSnappingEnabled((v) => !v)}
+				/>
 			</ProjectEditorPanel>
 			{nameDialog && (
 				<ProjectNameDialog
