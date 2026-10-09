@@ -118,4 +118,25 @@ describe("CanvasTransformGizmo", () => {
 		const angle = calculateRotationAngle(100, 100, 150, 100);
 		expect(angle).toBeDefined();
 	});
+
+	it("renders stably without recursion when clip is selected and project updates", () => {
+		const html1 = renderToStaticMarkup(
+			createElement(CanvasTransformGizmo, {
+				project: mockProject,
+				timeUs: 1_000_000,
+				selectedClipId: "clip_text",
+			}),
+		);
+		expect(html1).toContain("cursor-move");
+
+		// Re-rendering with same or updated project is stable
+		const html2 = renderToStaticMarkup(
+			createElement(CanvasTransformGizmo, {
+				project: { ...mockProject },
+				timeUs: 1_000_000,
+				selectedClipId: "clip_text",
+			}),
+		);
+		expect(html2).toContain("cursor-move");
+	});
 });

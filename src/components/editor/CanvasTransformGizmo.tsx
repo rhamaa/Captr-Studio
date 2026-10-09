@@ -58,26 +58,60 @@ export function CanvasTransformGizmo({
 
 	// Local transform for 60 FPS drag feedback before committing to history
 	const [activeTransform, setActiveTransform] = useState<ClipTransform | null>(null);
+	const activeTransformRef = useRef<ClipTransform | null>(null);
 	const dragState = useRef<DragState | null>(null);
 	const [isDragging, setIsDragging] = useState(false);
 	const [dragCoordsHud, setDragCoordsHud] = useState<{ x: number; y: number } | null>(null);
 	const [isDragOverCanvas, setIsDragOverCanvas] = useState(false);
 
+	const updateActiveTransform = (transform: ClipTransform | null) => {
+		activeTransformRef.current = transform;
+		setActiveTransform((prev) => {
+			if (!prev && !transform) return null;
+			if (
+				prev &&
+				transform &&
+				prev.x === transform.x &&
+				prev.y === transform.y &&
+				prev.scale === transform.scale &&
+				prev.rotation === transform.rotation &&
+				prev.opacity === transform.opacity
+			) {
+				return prev;
+			}
+			return transform;
+		});
+	};
+
 	// Overlay bounding rect tracking
 	const [overlayRect, setOverlayRect] = useState<DOMRect | null>(null);
 
 	useEffect(() => {
-		const target = overlayRef.current ?? canvasElement;
+		const target = overlayRef.current?.parentElement ?? overlayRef.current ?? canvasElement;
 		if (!target) return;
 
+		let rafId: number | null = null;
 		const updateRect = () => {
-			const el = overlayRef.current ?? canvasElement;
-			if (el) {
+			if (rafId !== null) cancelAnimationFrame(rafId);
+			rafId = requestAnimationFrame(() => {
+				const el = overlayRef.current?.parentElement ?? overlayRef.current ?? canvasElement;
+				if (!el) return;
 				const rect = el.getBoundingClientRect();
-				if (rect.width > 0 && rect.height > 0) {
-					setOverlayRect(rect);
-				}
-			}
+				if (rect.width <= 0 || rect.height <= 0) return;
+
+				setOverlayRect((prev) => {
+					if (
+						prev &&
+						Math.abs(prev.width - rect.width) < 1 &&
+						Math.abs(prev.height - rect.height) < 1 &&
+						Math.abs(prev.left - rect.left) < 1 &&
+						Math.abs(prev.top - rect.top) < 1
+					) {
+						return prev;
+					}
+					return rect;
+				});
+			});
 		};
 
 		updateRect();
@@ -86,6 +120,7 @@ export function CanvasTransformGizmo({
 		observer.observe(target);
 
 		return () => {
+			if (rafId !== null) cancelAnimationFrame(rafId);
 			window.removeEventListener("resize", updateRect);
 			observer.disconnect();
 		};
@@ -93,17 +128,17 @@ export function CanvasTransformGizmo({
 
 	// Keep activeTransform in sync with selected clip
 	useEffect(() => {
-		if (selectedBounds) {
+		if (selectedClipId) {
 			const clip = project.tracks
 				.flatMap((t) => t.clips)
-				.find((c) => c.id === selectedBounds.clipId);
+				.find((c) => c.id === selectedClipId);
 			if (clip) {
-				setActiveTransform(structuredClone(clip.transform));
+				updateActiveTransform({ ...clip.transform });
+				return;
 			}
-		} else {
-			setActiveTransform(null);
 		}
-	}, [selectedBounds, project]);
+		updateActiveTransform(null);
+	}, [selectedClipId, project]);
 
 	const { width: projectWidth, height: projectHeight } = project.canvas;
 
@@ -157,7 +192,7 @@ export function CanvasTransformGizmo({
 					x: newX,
 					y: newY,
 				};
-				setActiveTransform(newTransform);
+				updateActiveTransform(newTransform);
 				setDragCoordsHud({ x: newX, y: newY });
 			} else if (drag.mode === "resize" && drag.handle) {
 				const deltaCanvasX = deltaScreenX / currentScaleX;
@@ -180,7 +215,7 @@ export function CanvasTransformGizmo({
 					...drag.initialTransform,
 					scale: newScale,
 				};
-				setActiveTransform(newTransform);
+				updateActiveTransform(newTransform);
 			} else if (drag.mode === "rotate") {
 				const originLeft = rect ? rect.left : 0;
 				const originTop = rect ? rect.top : 0;
@@ -198,7 +233,7 @@ export function CanvasTransformGizmo({
 					...drag.initialTransform,
 					rotation: angle,
 				};
-				setActiveTransform(newTransform);
+				updateActiveTransform(newTransform);
 			}
 		};
 
@@ -211,13 +246,8 @@ export function CanvasTransformGizmo({
 			setIsDragging(false);
 			setDragCoordsHud(null);
 
-			if (drag && onUpdateClipTransform) {
-				setActiveTransform((current) => {
-					if (current) {
-						onUpdateClipTransform(drag.clipId, current);
-					}
-					return current;
-				});
+			if (drag && onUpdateClipTransform && activeTransformRef.current) {
+				onUpdateClipTransform(drag.clipId, activeTransformRef.current);
 			}
 		};
 
@@ -227,7 +257,7 @@ export function CanvasTransformGizmo({
 
 	// Handle background canvas click and immediate selection + drag
 	const handleOverlayPointerDown = (e: React.PointerEvent) => {
-		if (disabled || e.button !== 0) return;
+		if (disabled || e.button !== 0 || e.shiftKey) return;
 
 		const rect = overlayRef.current?.getBoundingClientRect() ?? overlayRect;
 		if (!rect) return;
@@ -257,7 +287,7 @@ export function CanvasTransformGizmo({
 				rotation: hit.rotation,
 				opacity: hit.opacity,
 			};
-			setActiveTransform(initialTransform);
+			updateActiveTransform(initialTransform);
 			startDragSession("translate", hit.clipId, initialTransform, hit, e.clientX, e.clientY);
 		} else {
 			// Clicked empty area
@@ -267,14 +297,15 @@ export function CanvasTransformGizmo({
 
 	// Translate on selected bounding box
 	const startTranslate = (e: React.PointerEvent) => {
-		if (!selectedBounds || !activeTransform || e.button !== 0) return;
+		const current = activeTransformRef.current ?? activeTransform;
+		if (!selectedBounds || !current || e.button !== 0) return;
 		e.stopPropagation();
 		e.preventDefault();
 
 		startDragSession(
 			"translate",
 			selectedBounds.clipId,
-			activeTransform,
+			current,
 			selectedBounds,
 			e.clientX,
 			e.clientY,
@@ -283,14 +314,15 @@ export function CanvasTransformGizmo({
 
 	// Resize on handle
 	const startResize = (e: React.PointerEvent, handle: ResizeHandleDirection) => {
-		if (!selectedBounds || !activeTransform || e.button !== 0) return;
+		const current = activeTransformRef.current ?? activeTransform;
+		if (!selectedBounds || !current || e.button !== 0) return;
 		e.stopPropagation();
 		e.preventDefault();
 
 		startDragSession(
 			"resize",
 			selectedBounds.clipId,
-			activeTransform,
+			current,
 			selectedBounds,
 			e.clientX,
 			e.clientY,
@@ -300,14 +332,15 @@ export function CanvasTransformGizmo({
 
 	// Rotate on handle
 	const startRotate = (e: React.PointerEvent) => {
-		if (!selectedBounds || !activeTransform || e.button !== 0) return;
+		const current = activeTransformRef.current ?? activeTransform;
+		if (!selectedBounds || !current || e.button !== 0) return;
 		e.stopPropagation();
 		e.preventDefault();
 
 		startDragSession(
 			"rotate",
 			selectedBounds.clipId,
-			activeTransform,
+			current,
 			selectedBounds,
 			e.clientX,
 			e.clientY,

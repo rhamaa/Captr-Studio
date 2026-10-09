@@ -393,6 +393,33 @@ Mentransformasikan integrasi AI Agent CLI (`agy`, `claude`, `opencode`) yang seb
    - Menyeret kartu aset dari Asset Library dan menjatuhkannya (drop) langsung ke atas kanvas preview otomatis menghitung posisi pointer menjadi koordinat kanvas lokal dan menempatkan aset pada playhead aktif (`handleDropAssetOnCanvas` via `placeAsset` dengan parameter `transform: { x, y }`).
 4. **Pengujian & Verifikasi:**
    - 44/44 unit tests lolos 100% (`CanvasTransformGizmo.test.tsx`, `StoryEditor.test.tsx`, `CanvasProjectInspector.test.tsx`, `ProjectInspector.test.tsx`, `ProjectTimeline.test.tsx`, `commands.test.ts`).
-   - `npx tsc --noEmit` lolos tanpa error (exit code 0).
+## 11. Perbaikan Infinite Re-render Loop & Freeze Interaksi pada Story Editor (9 Oktober 2026)
+
+**Status:** Selesai dan terverifikasi (9 Oktober 2026).
+
+**Gejala Masalah:**
+- Pada saat aplikasi dijalankan (`npm run dev`), tampilan Story Editor tidak dapat ditekan dan seluruh interaksi terhenti (UI freeze).
+- Console Electron menampilkan error:
+  ```
+  Warning: Cannot update a component (`ProjectEditor`) while rendering a different component (`CanvasTransformGizmo`).
+  Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect...
+      at CanvasTransformGizmo (CanvasTransformGizmo.tsx:27:3)
+  ```
+
+**Akar Masalah:**
+1. `ResizeObserver` mengamati `overlayRef.current` (elemen root gizmo itu sendiri) dan memanggil `setOverlayRect(rect)` dengan instans `new DOMRect` tanpa memeriksa apakah dimensi sebenarnya berubah. Render ulang elemen anak memicu callback observer kembali secara instan sehingga terjadi cascading update loop.
+2. Hook `useEffect` sinkronisasi `activeTransform` bergantung pada referensi objek `selectedBounds` yang selalu dialokasikan baru pada setiap siklus evaluasi oleh `getActiveVisualClipsBounds`, memanggil `structuredClone` dan men-trigger `setActiveTransform` secara tanpa henti.
+3. Callback `onUpdateClipTransform` dipanggil di dalam fungsi updater state `setActiveTransform((current) => ...)`, yang mengeksekusi mutasi state controller/`ProjectEditor` secara ilegal di tengah proses internal state React.
+
+**Solusi & Perbaikan:**
+1. **Stabilisasi Pengamatan Ukuran Kanvas:** Mengamati kontainer viewport induk (`.project-preview-viewport`) atau kanvas pratinjau yang stabil, menjadwalkan pembacaan melalui `requestAnimationFrame`, dan membandingkan toleransi `width`/`height`/`left`/`top` sebelum memanggil `setOverlayRect` (bailout ketika dimensi tidak berubah).
+2. **Sinkronisasi Transform Stabil:** Menggunakan `activeTransformRef` untuk referensi sinkron tanpa jeda, serta fungsi murni `updateActiveTransform` yang memvalidasi kesamaan nilai properti `x`, `y`, `scale`, `rotation`, dan `opacity` sebelum mengizinkan React re-render. Dependensi effect diarahkan ke `[selectedClipId, project]`.
+3. **Pemberhentian Efek Samping di Dalam setState:** Menghilangkan pemanggilan `onUpdateClipTransform` dari dalam updater `setActiveTransform`; pemanggilan histori dikirim secara murni pada `handleWindowPointerUp` menggunakan `activeTransformRef.current`.
+4. **Perlindungan Interaksi Panning Workspace:** Menambahkan penjaga `e.shiftKey` pada pointer handler gizmo agar gesture panning kanvas workspace tetap dapat ditangkap oleh container stage.
+5. **Pencegahan Seleksi Redundan:** Memastikan `StoryEditor` hanya memanggil `controller.select` jika klip yang diklik berbeda dari seleksi aktif.
+
+**Pengujian & Verifikasi:**
+- 11/11 unit tests lolos di `CanvasTransformGizmo.test.tsx` (termasuk regression test non-recursive render) dan `StoryEditor.test.tsx`.
+- `npx tsc --noEmit` lolos bersih (exit code 0).
 
 

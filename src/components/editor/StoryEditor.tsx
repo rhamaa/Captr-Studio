@@ -596,7 +596,12 @@ export function StoryEditor({
 									playing={playing && !editingClipId}
 									onError={onError}
 									selectedClipId={selection[0] ?? null}
-									onSelectClip={(clipId) => controller.select(clipId ? [clipId] : [])}
+									onSelectClip={(clipId) => {
+										const currentSelected = selection[0] ?? "";
+										if (currentSelected !== (clipId ?? "")) {
+											controller.select(clipId ? [clipId] : []);
+										}
+									}}
 									onUpdateClipTransform={(clipId, transform) => {
 										onCommand((p: TimelineProject) => updateClip(p, clipId, { transform }));
 									}}
