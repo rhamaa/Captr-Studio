@@ -2,7 +2,7 @@ import {
 	compositionTimeMap,
 	createRecordComposition,
 	createRecordingPackage,
-} from "@/recording/packageAdapter";
+} from "../../recording/packageAdapter";
 import {
 	type CompletedRecording,
 	clipDurationUs,

@@ -91,6 +91,11 @@ export default defineConfig({
 				// Shortcut of `build.lib.entry`.
 				entry: "electron/main.ts",
 				vite: {
+					resolve: {
+						alias: {
+							"@": path.resolve(__dirname, "src"),
+						},
+					},
 					build: {
 						lib: {
 							entry: "electron/main.ts",
@@ -114,6 +119,13 @@ export default defineConfig({
 				// Shortcut of `build.rollupOptions.input`.
 				// Preload scripts may contain Web assets, so use the `build.rollupOptions.input` instead `build.lib.entry`.
 				input: path.join(__dirname, "electron/preload.ts"),
+				vite: {
+					resolve: {
+						alias: {
+							"@": path.resolve(__dirname, "src"),
+						},
+					},
+				},
 			},
 			// Polyfill the Electron and Node.js API for the renderer process.
 			// If you want to use Node.js in the renderer process, enable `nodeIntegration` in the main process.
