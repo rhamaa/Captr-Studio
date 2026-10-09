@@ -121,17 +121,23 @@ function HyperframeCardComponent({ shape }: { shape: HyperframeCardShape }) {
 				height: `${height}px`,
 			}}
 			onPointerDown={(e) => {
-				// Isolate pointer events on interactive controls (buttons, inputs, iframe preview)
+				// Isolate pointer events on interactive controls (buttons, inputs, preview stage)
 				// so interacting with them does not trigger tldraw shape drag or selection.
 				// Clicking header or card background bubbles to tldraw to allow selecting and dragging the card.
 				const target = e.target as HTMLElement | null;
 				if (
 					target?.closest(
-						"button, input, select, textarea, [role='button'], .repurpose-card-actions, iframe",
+						"button, input, select, textarea, [role='button'], .repurpose-card-actions, .repurpose-card-viewport, .repurpose-hyperframe-stage, iframe",
 					)
 				) {
 					e.stopPropagation();
 				}
+			}}
+			onDoubleClick={(e) => {
+				const target = e.target as HTMLElement | null;
+				if (target?.closest("input, select, textarea")) return;
+				e.stopPropagation();
+				ctx.onOpenHyperframeEditor?.(hyperframe.id);
 			}}
 		>
 			<div className="w-full h-full flex flex-col" style={{ width, height }}>

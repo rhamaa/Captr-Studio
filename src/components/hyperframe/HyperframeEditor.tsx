@@ -278,6 +278,29 @@ export function preprocessHyperframeHtml(
       window.seekFrame(t, isPlay, isMuted, volume);
     }
   });
+
+  // Automatic hero frame preview and opacity fallback for static preview cards
+  function ensurePreview() {
+    if (!window.__captr_is_playing && typeof window.seekFrame === 'function') {
+      try { window.seekFrame(0.8, false); } catch(e) {}
+    }
+    setTimeout(function() {
+      var card = document.getElementById('card') || document.querySelector('.card');
+      if (card) {
+        var op = window.getComputedStyle(card).opacity;
+        if (op === '0' || op === 0) {
+          card.style.opacity = '1';
+          card.style.transform = 'none';
+        }
+      }
+    }, 300);
+  }
+  if (document.readyState === 'complete') {
+    ensurePreview();
+  } else {
+    window.addEventListener('load', ensurePreview);
+  }
+  setTimeout(ensurePreview, 150);
 })();
 </script>`;
 		if (processed.includes("</body>")) {

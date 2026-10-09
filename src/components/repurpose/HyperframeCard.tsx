@@ -10,6 +10,7 @@ import {
 import { type MouseEvent as ReactMouseEvent, useEffect, useMemo, useRef, useState } from "react";
 import type { HyperframeComposition } from "@/core/story/storyTypes";
 import { formatMs } from "@/components/video-editor/timeline/items/itemUtils";
+import { preprocessHyperframeHtml } from "@/components/hyperframe/HyperframeEditor";
 
 export interface HyperframeCardProps {
 	hyperframe: HyperframeComposition;
@@ -38,6 +39,17 @@ export function HyperframeCard({
 	const isPlaying = activePlayingId === hyperframe.id;
 	const [isEditingName, setIsEditingName] = useState(false);
 	const [nameInput, setNameInput] = useState(hyperframe.name);
+
+	const durationSec = Math.max(0.5, (hyperframe.durationUs || 5_000_000) / 1_000_000);
+	const previewTimeSec = useMemo(() => {
+		return Math.min(0.8, Math.max(0.1, durationSec * 0.2));
+	}, [durationSec]);
+
+	const [currentTimeSec, setCurrentTimeSec] = useState(previewTimeSec);
+
+	const processedHtml = useMemo(() => {
+		return preprocessHyperframeHtml(hyperframe.htmlContent || "");
+	}, [hyperframe.htmlContent]);
 
 	const aspectRatioStr = useMemo(() => {
 		if (hyperframe.aspectRatio) return hyperframe.aspectRatio;
@@ -72,19 +84,75 @@ export function HyperframeCard({
 
 	const togglePlay = (e: ReactMouseEvent) => {
 		e.stopPropagation();
-		onPlayingChange?.(!isPlaying);
+		if (!isPlaying) {
+			if (currentTimeSec >= durationSec) {
+				setCurrentTimeSec(0);
+			}
+			onPlayingChange?.(true);
+		} else {
+			onPlayingChange?.(false);
+		}
 	};
 
-	// Post play/pause messages to iframe
+	// Send seek message whenever time updates or playing changes
 	useEffect(() => {
 		if (!iframeRef.current?.contentWindow) return;
 		try {
-			iframeRef.current.contentWindow.postMessage(
-				{ type: isPlaying ? "PLAY" : "PAUSE" },
-				"*",
-			);
+			const win = iframeRef.current.contentWindow as unknown as {
+				seekFrame?: (time: number, isPlaying?: boolean) => void;
+			};
+			if (typeof win.seekFrame === "function") {
+				win.seekFrame(currentTimeSec, isPlaying);
+			} else {
+				iframeRef.current.contentWindow.postMessage(
+					{ type: "SEEK_FRAME", timeSec: currentTimeSec, isPlaying },
+					"*",
+				);
+			}
 		} catch {}
-	}, [isPlaying]);
+	}, [currentTimeSec, isPlaying]);
+
+	// Playback animation ticker
+	useEffect(() => {
+		if (!isPlaying) return;
+		let animId: number;
+		let lastTime = performance.now();
+
+		const step = (now: number) => {
+			const deltaSec = (now - lastTime) / 1000;
+			lastTime = now;
+
+			setCurrentTimeSec((prev) => {
+				const next = prev + deltaSec;
+				if (next >= durationSec) {
+					onPlayingChange?.(false);
+					return previewTimeSec;
+				}
+				return next;
+			});
+
+			animId = requestAnimationFrame(step);
+		};
+
+		animId = requestAnimationFrame(step);
+		return () => cancelAnimationFrame(animId);
+	}, [isPlaying, durationSec, previewTimeSec, onPlayingChange]);
+
+	const handleIframeLoad = () => {
+		try {
+			const win = iframeRef.current?.contentWindow as unknown as {
+				seekFrame?: (time: number, isPlaying?: boolean) => void;
+			};
+			if (typeof win?.seekFrame === "function") {
+				win.seekFrame(currentTimeSec, false);
+			} else {
+				iframeRef.current?.contentWindow?.postMessage(
+					{ type: "SEEK_FRAME", timeSec: currentTimeSec, isPlaying: false },
+					"*",
+				);
+			}
+		} catch {}
+	};
 
 	const durationMs = Math.round((hyperframe.durationUs || 5_000_000) / 1000);
 
@@ -93,7 +161,10 @@ export function HyperframeCard({
 			className="repurpose-artboard-card repurpose-hyperframe-card relative rounded-2xl bg-[#161820] border border-[#2B2F3D] hover:border-[#6FA8FF]/40 shadow-xl overflow-hidden flex flex-col transition group select-none w-full h-full"
 			style={{ width: displayWidth, minHeight: displayHeight + 42 }}
 			data-hyperframe-id={hyperframe.id}
-			onDoubleClick={() => onOpenEditor?.(hyperframe.id)}
+			onDoubleClick={(e) => {
+				e.stopPropagation();
+				onOpenEditor?.(hyperframe.id);
+			}}
 		>
 			{/* Card Header */}
 			<div
@@ -101,6 +172,11 @@ export function HyperframeCard({
 				onMouseDown={(e) => {
 					if ((e.target as HTMLElement).closest("button,input")) return;
 					onStartDragCard?.(e);
+				}}
+				onDoubleClick={(e) => {
+					if ((e.target as HTMLElement).closest("button,input")) return;
+					e.stopPropagation();
+					onOpenEditor?.(hyperframe.id);
 				}}
 				title="Drag header to move card · Double-click to edit Code & AI"
 			>
@@ -194,14 +270,20 @@ export function HyperframeCard({
 
 			{/* Sandboxed Live HTML Iframe Preview Stage */}
 			<div
-				className="relative bg-[#0F1014] overflow-hidden flex items-center justify-center w-full shrink-0"
+				className="repurpose-card-viewport repurpose-hyperframe-stage relative bg-[#0F1014] overflow-hidden flex items-center justify-center w-full shrink-0 cursor-pointer"
 				style={{ width: displayWidth, height: displayHeight, minHeight: displayHeight }}
+				onDoubleClick={(e) => {
+					e.stopPropagation();
+					onOpenEditor?.(hyperframe.id);
+				}}
+				title="Double-click to open Code & AI Editor · Click Play to preview motion"
 			>
 				<iframe
 					ref={iframeRef}
 					title={hyperframe.name}
-					srcDoc={hyperframe.htmlContent || "<html><body></body></html>"}
+					srcDoc={processedHtml}
 					sandbox="allow-scripts allow-same-origin"
+					onLoad={handleIframeLoad}
 					className="pointer-events-none absolute origin-top-left border-0"
 					style={{
 						width: hyperframe.width || 1920,
@@ -212,7 +294,14 @@ export function HyperframeCard({
 				/>
 
 				{/* Hover overlay with Open Editor & Playback action */}
-				<div className="absolute inset-0 bg-gradient-to-t from-[#111215]/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3 pointer-events-auto">
+				<div
+					className="absolute inset-0 bg-gradient-to-t from-[#111215]/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3 pointer-events-auto"
+					onDoubleClick={(e) => {
+						if ((e.target as HTMLElement).closest("button,input")) return;
+						e.stopPropagation();
+						onOpenEditor?.(hyperframe.id);
+					}}
+				>
 					<div className="flex items-center justify-between gap-2">
 						<button
 							type="button"
@@ -225,7 +314,10 @@ export function HyperframeCard({
 
 						<button
 							type="button"
-							onClick={() => onOpenEditor?.(hyperframe.id)}
+							onClick={(e) => {
+								e.stopPropagation();
+								onOpenEditor?.(hyperframe.id);
+							}}
 							className="px-3 py-1.5 rounded-xl bg-[#6FA8FF] hover:bg-[#85b7ff] text-[#111215] font-semibold text-xs transition shadow-md flex items-center gap-1.5"
 						>
 							<Code size={14} weight="bold" />

@@ -199,8 +199,8 @@ export function createDefaultHyperframeTemplate(
       border-radius: 24px;
       box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 30px rgba(168, 121, 245, 0.08);
       color: #ffffff;
-      opacity: 0;
-      transform: translateY(30px) scale(0.92);
+      opacity: 1;
+      transform: translateY(0) scale(1);
       display: flex;
       flex-direction: column;
       gap: 14px;
@@ -249,10 +249,10 @@ export function createDefaultHyperframeTemplate(
     const tl = gsap.timeline({ paused: true });
     
     // Entrance: Spring bounce
-    tl.to("#card", {
-      opacity: 1,
-      y: 0,
-      scale: 1,
+    tl.from("#card", {
+      opacity: 0,
+      y: 30,
+      scale: 0.92,
       duration: 0.65,
       ease: "back.out(1.6)"
     })
@@ -273,6 +273,9 @@ export function createDefaultHyperframeTemplate(
     window.getDuration = function() {
       return ${durationSec};
     };
+
+    // Seek to hero frame for preview thumbnail
+    tl.seek(Math.min(0.8, ${durationSec} * 0.2));
   </script>
 </body>
 </html>`;
