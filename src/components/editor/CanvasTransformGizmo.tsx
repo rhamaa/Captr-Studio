@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { ClipTransform, TimelineProject } from "@/core/timeline/types";
 import {
 	type CanvasObjectBounds,
@@ -8,14 +8,16 @@ import {
 	getActiveVisualClipsBounds,
 	hitTestCanvasPoint,
 } from "./canvasGizmoMath";
+import { ASSET_DRAG_TYPE, getTimelineDrag } from "./timelineInteractions";
 
 export interface CanvasTransformGizmoProps {
 	project: TimelineProject;
 	timeUs: number;
 	selectedClipId?: string | null;
-	canvasElement: HTMLCanvasElement | null;
+	canvasElement?: HTMLCanvasElement | null;
 	onSelectClip?: (clipId: string) => void;
 	onUpdateClipTransform?: (clipId: string, transform: ClipTransform) => void;
+	onDropAsset?: (assetId: string, canvasX: number, canvasY: number) => void;
 	disabled?: boolean;
 }
 
@@ -23,8 +25,8 @@ type DragMode = "translate" | "resize" | "rotate" | null;
 
 interface DragState {
 	mode: DragMode;
+	clipId: string;
 	handle?: ResizeHandleDirection;
-	pointerId: number;
 	startX: number; // screen coords
 	startY: number;
 	initialTransform: ClipTransform;
@@ -38,6 +40,7 @@ export function CanvasTransformGizmo({
 	canvasElement,
 	onSelectClip,
 	onUpdateClipTransform,
+	onDropAsset,
 	disabled = false,
 }: CanvasTransformGizmoProps) {
 	const overlayRef = useRef<HTMLDivElement>(null);
@@ -56,21 +59,31 @@ export function CanvasTransformGizmo({
 	// Local transform for 60 FPS drag feedback before committing to history
 	const [activeTransform, setActiveTransform] = useState<ClipTransform | null>(null);
 	const dragState = useRef<DragState | null>(null);
+	const [isDragging, setIsDragging] = useState(false);
+	const [dragCoordsHud, setDragCoordsHud] = useState<{ x: number; y: number } | null>(null);
+	const [isDragOverCanvas, setIsDragOverCanvas] = useState(false);
 
-	// Canvas client rect tracking
-	const [canvasRect, setCanvasRect] = useState<DOMRect | null>(null);
+	// Overlay bounding rect tracking
+	const [overlayRect, setOverlayRect] = useState<DOMRect | null>(null);
 
 	useEffect(() => {
-		if (!canvasElement) return;
+		const target = overlayRef.current ?? canvasElement;
+		if (!target) return;
 
 		const updateRect = () => {
-			setCanvasRect(canvasElement.getBoundingClientRect());
+			const el = overlayRef.current ?? canvasElement;
+			if (el) {
+				const rect = el.getBoundingClientRect();
+				if (rect.width > 0 && rect.height > 0) {
+					setOverlayRect(rect);
+				}
+			}
 		};
 
 		updateRect();
 		window.addEventListener("resize", updateRect);
 		const observer = new ResizeObserver(updateRect);
-		observer.observe(canvasElement);
+		observer.observe(target);
 
 		return () => {
 			window.removeEventListener("resize", updateRect);
@@ -92,175 +105,251 @@ export function CanvasTransformGizmo({
 		}
 	}, [selectedBounds, project]);
 
-	if (disabled || !canvasElement || !canvasRect) {
-		return null;
-	}
-
 	const { width: projectWidth, height: projectHeight } = project.canvas;
-	const scaleFactorX = canvasRect.width / projectWidth;
-	const scaleFactorY = canvasRect.height / projectHeight;
 
-	// Convert canvas coordinates to DOM pixel coordinates inside overlay
-	const toOverlayX = (canvasX: number) => canvasX * scaleFactorX;
-	const toOverlayY = (canvasY: number) => canvasY * scaleFactorY;
+	// Scale factors: screen pixels / project canvas units
+	const scaleFactorX = overlayRect && projectWidth > 0 ? overlayRect.width / projectWidth : 1;
+	const scaleFactorY = overlayRect && projectHeight > 0 ? overlayRect.height / projectHeight : 1;
 
-	// Handle background canvas click for hit-testing unselected clips
+	// Start window-based drag listener loop
+	const startDragSession = (
+		mode: DragMode,
+		clipId: string,
+		initialTransform: ClipTransform,
+		initialBounds: CanvasObjectBounds,
+		clientX: number,
+		clientY: number,
+		handle?: ResizeHandleDirection,
+	) => {
+		dragState.current = {
+			mode,
+			clipId,
+			handle,
+			startX: clientX,
+			startY: clientY,
+			initialTransform: structuredClone(initialTransform),
+			initialBounds: structuredClone(initialBounds),
+		};
+
+		setIsDragging(true);
+		setDragCoordsHud({ x: initialTransform.x, y: initialTransform.y });
+
+		const handleWindowPointerMove = (e: PointerEvent) => {
+			const drag = dragState.current;
+			if (!drag) return;
+
+			const rect = overlayRef.current?.getBoundingClientRect() ?? overlayRect;
+			const currentScaleX = rect && projectWidth > 0 ? rect.width / projectWidth : scaleFactorX;
+			const currentScaleY = rect && projectHeight > 0 ? rect.height / projectHeight : scaleFactorY;
+
+			const deltaScreenX = e.clientX - drag.startX;
+			const deltaScreenY = e.clientY - drag.startY;
+
+			if (drag.mode === "translate") {
+				const deltaCanvasX = deltaScreenX / currentScaleX;
+				const deltaCanvasY = deltaScreenY / currentScaleY;
+
+				const newX = Math.round(drag.initialTransform.x + deltaCanvasX);
+				const newY = Math.round(drag.initialTransform.y + deltaCanvasY);
+
+				const newTransform: ClipTransform = {
+					...drag.initialTransform,
+					x: newX,
+					y: newY,
+				};
+				setActiveTransform(newTransform);
+				setDragCoordsHud({ x: newX, y: newY });
+			} else if (drag.mode === "resize" && drag.handle) {
+				const deltaCanvasX = deltaScreenX / currentScaleX;
+				const deltaCanvasY = deltaScreenY / currentScaleY;
+
+				const rad = (-drag.initialTransform.rotation * Math.PI) / 180;
+				const localDeltaX = deltaCanvasX * Math.cos(rad) - deltaCanvasY * Math.sin(rad);
+				const localDeltaY = deltaCanvasX * Math.sin(rad) + deltaCanvasY * Math.cos(rad);
+
+				const newScale = calculateResizeScale(
+					drag.initialTransform.scale,
+					drag.initialBounds.width,
+					drag.initialBounds.height,
+					drag.handle,
+					localDeltaX,
+					localDeltaY,
+				);
+
+				const newTransform: ClipTransform = {
+					...drag.initialTransform,
+					scale: newScale,
+				};
+				setActiveTransform(newTransform);
+			} else if (drag.mode === "rotate") {
+				const originLeft = rect ? rect.left : 0;
+				const originTop = rect ? rect.top : 0;
+				const centerScreenX = originLeft + drag.initialBounds.centerX * currentScaleX;
+				const centerScreenY = originTop + drag.initialBounds.centerY * currentScaleY;
+
+				const angle = calculateRotationAngle(
+					centerScreenX,
+					centerScreenY,
+					e.clientX,
+					e.clientY,
+				);
+
+				const newTransform: ClipTransform = {
+					...drag.initialTransform,
+					rotation: angle,
+				};
+				setActiveTransform(newTransform);
+			}
+		};
+
+		const handleWindowPointerUp = () => {
+			window.removeEventListener("pointermove", handleWindowPointerMove);
+			window.removeEventListener("pointerup", handleWindowPointerUp);
+
+			const drag = dragState.current;
+			dragState.current = null;
+			setIsDragging(false);
+			setDragCoordsHud(null);
+
+			if (drag && onUpdateClipTransform) {
+				setActiveTransform((current) => {
+					if (current) {
+						onUpdateClipTransform(drag.clipId, current);
+					}
+					return current;
+				});
+			}
+		};
+
+		window.addEventListener("pointermove", handleWindowPointerMove);
+		window.addEventListener("pointerup", handleWindowPointerUp);
+	};
+
+	// Handle background canvas click and immediate selection + drag
 	const handleOverlayPointerDown = (e: React.PointerEvent) => {
-		if (e.target !== overlayRef.current) return;
+		if (disabled || e.button !== 0) return;
 
-		const clickScreenX = e.clientX - canvasRect.left;
-		const clickScreenY = e.clientY - canvasRect.top;
+		const rect = overlayRef.current?.getBoundingClientRect() ?? overlayRect;
+		if (!rect) return;
 
-		const canvasX = clickScreenX / scaleFactorX;
-		const canvasY = clickScreenY / scaleFactorY;
+		const currentScaleX = rect.width / projectWidth;
+		const currentScaleY = rect.height / projectHeight;
+
+		const clickScreenX = e.clientX - rect.left;
+		const clickScreenY = e.clientY - rect.top;
+
+		const canvasX = clickScreenX / currentScaleX;
+		const canvasY = clickScreenY / currentScaleY;
 
 		const hit = hitTestCanvasPoint(visibleBounds, canvasX, canvasY);
 		if (hit) {
+			e.stopPropagation();
+			e.preventDefault();
 			onSelectClip?.(hit.clipId);
+
+			const clip = project.tracks
+				.flatMap((t) => t.clips)
+				.find((c) => c.id === hit.clipId);
+			const initialTransform = clip ? structuredClone(clip.transform) : {
+				x: hit.centerX - projectWidth / 2,
+				y: hit.centerY - projectHeight / 2,
+				scale: hit.scale,
+				rotation: hit.rotation,
+				opacity: hit.opacity,
+			};
+			setActiveTransform(initialTransform);
+			startDragSession("translate", hit.clipId, initialTransform, hit, e.clientX, e.clientY);
 		} else {
 			// Clicked empty area
 			onSelectClip?.("");
 		}
 	};
 
-	// Start translation drag
+	// Translate on selected bounding box
 	const startTranslate = (e: React.PointerEvent) => {
-		if (!selectedBounds || !activeTransform) return;
+		if (!selectedBounds || !activeTransform || e.button !== 0) return;
 		e.stopPropagation();
 		e.preventDefault();
 
-		const target = e.currentTarget as HTMLElement;
-		target.setPointerCapture(e.pointerId);
-
-		dragState.current = {
-			mode: "translate",
-			pointerId: e.pointerId,
-			startX: e.clientX,
-			startY: e.clientY,
-			initialTransform: structuredClone(activeTransform),
-			initialBounds: structuredClone(selectedBounds),
-		};
+		startDragSession(
+			"translate",
+			selectedBounds.clipId,
+			activeTransform,
+			selectedBounds,
+			e.clientX,
+			e.clientY,
+		);
 	};
 
-	// Start resize drag
+	// Resize on handle
 	const startResize = (e: React.PointerEvent, handle: ResizeHandleDirection) => {
-		if (!selectedBounds || !activeTransform) return;
+		if (!selectedBounds || !activeTransform || e.button !== 0) return;
 		e.stopPropagation();
 		e.preventDefault();
 
-		const target = e.currentTarget as HTMLElement;
-		target.setPointerCapture(e.pointerId);
-
-		dragState.current = {
-			mode: "resize",
+		startDragSession(
+			"resize",
+			selectedBounds.clipId,
+			activeTransform,
+			selectedBounds,
+			e.clientX,
+			e.clientY,
 			handle,
-			pointerId: e.pointerId,
-			startX: e.clientX,
-			startY: e.clientY,
-			initialTransform: structuredClone(activeTransform),
-			initialBounds: structuredClone(selectedBounds),
-		};
+		);
 	};
 
-	// Start rotation drag
+	// Rotate on handle
 	const startRotate = (e: React.PointerEvent) => {
-		if (!selectedBounds || !activeTransform) return;
+		if (!selectedBounds || !activeTransform || e.button !== 0) return;
 		e.stopPropagation();
 		e.preventDefault();
 
-		const target = e.currentTarget as HTMLElement;
-		target.setPointerCapture(e.pointerId);
-
-		dragState.current = {
-			mode: "rotate",
-			pointerId: e.pointerId,
-			startX: e.clientX,
-			startY: e.clientY,
-			initialTransform: structuredClone(activeTransform),
-			initialBounds: structuredClone(selectedBounds),
-		};
+		startDragSession(
+			"rotate",
+			selectedBounds.clipId,
+			activeTransform,
+			selectedBounds,
+			e.clientX,
+			e.clientY,
+		);
 	};
 
-	// Unified pointer move
-	const handlePointerMove = (e: React.PointerEvent) => {
-		const drag = dragState.current;
-		if (!drag || !selectedBounds) return;
+	// HTML5 Drag-and-Drop from Asset Library
+	const handleDragOver = (e: React.DragEvent) => {
+		if (e.dataTransfer.types.includes(ASSET_DRAG_TYPE)) {
+			e.preventDefault();
+			e.dataTransfer.dropEffect = "copy";
+			if (!isDragOverCanvas) setIsDragOverCanvas(true);
+		}
+	};
+
+	const handleDragLeave = () => {
+		setIsDragOverCanvas(false);
+	};
+
+	const handleDrop = (e: React.DragEvent) => {
+		setIsDragOverCanvas(false);
+		const assetId = e.dataTransfer.getData(ASSET_DRAG_TYPE) || getTimelineDrag()?.id;
+		if (!assetId || !onDropAsset) return;
 
 		e.preventDefault();
-		const deltaScreenX = e.clientX - drag.startX;
-		const deltaScreenY = e.clientY - drag.startY;
+		const rect = overlayRef.current?.getBoundingClientRect() ?? overlayRect;
+		if (!rect) return;
 
-		if (drag.mode === "translate") {
-			const deltaCanvasX = deltaScreenX / scaleFactorX;
-			const deltaCanvasY = deltaScreenY / scaleFactorY;
+		const currentScaleX = rect.width / projectWidth;
+		const currentScaleY = rect.height / projectHeight;
 
-			const newTransform: ClipTransform = {
-				...drag.initialTransform,
-				x: Math.round(drag.initialTransform.x + deltaCanvasX),
-				y: Math.round(drag.initialTransform.y + deltaCanvasY),
-			};
-			setActiveTransform(newTransform);
-		} else if (drag.mode === "resize" && drag.handle) {
-			const deltaCanvasX = deltaScreenX / scaleFactorX;
-			const deltaCanvasY = deltaScreenY / scaleFactorY;
+		const canvasX = Math.round((e.clientX - rect.left) / currentScaleX);
+		const canvasY = Math.round((e.clientY - rect.top) / currentScaleY);
 
-			// Rotate delta vector into object's unrotated frame
-			const rad = (-drag.initialTransform.rotation * Math.PI) / 180;
-			const localDeltaX = deltaCanvasX * Math.cos(rad) - deltaCanvasY * Math.sin(rad);
-			const localDeltaY = deltaCanvasX * Math.sin(rad) + deltaCanvasY * Math.cos(rad);
-
-			const newScale = calculateResizeScale(
-				drag.initialTransform.scale,
-				drag.initialBounds.width,
-				drag.initialBounds.height,
-				drag.handle,
-				localDeltaX,
-				localDeltaY,
-			);
-
-			const newTransform: ClipTransform = {
-				...drag.initialTransform,
-				scale: newScale,
-			};
-			setActiveTransform(newTransform);
-		} else if (drag.mode === "rotate") {
-			const centerScreenX = canvasRect.left + drag.initialBounds.centerX * scaleFactorX;
-			const centerScreenY = canvasRect.top + drag.initialBounds.centerY * scaleFactorY;
-
-			const angle = calculateRotationAngle(
-				centerScreenX,
-				centerScreenY,
-				e.clientX,
-				e.clientY,
-			);
-
-			const newTransform: ClipTransform = {
-				...drag.initialTransform,
-				rotation: angle,
-			};
-			setActiveTransform(newTransform);
-		}
+		onDropAsset(assetId, canvasX, canvasY);
 	};
 
-	// Unified pointer up (commit to project history)
-	const handlePointerUp = (e: React.PointerEvent) => {
-		const drag = dragState.current;
-		if (!drag || !selectedBounds) return;
+	if (disabled) {
+		return null;
+	}
 
-		try {
-			(e.currentTarget as HTMLElement).releasePointerCapture(drag.pointerId);
-		} catch {
-			// ignore
-		}
-
-		dragState.current = null;
-
-		if (activeTransform && onUpdateClipTransform) {
-			onUpdateClipTransform(selectedBounds.clipId, activeTransform);
-		}
-	};
-
-	// Current display values
+	// Calculate display coordinates for selected gizmo box
 	const currentCenterX = activeTransform
 		? projectWidth / 2 + activeTransform.x
 		: selectedBounds?.centerX ?? 0;
@@ -272,26 +361,33 @@ export function CanvasTransformGizmo({
 
 	const boxW = (selectedBounds?.width ?? 100) * currentScale * scaleFactorX;
 	const boxH = (selectedBounds?.height ?? 100) * currentScale * scaleFactorY;
-	const boxX = toOverlayX(currentCenterX) - boxW / 2;
-	const boxY = toOverlayY(currentCenterY) - boxH / 2;
+	const boxX = (currentCenterX * scaleFactorX) - boxW / 2;
+	const boxY = (currentCenterY * scaleFactorY) - boxH / 2;
 
 	return (
 		<div
 			ref={overlayRef}
-			className="canvas-transform-gizmo-layer absolute inset-0 pointer-events-auto select-none"
-			style={{
-				width: `${canvasRect.width}px`,
-				height: `${canvasRect.height}px`,
-				overflow: "hidden",
-			}}
+			className={`canvas-transform-gizmo-layer absolute inset-0 pointer-events-auto select-none overflow-hidden ${
+				isDragOverCanvas ? "border-2 border-primary border-dashed bg-primary/10" : ""
+			}`}
 			onPointerDown={handleOverlayPointerDown}
-			onPointerMove={handlePointerMove}
-			onPointerUp={handlePointerUp}
+			onDragOver={handleDragOver}
+			onDragLeave={handleDragLeave}
+			onDrop={handleDrop}
 		>
+			{/* Drop target prompt when dragging asset from library */}
+			{isDragOverCanvas && (
+				<div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+					<div className="bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-primary/50 text-white text-xs font-medium shadow-2xl animate-pulse">
+						Drop to place overlay at cursor
+					</div>
+				</div>
+			)}
+
 			{/* Selected bounding box and handles */}
 			{selectedBounds && (
 				<div
-					className="absolute"
+					className="absolute transition-shadow duration-75"
 					style={{
 						left: `${boxX}px`,
 						top: `${boxY}px`,
@@ -301,15 +397,25 @@ export function CanvasTransformGizmo({
 						transformOrigin: "center center",
 					}}
 				>
-					{/* Bounding outline */}
+					{/* Active Drag Coordinates Tooltip HUD */}
+					{isDragging && dragCoordsHud && (
+						<div
+							className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded bg-black/85 border border-[#6FA8FF]/60 text-[#6FA8FF] font-mono text-[10px] font-semibold whitespace-nowrap shadow-lg pointer-events-none z-30"
+						>
+							X: {dragCoordsHud.x > 0 ? `+${dragCoordsHud.x}` : dragCoordsHud.x}px  Y: {dragCoordsHud.y > 0 ? `+${dragCoordsHud.y}` : dragCoordsHud.y}px
+						</div>
+					)}
+
+					{/* Bounding outline with draggable fill */}
 					<div
-						className="absolute inset-0 border-2 border-[#6FA8FF] rounded-[2px] shadow-[0_2px_10px_rgba(0,0,0,0.3)] cursor-move"
+						className="absolute inset-0 border-2 border-[#6FA8FF] rounded-[2px] bg-[#6FA8FF]/10 shadow-[0_2px_12px_rgba(111,168,255,0.35)] cursor-move"
 						onPointerDown={startTranslate}
+						title="Drag to reposition overlay"
 					/>
 
 					{/* Rotation stem & handle */}
 					<div
-						className="absolute left-1/2 -top-7 -translate-x-1/2 flex flex-col items-center cursor-grab active:cursor-grabbing"
+						className="absolute left-1/2 -top-7 -translate-x-1/2 flex flex-col items-center cursor-grab active:cursor-grabbing z-20"
 						onPointerDown={startRotate}
 						title="Drag to rotate"
 					>
@@ -332,7 +438,7 @@ export function CanvasTransformGizmo({
 					).map(({ dir, style }) => (
 						<div
 							key={dir}
-							className={`absolute w-2.5 h-2.5 bg-white border border-[#6FA8FF] rounded-sm shadow-sm hover:scale-125 transition-transform ${style}`}
+							className={`absolute w-2.5 h-2.5 bg-white border border-[#6FA8FF] rounded-sm shadow-sm hover:scale-125 transition-transform z-20 ${style}`}
 							onPointerDown={(e) => startResize(e, dir)}
 						/>
 					))}

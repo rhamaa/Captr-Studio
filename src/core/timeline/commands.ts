@@ -5,6 +5,7 @@ import {
 } from "../../recording/packageAdapter";
 import {
 	type CompletedRecording,
+	type ClipTransform,
 	clipDurationUs,
 	type MediaAsset,
 	type RecordComposition,
@@ -106,7 +107,7 @@ export function placeAsset(
 	assetId: string,
 	trackId: string,
 	startUs: number,
-	ids: { clipId: string; compositionId?: string },
+	ids: { clipId: string; compositionId?: string; transform?: Partial<ClipTransform> },
 ): TimelineProject {
 	return edit(p, (n) => {
 		const t = track(n, trackId),
@@ -129,7 +130,13 @@ export function placeAsset(
 			sourceInUs: 0,
 			sourceOutUs: composition?.durationUs ?? a.durationUs,
 			rate: 1,
-			transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+			transform: {
+				x: ids.transform?.x ?? 0,
+				y: ids.transform?.y ?? 0,
+				scale: ids.transform?.scale ?? 1,
+				rotation: ids.transform?.rotation ?? 0,
+				opacity: ids.transform?.opacity ?? 1,
+			},
 			gain: 1,
 			enabled: true,
 			...(a.kind === "text" ? { text: structuredClone(a.text!) } : {}),

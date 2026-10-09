@@ -16,6 +16,7 @@ export function ProjectPreview({
 	selectedClipId,
 	onSelectClip,
 	onUpdateClipTransform,
+	onDropAsset,
 }: {
 	project: TimelineProject;
 	timeUs: number;
@@ -25,6 +26,7 @@ export function ProjectPreview({
 	selectedClipId?: string | null;
 	onSelectClip?: (clipId: string) => void;
 	onUpdateClipTransform?: (clipId: string, transform: ClipTransform) => void;
+	onDropAsset?: (assetId: string, canvasX: number, canvasY: number) => void;
 }) {
 	const canvas = useRef<HTMLCanvasElement>(null),
 		queue =
@@ -112,7 +114,10 @@ export function ProjectPreview({
 			void element.play().catch((error) => latest.current.onError(String(error)));
 	}, [timeUs, playing]);
 	return (
-		<div className="project-preview-viewport">
+		<div
+			className="project-preview-viewport"
+			style={{ aspectRatio: `${project.canvas.width} / ${project.canvas.height}` }}
+		>
 			<canvas
 				ref={canvas}
 				aria-label="Project video preview"
@@ -127,6 +132,7 @@ export function ProjectPreview({
 				canvasElement={canvas.current}
 				onSelectClip={onSelectClip}
 				onUpdateClipTransform={onUpdateClipTransform}
+				onDropAsset={onDropAsset}
 				disabled={playing}
 			/>
 		</div>

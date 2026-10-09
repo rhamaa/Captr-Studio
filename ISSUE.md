@@ -368,3 +368,31 @@ Mentransformasikan integrasi AI Agent CLI (`agy`, `claude`, `opencode`) yang seb
    - 39/39 tests lolos di `commands.test.ts`, `CanvasProjectInspector.test.tsx`, `ProjectInspector.test.tsx`, `ProjectTimeline.test.tsx`, dan `StoryEditor.test.tsx`.
    - `npx tsc --noEmit` lolos tanpa error.
 
+## 10. Preview Workspace Zoom/Pan & Direct On-Canvas Drag-and-Drop Manipulasi Koordinat (9 Oktober 2026)
+
+**Status:** Selesai dan terverifikasi (9 Oktober 2026).
+
+**Kebutuhan & Tantangan:**
+- Pengguna membutuhkan kemampuan zoom in dan zoom out pada area workspace preview video untuk melihat detail framing kanvas secara dekat maupun gambaran utuh.
+- Aset-aset overlay (teks, shape, gambar, video, rekaman) harus dapat digeser dan diposisikan langsung di kanvas preview (direct manipulation drag-and-drop koordinat).
+- Rasio aspek (16:9, 9:16, 1:1, 4:5, 21:9) harus tetap terkunci secara tegas sesuai kontrak awal story tanpa terdistorsi saat di-zoom atau di-pan.
+
+**Solusi & Fitur yang Diimplementasikan:**
+1. **Preview Workspace Zoom & Pan Controls (`StoryEditor.tsx`, `projectEditor.css`):**
+   - **Preset Zoom & Selector:** Tombol Zoom Out (`-`), Dropdown Zoom (`Fit (Auto)`, `25%`, `50%`, `75%`, `100%`, `125%`, `150%`, `200%`, `300%`), Tombol Zoom In (`+`), dan tombol reset kembali ke `Fit`.
+   - **Interactive Wheel Zoom:** Menahan `Ctrl` / `Cmd` sambil scroll mouse wheel di atas area preview melakukan zoom in/out secara interaktif dan dinamis.
+   - **Pan Workspace Gesture:** Ketika dalam mode zoom (`previewZoom !== "fit"`), menahan tombol tengah mouse (middle click) atau `Shift + Left Click` memungkinkan pengguna melakukan panning bebas ke seluruh penjuru kanvas dengan kursor `grab` / `grabbing`.
+   - **Strict Aspect Ratio Guarantee:** Kontainer preview dibungkus dengan `.project-preview-zoom-wrapper` dengan properti CSS eksplisit `aspectRatio: ${width} / ${height}` dan letterboxing/pillarboxing otomatis sehingga rasio gambar tidak pernah melar atau menyusut tidak proporsional.
+2. **Direct On-Canvas Drag-and-Drop & Transform Gizmo (`CanvasTransformGizmo.tsx`):**
+   - **Single-Gesture Instant Select & Drag:** Mengklik klip visual mana pun di kanvas preview (teks overlay, shape, gambar, video) langsung memilih klip tersebut dan seketika memulai translasi pergeseran koordinat dalam satu kali klik-dan-tarik halus tanpa jeda.
+   - **Window-based Pointer Tracking (60 FPS):** Menggunakan event listener level window dengan penangkapan delta akurat yang dinormalisasi terhadap faktor skala kanvas (`scaleFactorX`, `scaleFactorY`), menjaga kursor terkunci tepat di bawah titik objek terlepas dari zoom preview atau resolusi layar.
+   - **Real-time Coordinates HUD Tooltip:** Tooltip mengambang muncul di atas objek yang sedang digeser menampilkan nilai koordinat kanvas aktif secara live (`X: +120px  Y: -45px`).
+   - **8-Point Resize Handles & Rotation Stem:** Tetap dapat mengubah ukuran skala dan memutar sudut rotasi objek visual langsung di atas kanvas.
+   - **Undo/Redo Integrity:** Posisi pergeseran dikomit saat `pointerup` melalui command `updateClip` ke `ProjectController.execute`, menjaga riwayat undo/redo tetap bersih.
+3. **Drop Asset dari Library Langsung ke Atas Kanvas:**
+   - Menyeret kartu aset dari Asset Library dan menjatuhkannya (drop) langsung ke atas kanvas preview otomatis menghitung posisi pointer menjadi koordinat kanvas lokal dan menempatkan aset pada playhead aktif (`handleDropAssetOnCanvas` via `placeAsset` dengan parameter `transform: { x, y }`).
+4. **Pengujian & Verifikasi:**
+   - 44/44 unit tests lolos 100% (`CanvasTransformGizmo.test.tsx`, `StoryEditor.test.tsx`, `CanvasProjectInspector.test.tsx`, `ProjectInspector.test.tsx`, `ProjectTimeline.test.tsx`, `commands.test.ts`).
+   - `npx tsc --noEmit` lolos tanpa error (exit code 0).
+
+
