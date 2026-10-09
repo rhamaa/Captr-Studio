@@ -1020,6 +1020,45 @@ interface Window {
 				executablePath?: string;
 			}>
 		>;
+		getMcpServerInfo?: () => Promise<{
+			running: boolean;
+			port: number;
+			endpoint: string;
+			sseUrl: string;
+			mcpConfig: Record<string, unknown>;
+			activeClientsCount: number;
+		}>;
+		startMcpServer?: (port?: number) => Promise<{
+			running: boolean;
+			port: number;
+			endpoint: string;
+			sseUrl: string;
+			mcpConfig: Record<string, unknown>;
+			activeClientsCount: number;
+		}>;
+		stopMcpServer?: () => Promise<{ success: boolean }>;
+		syncProjectContext?: (context: unknown) => Promise<{ success: boolean }>;
+		clearSpeculativeEdits?: () => Promise<{ success: boolean }>;
+		onAgentSpeculativePreview?: (
+			callback: (preview: {
+				project: import("../src/core/timeline/types").TimelineProject;
+				diff: import("../src/core/timeline/agentPayload").AgentDiffSummary;
+			} | null) => void,
+		) => () => void;
+		onAgentCommitEdits?: (
+			callback: (commit: {
+				project: import("../src/core/timeline/types").TimelineProject;
+				commitMessage?: string;
+			}) => void,
+		) => () => void;
+		onAgentEditPlan?: (
+			callback: (plan: {
+				summary: string;
+				steps: string[];
+				estimatedDurationSec?: number;
+				createdAt: string;
+			}) => void,
+		) => () => void;
 		runAgentTask?: (params: {
 			agentId: string;
 			customCommand?: string;

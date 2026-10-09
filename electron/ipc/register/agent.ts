@@ -12,14 +12,50 @@ import {
 	cancelActiveHyperframeAgentTask,
 	runHyperframeAgentTask,
 } from "../agent/hyperframeAgentRunner";
+import {
+	type ActiveProjectContext,
+	clearSpeculativeProject,
+	getMcpServerInfo,
+	setMcpProjectContext,
+	startMcpServer,
+	stopMcpServer,
+} from "../agent/mcpServer";
 
 export function registerAgentHandlers() {
+	// Auto-start local MCP server on app initialization
+	void startMcpServer().catch((err) => {
+		console.warn("[MCP] Failed to auto-start local MCP server:", err);
+	});
+
 	ipcMain.handle("agent:get-available", async () => {
 		return detectAvailableAgents();
 	});
 
 	ipcMain.handle("agent:check-custom", async (_, command: string) => {
 		return checkCustomAgent(command);
+	});
+
+	ipcMain.handle("agent:get-mcp-info", async () => {
+		return getMcpServerInfo();
+	});
+
+	ipcMain.handle("agent:start-mcp-server", async (_, port?: number) => {
+		return startMcpServer(port);
+	});
+
+	ipcMain.handle("agent:stop-mcp-server", () => {
+		stopMcpServer();
+		return { success: true };
+	});
+
+	ipcMain.handle("agent:sync-project-context", (_, context: ActiveProjectContext) => {
+		setMcpProjectContext(context);
+		return { success: true };
+	});
+
+	ipcMain.handle("agent:clear-speculative", () => {
+		clearSpeculativeProject();
+		return { success: true };
 	});
 
 	ipcMain.handle(

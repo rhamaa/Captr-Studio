@@ -18,6 +18,13 @@ import type { AssetTranscript } from "../../../src/core/timeline/transcriptTypes
 import type { TimelineProject } from "../../../src/core/timeline/types";
 import { renderHyperframeBRoll } from "../hyperframe/hyperframeRenderer";
 import { KNOWN_AGENTS, checkAgentAvailability, getAugmentedEnv } from "./agentDetector";
+import {
+	getMcpProjectContext,
+	getMcpServerInfo,
+	getSpeculativeProject,
+	setMcpProjectContext,
+	setSpeculativeProject,
+} from "./mcpServer";
 
 export interface RunAgentTaskParams {
 	agentId: string;
@@ -49,7 +56,8 @@ INSTRUCTIONS:
 1. Open and inspect "${draftFilePath}".
 2. Apply the requested edits (trimming clips, cutting pauses, deleting or reordering clips).
 3. Ensure all clip startUs, duration, and source range properties match the TimelineProject schema and do not overlap.
-4. Save the modified JSON directly back to "${draftFilePath}" OR print the updated JSON as your final response.`;
+4. Save the modified JSON directly back to "${draftFilePath}" OR print the updated JSON as your final response.
+5. If MCP tools are enabled, you can also use structured tools: get_project_context, split_clip, trim_clip, remove_silence, add_broll_or_overlay, preview_speculative_edits, commit_edits.`;
 }
 
 /**
@@ -120,6 +128,24 @@ export async function runAgentTask(
 			params.transcripts,
 			params.userPrompt,
 		);
+
+		const prevCtx = getMcpProjectContext();
+		setMcpProjectContext({
+			project: params.project,
+			transcripts: params.transcripts,
+			playheadUs: prevCtx?.playheadUs ?? 0,
+			selection: prevCtx?.selection ?? [],
+			activeArtboardId: prevCtx?.activeArtboardId ?? null,
+		});
+
+		const mcpInfo = getMcpServerInfo();
+		if (mcpInfo.running) {
+			await fsPromises.writeFile(
+				path.join(tempDir, ".mcp.json"),
+				JSON.stringify(mcpInfo.mcpConfig, null, 2),
+				"utf-8",
+			);
+		}
 
 		await fsPromises.writeFile(draftFile, context.projectJson, "utf-8");
 		await fsPromises.writeFile(contextFile, context.fullContextMarkdown, "utf-8");
@@ -195,6 +221,14 @@ export async function runAgentTask(
 			parsedResult = parseAgentProjectOutput(stdoutAccumulator);
 		}
 
+		// 3. If agent executed edits directly via local MCP tools
+		if (!parsedResult || !parsedResult.success) {
+			const spec = getSpeculativeProject();
+			if (spec && JSON.stringify(spec) !== JSON.stringify(params.project)) {
+				parsedResult = { success: true, project: spec };
+			}
+		}
+
 		if (!parsedResult.success || !parsedResult.project) {
 			let friendlyError = parsedResult.error;
 			const combinedLogs = `${stdoutAccumulator}\n${stderrAccumulator}`;
@@ -256,6 +290,7 @@ export async function runAgentTask(
 		}
 
 		const diff = summarizeProjectDiff(params.project, finalProject);
+		setSpeculativeProject(finalProject, diff);
 		return {
 			success: true,
 			project: finalProject,

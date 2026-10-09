@@ -1069,9 +1069,29 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		return () => ipcRenderer.removeListener("whisper-model-download-progress", listener);
 	},
 
-	// ── AI Assistant / Agent Bridge ────────────────────────────────────
+	// ── AI Assistant / Agent Bridge & Local MCP Server ──────────────────
 	getAvailableAgents: () => ipcRenderer.invoke("agent:get-available"),
 	checkCustomAgent: (command: string) => ipcRenderer.invoke("agent:check-custom", command),
+	getMcpServerInfo: () => ipcRenderer.invoke("agent:get-mcp-info"),
+	startMcpServer: (port?: number) => ipcRenderer.invoke("agent:start-mcp-server", port),
+	stopMcpServer: () => ipcRenderer.invoke("agent:stop-mcp-server"),
+	syncProjectContext: (context: unknown) => ipcRenderer.invoke("agent:sync-project-context", context),
+	clearSpeculativeEdits: () => ipcRenderer.invoke("agent:clear-speculative"),
+	onAgentSpeculativePreview: (callback: (data: any) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+		ipcRenderer.on("agent:speculative-preview", listener);
+		return () => ipcRenderer.removeListener("agent:speculative-preview", listener);
+	},
+	onAgentCommitEdits: (callback: (data: any) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+		ipcRenderer.on("agent:commit-edits", listener);
+		return () => ipcRenderer.removeListener("agent:commit-edits", listener);
+	},
+	onAgentEditPlan: (callback: (plan: any) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, plan: any) => callback(plan);
+		ipcRenderer.on("agent:edit-plan", listener);
+		return () => ipcRenderer.removeListener("agent:edit-plan", listener);
+	},
 	runAgentTask: (params: {
 		agentId: string;
 		customCommand?: string;

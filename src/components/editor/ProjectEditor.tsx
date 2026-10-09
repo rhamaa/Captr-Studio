@@ -39,6 +39,7 @@ import {
 	type MediaAsset,
 	projectDurationUs,
 	type ShapeDefinition,
+	type TimelineProject,
 } from "@/core/timeline/types";
 import { TimelineProjectExporter } from "@/lib/exporter/timelineProjectExporter";
 import { RecordingCompositionEditor } from "@/recording/editor/RecordingCompositionEditor";
@@ -48,7 +49,8 @@ import { RepurposeBoardEditor } from "../repurpose/RepurposeBoardEditor";
 import { HyperframeEditor } from "../hyperframe/HyperframeEditor";
 import { AssetLibrary } from "./AssetLibrary";
 import { AssetSourcePreview } from "./AssetSourcePreview";
-import { AIAssistantModal } from "./AIAssistantModal";
+import { CopilotSidebar, type EditPlan } from "./CopilotSidebar";
+import type { AgentDiffSummary } from "@/core/timeline/agentPayload";
 import type { AssetTranscript } from "@/core/timeline/transcriptTypes";
 import { ProjectEditorPanel } from "./ProjectEditorPanel";
 import { ProjectInspector } from "./ProjectInspector";
@@ -147,8 +149,84 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	const [nameDialog, setNameDialog] = useState(false),
 		[draftName, setDraftName] = useState(""),
 		[nameError, setNameError] = useState<string | null>(null);
-	const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
+	const [copilotOpen, setCopilotOpen] = useState(false);
+	const [speculativeDraft, setSpeculativeDraft] = useState<{
+		project: TimelineProject;
+		diff: AgentDiffSummary;
+	} | null>(null);
+	const [editPlan, setEditPlan] = useState<EditPlan | null>(null);
 	const [transcripts, setTranscripts] = useState<Record<string, AssetTranscript>>({});
+
+	// Sync project context to local MCP server
+	useEffect(() => {
+		if (!window.electronAPI?.syncProjectContext) return;
+		window.electronAPI.syncProjectContext({
+			project: activeProject,
+			transcripts,
+			playheadUs: state.playheadUs,
+			selection: state.selection,
+			activeArtboardId: currentActiveArtboardId,
+		});
+	}, [activeProject, transcripts, state.playheadUs, state.selection, currentActiveArtboardId]);
+
+	// Listen for live MCP speculative edits preview
+	useEffect(() => {
+		if (!window.electronAPI?.onAgentSpeculativePreview) return;
+		const unsub = window.electronAPI.onAgentSpeculativePreview((preview) => {
+			setSpeculativeDraft(preview);
+		});
+		return () => unsub();
+	}, []);
+
+	// Listen for live MCP committed edits
+	useEffect(() => {
+		if (!window.electronAPI?.onAgentCommitEdits) return;
+		const unsub = window.electronAPI.onAgentCommitEdits(({ project: toCommit }) => {
+			if (currentActiveArtboardId) {
+				controller.execute((rootProject) =>
+					updateArtboardProject(
+						rootProject,
+						currentActiveArtboardId,
+						() => toCommit,
+					),
+				);
+			} else {
+				controller.execute(() => toCommit);
+			}
+			setSpeculativeDraft(null);
+		});
+		return () => unsub();
+	}, [controller, currentActiveArtboardId]);
+
+	// Listen for live MCP edit plan
+	useEffect(() => {
+		if (!window.electronAPI?.onAgentEditPlan) return;
+		const unsub = window.electronAPI.onAgentEditPlan((plan) => {
+			setEditPlan(plan);
+		});
+		return () => unsub();
+	}, []);
+
+	const handleApplyDraft = (modifiedProject: TimelineProject) => {
+		if (currentActiveArtboardId) {
+			controller.execute((rootProject) =>
+				updateArtboardProject(
+					rootProject,
+					currentActiveArtboardId,
+					() => modifiedProject,
+				),
+			);
+		} else {
+			controller.execute(() => modifiedProject);
+		}
+		setSpeculativeDraft(null);
+		void window.electronAPI?.clearSpeculativeEdits?.();
+	};
+
+	const handleDiscardDraft = () => {
+		setSpeculativeDraft(null);
+		void window.electronAPI?.clearSpeculativeEdits?.();
+	};
 
 	useEffect(() => {
 		let isCurrent = true;
@@ -197,7 +275,6 @@ export function ProjectEditor(props: ProjectEditorProps) {
 			exportProgress !== null ||
 			nameDialog ||
 			audioRecorderOpen ||
-			aiAssistantOpen ||
 			props.navigationBlocked,
 	);
 	useEffect(() => {
@@ -906,13 +983,12 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				</button>
 				<button
 					type="button"
-					className="project-ai-assist-button"
-					aria-label="AI Editor Assistant"
-					title="AI Editor Assistant (Claude, Antigravity, OpenCode)"
+					className={`project-ai-assist-button ${copilotOpen ? "active" : ""}`}
+					aria-label="AI Editor Copilot"
+					title="Toggle AI Editor Copilot Sidebar (Claude, Antigravity, MCP)"
 					disabled={state.saving || state.navigationPending || busy}
 					onClick={() => {
-						setPlaying(false);
-						setAiAssistantOpen(true);
+						setCopilotOpen((v) => !v);
 					}}
 				>
 					<Sparkle size={15} weight="fill" />
@@ -1079,7 +1155,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				}
 			>
 				<>
-					<div className="project-workspace">
+					<div className={`project-workspace ${copilotOpen ? "with-copilot" : ""}`}>
 						<ProjectToolRail onAddShape={addShape} />
 						<AssetLibrary
 							assets={state.project.assets}
@@ -1185,6 +1261,22 @@ export function ProjectEditor(props: ProjectEditorProps) {
 							onCommand={run}
 							onOpenRecording={setEditingClipId}
 						/>
+						{copilotOpen && (
+							<CopilotSidebar
+								project={activeProject}
+								transcripts={transcripts}
+								playheadUs={state.playheadUs}
+								selection={state.selection}
+								activeArtboardId={currentActiveArtboardId}
+								speculativeDraft={speculativeDraft}
+								editPlan={editPlan}
+								onClose={() => setCopilotOpen(false)}
+								onApplyDraft={handleApplyDraft}
+								onDiscardDraft={handleDiscardDraft}
+								onDraftReady={(draft) => setSpeculativeDraft(draft)}
+								onSeekTo={(timeUs) => controller.seek(timeUs, projectDurationUs(activeProject))}
+							/>
+						)}
 					</div>
 					<ProjectTimeline
 						project={activeProject}
@@ -1214,6 +1306,10 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						playing={playing}
 						snappingEnabled={snappingEnabled}
 						onToggleSnapping={() => setSnappingEnabled((v) => !v)}
+						speculativeProject={speculativeDraft?.project ?? null}
+						speculativeDiff={speculativeDraft?.diff ?? null}
+						onAcceptSpeculative={() => speculativeDraft && handleApplyDraft(speculativeDraft.project)}
+						onRejectSpeculative={handleDiscardDraft}
 					/>
 					<footer className="project-footer">
 						<span>
@@ -1262,27 +1358,6 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						if (recording) beginAudioCapture();
 					}}
 					onClose={closeAudioRecorder}
-				/>
-			)}
-			{aiAssistantOpen && (
-				<AIAssistantModal
-					open={aiAssistantOpen}
-					onOpenChange={setAiAssistantOpen}
-					project={activeProject}
-					transcripts={transcripts}
-					onApplyChanges={(modifiedProject) => {
-						if (currentActiveArtboardId) {
-							controller.execute((rootProject) =>
-								updateArtboardProject(
-									rootProject,
-									currentActiveArtboardId,
-									() => modifiedProject,
-								),
-							);
-						} else {
-							controller.execute(() => modifiedProject);
-						}
-					}}
 				/>
 			)}
 			<Toaster />

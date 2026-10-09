@@ -1,15 +1,19 @@
 import {
 	CaretDown,
 	CaretUp,
+	Check,
 	Eye,
 	EyeSlash as EyeOff,
 	LockKey as LockKeyhole,
+	Sparkle,
 	Trash,
 	LockKeyOpen as UnlockKeyhole,
 	SpeakerHigh as Volume2,
 	SpeakerSlash as VolumeX,
+	X,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { AgentDiffSummary } from "@/core/timeline/agentPayload";
 import {
 	addTextOverlay,
 	removeTrack,
@@ -53,6 +57,10 @@ export interface ProjectTimelineProps {
 	playing?: boolean;
 	snappingEnabled?: boolean;
 	onToggleSnapping?: () => void;
+	speculativeProject?: TimelineProject | null;
+	speculativeDiff?: AgentDiffSummary | null;
+	onAcceptSpeculative?: () => void;
+	onRejectSpeculative?: () => void;
 }
 export function ProjectTimeline({
 	project,
@@ -69,6 +77,10 @@ export function ProjectTimeline({
 	playing = false,
 	snappingEnabled: externalSnapping,
 	onToggleSnapping,
+	speculativeProject,
+	speculativeDiff,
+	onAcceptSpeculative,
+	onRejectSpeculative,
 }: ProjectTimelineProps) {
 	const m = useProjectMessages();
 	const [internalScale, setInternalScale] = useState(65);
@@ -90,14 +102,26 @@ export function ProjectTimeline({
 		invalid: boolean;
 		willCreateTrack: boolean;
 	} | null>(null);
-	const duration = Math.max(20_000_000, projectDurationUs(project) + 10_000_000),
+	const specDurationUs = speculativeProject ? projectDurationUs(speculativeProject) : 0;
+	const duration = Math.max(
+		20_000_000,
+		projectDurationUs(project) + 10_000_000,
+		specDurationUs + 10_000_000,
+	),
 		width = timeToPixels(duration, scale);
 	const tickSeconds = scale < 20 ? 10 : scale < 50 ? 5 : scale < 110 ? 2 : 1;
 	const selectedTrack = project.tracks.find((t) => t.clips.some((c) => selection.includes(c.id)));
 	const locked = Boolean(selectedTrack?.locked);
 	const displayTracks = timelineTracksInDisplayOrder(project.tracks);
-	const visualTracks = displayTracks.filter((track) => track.kind === "visual");
-	const audioTracks = displayTracks.filter((track) => track.kind === "audio");
+
+	const speculativeExtraTracks = (speculativeProject?.tracks ?? []).filter(
+		(st) => !project.tracks.some((t) => t.id === st.id),
+	);
+	const extraVisualTracks = speculativeExtraTracks.filter((t) => t.kind === "visual");
+	const extraAudioTracks = speculativeExtraTracks.filter((t) => t.kind === "audio");
+
+	const visualTracks = [...displayTracks.filter((track) => track.kind === "visual"), ...extraVisualTracks];
+	const audioTracks = [...displayTracks.filter((track) => track.kind === "audio"), ...extraAudioTracks];
 	const timelineRows = [...visualTracks, null, ...audioTracks];
 
 	const handleZoomToFit = useCallback(() => {
@@ -275,6 +299,39 @@ export function ProjectTimeline({
 				snappingEnabled={snappingEnabled}
 				onToggleSnapping={toggleSnapping}
 			/>
+			{speculativeProject && (
+				<div className="project-timeline-speculative-banner">
+					<div className="flex items-center gap-2">
+						<Sparkle size={15} weight="fill" className="text-amber-400" />
+						<span className="speculative-title">Speculative AI Draft Preview</span>
+						{speculativeDiff && (
+							<span className="speculative-stats">
+								({speculativeDiff.clipsBefore} → {speculativeDiff.clipsAfter} clips,{" "}
+								{speculativeDiff.durationDeltaUs >= 0 ? "+" : ""}
+								{(speculativeDiff.durationDeltaUs / 1_000_000).toFixed(1)}s)
+							</span>
+						)}
+					</div>
+					<div className="project-speculative-actions">
+						<button
+							type="button"
+							className="project-speculative-btn-reject"
+							onClick={onRejectSpeculative}
+						>
+							<X size={12} weight="bold" />
+							<span>Reject</span>
+						</button>
+						<button
+							type="button"
+							className="project-speculative-btn-accept"
+							onClick={onAcceptSpeculative}
+						>
+							<Check size={12} weight="bold" />
+							<span>Accept Changes</span>
+						</button>
+					</div>
+				</div>
+			)}
 			<div
 				ref={scrollRef}
 				className="project-timeline-scroll"
@@ -392,6 +449,7 @@ export function ProjectTimeline({
 						}
 						const peerTracks = track.kind === "visual" ? visualTracks : audioTracks;
 						const peerIndex = peerTracks.findIndex((entry) => entry.id === track.id);
+						const isDraftTrack = !project.tracks.some((t) => t.id === track.id);
 						return (
 						<div
 							className={`project-track-row ${track.kind} ${track.locked ? "locked" : ""}`}
@@ -417,19 +475,21 @@ export function ProjectTimeline({
 									) : (
 										<span
 											className="project-track-title"
-											title="Double-click to rename"
+											title={isDraftTrack ? "Speculative draft track from AI edits" : "Double-click to rename"}
 											onDoubleClick={() =>
+												!isDraftTrack &&
 												!track.locked &&
 												startRenameTrack(track.id, track.name)
 											}
 										>
 											{track.name}
+											{isDraftTrack && <span className="project-clip-ghost-badge ml-1.5 inline-flex">✨ Draft</span>}
 										</span>
 									)}
 									<div className="project-track-reorder-group">
 										<button
 											className="project-track-mini-btn"
-											disabled={peerIndex === 0}
+											disabled={isDraftTrack || peerIndex === 0}
 											title="Move track up"
 											aria-label={`Move ${track.name} up`}
 											onClick={() => handleMoveTrack(track.id, "up")}
@@ -438,7 +498,7 @@ export function ProjectTimeline({
 										</button>
 										<button
 											className="project-track-mini-btn"
-											disabled={peerIndex === peerTracks.length - 1}
+											disabled={isDraftTrack || peerIndex === peerTracks.length - 1}
 											title="Move track down"
 											aria-label={`Move ${track.name} down`}
 											onClick={() => handleMoveTrack(track.id, "down")}
@@ -452,7 +512,9 @@ export function ProjectTimeline({
 										aria-label={`${track.muted ? "Unmute" : "Mute"} ${track.name}`}
 										title={track.muted ? "Unmute track" : "Mute track"}
 										className={track.muted ? "active" : ""}
+										disabled={isDraftTrack}
 										onClick={() =>
+											!isDraftTrack &&
 											onCommand((p) =>
 												updateTrack(p, track.id, { muted: !track.muted }),
 											)
@@ -469,7 +531,9 @@ export function ProjectTimeline({
 											aria-label={`${track.hidden ? "Show" : "Hide"} ${track.name}`}
 											title={track.hidden ? "Show track" : "Hide track"}
 											className={track.hidden ? "active" : ""}
+											disabled={isDraftTrack}
 											onClick={() =>
+												!isDraftTrack &&
 												onCommand((p) =>
 													updateTrack(p, track.id, {
 														hidden: !track.hidden,
@@ -488,7 +552,9 @@ export function ProjectTimeline({
 										aria-label={`${track.locked ? "Unlock" : "Lock"} ${track.name}`}
 										title={track.locked ? "Unlock track" : "Lock track"}
 										className={track.locked ? "active" : ""}
+										disabled={isDraftTrack}
 										onClick={() =>
+											!isDraftTrack &&
 											onCommand((p) =>
 												updateTrack(p, track.id, { locked: !track.locked }),
 											)
@@ -502,16 +568,18 @@ export function ProjectTimeline({
 									</button>
 									<button
 										className="project-track-delete-btn"
-										disabled={track.locked || project.tracks.length <= 1}
+										disabled={isDraftTrack || track.locked || project.tracks.length <= 1}
 										title={
-											project.tracks.length <= 1
-												? "Cannot delete the only track"
-												: track.locked
-													? "Track is locked"
-													: "Delete track"
+											isDraftTrack
+												? "Draft track cannot be deleted directly"
+												: project.tracks.length <= 1
+													? "Cannot delete the only track"
+													: track.locked
+														? "Track is locked"
+														: "Delete track"
 										}
 										aria-label={`Delete ${track.name}`}
-										onClick={() => handleDeleteTrack(track)}
+										onClick={() => !isDraftTrack && handleDeleteTrack(track)}
 									>
 										<Trash size={13} />
 									</button>
@@ -731,6 +799,78 @@ export function ProjectTimeline({
 										onOpenRecording={onOpenRecording}
 									/>
 								))}
+								{(() => {
+									const speculativeTrack = speculativeProject?.tracks.find((t) => t.id === track.id);
+									if (!speculativeTrack) return null;
+									const ghostAddedClips = speculativeTrack.clips.filter(
+										(sc) => !track.clips.some((c) => c.id === sc.id),
+									);
+									const ghostModifiedClips = speculativeTrack.clips.filter((sc) => {
+										const orig = track.clips.find((c) => c.id === sc.id);
+										return (
+											orig &&
+											(orig.startUs !== sc.startUs ||
+												orig.sourceInUs !== sc.sourceInUs ||
+												orig.sourceOutUs !== sc.sourceOutUs)
+										);
+									});
+									const pendingRemovedIds = new Set(
+										track.clips
+											.filter((c) => !speculativeTrack.clips.some((sc) => sc.id === c.id))
+											.map((c) => c.id),
+									);
+									return (
+										<>
+											{ghostAddedClips.map((sc) => (
+												<div
+													key={`ghost-add-${sc.id}`}
+													className="project-clip-ghost project-clip-ghost-added"
+													style={{
+														left: timeToPixels(sc.startUs, scale),
+														width: Math.max(20, timeToPixels(clipDurationUs(sc), scale)),
+													}}
+													title={`Ghost added clip (${(clipDurationUs(sc) / 1_000_000).toFixed(1)}s)`}
+												>
+													<span className="project-clip-ghost-badge">✨ +Ghost</span>
+													<span className="project-clip-ghost-dur">
+														{(clipDurationUs(sc) / 1_000_000).toFixed(1)}s
+													</span>
+												</div>
+											))}
+											{ghostModifiedClips.map((sc) => (
+												<div
+													key={`ghost-mod-${sc.id}`}
+													className="project-clip-ghost project-clip-ghost-modified"
+													style={{
+														left: timeToPixels(sc.startUs, scale),
+														width: Math.max(20, timeToPixels(clipDurationUs(sc), scale)),
+													}}
+													title={`Ghost modified (${(clipDurationUs(sc) / 1_000_000).toFixed(1)}s)`}
+												>
+													<span className="project-clip-ghost-badge">✨ Draft Cut</span>
+													<span className="project-clip-ghost-dur">
+														{(clipDurationUs(sc) / 1_000_000).toFixed(1)}s
+													</span>
+												</div>
+											))}
+											{track.clips
+												.filter((c) => pendingRemovedIds.has(c.id))
+												.map((c) => (
+													<div
+														key={`ghost-del-${c.id}`}
+														className="project-clip-ghost-pending-removal"
+														style={{
+															left: timeToPixels(c.startUs, scale),
+															width: Math.max(20, timeToPixels(clipDurationUs(c), scale)),
+														}}
+														title={`Pending removal: ${c.id}`}
+													>
+														<span>Will Delete</span>
+													</div>
+												))}
+										</>
+									);
+								})()}
 				{eligibleTimelineTransitions(project, track.id).map(({ transition, boundaryUs, maximumDurationUs }) => (
 					<TimelineTransitionItem
 						key={transition.id}
