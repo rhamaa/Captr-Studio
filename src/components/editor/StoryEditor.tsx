@@ -1,7 +1,7 @@
-import { Pause, Play, SquaresFour } from "@phosphor-icons/react";
+import { Pause, Play, SquaresFour, Terminal as TerminalIcon } from "@phosphor-icons/react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { AgentDiffSummary } from "@/core/timeline/agentPayload";
-import { placeAsset, removeAsset, updateClip } from "@/core/timeline/commands";
+import { placeAsset, removeAsset, updateClip, updateProjectTerminalConfig } from "@/core/timeline/commands";
 import type { ProjectCommand } from "@/core/timeline/history";
 import {
 	clipDurationUs,
@@ -10,6 +10,7 @@ import {
 	type TimelineProject,
 } from "@/core/timeline/types";
 import type { AssetTranscript } from "@/core/timeline/transcriptTypes";
+import { ProjectTerminal } from "../terminal/ProjectTerminal";
 import { AssetLibrary } from "./AssetLibrary";
 import { AssetSourcePreview } from "./AssetSourcePreview";
 import { CopilotSidebar, type EditPlan } from "./CopilotSidebar";
@@ -94,6 +95,19 @@ export function StoryEditor({
 	const previewStage = previewStageRef ?? internalPreviewStage;
 
 	const [selectedTransitionId, setSelectedTransitionId] = useState<string | null>(null);
+	const [terminalOpen, setTerminalOpen] = useState(false);
+
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if ((e.ctrlKey || e.metaKey) && e.key === "`") {
+				e.preventDefault();
+				setTerminalOpen((prev) => !prev);
+			}
+		};
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, []);
+
 	useEffect(() => {
 		if (
 			selectedTransitionId &&
@@ -328,11 +342,38 @@ export function StoryEditor({
 				}
 				onRejectSpeculative={onDiscardDraft}
 			/>
-			<footer className="project-footer">
-				<span>
-					{busy ? "Importing media…" : `${rootProject.assets.length} assets`}
-				</span>
-				<span>{storyProject.canvas.fps} fps</span>
+			{terminalOpen && (
+				<div className="border-t border-white/10 bg-[#090a0d] shadow-2xl relative z-40">
+					<ProjectTerminal
+						className="h-[300px] rounded-none border-x-0 border-b-0"
+						terminalConfig={storyProject.terminalConfig}
+						onUpdateTerminalConfig={(cfg) =>
+							onCommand((p) => updateProjectTerminalConfig(p, cfg))
+						}
+						onClose={() => setTerminalOpen(false)}
+					/>
+				</div>
+			)}
+			<footer className="project-footer justify-between">
+				<div className="flex items-center gap-4">
+					<span>
+						{busy ? "Importing media…" : `${rootProject.assets.length} assets`}
+					</span>
+					<span>{storyProject.canvas.fps} fps</span>
+				</div>
+				<button
+					type="button"
+					onClick={() => setTerminalOpen((v) => !v)}
+					className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] transition-colors cursor-pointer ${
+						terminalOpen
+							? "bg-primary text-primary-foreground font-semibold"
+							: "text-zinc-400 hover:text-white hover:bg-white/10"
+					}`}
+					title="Toggle Project Terminal (Ctrl + `)"
+				>
+					<TerminalIcon size={12} weight="bold" />
+					<span>Terminal</span>
+				</button>
 			</footer>
 		</>
 	);

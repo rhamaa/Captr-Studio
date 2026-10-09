@@ -11,6 +11,7 @@ import {
 	type TextOverlay,
 	type TimelineClip,
 	type TimelineProject,
+	type ProjectTerminalConfig,
 } from "./types";
 import { validateTimelineProject } from "./validation";
 import { reconcileClipTransitions } from "./clipTransitions";
@@ -493,3 +494,17 @@ export function reorderTrack(p: TimelineProject, id: string, targetIndex: number
 		n.tracks.splice(clampedIndex, 0, moved);
 	});
 }
+
+export function updateProjectTerminalConfig(
+	p: TimelineProject,
+	config: ProjectTerminalConfig | undefined,
+): TimelineProject {
+	return edit(p, (n) => {
+		if (config) {
+			n.terminalConfig = config;
+		} else {
+			delete n.terminalConfig;
+		}
+	});
+}
+

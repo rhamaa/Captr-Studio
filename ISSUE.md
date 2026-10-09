@@ -293,6 +293,28 @@ Mentransformasikan integrasi AI Agent CLI (`agy`, `claude`, `opencode`) yang seb
    - `npx tsc --noEmit` bersih tanpa error (exit code 0).
    - `graft build` diperbarui (5.044 nodes, 12.229 edges).
 
+## 8. Integrasi Terminal Interaktif & Konfigurasi Terminal Level Project .captr V3 (9 Oktober 2026)
 
+**Status:** Selesai dan terverifikasi (9 Oktober 2026).
 
+**Kebutuhan & Tantangan:**
+- Integrasi agen CLI AI (`agy`, `claude`, `codex`, dll.) membutuhkan lingkungan terminal nyata yang langsung membuka direktori kerja proyek `.captr` aktif lengkap dengan environment variable context proyek dan MCP Server.
+- Pengaturan terminal harus dapat dikonfigurasi per-proyek (level `.captr`), disimpan secara authoritatif di `project.json` tanpa merusak kompatibilitas mundur schema V3.
 
+**Solusi & Arsitektur yang Diterapkan:**
+1. **Interactive Terminal Service (`electron/ipc/terminal/terminalService.ts`):**
+   - Menggunakan streaming multi-session process spawns (`powershell`, `cmd`, `bash`) yang terhubung langsung ke frontend `@xterm/xterm` via IPC tanpa ketergantungan toolchain compiler C++ native yang berat (`node-pty`).
+   - Menyiapkan direktori workspace proyek `.captr` dengan sidecar `.mcp.json` otomatis sehingga CLI tools langsung mengenali endpoint local Captr MCP server.
+   - Menginjeksi environment variables: `CAPTR_PROJECT_PATH`, `CAPTR_PROJECT_ID`, `CAPTR_WORKSPACE_DIR`, `CAPTR_MCP_PORT`, `CAPTR_MCP_URL`, `CAPTR_MCP_SSE`, serta custom env yang ditentukan di proyek.
+   - Mendukung peluncuran eksternal ke Windows Terminal (`wt.exe` / `powershell.exe`) dan membuka workspace di VS Code / Cursor via tombol di toolbar.
+2. **Konfigurasi Terminal di Level Project Schema V3 (`ProjectTerminalConfig`):**
+   - Menambahkan `ProjectTerminalConfig` opsional di `src/core/timeline/types.ts`: `preferredShell` (`default`, `powershell`, `cmd`, `bash`), `startupCommand` (perintah otomatis saat shell dimulai), dan `customEnv` (key-value custom env vars).
+   - Validasi ketat di `src/core/timeline/validation.ts`.
+   - Command undoable `updateProjectTerminalConfig` di `src/core/timeline/commands.ts`.
+3. **Project Terminal Config UI & Drawer (`ProjectTerminal.tsx`, `ProjectTerminalConfigDialog.tsx`, `StoryEditor.tsx`):**
+   - Tombol **Project Settings** di toolbar terminal membuka modal pengaturan khusus untuk menyimpan preferensi terminal ke file `.captr` yang sedang dibuka.
+   - Drawer Terminal terintegrasi di `StoryEditor.tsx` yang dapat di-toggle melalui footer bar button atau shortcut keyboard `Ctrl + \`` / `Cmd + \``.
+   - Tab **Terminal / Dev** tetap tersedia di `AppSettingsDialog.tsx` untuk konfigurasi preferensi global.
+4. **Verifikasi:**
+   - Unit tests untuk `terminalService.test.ts`, `ProjectTerminal.test.tsx`, `ProjectTerminalConfigDialog.test.tsx`, dan `StoryEditor.test.tsx` lulus 100%.
+   - `tsc --noEmit` lolos tanpa error.

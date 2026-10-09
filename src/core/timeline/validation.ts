@@ -621,5 +621,33 @@ export function validateTimelineProject(value: unknown): TimelineProject {
 			"Invalid whiteboard snapshot: must be an object",
 		);
 	}
+	if (p.terminalConfig !== undefined) {
+		requireValue(
+			p.terminalConfig !== null &&
+				typeof p.terminalConfig === "object" &&
+				!Array.isArray(p.terminalConfig),
+			"Invalid project terminal config: must be an object",
+		);
+		if (p.terminalConfig.preferredShell !== undefined) {
+			requireValue(
+				["powershell", "cmd", "bash", "default"].includes(p.terminalConfig.preferredShell),
+				"Invalid terminal preferred shell",
+			);
+		}
+		if (p.terminalConfig.startupCommand !== undefined) {
+			requireValue(
+				typeof p.terminalConfig.startupCommand === "string",
+				"Invalid terminal startup command",
+			);
+		}
+		if (p.terminalConfig.customEnv !== undefined) {
+			requireValue(
+				p.terminalConfig.customEnv !== null &&
+					typeof p.terminalConfig.customEnv === "object" &&
+					!Array.isArray(p.terminalConfig.customEnv),
+				"Invalid terminal custom env",
+			);
+		}
+	}
 	return p;
 }

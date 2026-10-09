@@ -29,4 +29,24 @@ describe("ProjectTerminal component", () => {
 		expect(markup).toContain("VS Code");
 		vi.unstubAllGlobals();
 	});
+
+	it("renders Project Settings button and Close button when props provided", () => {
+		const onUpdateTerminalConfig = vi.fn();
+		const onClose = vi.fn();
+
+		const markup = renderToStaticMarkup(
+			createElement(ProjectTerminal, {
+				terminalConfig: {
+					preferredShell: "cmd",
+					startupCommand: "npm run test",
+					customEnv: { FOO: "BAR" },
+				},
+				onUpdateTerminalConfig,
+				onClose,
+			}),
+		);
+
+		expect(markup).toContain("Project Settings");
+		expect(markup).toContain("Close Terminal Drawer");
+	});
 });

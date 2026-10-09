@@ -5,31 +5,47 @@ import {
 	Code,
 	Copy,
 	FolderOpen,
+	Gear,
 	Terminal as TerminalIcon,
 	Trash,
+	X,
 } from "@phosphor-icons/react";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { useEffect, useRef, useState } from "react";
 import "@xterm/xterm/css/xterm.css";
+import type { ProjectTerminalConfig } from "@/core/timeline/types";
+import { ProjectTerminalConfigDialog } from "./ProjectTerminalConfigDialog";
 
 interface ProjectTerminalProps {
 	className?: string;
+	terminalConfig?: ProjectTerminalConfig;
+	onUpdateTerminalConfig?: (config: ProjectTerminalConfig | undefined) => void;
 	onClose?: () => void;
 }
 
-export function ProjectTerminal({ className = "" }: ProjectTerminalProps) {
+export function ProjectTerminal({
+	className = "",
+	terminalConfig,
+	onUpdateTerminalConfig,
+	onClose,
+}: ProjectTerminalProps) {
 	const terminalContainerRef = useRef<HTMLDivElement>(null);
 	const termRef = useRef<Terminal | null>(null);
 	const fitAddonRef = useRef<FitAddon | null>(null);
 	const activeSessionIdRef = useRef<string | null>(null);
 
-	const [shellType, setShellType] = useState<"powershell" | "cmd" | "bash">("powershell");
+	const [shellType, setShellType] = useState<"powershell" | "cmd" | "bash">(
+		terminalConfig?.preferredShell && terminalConfig.preferredShell !== "default"
+			? terminalConfig.preferredShell
+			: "powershell",
+	);
 	const [activeCwd, setActiveCwd] = useState<string>("");
 	const [activeProjectName, setActiveProjectName] = useState<string | null>(null);
 	const [mcpPort, setMcpPort] = useState<number | null>(null);
 	const [copied, setCopied] = useState(false);
 	const [isRunning, setIsRunning] = useState(false);
+	const [configDialogOpen, setConfigDialogOpen] = useState(false);
 
 	const startSession = async (shell: "powershell" | "cmd" | "bash") => {
 		if (!window.electronAPI?.startTerminal) return;
@@ -203,8 +219,10 @@ export function ProjectTerminal({ className = "" }: ProjectTerminalProps) {
 		void startSession(shellType);
 	};
 
+	const rootHeight = className.includes("h-") ? "" : "h-[520px]";
+
 	return (
-		<div className={`flex flex-col h-[520px] w-full rounded-xl border border-white/10 bg-[#090a0d] overflow-hidden text-xs ${className}`}>
+		<div className={`flex flex-col ${rootHeight} w-full rounded-xl border border-white/10 bg-[#090a0d] overflow-hidden text-xs ${className}`}>
 			{/* Top Tool Bar */}
 			<div className="flex flex-wrap items-center justify-between px-3.5 py-2.5 border-b border-white/10 bg-white/[0.02] gap-2">
 				<div className="flex items-center gap-2.5">
@@ -249,6 +267,18 @@ export function ProjectTerminal({ className = "" }: ProjectTerminalProps) {
 				</div>
 
 				<div className="flex items-center gap-1.5">
+					{onUpdateTerminalConfig && (
+						<button
+							type="button"
+							onClick={() => setConfigDialogOpen(true)}
+							title="Project Terminal Settings (saved to .captr)"
+							className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/5 transition-colors"
+						>
+							<Gear size={13} />
+							<span>Project Settings</span>
+						</button>
+					)}
+
 					<button
 						type="button"
 						onClick={handleOpenExternal}
@@ -286,14 +316,39 @@ export function ProjectTerminal({ className = "" }: ProjectTerminalProps) {
 					>
 						<ArrowClockwise size={13} />
 					</button>
+
+					{onClose && (
+						<button
+							type="button"
+							onClick={onClose}
+							title="Close Terminal Drawer"
+							className="p-1 rounded-md bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors ml-1"
+						>
+							<X size={14} />
+						</button>
+					)}
 				</div>
 			</div>
+
+			{/* Project Terminal Config Modal */}
+			{onUpdateTerminalConfig && (
+				<ProjectTerminalConfigDialog
+					open={configDialogOpen}
+					config={terminalConfig}
+					onClose={() => setConfigDialogOpen(false)}
+					onSave={(newCfg) => {
+						onUpdateTerminalConfig(newCfg);
+						if (newCfg?.preferredShell && newCfg.preferredShell !== "default") {
+							setShellType(newCfg.preferredShell);
+						}
+					}}
+				/>
+			)}
 
 			{/* Terminal Screen Container */}
 			<div
 				ref={terminalContainerRef}
-				className="flex-1 w-full p-2 bg-[#090a0d] overflow-hidden select-text"
-				style={{ minHeight: "360px" }}
+				className="flex-1 w-full min-h-0 p-2 bg-[#090a0d] overflow-hidden select-text"
 			/>
 
 			{/* Bottom Status Footbar */}

@@ -127,8 +127,14 @@ export interface TimelineProject {
 	hyperframes?: import("../story/storyTypes").HyperframeComposition[];
 	hyperframeManifest?: import("../story/storyTypes").HyperframeManifestItem[];
 	whiteboardSnapshot?: Record<string, unknown>;
+	terminalConfig?: ProjectTerminalConfig;
 	createdAt: string;
 	updatedAt: string;
+}
+export interface ProjectTerminalConfig {
+	preferredShell?: "powershell" | "cmd" | "bash" | "default";
+	startupCommand?: string;
+	customEnv?: Record<string, string>;
 }
 export const clipDurationUs = (clip: TimelineClip) =>
 	Math.round((clip.sourceOutUs - clip.sourceInUs) / clip.rate);

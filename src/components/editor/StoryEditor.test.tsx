@@ -85,5 +85,44 @@ describe("StoryEditor", () => {
 
 		expect(markup).not.toContain("All Stories");
 		expect(markup).toContain("project-timeline");
+		expect(markup).toContain("Terminal");
+	});
+
+	it("renders project terminal button in footer", () => {
+		const project = createTimelineProject("term-proj", "Terminal Project");
+		const controller = new ProjectController(project, async () => ({
+			success: true,
+			path: "term.captr",
+		}));
+
+		const markup = renderToStaticMarkup(
+			createElement(
+				I18nProvider,
+				null,
+				createElement(StoryEditor, {
+					storyProject: project,
+					rootProject: project,
+					storyId: null,
+					controller,
+					transcripts: {},
+					copilotOpen: false,
+					onCloseCopilot: vi.fn(),
+					speculativeDraft: null,
+					editPlan: null,
+					onApplyDraft: vi.fn(),
+					onDiscardDraft: vi.fn(),
+					onDraftReady: vi.fn(),
+					playing: false,
+					setPlaying: vi.fn(),
+					editingClipId: null,
+					setEditingClipId: vi.fn(),
+					onCommand: vi.fn(),
+					onError: vi.fn(),
+				}),
+			),
+		);
+
+		expect(markup).toContain("Terminal");
+		expect(markup).toContain("Toggle Project Terminal (Ctrl + `)");
 	});
 });

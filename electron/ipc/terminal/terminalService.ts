@@ -118,14 +118,25 @@ export async function startTerminalSession(
 	options?: TerminalStartOptions,
 ): Promise<TerminalStartResult> {
 	const sessionId = crypto.randomUUID();
+	const mcpContext = getMcpProjectContext();
+	const projectTerminalConfig = mcpContext?.project?.terminalConfig;
 	const { cwd, projectName } = await prepareProjectWorkingDirectory();
-	const { command, args, label } = resolveShell(options?.shell);
+
+	const selectedShell =
+		options?.shell && options.shell !== "default"
+			? options.shell
+			: projectTerminalConfig?.preferredShell && projectTerminalConfig.preferredShell !== "default"
+				? projectTerminalConfig.preferredShell
+				: "default";
+
+	const { command, args, label } = resolveShell(selectedShell);
 	const mcpInfo = getMcpServerInfo();
 
 	const env: NodeJS.ProcessEnv = {
 		...process.env,
+		...(projectTerminalConfig?.customEnv ?? {}),
 		CAPTR_PROJECT_PATH: currentProjectPath ?? "",
-		CAPTR_PROJECT_ID: getMcpProjectContext()?.project.projectId ?? "",
+		CAPTR_PROJECT_ID: mcpContext?.project.projectId ?? "",
 		CAPTR_WORKSPACE_DIR: cwd,
 		CAPTR_MCP_PORT: String(mcpInfo.port),
 		CAPTR_MCP_URL: mcpInfo.endpoint,
@@ -140,6 +151,17 @@ export async function startTerminalSession(
 		stdio: ["pipe", "pipe", "pipe"],
 		windowsHide: true,
 	});
+
+	if (projectTerminalConfig?.startupCommand) {
+		const cmd = projectTerminalConfig.startupCommand.trim();
+		if (cmd) {
+			setTimeout(() => {
+				if (child.stdin.writable) {
+					child.stdin.write(`${cmd}\r\n`);
+				}
+			}, 350);
+		}
+	}
 
 	activeSessions.set(sessionId, {
 		id: sessionId,
