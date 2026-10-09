@@ -318,3 +318,53 @@ Mentransformasikan integrasi AI Agent CLI (`agy`, `claude`, `opencode`) yang seb
 4. **Verifikasi:**
    - Unit tests untuk `terminalService.test.ts`, `ProjectTerminal.test.tsx`, `ProjectTerminalConfigDialog.test.tsx`, dan `StoryEditor.test.tsx` lulus 100%.
    - `tsc --noEmit` lolos tanpa error.
+
+## 9. Optimalisasi & Penambahan Fitur Video Editor Pro (NLE) pada Story Editor (9 Oktober 2026)
+
+**Status:** Selesai dan terverifikasi (9 Oktober 2026).
+
+**Kebutuhan & Tantangan:**
+- Story Editor membutuhkan fungsionalitas dan alur kerja standar Non-Linear Editor (NLE) profesional yang cepat dan intuitif, setara dengan editor video modern.
+- Kontrol kanvas, aspect ratio, frame stepping, timecode SMPTE, pembagian timeline cerdas, dan kontrol transform clip harus terintegrasi rapi dengan arsitektur timeline V3 dan sistem undo/redo.
+
+**Fitur yang Diimplementasikan:**
+1. **Pro Transport & Playback Control Bar (`StoryEditor.tsx`):**
+   - **SMPTE Timecode Display:** Mengubah tampilan detik mentah menjadi format timecode profesional `MM:SS:FF` berbasis framerate proyek aktif (`formatTimecode`).
+   - **Frame-by-Frame Stepping:** Tombol step mundur (`<`) dan step maju (`>`) tepat 1 frame kalkulasi mikrodetik (`1,000,000 / fps`).
+   - **Jump to Start / End:** Tombol navigasi instan ke awal (0s) atau akhir timeline.
+   - **Loop Playback:** Toggle loop berulang saat memutar preview (`L`).
+   - **Rule-of-Thirds & Social Safe Zones Overlay:** Overlay grid panduan 3x3 dan batas aman social video (TikTok/Reels/Shorts) untuk memastikan framing subjek tidak tertutup UI platform.
+   - **Fullscreen Preview:** Toggle preview layar penuh dengan shortcut `F` atau `Escape`.
+2. **Contextual Canvas Story Inspector (`CanvasProjectInspector.tsx`):**
+   - Menggantikan tampilan kosong ("Select a clip to edit") dengan Canvas Inspector saat tidak ada clip yang dipilih.
+   - Preset aspect ratio 1-klik: **16:9 Landscape** (1920×1080), **9:16 Vertical** (1080×1920), **1:1 Square** (1080×1080), **4:5 Portrait** (1080×1350), **21:9 Ultrawide** (2560×1080).
+   - Pengaturan resolusi kustom (Lebar, Tinggi) dan framerate (24, 30, 60 fps).
+   - Kartu statistik cerita: Total durasi, jumlah clip, jumlah video track, dan audio track.
+   - Aksi cepat track: Tambah Video Track dan Tambah Audio Track langsung dari inspector.
+3. **Clip Transform & Audio Controls (`ProjectInspector.tsx`):**
+   - Tombol **Reset Transform** (mengembalikan X: 0, Y: 0, Scale: 1, Rotation: 0, Opacity: 1).
+   - Tombol **Center Clip** (memusatkan koordinat clip ke pusat kanvas X: 0, Y: 0).
+   - Tombol **Instant Mute Toggle** di samping slider volume clip.
+   - Preset kecepatan playback yang diperluas: 0.25x hingga 2x.
+4. **Smart Split Timeline Toolbar (`TimelineToolbar.tsx` & `ProjectTimeline.tsx`):**
+   - Fitur smart split: Tombol Split dapat aktif meskipun tidak ada klip yang dipilih secara manual, selama terdapat klip di bawah playhead pada trek aktif yang tidak terkunci.
+   - Tombol **Toggle Clip Enable/Mute** (`Eye` icon) langsung di toolbar timeline.
+5. **NLE Keyboard Shortcuts Global:**
+   - `Space`: Play / Pause.
+   - `ArrowLeft` / `ArrowRight`: Step mundur / maju 1 frame.
+   - `Shift + ArrowLeft` / `Shift + ArrowRight`: Step mundur / maju 1 detik.
+   - `Home` / `End`: Lompat ke awal / akhir timeline.
+   - `S` / `C`: Split clip di posisi playhead.
+   - `Delete` / `Backspace`: Hapus clip terpilih.
+   - `Shift + Delete`: Ripple delete clip terpilih.
+   - `Ctrl + D`: Duplicate clip terpilih.
+   - `F`: Toggle Fullscreen preview.
+   - `L`: Toggle Loop playback.
+6. **Commands Timeline Baru (`src/core/timeline/commands.ts`):**
+   - `updateProjectCanvas(project, canvas)`: Memperbarui dimensi dan fps dengan validasi schema ketat.
+   - `resetClipTransform(project, clipId)`: Mereset transformasi visual ke default.
+   - `toggleClipEnabled(project, clipId)`: Mengaktifkan/menonaktifkan klip di timeline.
+7. **Pengujian & Verifikasi:**
+   - 39/39 tests lolos di `commands.test.ts`, `CanvasProjectInspector.test.tsx`, `ProjectInspector.test.tsx`, `ProjectTimeline.test.tsx`, dan `StoryEditor.test.tsx`.
+   - `npx tsc --noEmit` lolos tanpa error.
+

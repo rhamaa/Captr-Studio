@@ -280,6 +280,7 @@ export function ProjectTimeline({
 			}}
 		>
 			<TimelineToolbar
+				project={project}
 				selection={selection}
 				playheadUs={playheadUs}
 				onCommand={onCommand}

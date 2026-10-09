@@ -1,9 +1,19 @@
-import { Diamond, Plus, SlidersHorizontal, Trash, VideoCamera } from "@phosphor-icons/react";
+import {
+	ArrowCounterClockwise,
+	Diamond,
+	Plus,
+	SlidersHorizontal,
+	SpeakerHigh,
+	SpeakerSimpleX,
+	Trash,
+	VideoCamera,
+} from "@phosphor-icons/react";
 import type { KeyframeEasing, KeyframeProperty } from "@/components/video-editor/types";
 import {
 	addClipKeyframe,
 	moveClip,
 	removeClipKeyframe,
+	resetClipTransform,
 	setClipRate,
 	trimClip,
 	updateClip,
@@ -19,6 +29,7 @@ import {
 import { setShapeStyleOverride } from "@/core/timeline/shapeCommands";
 import type { ProjectCommand } from "@/core/timeline/history";
 import { clipDurationUs, type ClipTransition, type ClipTransitionPreset, type ComponentAnimation, type ShapeStyle, type TimelineProject } from "@/core/timeline/types";
+import { CanvasProjectInspector } from "./CanvasProjectInspector";
 import { useProjectMessages } from "./useProjectMessages";
 
 type Direction = "left" | "right" | "up" | "down";
@@ -227,10 +238,7 @@ export function ProjectInspector({
 					onCommand={onCommand}
 				/>
 			) : !clip || !asset || !track ? (
-				<div className="project-inspector-empty">
-					<SlidersHorizontal size={27} />
-					<p>Select a clip to edit its properties</p>
-				</div>
+				<CanvasProjectInspector project={project} onCommand={onCommand} />
 			) : (
 				<fieldset disabled={track.locked}>
 					<div className="project-inspector-title">
@@ -411,7 +419,7 @@ export function ProjectInspector({
 								onCommand((p) => setClipRate(p, clip.id, Number(e.target.value)))
 							}
 						>
-							{[0.5, 1, 2].map((rate) => (
+							{[0.25, 0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
 								<option key={rate} value={rate}>
 									{rate}×
 								</option>
@@ -420,19 +428,38 @@ export function ProjectInspector({
 					</label>
 					<label>
 						Volume
-						<input
-							aria-label="Clip volume"
-							type="range"
-							min={0}
-							max={2}
-							step={0.01}
-							value={clip.gain}
-							onChange={(e) =>
-								onCommand((p) =>
-									updateClip(p, clip.id, { gain: Number(e.target.value) }),
-								)
-							}
-						/>
+						<div className="flex items-center gap-2 w-full mt-1">
+							<input
+								aria-label="Clip volume"
+								type="range"
+								min={0}
+								max={2}
+								step={0.01}
+								value={clip.gain}
+								onChange={(e) =>
+									onCommand((p) =>
+										updateClip(p, clip.id, { gain: Number(e.target.value) }),
+									)
+								}
+								className="flex-1"
+							/>
+							<button
+								type="button"
+								className="p-1 rounded bg-white/5 hover:bg-white/10 text-white/80 transition-colors cursor-pointer"
+								title={clip.gain === 0 ? "Unmute" : "Mute"}
+								onClick={() =>
+									onCommand((p) =>
+										updateClip(p, clip.id, { gain: clip.gain === 0 ? 1 : 0 }),
+									)
+								}
+							>
+								{clip.gain === 0 ? (
+									<SpeakerSimpleX size={14} className="text-red-400" />
+								) : (
+									<SpeakerHigh size={14} />
+								)}
+							</button>
+						</div>
 						<span>{Math.round(clip.gain * 100)}%</span>
 					</label>
 					{asset.kind !== "audio" && (
@@ -476,7 +503,34 @@ export function ProjectInspector({
 									);
 								})}
 							</div>
-							<h3>Transform</h3>
+							<div className="flex items-center justify-between mt-2 mb-1">
+								<h3 className="m-0">Transform</h3>
+								<div className="flex items-center gap-1.5">
+									<button
+										type="button"
+										className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-[10px] text-white/80 hover:text-white border border-white/5 flex items-center gap-1 transition-colors cursor-pointer"
+										title="Reset transform to default"
+										onClick={() => onCommand((p) => resetClipTransform(p, clip.id))}
+									>
+										<ArrowCounterClockwise size={11} />
+										<span>Reset</span>
+									</button>
+									<button
+										type="button"
+										className="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-[10px] text-white/80 hover:text-white border border-white/5 flex items-center gap-1 transition-colors cursor-pointer"
+										title="Center clip in canvas"
+										onClick={() =>
+											onCommand((p) =>
+												updateClip(p, clip.id, {
+													transform: { ...clip.transform, x: 0, y: 0 },
+												}),
+											)
+										}
+									>
+										<span>Center</span>
+									</button>
+								</div>
+							</div>
 							{(["x", "y", "scale", "rotation", "opacity"] as const).map((key) => (
 								<label key={key}>
 									{key.charAt(0).toUpperCase() + key.slice(1)}

@@ -10,12 +10,15 @@ import {
 	removeClip,
 	removeTrack,
 	reorderTrack,
+	resetClipTransform,
 	rippleRemoveClip,
 	rippleRemoveClips,
 	setClipRate,
 	splitClip,
+	toggleClipEnabled,
 	trimClip,
 	updateComposition,
+	updateProjectCanvas,
 } from "./commands";
 import { addClipTransition, setComponentAnimation } from "./clipTransitions";
 import { ProjectHistory } from "./history";
@@ -319,5 +322,38 @@ describe("transition and component animation command cleanup", () => {
 		const right = split.tracks[0]!.clips.find((clip) => clip.id === "animation-right")!;
 		expect(left.componentAnimation).toEqual({ enter: project.tracks[0]!.clips[0]!.componentAnimation!.enter });
 		expect(right.componentAnimation).toEqual({ exit: project.tracks[0]!.clips[0]!.componentAnimation!.exit });
+	});
+
+	it("updates project canvas dimensions and fps", () => {
+		const initial = placed();
+		const updated = updateProjectCanvas(initial, { width: 1080, height: 1920, fps: 60 });
+		expect(updated.canvas).toEqual({ width: 1080, height: 1920, fps: 60 });
+		expect(() => validateTimelineProject(updated)).not.toThrow();
+
+		// Throws on invalid canvas settings
+		expect(() => updateProjectCanvas(initial, { width: -100 })).toThrow();
+		expect(() => updateProjectCanvas(initial, { fps: 0 })).toThrow();
+	});
+
+	it("resets clip transform and centers clip", () => {
+		let project = placed();
+		const track = project.tracks[0]!;
+		track.clips[0]!.transform = { x: 50, y: -20, scale: 1.5, rotation: 45, opacity: 0.8 };
+
+		const reset = resetClipTransform(project, "c");
+		const clip = reset.tracks[0]!.clips[0]!;
+		expect(clip.transform).toEqual({ x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 });
+		expect(() => validateTimelineProject(reset)).not.toThrow();
+	});
+
+	it("toggles clip enabled state", () => {
+		let project = placed();
+		expect(project.tracks[0]!.clips[0]!.enabled).toBe(true);
+
+		const disabled = toggleClipEnabled(project, "c");
+		expect(disabled.tracks[0]!.clips[0]!.enabled).toBe(false);
+
+		const reenabled = toggleClipEnabled(disabled, "c");
+		expect(reenabled.tracks[0]!.clips[0]!.enabled).toBe(true);
 	});
 });

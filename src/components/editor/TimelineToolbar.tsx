@@ -2,6 +2,7 @@ import {
 	ArrowLineLeft,
 	ArrowsInLineHorizontal,
 	Copy,
+	Eye,
 	LockKey as LockKeyhole,
 	Magnet,
 	Plus,
@@ -11,11 +12,13 @@ import {
 	MagnifyingGlassPlus as ZoomIn,
 	MagnifyingGlassMinus as ZoomOut,
 } from "@phosphor-icons/react";
-import { addTrack } from "@/core/timeline/commands";
+import { addTrack, toggleClipEnabled } from "@/core/timeline/commands";
 import type { ProjectCommand } from "@/core/timeline/history";
-import { timelineActionCommand } from "./timelineInteractions";
+import type { TimelineProject } from "@/core/timeline/types";
+import { findClipsAtPlayhead, timelineActionCommand } from "./timelineInteractions";
 
 interface Props {
+	project?: TimelineProject;
 	selection: string[];
 	playheadUs: number;
 	onCommand: (command: ProjectCommand) => void;
@@ -28,6 +31,7 @@ interface Props {
 	onToggleSnapping?: () => void;
 }
 export function TimelineToolbar({
+	project,
 	selection,
 	playheadUs,
 	onCommand,
@@ -39,13 +43,23 @@ export function TimelineToolbar({
 	snappingEnabled = true,
 	onToggleSnapping,
 }: Props) {
-	const disabled = !selection.length || locked;
+	const hasClipsUnderPlayhead = project
+		? findClipsAtPlayhead(project, playheadUs).length > 0
+		: false;
+	const canSplit = !locked && (selection.length > 0 || hasClipsUnderPlayhead);
+	const selectionDisabled = !selection.length || locked;
 	return (
 		<div className="project-timeline-toolbar">
 			<button
-				title="Split at playhead (S / C)"
+				title={
+					canSplit
+						? selection.length > 0
+							? "Split selected clip at playhead (S / C)"
+							: "Split clip under playhead (S / C)"
+						: "No clip under playhead to split"
+				}
 				aria-label="Split at playhead"
-				disabled={disabled}
+				disabled={!canSplit}
 				onClick={() => onCommand(timelineActionCommand("split", selection, playheadUs))}
 			>
 				<Scissors size={17} />
@@ -53,15 +67,28 @@ export function TimelineToolbar({
 			<button
 				title="Duplicate (Ctrl+D)"
 				aria-label="Duplicate clip"
-				disabled={disabled}
+				disabled={selectionDisabled}
 				onClick={() => onCommand(timelineActionCommand("duplicate", selection, playheadUs))}
 			>
 				<Copy size={17} />
 			</button>
 			<button
+				title="Toggle clip enable / mute"
+				aria-label="Toggle clip enable"
+				disabled={selectionDisabled}
+				onClick={() => {
+					if (!selection.length) return;
+					onCommand((p) =>
+						selection.reduce((acc, id) => toggleClipEnabled(acc, id), p),
+					);
+				}}
+			>
+				<Eye size={17} />
+			</button>
+			<button
 				title="Delete clip (Del / Backspace)"
 				aria-label="Delete clip"
-				disabled={disabled}
+				disabled={selectionDisabled}
 				onClick={() => onCommand(timelineActionCommand("delete", selection, playheadUs))}
 			>
 				<Trash2 size={17} />
@@ -69,7 +96,7 @@ export function TimelineToolbar({
 			<button
 				title="Ripple delete (Shift+Del / Shift+Backspace)"
 				aria-label="Ripple delete clip"
-				disabled={disabled}
+				disabled={selectionDisabled}
 				onClick={() =>
 					onCommand(timelineActionCommand("ripple-delete", selection, playheadUs))
 				}

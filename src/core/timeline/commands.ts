@@ -508,3 +508,38 @@ export function updateProjectTerminalConfig(
 	});
 }
 
+export function updateProjectCanvas(
+	p: TimelineProject,
+	canvas: Partial<TimelineProject["canvas"]>,
+): TimelineProject {
+	return edit(p, (n) => {
+		n.canvas = {
+			...n.canvas,
+			...canvas,
+		};
+	});
+}
+
+export function resetClipTransform(p: TimelineProject, clipId: string): TimelineProject {
+	return edit(p, (n) => {
+		const clip = n.tracks.flatMap((t) => t.clips).find((c) => c.id === clipId);
+		if (!clip) throw new Error("Clip not found");
+		clip.transform = {
+			x: 0,
+			y: 0,
+			scale: 1,
+			rotation: 0,
+			opacity: 1,
+		};
+	});
+}
+
+export function toggleClipEnabled(p: TimelineProject, clipId: string): TimelineProject {
+	return edit(p, (n) => {
+		const clip = n.tracks.flatMap((t) => t.clips).find((c) => c.id === clipId);
+		if (!clip) throw new Error("Clip not found");
+		clip.enabled = !clip.enabled;
+	});
+}
+
+
