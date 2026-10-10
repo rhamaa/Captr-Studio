@@ -12,6 +12,58 @@ import {
 import { validateTimelineProject } from "./validation";
 
 describe("normalizeStoryOwnership", () => {
+	it("keeps an existing Shape extent when it already fits a padded trimmed incoming range", () => {
+		const input = ownershipFixture();
+		input.assets.push({
+			id: "trimmed-rectangle",
+			kind: "shape",
+			name: "Rectangle",
+			width: 100,
+			height: 50,
+			durationUs: 5_000_000,
+			shapeDefinition: {
+				kind: "rectangle",
+				width: 100,
+				height: 50,
+				style: { fill: "#ffffff", stroke: null },
+			},
+		});
+		input.tracks = [
+			fixtureTrack("trimmed-track", [
+				fixtureClip("trimmed-out", { assetId: "trimmed-rectangle" }),
+				fixtureClip("trimmed-in", {
+					assetId: "trimmed-rectangle",
+					startUs: 5_000_000,
+					sourceOutUs: 2_500_000,
+				}),
+			]),
+		];
+		input.clipTransitions = [
+			{
+				id: "trimmed-transition",
+				trackId: "trimmed-track",
+				fromClipId: "trimmed-out",
+				toClipId: "trimmed-in",
+				durationUs: 500_000,
+				preset: { kind: "cross-dissolve" },
+				easing: "linear",
+			},
+		];
+		const before = structuredClone(input);
+		const migrated = normalizeStoryOwnership(input);
+		const incoming = migrated.tracks[0].clips[1];
+		expect(incoming).toMatchObject({
+			id: "trimmed-in",
+			startUs: 5_000_000,
+			sourceInUs: 250_000,
+			sourceOutUs: 2_750_000,
+			rate: 1,
+			content: { kind: "shape", durationUs: 5_000_000 },
+		});
+		expect(migrated.clipTransitions).toEqual(input.clipTransitions);
+		expect(input).toEqual(before);
+		expect(normalizeStoryOwnership(migrated)).toEqual(migrated);
+	});
 	it("preserves untrimmed legacy Shape transitions by adding finite static source handles", () => {
 		const input = ownershipFixture();
 		input.assets.push({

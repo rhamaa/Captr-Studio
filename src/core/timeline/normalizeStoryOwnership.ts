@@ -232,10 +232,7 @@ export function normalizeStoryOwnership(input: TimelineProject): TimelineProject
 			const paddingUs = Math.max(0, headUs - clip.sourceInUs);
 			clip.sourceInUs += paddingUs;
 			clip.sourceOutUs += paddingUs;
-			clip.content.durationUs = Math.max(
-				clip.content.durationUs + paddingUs,
-				clip.sourceOutUs + tailUs,
-			);
+			clip.content.durationUs = Math.max(clip.content.durationUs, clip.sourceOutUs + tailUs);
 		}
 	}
 	for (const asset of designs) {
