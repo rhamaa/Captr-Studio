@@ -139,8 +139,8 @@ Deferred minors triaged without broad fixture architecture rewrites: Task 4 proj
 | 5 | 4d2321a, b8153d3; terminal boundary and context-bound nullable plans fixed; re-review approved. |
 | 6 | dc1e924; both verdicts approved; fixture/warning/lint minors deferred below. |
 | 7 | 93d3a68, 05d133f, d951fb5; initial prefix/case collision and then hex basename overflow fixed; bounded ordinal manifest/staging re-review approved. |
-| 8 | This acceptance/docs commit; independent coordinator review pending. |
-| Whole branch | Pending after Task 8 review, selected gpt-6.1-sol xhigh due Astra quota until October 14. No push/merge/release. |
+| 8 | a1184db; both independent review verdicts approved; documentation precision minors remain for whole-branch triage. |
+| Whole branch | Pending after approved Task 8 review, selected gpt-6.1-sol xhigh due Astra quota until October 14. No push/merge/release. |
 
 ## Chronological execution rulings
 
