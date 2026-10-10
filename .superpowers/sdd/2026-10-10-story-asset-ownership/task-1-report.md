@@ -1,6 +1,6 @@
 # Task 1 report — Story sources, scope views, and validation
 
-Status: DONE_WITH_CONCERNS. Task scope implemented; integration migration and final whole-suite/native gates remain with later tasks.
+Status: DONE_WITH_CONCERNS. Task scope implemented; integration migration and final whole-suite/native gates remain with later tasks. Current contract after review fix: omitted validation mode is canonical; see fix round 1 below for explicit temporary legacy callers.
 
 ## Requirements and skills
 
@@ -18,7 +18,7 @@ Read task-1-brief.md, interfaces-and-constraints.md, the approved specification,
 - src/core/timeline/clipSource.test.ts, storyOwnership.test.ts, validation.test.ts — contract cases.
 - docs/superpowers/plans/2026-10-10-story-asset-ownership-baseline.md — baseline command results and exact 12 pre-existing failure names.
 
-## Exact public compatibility contract
+## Initial public compatibility contract (superseded by fix round 1 below)
 
 `validateTimelineProject(value: unknown, options: TimelineValidationOptions = { mode: "legacy" }): TimelineProject`
 
@@ -63,3 +63,30 @@ Graft estimated savings total: 1,657,929 tokens (sum of reported map/ask/grep/sk
 ## Final handoff coverage supplement
 
 Parent completeness check identified explicit assertions worth adding for existing Task 1 checks: template default duration may equal or be shorter than its source extent but cannot exceed it; sibling-private physical IDs cannot duplicate; ambiguous legacy Story aliases reject instead of selecting an arbitrary owner. No production behavior changed. Focused three-file gate: 41/41 passed (validation 37, resolver 2, views 2), task-1-handoff-focused.log. Main implementation commit: c989fd8.
+
+
+## Review fix round 1 — FIX_BASE c8dfebf
+
+Read task-1-review.md in full. Both Important findings and the small duplicate-mirror finding are fixed. Parent revised the earlier compatibility ruling; the following current contract supersedes the initial legacy-default decision recorded above.
+
+### Changes
+
+- `validateTimelineProject(value: unknown, options: TimelineValidationOptions = { mode: "canonical" }): TimelineProject`. Mode omission now performs full canonical source, ID and cross-owner composition checks. Explicit `{ mode: "legacy" }` remains available only as a deliberate compatibility boundary.
+- Canonical mirrored Record references must match a canonical placement in the associated Story owner by clip ID, Asset ID and composition ID. A clone of B's Record track cannot masquerade as A's projection, nor can an A placement swap in B's composition. Projection IDs still are not registered twice; ordinary valid A mirrors remain accepted. This check applies in canonical mode; raw legacy projections must be normalized/regenerated before canonical installation. Stale projected Record references to a deleted/replaced owner placement reject until regenerated; legitimate newer canonical edits remain authoritative.
+- Each projection private mirror now has its own uniqueness check; repeated copies of one valid private Asset reject without registering that Asset again in the project-wide canonical registry.
+- Parent-authorized options-only adaptations mark these still-legacy consumers explicitly: `commands.ts` edit; `history.ts` constructor and execute; `shapeCommands.ts` createAndPlaceShape and setShapeStyleOverride; `clipTransitions.ts` addClipTransition, updateClipTransition, removeClipTransition and setComponentAnimation. These remain transitional and must migrate to canonical output with the forthcoming command/history work. No state-store, UI, capture, persistence or normalization implementation changed.
+- Legacy input tests in validation.test.ts and textOverlay.test.ts select legacy explicitly. Exactly three legacy Artboard snapshot assertions in repurposeCommands.test.ts select legacy because those old producers still duplicate root/sibling track IDs. Canonical and empty-project tests retain canonical/default validation.
+
+### RED / GREEN evidence
+
+- Before production fixes, `npx vitest run src/core/timeline/validation.test.ts` -> exit 1, 5 failed / 37 passed. Five observed failures: omitted mode accepted duplicate cross-owner clip IDs; omitted mode accepted shared cross-owner Record composition; A projection accepted B Record placement/composition; A placement accepted B composition; duplicate private mirror accepted. Log `task-1-fix-red.log`.
+- Focused compatibility run then exposed three existing Artboard assertions that needed explicit legacy mode; these were bounded options-only test adaptations, not production behavior changes. Log `task-1-fix-green.log` (3 failed / 92 passed).
+- Final command: `npx vitest run src/core/timeline/clipSource.test.ts src/core/timeline/storyOwnership.test.ts src/core/timeline/validation.test.ts src/core/timeline/commands.test.ts src/core/timeline/repurposeCommands.test.ts src/core/timeline/textOverlay.test.ts src/core/timeline/shapeCommands.test.ts src/core/timeline/clipTransitions.test.ts src/core/timeline/history.test.ts` -> exit 0, 9 files / 95 tests passed. Log `task-1-fix-final-green.log`. Existing valid-A-mirror acceptance and canonical source-isolation cases remain green. Test output contains no warnings.
+- `git diff --check` clean; Git emits only existing CRLF-to-LF normalization notices for edited files. Focused validation files formatted. `graft build` successful, log `task-1-fix-graft-build.log`.
+- Per scoped fix instructions, no full-suite or TypeScript rerun. Last observed compile sites remain SubtitleOverlay.tsx:67, TimelineClipItem.tsx:137 and agentTools.ts:205 from `task-1-final-tsc.log`; this fix does not claim they are resolved. No native QA performed.
+
+### Remaining consumer migrations
+
+All omitted validator calls now intentionally mean canonical. Task 7 must normalize legacy raw input before canonical validation at `electron/ipc/project/manager.ts` loadProjectFromPathUnqueued; `timelineBundle.ts` resolveTimelineProject; renderer `ProjectApplication.tsx` install and `useProjectController.ts` open, coordinating main-process atomic ingress. Keep raw validation explicitly legacy before normalization. Agent ingress `electron/ipc/agent/mcpServer.ts` executeMcpToolCall and `agentPayload.ts` parseAgentProjectOutput must deliberately normalize legacy input or require canonical input (Task 5/7 coordination). Save/export/reference consumers now demand canonical input: projectFileService performProjectFileOperation, timelineBundle stageTimelineProject, mediaReferences collectProjectMediaRefs, manager resolveProjectMediaSources, register/project/save handlers, timelineProjectExporter export. Their old global Text/Shape and unmaterialized Artboard inputs remain an intermediate compatibility limitation until normalization/producers migrate; no silent legacy fallback was inserted. `agentTools.ts` applyRemoveSilence/applyAddBRollOrOverlay and legacyConversion convertLegacyRecordProject must continue producing canonical output. The explicit legacy command/history/shape/transition callsites listed above must be removed after their source/scoped-command migrations and before release.
+
+Graft pre-edit calls: callers validateTimelineProject; ask validation/projection ownership; exhaustive grep validateTimelineProject (117 hits/49 symbols/24 files). Inventory: task-1-fix-callers.txt. Required exact validator projection and affected consumer ranges were opened. Round savings: 142,702 tokens; Task 1 cumulative estimate: 1,800,631 tokens. No subagents or unrelated file edits.

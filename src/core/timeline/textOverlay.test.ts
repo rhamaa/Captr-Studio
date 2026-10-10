@@ -28,7 +28,7 @@ describe("project text overlays", () => {
 		});
 		expect(evaluateProject(next, 2_000_000).visuals[0]?.asset.kind).toBe("text");
 		expect(evaluateProject(next, 7_000_000).visuals).toEqual([]);
-		expect(validateTimelineProject(JSON.parse(JSON.stringify(next)))).toEqual(next);
+		expect(validateTimelineProject(JSON.parse(JSON.stringify(next)), { mode: "legacy" })).toEqual(next);
 	});
 
 	it("keeps edits to a duplicated overlay independent", () => {
@@ -74,6 +74,6 @@ describe("project text overlays", () => {
 		});
 		delete project.assets[0].text;
 
-		expect(() => validateTimelineProject(project)).toThrow(/text/i);
+		expect(() => validateTimelineProject(project, { mode: "legacy" })).toThrow(/text/i);
 	});
 });

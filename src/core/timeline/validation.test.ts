@@ -5,6 +5,65 @@ import { validateTimelineProject } from "./validation";
 import { fixtureClip, fixtureText, ownershipFixture } from "./storyOwnership.fixtures";
 
 describe("canonical Story ownership validation", () => {
+	it("defaults to canonical validation for duplicate cross-owner placement IDs", () => {
+		const p = ownershipFixture();
+		p.repurposeBoard!.artboards[1].tracks![0].clips[0].id = "record-A";
+		expect(() => validateTimelineProject(p)).toThrow(/ID/);
+	});
+	it("defaults to canonical validation for shared cross-owner Record composition ownership", () => {
+		const p = ownershipFixture();
+		p.repurposeBoard!.artboards[1].tracks![0].clips[0].compositionId = "composition-A";
+		expect(() => validateTimelineProject(p)).toThrow(/ownership/);
+	});
+	it("rejects an A projection referring to B's Record placement and composition", () => {
+		const p = ownershipFixture();
+		p.stories = [
+			{
+				id: "story-A",
+				artboardId: "A",
+				name: "A",
+				aspectRatio: "16:9",
+				canvas: p.canvas,
+				tracks: structuredClone(p.repurposeBoard!.artboards[1].tracks!),
+			},
+		];
+		expect(() => validateTimelineProject(p, { mode: "canonical" })).toThrow(/owner/);
+	});
+	it("rejects changing A's mirrored Record placement to B's composition", () => {
+		const p = ownershipFixture();
+		const tracks = structuredClone(p.repurposeBoard!.artboards[0].tracks!);
+		tracks[0].clips[0].compositionId = "composition-B";
+		p.stories = [
+			{
+				id: "story-A",
+				artboardId: "A",
+				name: "A",
+				aspectRatio: "16:9",
+				canvas: p.canvas,
+				tracks,
+			},
+		];
+		expect(() => validateTimelineProject(p, { mode: "canonical" })).toThrow(/owner/);
+	});
+	it("rejects duplicate entries in a projection's private mirror", () => {
+		const p = ownershipFixture();
+		const a = p.repurposeBoard!.artboards[0];
+		p.stories = [
+			{
+				id: "story-A",
+				artboardId: "A",
+				name: "A",
+				aspectRatio: "16:9",
+				canvas: p.canvas,
+				tracks: structuredClone(a.tracks!),
+				localAssets: [
+					structuredClone(a.localAssets![0]),
+					structuredClone(a.localAssets![0]),
+				],
+			},
+		];
+		expect(() => validateTimelineProject(p, { mode: "canonical" })).toThrow(/Duplicate/);
+	});
 	it("accepts equivalent private mirrors regardless of serialized property order", () => {
 		const p = ownershipFixture();
 		const a = p.repurposeBoard!.artboards[0];
@@ -369,7 +428,7 @@ function projectWithShapeClip(overrides: Partial<TimelineClip> = {}) {
 describe("V3 visual effects and shape validation", () => {
 	it("accepts existing V3 projects without optional visual-effect fields", () => {
 		const project = createTimelineProject("legacy-v3", "Existing V3");
-		expect(validateTimelineProject(project)).toEqual(project);
+		expect(validateTimelineProject(project, { mode: "legacy" })).toEqual(project);
 	});
 
 	it("accepts every clip transition preset", () => {
@@ -407,7 +466,9 @@ describe("V3 visual effects and shape validation", () => {
 				style: strokeStyle,
 			},
 		];
-		expect(validateTimelineProject(withShapes(definitions)).assets).toHaveLength(4);
+		expect(
+			validateTimelineProject(withShapes(definitions), { mode: "legacy" }).assets,
+		).toHaveLength(4);
 	});
 
 	it("rejects unknown transition presets and easing values", () => {
@@ -434,7 +495,7 @@ describe("V3 visual effects and shape validation", () => {
 				style: { fill: "#fff", stroke: null },
 			},
 		]);
-		expect(() => validateTimelineProject(invalidColor)).toThrow(/color/i);
+		expect(() => validateTimelineProject(invalidColor, { mode: "legacy" })).toThrow(/color/i);
 
 		const invalidGeometry = withShapes([
 			{
@@ -444,7 +505,9 @@ describe("V3 visual effects and shape validation", () => {
 				style: { stroke: { color: "#000000", width: 1 } },
 			},
 		]);
-		expect(() => validateTimelineProject(invalidGeometry)).toThrow(/point|geometry|line/i);
+		expect(() => validateTimelineProject(invalidGeometry, { mode: "legacy" })).toThrow(
+			/point|geometry|line/i,
+		);
 	});
 
 	it("rejects unsafe transition durations", () => {
@@ -530,7 +593,7 @@ describe("V3 visual effects and shape validation", () => {
 			},
 			shapeStyleOverride: { fill: "#aabbcc", stroke: { color: "#112233", width: 1.5 } },
 		});
-		expect(validateTimelineProject(project)).toEqual(project);
+		expect(validateTimelineProject(project, { mode: "legacy" })).toEqual(project);
 	});
 
 	it("rejects overlapping component animations and invalid shape overrides", () => {
@@ -541,11 +604,15 @@ describe("V3 visual effects and shape validation", () => {
 				exit: { preset: "fade", durationUs: 500_000, easing: "linear" },
 			},
 		});
-		expect(() => validateTimelineProject(overlapping)).toThrow(/animation.*overlap/i);
+		expect(() => validateTimelineProject(overlapping, { mode: "legacy" })).toThrow(
+			/animation.*overlap/i,
+		);
 
 		const invalidOverride = projectWithShapeClip({
 			shapeStyleOverride: { fill: "red", stroke: null },
 		});
-		expect(() => validateTimelineProject(invalidOverride)).toThrow(/color/i);
+		expect(() => validateTimelineProject(invalidOverride, { mode: "legacy" })).toThrow(
+			/color/i,
+		);
 	});
 });

@@ -251,8 +251,8 @@ describe("repurposeCommands", () => {
 		expect(foundAsset).toBeDefined();
 		expect(foundAsset?.name).toBe("Sticker.png");
 
-		// Validation should pass
-		expect(() => validateTimelineProject(project)).not.toThrow();
+		// Legacy snapshots retain shared IDs until the scoped-command migration.
+		expect(() => validateTimelineProject(project, { mode: "legacy" })).not.toThrow();
 	});
 
 	it("forks sequence and duplicates artboard with cloned tracks", () => {
@@ -280,8 +280,8 @@ describe("repurposeCommands", () => {
 		expect(duplicated.tracks).toEqual(targetArtboard.tracks);
 		expect(duplicated.id).not.toBe(targetArtboard.id);
 
-		// Validation check
-		expect(() => validateTimelineProject(project)).not.toThrow();
+		// Legacy snapshots retain shared IDs until the scoped-command migration.
+		expect(() => validateTimelineProject(project, { mode: "legacy" })).not.toThrow();
 	});
 
 	it("places asset into artboard timeline and creates tracks if needed", () => {
@@ -356,8 +356,8 @@ describe("repurposeCommands", () => {
 		expect(audioTrack?.clips).toHaveLength(1);
 		expect(audioTrack?.clips[0].assetId).toBe("audio-asset-1");
 
-		// Validation check
-		expect(() => validateTimelineProject(project)).not.toThrow();
+		// Legacy snapshots retain shared IDs until the scoped-command migration.
+		expect(() => validateTimelineProject(project, { mode: "legacy" })).not.toThrow();
 	});
 
 	it("preserves backward compatibility when validating project without repurposeBoard", () => {

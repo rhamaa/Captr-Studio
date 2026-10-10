@@ -39,7 +39,7 @@ export function createAndPlaceShape(
 	}
 	if (!targetTrack) throw new Error("Could not create a visual track for the shape");
 	next = placeAsset(next, ids.assetId, targetTrack.id, startUs, { clipId: ids.clipId });
-	return validateTimelineProject(next);
+	return validateTimelineProject(next, { mode: "legacy" });
 }
 
 export function setShapeStyleOverride(
@@ -57,5 +57,5 @@ export function setShapeStyleOverride(
 	if (style === null) delete clip.shapeStyleOverride;
 	else clip.shapeStyleOverride = structuredClone(style);
 	next.updatedAt = new Date().toISOString();
-	return validateTimelineProject(next);
+	return validateTimelineProject(next, { mode: "legacy" });
 }

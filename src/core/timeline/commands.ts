@@ -56,7 +56,7 @@ function edit(project: TimelineProject, update: (next: TimelineProject) => void)
 	update(next);
 	reconcileClipTransitions(next);
 	next.updatedAt = new Date().toISOString();
-	return validateTimelineProject(next);
+	return validateTimelineProject(next, { mode: "legacy" });
 }
 
 function clampEdgeAnimation(clip: TimelineClip, edge: "enter" | "exit", maxDurationUs: number) {

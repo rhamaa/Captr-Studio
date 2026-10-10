@@ -312,10 +312,10 @@ function inlineContent(value: StoryClipContent, width: number, height: number) {
 }
 
 export type TimelineValidationOptions = { mode: "legacy" | "canonical" };
-/** Legacy is a bounded ingress/old-command compatibility mode; editable normalized output uses canonical. */
+/** Canonical by default; raw ingress and unmigrated producers must select legacy explicitly. */
 export function validateTimelineProject(
 	value: unknown,
-	options: TimelineValidationOptions = { mode: "legacy" },
+	options: TimelineValidationOptions = { mode: "canonical" },
 ): TimelineProject {
 	requireValue(value && typeof value === "object", "Invalid timeline project");
 	const p = value as TimelineProject;
@@ -788,7 +788,13 @@ export function validateTimelineProject(
 					Array.isArray(story.localAssets),
 					"Invalid Story private media mirror",
 				);
+				const mirrorIds = new Set<string>();
 				for (const media of story.localAssets) {
+					requireValue(
+						!mirrorIds.has(media.id),
+						"Duplicate Story private media mirror ID",
+					);
+					mirrorIds.add(media.id);
 					const canonical = owner.localAssets?.find((asset) => asset.id === media.id);
 					// Missing metadata in old owners may be hydrated at the normalization boundary.
 					if (options.mode === "canonical" || owner.localAssets !== undefined)
@@ -796,6 +802,21 @@ export function validateTimelineProject(
 							canonical && sameMetadata(canonical, media),
 							"Inconsistent Story private media mirror",
 						);
+				}
+			}
+			if (options.mode === "canonical" && owner) {
+				const placements = new Map(
+					owner.tracks?.flatMap((track) => track.clips).map((clip) => [clip.id, clip]),
+				);
+				for (const clip of story.tracks.flatMap((track) => track.clips)) {
+					if (!clip.compositionId) continue;
+					const placement = placements.get(clip.id);
+					requireValue(
+						placement &&
+							placement.compositionId === clip.compositionId &&
+							placement.assetId === clip.assetId,
+						"Story projection Record reference does not belong to its owner placement",
+					);
 				}
 			}
 			// Projection IDs and composition references are checked independently, not registered

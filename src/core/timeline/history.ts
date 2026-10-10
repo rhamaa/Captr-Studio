@@ -15,7 +15,7 @@ export class ProjectHistory {
 	private future: Snapshot[] = [];
 	constructor(project: TimelineProject) {
 		this.current = {
-			project: structuredClone(validateTimelineProject(project)),
+			project: structuredClone(validateTimelineProject(project, { mode: "legacy" })),
 			selection: [],
 		};
 	}
@@ -52,7 +52,7 @@ export class ProjectHistory {
 	execute(command: ProjectCommand, selection = this.selection): TimelineProject {
 		const next = command(this.project);
 		if (next === this.project) return next;
-		validateTimelineProject(next);
+		validateTimelineProject(next, { mode: "legacy" });
 		this.past.push(this.current);
 		if (this.past.length > 100) this.past.shift();
 		this.future = [];
