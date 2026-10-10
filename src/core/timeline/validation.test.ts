@@ -32,6 +32,38 @@ describe("canonical Story ownership validation", () => {
 		];
 		expect(() => validateTimelineProject(p, { mode: "canonical" })).not.toThrow();
 	});
+	it("rejects a template default duration beyond its inline source extent", () => {
+		const p = ownershipFixture();
+		p.designTemplates = [
+			{
+				id: "template",
+				name: "Template",
+				kind: "text",
+				content: { kind: "text", text: fixtureText, durationUs: 5_000_000 },
+				width: 1920,
+				height: 1080,
+				defaultDurationUs: 5_000_001,
+			},
+		];
+		expect(() => validateTimelineProject(p, { mode: "canonical" })).toThrow(/duration/);
+		p.designTemplates[0].defaultDurationUs = 5_000_000;
+		expect(() => validateTimelineProject(p, { mode: "canonical" })).not.toThrow();
+	});
+	it("rejects duplicate private physical IDs across siblings", () => {
+		const p = ownershipFixture();
+		p.repurposeBoard!.artboards[1].localAssets = structuredClone(
+			p.repurposeBoard!.artboards[0].localAssets,
+		);
+		expect(() => validateTimelineProject(p, { mode: "canonical" })).toThrow(/ID/);
+	});
+	it("rejects an ambiguous legacy Story alias instead of selecting an arbitrary owner", () => {
+		const p = ownershipFixture();
+		p.repurposeBoard!.artboards[1].id = "story-A";
+		p.stories = [
+			{ id: "story-A", name: "Ambiguous", aspectRatio: "16:9", canvas: p.canvas, tracks: [] },
+		];
+		expect(() => validateTimelineProject(p, { mode: "legacy" })).toThrow(/Ambiguous/);
+	});
 	it("accepts independent owners and mirrored projections without double-registering IDs", () => {
 		const p = ownershipFixture();
 		const a = p.repurposeBoard!.artboards[0];

@@ -28,7 +28,7 @@ Parent-approved bounded legacy default keeps genuine old global Text/Shape Asset
 
 Projection IDs are not registered twice. Projection tracks are deeply checked with their owner's private library. Canonical missing owners and forged private mirrors reject. Private metadata equivalence ignores serialized object property order. Valid but stale projection tracks need not exactly equal canonical tracks: canonical owners remain authoritative and Task 2 must regenerate projections. This avoids stale projections overriding newer canonical edits. Legacy standalone Story validation is deep before hydration.
 
-`getStoryProject` returns a non-mutating view, not a deep-cloned editable store. Root view is the original project; Artboard views have global assets plus only localAssets for that owner and clear nested repurposeBoard/stories. Commands in Task 5 must clone/write back through the root transaction. No applyStoryCommand implemented here (Task 5 ownership).
+`getStoryProject` returns a non-mutating view, not a deep-cloned editable store. Root view is the original project; Artboard views have global assets plus only localAssets for that owner and clear nested repurposeBoard/stories. The scoped command wrapper in Task 2 must clone/write back through the root transaction. No applyStoryCommand implemented here (Task 2 ownership).
 
 ## TDD and checks
 
@@ -46,7 +46,7 @@ All commands run from D:/Projects/Captr Studio. Vitest commands used approved un
 
 ## Integration concerns and follow-up
 
-- Optional assetId produces expected compile errors in SubtitleOverlay.tsx:67 (undefined index; Task 4), TimelineClipItem.tsx:137 (string argument; Task 4), agentTools.ts:205 (context schema demands assetId; Task 6). No unrelated UI/type assertions added to conceal these sites. Full diagnostics preserved in task-1-final-tsc.log.
+- Optional assetId produces expected compile errors in SubtitleOverlay.tsx:67 (undefined index; Task 4), TimelineClipItem.tsx:137 (string argument; Task 4), agentTools.ts:205 (context schema demands assetId; Task 5). No unrelated UI/type assertions added to conceal these sites. Full diagnostics preserved in task-1-final-tsc.log.
 - Existing old command/default callers intentionally use bounded legacy validation until subsequent task migration. Do not release this intermediate commit before all gates.
 - Normalize inherited/duplicated sequences and independent Record composition IDs before canonical validation. getStoryProject deliberately throws for missing tracks, including legacy Artboards that need materialization.
 - Source resolution returns media source extent; Record composition duration remains a placement concern, used by validation's existing composition clock checks.
@@ -59,3 +59,7 @@ Before source edits: graft map; ask TimelineClip/TimelineProject/validation/Stor
 Connected sources include commands/shape commands/Artboard placement; evaluation/visualAnimation/audioPlan/clipTransitions; canvasGizmoMath/TimelineClipItem/ProjectInspector/ProjectTimeline/ProjectPreview/StoryEditor/SubtitleOverlay; agentPayload/agentTools/broll/voiceover; useRecordingAssets/useAudioRecordingAssets/controller/history; electron MCP/transcription; timelineBundle/mediaReferences/manager/projectFileService/register-project-save/projectBundle and preload. The 32 validator callers include both main-process raw bundle ingress and renderer/editor command/history/export consumers; later tasks must deliberately choose legacy ingress versus canonical output at each boundary, not globally flip default prematurely.
 
 Graft estimated savings total: 1,657,929 tokens (sum of reported map/ask/grep/skeleton/callers estimates; graph rebuild has no savings line). Graph rebuilt after changes. Source spans inspected from graph; truncated needed validation ranges were opened exactly before edits.
+
+## Final handoff coverage supplement
+
+Parent completeness check identified explicit assertions worth adding for existing Task 1 checks: template default duration may equal or be shorter than its source extent but cannot exceed it; sibling-private physical IDs cannot duplicate; ambiguous legacy Story aliases reject instead of selecting an arbitrary owner. No production behavior changed. Focused three-file gate: 41/41 passed (validation 37, resolver 2, views 2), task-1-handoff-focused.log. Main implementation commit: c989fd8.
