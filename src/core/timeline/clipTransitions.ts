@@ -1,4 +1,6 @@
-import { clipDurationUs, projectDurationUs, type ClipTransition, type ComponentAnimation, type TimelineProject } from "./types";
+import { resolveClipSource } from "./clipSource";
+import { refreshStoryProjections } from "./storyOwnership";
+import { type ClipTransition, type ComponentAnimation, clipDurationUs, projectDurationUs, type TimelineProject } from "./types";
 import { validateTimelineProject } from "./validation";
 
 type TransitionInput = Omit<ClipTransition, "id" | "durationUs"> & { durationUs?: number };
@@ -23,9 +25,8 @@ function eligiblePair(project: TimelineProject, fromClipId: string, toClipId: st
 		fromIndex = ordered.findIndex((clip) => clip.id === fromClipId);
 	if (ordered[fromIndex + 1]?.id !== toClipId)
 		throw new Error("Transition clips must be directly adjacent");
-	const fromAsset = project.assets.find((asset) => asset.id === from.clip.assetId),
-		toAsset = project.assets.find((asset) => asset.id === to.clip.assetId);
-	if (!fromAsset || !toAsset) throw new Error("Transition clip asset is missing");
+	const fromAsset = resolveClipSource(project, from.clip),
+		toAsset = resolveClipSource(project, to.clip);
 	const fromComposition = from.clip.compositionId
 		? project.compositions.find((item) => item.id === from.clip.compositionId)
 		: undefined;
@@ -52,17 +53,17 @@ export function getMaxClipTransitionDurationUs(
 		toClipId,
 	);
 	const outgoingSourceDuration =
-		fromAsset.kind === "shape" || fromAsset.kind === "image"
+		fromAsset.kind === "image"
 			? Number.POSITIVE_INFINITY
 			: (fromComposition?.durationUs ?? fromAsset.durationUs);
 	const incomingSourceStart =
-		toAsset.kind === "shape" || toAsset.kind === "image" ? Number.POSITIVE_INFINITY : to.clip.sourceInUs;
+		toAsset.kind === "image" ? Number.POSITIVE_INFINITY : to.clip.sourceInUs;
 	const outgoingTailUs =
-		fromAsset.kind === "shape" || fromAsset.kind === "image"
+		fromAsset.kind === "image"
 			? Number.POSITIVE_INFINITY
 			: Math.max(0, (outgoingSourceDuration - from.clip.sourceOutUs) / from.clip.rate);
 	const incomingHeadUs =
-		toAsset.kind === "shape" || toAsset.kind === "image"
+		toAsset.kind === "image"
 			? Number.POSITIVE_INFINITY
 			: incomingSourceStart / to.clip.rate;
 	const boundaryUs = to.clip.startUs,
@@ -103,7 +104,7 @@ export function addClipTransition(
 	next.clipTransitions ??= [];
 	next.clipTransitions.push({ ...structuredClone(input), id: transitionId, durationUs });
 	next.updatedAt = new Date().toISOString();
-	return validateTimelineProject(next, { mode: "legacy" });
+	return validateTimelineProject(refreshStoryProjections(next));
 }
 
 export function updateClipTransition(
@@ -119,7 +120,7 @@ export function updateClipTransition(
 	if (!Number.isSafeInteger(transition.durationUs) || transition.durationUs <= 0 || transition.durationUs > maximumUs)
 		throw new Error(`Transition exceeds maximum available handle duration of ${maximumUs} µs`);
 	next.updatedAt = new Date().toISOString();
-	return validateTimelineProject(next, { mode: "legacy" });
+	return validateTimelineProject(refreshStoryProjections(next));
 }
 
 export function removeClipTransition(project: TimelineProject, transitionId: string): TimelineProject {
@@ -129,7 +130,7 @@ export function removeClipTransition(project: TimelineProject, transitionId: str
 	if (remaining.length === transitions.length) throw new Error("Transition not found");
 	next.clipTransitions = remaining;
 	next.updatedAt = new Date().toISOString();
-	return validateTimelineProject(next, { mode: "legacy" });
+	return validateTimelineProject(refreshStoryProjections(next));
 }
 
 export function reconcileClipTransitions(project: TimelineProject): void {
@@ -167,5 +168,5 @@ export function setComponentAnimation(
 	if (clip.componentAnimation && !clip.componentAnimation.enter && !clip.componentAnimation.exit)
 		delete clip.componentAnimation;
 	next.updatedAt = new Date().toISOString();
-	return validateTimelineProject(next, { mode: "legacy" });
+	return validateTimelineProject(refreshStoryProjections(next));
 }

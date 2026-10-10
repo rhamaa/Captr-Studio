@@ -1,13 +1,13 @@
 import type { ProjectEvaluation } from "@/core/timeline/evaluation";
 import type {
-	EvaluatedClipTransition,
-	ProjectVisualSample,
-} from "@/core/timeline/visualAnimation";
-import type {
 	ComponentAnimation,
 	ShapeDefinition,
 	ShapeStyle,
 } from "@/core/timeline/types";
+import type {
+	EvaluatedClipTransition,
+	ProjectVisualSample,
+} from "@/core/timeline/visualAnimation";
 import { localMediaUrl } from "@/recording/mediaProbe";
 import { FrameRenderer } from "./frameRenderer";
 import { LayerVideoSource } from "./layerVideoSource";
@@ -272,8 +272,11 @@ export class ProjectFrameRenderer {
 		ctx.translate(width / 2 + animated.x, height / 2 + animated.y);
 		ctx.rotate((visual.transform.rotation * Math.PI) / 180);
 		ctx.scale(animated.scale, animated.scale);
-		if (visual.asset.kind === "text") {
-			const overlay = visual.clip.text ?? visual.asset.text!;
+		if (visual.source.kind === "text") {
+			const overlay = visual.source.content?.kind === "text"
+				? visual.source.content.text
+				: visual.source.media?.text;
+			if (!overlay) throw new Error(`Missing text definition for ${visual.clipId}`);
 			ctx.font = `${overlay.fontWeight} ${overlay.fontSizePx}px "${overlay.fontFamily.replace(/["\\\r\n]/g, "")}"`;
 			ctx.textAlign = overlay.align;
 			ctx.textBaseline = "middle";
@@ -288,22 +291,24 @@ export class ProjectFrameRenderer {
 			ctx.restore();
 			return canvas;
 		}
-		if (visual.asset.kind === "shape") {
-			const definition = visual.asset.shapeDefinition;
+		if (visual.source.kind === "shape") {
+			const definition = visual.source.content?.kind === "shape"
+				? visual.source.content.shapeDefinition
+				: visual.source.media?.shapeDefinition;
 			if (!definition) throw new Error(`Missing shape definition for ${visual.clipId}`);
 			const defaultStyle: ShapeStyle = {
 				fill: "fill" in definition.style ? definition.style.fill : null,
 				stroke: definition.style.stroke,
 			};
 			const style = visual.clip.shapeStyleOverride ?? defaultStyle;
-			const ratio = Math.min(width / visual.asset.width, height / visual.asset.height);
-			this.drawShape(ctx, definition, style, visual.asset.width, visual.asset.height, ratio);
+			const ratio = Math.min(width / visual.source.width, height / visual.source.height);
+			this.drawShape(ctx, definition, style, visual.source.width, visual.source.height, ratio);
 			ctx.restore();
 			return canvas;
 		}
 		const source = visual.recording
 			? await this.recording(visual, evaluation, continuousPlayback)
-			: visual.asset.kind === "image"
+			: visual.source.kind === "image"
 				? await this.image(visual.path)
 				: await this.video(visual.path, visual.sourceUs, evaluation.timeUs, continuousPlayback);
 		if (this.disposed) throw new Error("Project renderer disposed");

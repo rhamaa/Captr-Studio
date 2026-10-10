@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+	addClipTransition,
+	getMaxClipTransitionDurationUs,
+	removeClipTransition,
+	setComponentAnimation,
+	updateClipTransition,
+} from "./clipTransitions";
+import {
 	addTrack,
 	createTimelineProject,
 	moveClip,
@@ -7,14 +14,23 @@ import {
 	registerMedia,
 	registerRecording,
 } from "./commands";
-import { clipDurationUs, type ComponentAnimation } from "./types";
-import {
-	addClipTransition,
-	getMaxClipTransitionDurationUs,
-	removeClipTransition,
-	setComponentAnimation,
-	updateClipTransition,
-} from "./clipTransitions";
+import { fixtureClip, fixtureText, fixtureTrack } from "./storyOwnership.fixtures";
+import { type ComponentAnimation, clipDurationUs } from "./types";
+
+it.each([0.5, 2])("uses finite inline shape and text handles at rate %s", (rate) => {
+	const project = createTimelineProject("inline-handles", "Inline");
+	const from = fixtureClip("out", { content: { kind: "shape", durationUs: 5_000_000,
+		shapeDefinition: { kind: "rectangle", width: 100, height: 50, style: { fill: "#ffffff", stroke: null } } } });
+	const to = fixtureClip("in", { content: { kind: "text", durationUs: 5_000_000, text: fixtureText } });
+	from.sourceOutUs = 4_000_000; from.rate = rate;
+	to.sourceInUs = 1_000_000; to.rate = rate; to.startUs = clipDurationUs(from);
+	project.tracks = [fixtureTrack("visual-1", [from, to])];
+	expect(getMaxClipTransitionDurationUs(project, "out", "in")).toBe(2_000_000 / rate);
+	const withTransition = addClipTransition(project, { ...transitionInput, durationUs: 500_000 }, "inline-transition");
+	expect(() => updateClipTransition(withTransition, "inline-transition", { durationUs: 2_000_000 / rate + 1 })).toThrow(/handle/);
+	expect(moveClip(withTransition, "in", "visual-1", to.startUs + 1_000_000).clipTransitions).toEqual([]);
+	expect(removeClipTransition(withTransition, "inline-transition").clipTransitions).toEqual([]);
+});
 
 function videoPair({ tailUs = 2_000_000, headUs = 2_000_000, fromRate = 1, toRate = 1 } = {}) {
 	let project = createTimelineProject("transition-test", "Transitions");

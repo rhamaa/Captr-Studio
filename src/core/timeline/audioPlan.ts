@@ -1,6 +1,7 @@
 import type { AudioDuckingSettings } from "@/components/video-editor/types";
 import { buildVideoLayerAudioRegions } from "@/components/video-editor/videoLayerAudio";
 import { resolveRecordingSettings } from "@/recording/editor/compositionAdapter";
+import { resolveClipSource } from "./clipSource";
 import type { MediaSource, TimelineProject } from "./types";
 export interface ProjectAudioSegment {
 	id: string;
@@ -22,7 +23,7 @@ export function buildProjectAudioPlan(project: TimelineProject): ProjectAudioSeg
 		if (track.muted) continue;
 		for (const clip of track.clips) {
 			if (!clip.enabled) continue;
-			const asset = project.assets.find((a) => a.id === clip.assetId);
+			const asset = resolveClipSource(project, clip).media;
 			if (!asset) continue;
 			const append = (
 				source: MediaSource,

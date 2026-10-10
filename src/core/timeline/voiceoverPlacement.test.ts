@@ -51,6 +51,16 @@ function addExistingClip(
 }
 
 describe("placeVoiceover", () => {
+	it("places a private source without publishing it and rejects a sibling view", () => {
+		const project = createTimelineProject("private-voice", "Voice");
+		project.localAssets = [{ ...voiceover, kind: "audio" }];
+		const ids = { clipId: "private-clip", trackId: "new-track" };
+		const next = placeVoiceover(project, voiceover.id, 1_000_000, ids);
+		expect(next.assets).toEqual([]);
+		expect(next.localAssets).toEqual(project.localAssets);
+		expect(next.tracks[1].clips[0]).toMatchObject({ assetId: voiceover.id, startUs: 1_000_000 });
+		expect(() => placeVoiceover({ ...project, localAssets: [] }, voiceover.id, 0, ids)).toThrow(/asset/i);
+	});
 	it("uses the first unlocked audio track with a free interval", () => {
 		const project = projectWithVoiceover();
 		addExistingClip(project, "audio-1", 0, 10_000_000);

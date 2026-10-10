@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { createTimelineProject } from "@/core/timeline/commands";
+import { evaluateProject } from "@/core/timeline/evaluation";
+import { fixtureClip, fixtureText, fixtureTrack } from "@/core/timeline/storyOwnership.fixtures";
 import type { TimelineProject } from "@/core/timeline/types";
 import {
 	calculateResizeScale,
@@ -9,6 +12,28 @@ import {
 } from "./canvasGizmoMath";
 
 describe("canvasGizmoMath", () => {
+	it.each([0.5, 2])("matches inline and private media bounds with evaluated keyframes at rate %s", (rate) => {
+		const project = createTimelineProject("bounds-inline", "Bounds");
+		const title = fixtureClip("title", { content: { kind: "text", text: { ...fixtureText, content: "Story", fontSizePx: 80 }, durationUs: 5_000_000 } });
+		title.rate = rate;
+		title.keyframes = [
+			{ id: "start", property: "position", timeMs: 0, value: { x: 0, y: 0 }, easing: "linear" },
+			{ id: "end", property: "position", timeMs: 2000, value: { x: 200, y: 100 }, easing: "linear" },
+		];
+		const video = fixtureClip("private-video", { assetId: "local-video" }); video.rate = rate;
+		project.localAssets = [{ id: "local-video", kind: "video", name: "Private", width: 100, height: 100, durationUs: 5_000_000,
+			source: { path: "local.mp4", durationUs: 5_000_000, offsetUs: 0 } }];
+		project.tracks = [fixtureTrack("title-track", [title]), fixtureTrack("video-track", [video])];
+		for (const sourceUs of [0, 1_000_000, 4_999_999]) {
+			const timeUs = sourceUs / rate;
+			const bounds = getActiveVisualClipsBounds(project, timeUs);
+			expect(bounds).toHaveLength(2);
+			const evaluated = evaluateProject(project, timeUs);
+			expect(bounds[0]).toMatchObject({ width: 240, height: 96, centerX: 960 + evaluated.visuals[0].transform.x, centerY: 540 + evaluated.visuals[0].transform.y });
+			expect(bounds[1]).toMatchObject({ assetId: "local-video", width: 1080, height: 1080 });
+		}
+		expect(getActiveVisualClipsBounds(project, 5_000_000 / rate)).toEqual([]);
+	});
 	const mockProject: TimelineProject = {
 		id: "proj_1",
 		title: "Test",

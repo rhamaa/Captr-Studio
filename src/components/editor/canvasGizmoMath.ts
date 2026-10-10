@@ -1,5 +1,5 @@
 import type { MediaAsset, TimelineClip, TimelineProject } from "@/core/timeline/types";
-import { sampleClipTransform } from "@/core/timeline/clipTransform";
+import { sampleProjectVisual } from "@/core/timeline/visualAnimation";
 
 export interface CanvasObjectBounds {
 	clipId: string;
@@ -82,11 +82,7 @@ export function getActiveVisualClipsBounds(
 			const clipEndUs = clip.startUs + Math.round((clip.sourceOutUs - clip.sourceInUs) / (clip.rate || 1));
 			if (timeUs < clip.startUs || timeUs >= clipEndUs) continue;
 
-			const asset = project.assets.find((a) => a.id === clip.assetId);
-			if (!asset) continue;
-
-			const localTimeUs = Math.max(0, timeUs - clip.startUs);
-			const transform = sampleClipTransform(clip, localTimeUs);
+			const { asset, transform } = sampleProjectVisual(project, track, clip, timeUs);
 			if (transform.opacity <= 0.01) continue;
 
 			const { width, height } = getClipBaseDimensions(clip, asset, canvasWidth, canvasHeight);

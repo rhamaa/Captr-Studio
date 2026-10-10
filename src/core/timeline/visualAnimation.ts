@@ -1,5 +1,5 @@
 import { evaluateRecording } from "@/recording/evaluation";
-import { resolveClipSource } from "./clipSource";
+import { type ResolvedClipSource, resolveClipSource } from "./clipSource";
 import { sampleClipTransform } from "./clipTransform";
 import {
 	type ClipTransform,
@@ -24,6 +24,7 @@ export interface ProjectVisualSample {
 	clipId: string;
 	trackId: string;
 	clip: TimelineClip;
+	source: ResolvedClipSource;
 	asset: MediaAsset;
 	path: string;
 	sourceUs: number;
@@ -168,6 +169,7 @@ function visualSample(
 		clipId: clip.id,
 		trackId: track.id,
 		clip,
+		source: resolved,
 		asset,
 		path,
 		sourceUs,

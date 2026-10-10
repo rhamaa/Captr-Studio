@@ -1,3 +1,4 @@
+import { resolveMediaAsset } from "./clipSource";
 import { addTrack, placeAsset } from "./commands";
 import { clipDurationUs, type TimelineProject } from "./types";
 
@@ -7,8 +8,7 @@ export function placeVoiceover(
 	startUs: number,
 	ids: { clipId: string; trackId: string },
 ): TimelineProject {
-	const asset = project.assets.find((candidate) => candidate.id === assetId);
-	if (!asset) throw new Error("Voiceover asset not found");
+	const asset = resolveMediaAsset(project, assetId);
 	if (asset.kind !== "audio") throw new Error("Voiceover asset must be audio");
 	if (
 		!Number.isSafeInteger(startUs) ||
