@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Documentation — 2026-10-10
+
+- Added [issue #12 and its implementation/regression TODOs](ISSUE.md#12-pemisahan-assets-global-elemen-story-dan-komposisi-record-10-oktober-2026) for separating reusable global media from Story-owned design elements and private media.
+- Recorded the agreed hierarchy: Artboard owns its Story; Story assembles the final video above placement-specific Record compositions. Source Recording packages remain shared and editable without flattening.
+- Added a dated [Story Editor development timeline and ordered backlog](ROADMAP.md#fokus-dan-timeline-pengembangan-story-editor--update-10-oktober-2026): ownership first, then finishing essentials, editing workflow, visual polish, and advanced tools.
+
+### Development snapshot — 2026-10-10
+
+- Version remains `1.4.0-beta.1`; no release or version bump accompanies this documentation update. The latest existing implementation commit at the time of this snapshot is `92f2cd7` (2026-10-09), fixing Story Editor interaction freezes.
+- Recent committed work includes the modular Story Editor, NLE playback/inspector/shortcut controls, workspace zoom/pan, direct canvas transforms, project terminal configuration, and Copilot/MCP speculative editing. Their recorded verification results are in ISSUE.md; tests were not rerun for this snapshot.
+- Current ownership behavior: Text and Shape still register global Assets, and Artboard updates synchronize those Assets to the root project. Story-local design elements and private media are planned, not implemented.
+- Current finishing gaps: the Story timeline waveform is synthetic, keyframe diamonds are display markers, and subtitle preview is a DOM overlay outside the exported frame canvas. `StoryComposition.subtitles` metadata exists, but complete Story/Artboard persistence and final subtitle rendering remain pending.
+- Native QA items and the older full-suite failures recorded in ISSUE.md remain unresolved verification entries; targeted passing tests do not imply full-suite or native coverage.
+
+### Planned — Story ownership contract
+
+- Global Assets: reusable Recording packages, imported video/images/GIFs, music, sound effects, and audio sources.
+- Story-owned elements: text/titles/callouts, shapes, final captions, backgrounds, transitions, keyframes, masks, grading, and grouping. Reusable design presets belong in Templates, not the global media library.
+- Story-private media: voiceover/TTS created specifically for that Story by default, with explicit publication to global Assets. This changes a future workflow only; current recording behavior is unchanged.
+- Preserve independent placement edits, nested source-time mapping, shared preview/export evaluation, undo/redo, and backward-compatible V3 loading. Persist all global/private media, including unplaced sources, in the same `.captr`; retain authoritative `project.json`, `assets/<assetId>/`, and existing recording/path protections.
+
+---
+
 ## [1.4.0-beta.1] - 2026-10-06
 
 ### 🚀 Highlights
