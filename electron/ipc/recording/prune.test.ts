@@ -127,7 +127,9 @@ describe("pruneAutoRecordings", () => {
 		const { getRecordingsDir } = await import("../utils");
 		const { PROJECTS_DIRECTORY_NAME, AUTO_RECORDING_MAX_AGE_MS } = await import("../constants");
 		const { pruneAutoRecordings } = await import("./prune");
-		const { ownershipFixture } = await import("../../../src/core/timeline/storyOwnership.fixtures");
+		const { ownershipFixture } = await import(
+			"../../../src/core/timeline/storyOwnership.fixtures"
+		);
 		const dir = await getRecordingsDir(),
 			projects = path.join(dir, PROJECTS_DIRECTORY_NAME);
 		await fs.mkdir(projects, { recursive: true });

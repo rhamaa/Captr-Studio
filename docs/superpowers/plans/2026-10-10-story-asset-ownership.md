@@ -125,7 +125,7 @@ Add rejection assertions for neither source, invalid extent/shape/text, dangling
 
 **Interfaces:** Consumes Task 1 views/types. Produces `applyStoryCommand` and `normalizeStoryOwnership`; retains existing Artboard/Story utility entry points by delegating to these rules. Normalization remaps IDs deterministically so a second call is identical; commands use existing ID generation for new clones.
 
-- [ ] **Step 1: Write failing isolation/hydration tests.** Use an inherited legacy Artboard (no tracks), explicit empty B, standalone Story, and a stale `project.stories` projection. Assert:
+- [x] **Step 1: Write failing isolation/hydration tests.** Use an inherited legacy Artboard (no tracks), explicit empty B, standalone Story, and a stale `project.stories` projection. Assert:
 
 ```ts
 expect(normalizeStoryOwnership(normalizeStoryOwnership(input))).toEqual(normalizeStoryOwnership(input));
@@ -138,9 +138,9 @@ expect(() => normalizeStoryOwnership(ambiguousStoryMapping)).toThrow();
 ```
 
 Also assert root editing does not alter a materialized/new/duplicated Artboard, template/shared source IDs remain shared, clone transitions refer to new clips, and subtitle settings/framing/local library/explicit empty metadata round-trip through both conversion directions. Standalone identity stays stable.
-- [ ] **Step 2: Verify failure.** Run `npx vitest run src/core/timeline/storyOwnership.test.ts src/core/timeline/normalizeStoryOwnership.test.ts src/core/timeline/repurposeCommands.test.ts src/core/story/storyUtils.test.ts`; new isolation/projection tests fail.
-- [ ] **Step 3: Implement authority and snapshot rules.** Preserve canonical tracks over projection tracks, hydrate only unmatched/unambiguous legacy Stories, and materialize omitted tracks once. Clone tracks/clips/transitions/private IDs and Record compositions, updating references; preserve global package IDs. Scoped commands write owner metadata and intentional shared imports, never sibling/root-private fields. Projections include empty owners and derive current paths/metadata every time.
-- [ ] **Step 4: Verify and commit.** Same command passes; commit `feat: isolate canonical Stories and Artboard snapshots`.
+- [x] **Step 2: Verify failure.** Run `npx vitest run src/core/timeline/storyOwnership.test.ts src/core/timeline/normalizeStoryOwnership.test.ts src/core/timeline/repurposeCommands.test.ts src/core/story/storyUtils.test.ts`; new isolation/projection tests fail.
+- [x] **Step 3: Implement authority and snapshot rules.** Preserve canonical tracks over projection tracks, hydrate only unmatched/unambiguous legacy Stories, and materialize omitted tracks once. Clone tracks/clips/transitions/private IDs and Record compositions, updating references; preserve global package IDs. Scoped commands write owner metadata and intentional shared imports, never sibling/root-private fields. Projections include empty owners and derive current paths/metadata every time.
+- [x] **Step 4: Verify and commit.** Same command passes; commit `feat: isolate canonical Stories and Artboard snapshots`.
 
 ## Task 3: Local Text/Shape, Templates, and legacy migration
 
@@ -148,7 +148,7 @@ Also assert root editing does not alter a materialized/new/duplicated Artboard, 
 
 **Interfaces:** Consumes resolver/views/normalizer. Produces private register/remove APIs, `applyDesignTemplate`, and `extendInlineClip`. Existing Text/Shape creator APIs retain their caller compatibility temporarily, but ignore the obsolete design `assetId` allocation and create inline content; remove obsolete caller allocation in Task 5. `removeAsset` checks all canonical scopes; `removeStoryMedia` checks its owner. Commands return new projects and perform no filesystem operations.
 
-- [ ] **Step 1: Write failing command/migration tests.** Assert:
+- [x] **Step 1: Write failing command/migration tests.** Assert:
 
 ```ts
 expect(created.assets).toEqual(before.assets);
@@ -163,9 +163,9 @@ expect(migrated.assets.some(a => a.kind === "text" || a.kind === "shape")).toBe(
 ```
 
 Test legacy placement text override precedence, shape override, non-default range/rate, unchanged IDs/keyframes/animations/transitions, invalid legacy definition rejecting the whole clone, independent template instances, private registration without placement, source deletion rejected while referenced, clip deletion retaining media, and undo/redo restoring content/IDs. Existing global voiceover media stays global.
-- [ ] **Step 2: Verify failure.** Run `npx vitest run src/core/timeline/textOverlay.test.ts src/core/timeline/shapeCommands.test.ts src/core/timeline/commands.test.ts src/core/timeline/designTemplateCommands.test.ts src/core/timeline/storyMediaCommands.test.ts src/core/timeline/normalizeStoryOwnership.test.ts`; new cases fail.
-- [ ] **Step 3: Implement inline creators and migration.** Deep-copy design data, preserve timing/style overrides, migrate every placed legacy design and preserve unused entries as Templates. Remove legacy Assets only after resolving all canonical references. `extendInlineClip` grows extent only for valid inline clips; split/duplicate deep-copy content and preserve existing Record independence. Registration is separate from placement history.
-- [ ] **Step 4: Verify and commit.** Same suites pass; commit `feat: keep Story designs inline and migrate legacy presets`.
+- [x] **Step 2: Verify failure.** Run `npx vitest run src/core/timeline/textOverlay.test.ts src/core/timeline/shapeCommands.test.ts src/core/timeline/commands.test.ts src/core/timeline/designTemplateCommands.test.ts src/core/timeline/storyMediaCommands.test.ts src/core/timeline/normalizeStoryOwnership.test.ts`; new cases fail.
+- [x] **Step 3: Implement inline creators and migration.** Deep-copy design data, preserve timing/style overrides, migrate every placed legacy design and preserve unused entries as Templates. Remove legacy Assets only after resolving all canonical references. `extendInlineClip` grows extent only for valid inline clips; split/duplicate deep-copy content and preserve existing Record independence. Registration is separate from placement history.
+- [x] **Step 4: Verify and commit.** Same suites pass; commit `feat: keep Story designs inline and migrate legacy presets`.
 
 ## Task 4: Unified evaluation, preview, export, and clock handling
 
@@ -173,7 +173,7 @@ Test legacy placement text override precedence, shape override, non-default rang
 
 **Interfaces:** Consumes `ResolvedClipSource` and scoped views; preserves existing public evaluation/render/export interfaces. Evaluated inline visuals retain inline source descriptors without persisting synthetic Assets. Audio plan emits no layer for inline content; private media uses existing decoder/mixer contracts.
 
-- [ ] **Step 1: Write failing parity/clock tests.** Use sample times at the start, middle, end, and transition overlap with `rate: 0.5` and `rate: 2`. Assert:
+- [x] **Step 1: Write failing parity/clock tests.** Use sample times at the start, middle, end, and transition overlap with `rate: 0.5` and `rate: 2`. Assert:
 
 ```ts
 expect(buildProjectAudioPlan(inlineOnly)).toHaveLength(0);
@@ -184,9 +184,9 @@ expect(() => resolveClipSource(viewB, siblingPrivateClip)).toThrow();
 ```
 
 `buildProjectAudioPlan` returns `ProjectAudioSegment[]`; assert zero/one emitted segments directly. Assert dimensions/bounds, text styling, shape override, keyframes, transition handles/adjacency cleanup, webcam/mic offsets and cursor timing remain correct through Story rate and Record time map.
-- [ ] **Step 2: Verify failure.** Run `npx vitest run src/core/timeline/evaluation.test.ts src/core/timeline/visualAnimation.test.ts src/core/timeline/clipTransitions.test.ts src/core/timeline/voiceoverPlacement.test.ts src/lib/exporter/projectFrameRenderer.test.ts src/lib/exporter/projectTextOverlay.test.ts src/lib/exporter/projectAudioRenderer.test.ts src/lib/exporter/timelineProjectExporter.test.ts`; new local-source cases fail.
-- [ ] **Step 3: Replace direct Asset assumptions with resolution.** Use the same scoped source in evaluation, transition handles, frame painting, audio scheduling, and geometry. Preserve Record package evaluation before Story effects and timing. Do not add caption burn-in or change native capture.
-- [ ] **Step 4: Verify and commit.** Same suites pass; commit `feat: render inline designs and private Story media consistently`.
+- [x] **Step 2: Verify failure.** Run `npx vitest run src/core/timeline/evaluation.test.ts src/core/timeline/visualAnimation.test.ts src/core/timeline/clipTransitions.test.ts src/core/timeline/voiceoverPlacement.test.ts src/lib/exporter/projectFrameRenderer.test.ts src/lib/exporter/projectTextOverlay.test.ts src/lib/exporter/projectAudioRenderer.test.ts src/lib/exporter/timelineProjectExporter.test.ts`; new local-source cases fail.
+- [x] **Step 3: Replace direct Asset assumptions with resolution.** Use the same scoped source in evaluation, transition handles, frame painting, audio scheduling, and geometry. Preserve Record package evaluation before Story effects and timing. Do not add caption burn-in or change native capture.
+- [x] **Step 4: Verify and commit.** Same suites pass; commit `feat: render inline designs and private Story media consistently`.
 
 ## Task 5: Library sections, publication, scoped UI and AI edits
 
@@ -196,7 +196,7 @@ expect(() => resolveClipSource(viewB, siblingPrivateClip)).toThrow();
 
 **Interfaces:** Consumes Tasks 1–4. Produces `publishStoryMedia`. Scoped UI dispatch is `controller.execute(root => applyStoryCommand(root, capturedScope, command))`. Define `StoryEditContext = { scope: StoryScope; projectId: string; generation: number }` in `src/core/timeline/storyOwnership.ts` and add it to AI/MCP context/proposals; compare with controller import token and captured scope before applying, then validate atomically. Do not use the currently selected Story to reinterpret an older proposal.
 
-- [ ] **Step 1: Write failing user-flow tests.** Assert Text/Shapes actions create inline clips, Assets shows only global entries, Story Media shows only the current library and an actual empty state, Templates applies independent designs, and inspector/gizmo edit content without a global backing Asset. Assert publication/history:
+- [x] **Step 1: Write failing user-flow tests.** Assert Text/Shapes actions create inline clips, Assets shows only global entries, Story Media shows only the current library and an actual empty state, Templates applies independent designs, and inspector/gizmo edit content without a global backing Asset. Assert publication/history:
 
 ```ts
 expect(published.assets.find(a => a.id === "voice-A")?.source).toEqual(originalSource);
@@ -209,9 +209,9 @@ expect(controller.snapshot.project.assets.some(a => a.id === "voice-A")).toBe(fa
 ```
 
 Test redo IDs, clip/source deletion distinction, undoable Story deletion with no physical cleanup, stale AI generation/wrong Story rejection leaving history/state unchanged, scoped transcript context, and AI Text/Shape output being inline. Ensure gizmo updates do not restore the known render-loop bug.
-- [ ] **Step 2: Verify failure.** Run targeted component suites listed above plus `npx vitest run src/core/timeline/storyMediaCommands.test.ts src/core/timeline/agentTools.test.ts src/core/timeline/agentPayload.test.ts electron/ipc/agent/storyContext.test.ts`; new ownership flows fail.
-- [ ] **Step 3: Wire UI and tools.** Retain existing styles and add labels `Assets`, `Story Media`, `Text / Shapes`, `Templates`, `Publish to Assets`. Publication moves metadata only, preserving ID/source/sidecars. Route timeline/inspector/gizmo through resolver, eliminate obsolete design Asset IDs, keep media import global by default. Add scoped errors and explicit source removal reference checks.
-- [ ] **Step 4: Verify and commit.** Targeted tests and `npx tsc --noEmit` pass (or only documented unchanged baseline failures); commit `feat: expose scoped Story libraries and reusable design templates`.
+- [x] **Step 2: Verify failure.** Run targeted component suites listed above plus `npx vitest run src/core/timeline/storyMediaCommands.test.ts src/core/timeline/agentTools.test.ts src/core/timeline/agentPayload.test.ts electron/ipc/agent/storyContext.test.ts`; new ownership flows fail.
+- [x] **Step 3: Wire UI and tools.** Retain existing styles and add labels `Assets`, `Story Media`, `Text / Shapes`, `Templates`, `Publish to Assets`. Publication moves metadata only, preserving ID/source/sidecars. Route timeline/inspector/gizmo through resolver, eliminate obsolete design Asset IDs, keep media import global by default. Add scoped errors and explicit source removal reference checks.
+- [x] **Step 4: Verify and commit.** Targeted tests and `npx tsc --noEmit` pass (or only documented unchanged baseline failures); commit `feat: expose scoped Story libraries and reusable design templates`.
 
 ## Task 6: Capture voiceovers into their originating Story
 
@@ -219,7 +219,7 @@ Test redo IDs, clip/source deletion distinction, undoable Story deletion with no
 
 **Interfaces:** Consumes private registration and scoped command APIs. Begin take accepts captured context `StoryVoiceoverContext = { scope: StoryScope; token: { generation: number; projectId: string }; startUs: number; ids: { assetId: string; clipId: string; trackId: string } }`. Finalizer uses that immutable context with `acceptImport`, checks owner existence, registers private source, then makes separately undoable placement. Keep bounded existing temporary-file cleanup IPC and capture lease contracts.
 
-- [ ] **Step 1: Write failing async lifecycle tests.** Hold save/probe promises; move playhead after begin and test blocked Story switching, deleted owner, canceled token, new project, save/probe failure, and each Finish/Discard/Stay choice. Assert:
+- [x] **Step 1: Write failing async lifecycle tests.** Hold save/probe promises; move playhead after begin and test blocked Story switching, deleted owner, canceled token, new project, save/probe failure, and each Finish/Discard/Stay choice. Assert:
 
 ```ts
 expect(keptVoiceover.startUs).toBe(capturedStartUs);
@@ -231,17 +231,17 @@ expect(controller.snapshot.project).toEqual(beforeRejectedCompletion);
 ```
 
 Undo placement retains private media; redo restores clip ID. Discard deletes only temporary output. Imported audio and existing global voiceovers remain global; screen Record completion still registers global media without auto placement.
-- [ ] **Step 2: Verify failure.** Run `npx vitest run src/components/editor/useAudioRecordingAssets.test.ts src/components/editor/ProjectEditor.test.tsx src/components/editor/projectNavigation.test.ts src/components/editor/AudioRecorderDialog.test.tsx src/core/timeline/voiceoverPlacement.test.ts`; new captured-scope cases fail.
-- [ ] **Step 3: Implement capture-context handoff.** Capture scope/IDs/time/token at begin; resolve none of these from UI selection at completion. Reuse navigation and pending-work guards, reject stale completions before editing, and leave screen capture paths unchanged.
-- [ ] **Step 4: Verify and commit.** Same suites pass; commit `feat: keep recorded voiceovers private to their originating Story`.
+- [x] **Step 2: Verify failure.** Run `npx vitest run src/components/editor/useAudioRecordingAssets.test.ts src/components/editor/ProjectEditor.test.tsx src/components/editor/projectNavigation.test.ts src/components/editor/AudioRecorderDialog.test.tsx src/core/timeline/voiceoverPlacement.test.ts`; new captured-scope cases fail.
+- [x] **Step 3: Implement capture-context handoff.** Capture scope/IDs/time/token at begin; resolve none of these from UI selection at completion. Reuse navigation and pending-work guards, reject stale completions before editing, and leave screen capture paths unchanged.
+- [x] **Step 4: Verify and commit.** Same suites pass; commit `feat: keep recorded voiceovers private to their originating Story`.
 
 ## Task 7: Complete `.captr` traversal, normalization ingress, and atomic round trips
 
-**Files:** Modify `src/core/timeline/mediaPaths.ts:65-103`, `electron/ipc/project/timelineBundle.ts:16-132`, `mediaReferences.ts:28-200`, `projectMediaValidation.ts`, `manager.ts:499-681`, `projectFileService.ts:87-233`, `src/components/editor/useProjectController.ts:37-72,143-179`, and connected V3 load/save ingress. Add tests to `timelineBundle.test.ts`, `projectBundle.test.ts`, `mediaReferences.test.ts`, `projectMediaValidation.test.ts`, `projectFileService.test.ts`, `manager.test.ts`, `src/components/editor/useProjectController.test.ts`, `electron/ipc/recording/prune.test.ts`, `electron/ipc/register/project/v3LifecycleVerification.test.ts`.
+**Files:** Modify `src/core/timeline/mediaPaths.ts:65-103`, `electron/ipc/project/timelineBundle.ts:16-132`, `mediaReferences.ts:28-200` (existing validation owner; no new parallel module), `manager.ts:499-681`, `projectFileService.ts:87-233`, `src/components/editor/useProjectController.ts:37-72,143-179`, and connected V3 load/save ingress. Add tests to `timelineBundle.test.ts`, `projectBundle.test.ts`, `mediaReferences.test.ts`, `projectMediaValidation.test.ts`, `projectFileService.test.ts`, `manager.test.ts`, `src/components/editor/useProjectController.test.ts`, `electron/ipc/recording/prune.test.ts`, `electron/ipc/register/project/v3LifecycleVerification.test.ts`.
 
 **Interfaces:** Consumes `normalizeStoryOwnership` and canonical owner enumeration. Preserve `visitTimelineMediaPaths`, staging/resolution, and transactional file APIs so native/platform callers stay compatible. Normalize legacy input before canonical installation/staging; deeply validate canonical output. Projection generation occurs after canonical media paths are staged/resolved. Loading a mirror never overrides canonical state.
 
-- [ ] **Step 1: Write failing actual filesystem/bundle tests.** Build an empty Story with unplaced private video/audio, transcript JSON and caption VTT, root media, inline designs, Templates, Record composition, and subtitle metadata. Save/reopen through current bundle services. Assert:
+- [x] **Step 1: Write failing actual filesystem/bundle tests.** Build an empty Story with unplaced private video/audio, transcript JSON and caption VTT, root media, inline designs, Templates, Record composition, and subtitle metadata. Save/reopen through current bundle services. Assert:
 
 ```ts
 expect(bundleEntries).toContain("assets/voice-A/asset.json");
@@ -255,9 +255,9 @@ expect(originalBundleBytesAfterRejectedLoad).toEqual(originalBundleBytes);
 ```
 
 Assert projection paths resolve to staged private media, Story filenames/manifest paths match exactly without prefix duplication, enumeration does not double-count projections, unplaced private paths protect recordings from pruning, missing media/unsafe paths reject before active state/path changes, and repeated save after editing does not restore stale Story tracks. Rename/Save As includes private media while preserving identity/copy rules.
-- [ ] **Step 2: Verify failure.** Run targeted suites named above; private manifest/sidecar/cleanup and round-trip assertions fail initially.
-- [ ] **Step 3: Implement traversal and ingress.** Enumerate global/root-private/all Artboard-private media once, stage manifests/sidecars under unique IDs, regenerate current Story projections after staging, and resolve canonical paths before deriving in-memory projections. Wire clone normalization at V3 load/controller initialization/open and staging as needed, with explicit legacy/raw and canonical validation order. Preserve file queue/transaction/recovery contracts; no recovery while Rename is active. Avoid filesystem deletions in editor commands.
-- [ ] **Step 4: Verify and commit.** All targeted bundle/controller/prune/lifecycle tests pass; commit `feat: persist every Story media scope in V3 projects`.
+- [x] **Step 2: Verify failure.** Run targeted suites named above; private manifest/sidecar/cleanup and round-trip assertions fail initially.
+- [x] **Step 3: Implement traversal and ingress.** Enumerate global/root-private/all Artboard-private media once, stage manifests/sidecars under unique IDs, regenerate current Story projections after staging, and resolve canonical paths before deriving in-memory projections. Wire clone normalization at V3 load/controller initialization/open and staging as needed, with explicit legacy/raw and canonical validation order. Preserve file queue/transaction/recovery contracts; no recovery while Rename is active. Avoid filesystem deletions in editor commands.
+- [x] **Step 4: Verify and commit.** All targeted bundle/controller/prune/lifecycle tests pass; commit `feat: persist every Story media scope in V3 projects`.
 
 ## Task 8: Acceptance gates, contracts, and honest QA status
 
@@ -265,15 +265,15 @@ Assert projection paths resolve to staged private media, Story filenames/manifes
 
 **Interfaces:** Consumes completed Tasks 1–7 and unchanged screen capture/project lifecycle APIs. Produces reviewed ownership contract, exact automated results, and explicit native QA status.
 
-- [ ] **Step 1: Run acceptance scenarios.** Add integration assertions for root/A/B private and global content, shared Record source with independently editable composition, create/edit/split/trim/rate/history, template instances, publication, and latest projections after reopen. Check all ten spec acceptance items against test cases; native-only cases receive a pending label until run.
-- [ ] **Step 2: Verify the complete change.** Run `npm test`, `npx tsc --noEmit`, changed-file Biome checks using the existing configuration, and `git diff --check`. Compare any failures with baseline; fix newly introduced failures. Run `graft grep "assetId"` to audit remaining direct lookups and explain intentional ID-only comparisons, then `graft build`.
-- [ ] **Step 3: Exercise available native QA.** Repeated Record + Ctrl+S, imports, Assets-only save/reopen, two Record placements with independent edits, voiceover Finish/Discard/Stay, Rename/Save As/New, explicit legacy conversion. If the app/native recorder cannot be exercised in this environment, record those exact cases as pending without claiming success; automated coverage does not substitute for native QA.
-- [ ] **Step 4: Update documentation.** Replace the old global Shape contract in `AGENTS.md` with inline placement ownership plus legacy migration. Issue #12 records actual completed scope, checks/results, and native gaps. Roadmap/changelog distinguish implemented ownership from deferred finishing features and caption burn-in. Version remains `1.4.0-beta.1`.
-- [ ] **Step 5: Review and commit.** Use Superpowers verification-before-completion and requesting-code-review, fix actionable findings, rerun only checks affected by fixes, and commit `docs: record Story ownership implementation and verification`. Do not include unrelated user changes.
+- [x] **Step 1: Run acceptance scenarios.** Add integration assertions for root/A/B private and global content, shared Record source with independently editable composition, create/edit/split/trim/rate/history, template instances, publication, and latest projections after reopen. Check all ten spec acceptance items against test cases; native-only cases receive a pending label until run.
+- [x] **Step 2: Verify the complete change.** Run `npm test`, `npx tsc --noEmit`, changed-file Biome checks using the existing configuration, and `git diff --check`. Compare any failures with baseline; fix newly introduced failures. Run `graft grep "assetId"` to audit remaining direct lookups and explain intentional ID-only comparisons, then `graft build`.
+- [x] **Step 3: Exercise available native QA.** Repeated Record + Ctrl+S, imports, Assets-only save/reopen, two Record placements with independent edits, voiceover Finish/Discard/Stay, Rename/Save As/New, explicit legacy conversion. If the app/native recorder cannot be exercised in this environment, record those exact cases as pending without claiming success; automated coverage does not substitute for native QA.
+- [x] **Step 4: Update documentation.** Replace the old global Shape contract in `AGENTS.md` with inline placement ownership plus legacy migration. Issue #12 records actual completed scope, checks/results, and native gaps. Roadmap/changelog distinguish implemented ownership from deferred finishing features and caption burn-in. Version remains `1.4.0-beta.1`.
+- [ ] **Step 5: Independent review gate.** Task 8 documentation/acceptance commit is ready for coordinator review; the separate whole-branch review follows. Use Superpowers verification-before-completion and requesting-code-review, fix actionable findings, rerun only checks affected by fixes, and commit `docs: record Story ownership implementation and verification`. Do not include unrelated user changes.
 
 ## Self-review and execution handoff
 
 Coverage: canonical model/validation (1), authority/isolation (2), migration/design/templates (3), clocks/rendering (4), UI/publication/AI/deletion (5), asynchronous voiceover (6), media/bundle/atomic ingress (7), documentation/native/regression reporting (8). All five Review Focus cases have named assertions in their owning tasks. Source lookup and caller inventories precede implementation; the cleanup caller is included through `prune.test.ts`.
 
-Plan approved by the user on 2026-10-10 with “ok implementasikan rencana”. Executing **Subagent-driven**: ownership changes span eight dependent tasks and both rendering and file persistence; each task benefits from an independent review before the next begins. **Native** remains supported: one agent implements the tasks in this session, followed by an independent full-branch review.
+Plan approved by the user on 2026-10-10 with “ok implementasikan rencana”. Executing **Subagent-driven**: ownership changes span eight dependent tasks and both rendering and file persistence; each task benefits from an independent review before the next begins. Tasks 1–7 have approved independent reviews; Task 8 and the separate whole-branch review remain pending. Native QA is explicitly pending. See [durable evidence and chronological rulings](2026-10-10-story-asset-ownership-verification.md).
 

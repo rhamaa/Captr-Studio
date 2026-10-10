@@ -4,8 +4,8 @@ import { ownershipFixture } from "../../../src/core/timeline/storyOwnership.fixt
 import {
 	clearSpeculativeProject,
 	executeMcpToolCall,
-	getSpeculativeProject,
 	getActiveEditPlan,
+	getSpeculativeProject,
 	setMcpProjectContext,
 } from "./mcpServer";
 

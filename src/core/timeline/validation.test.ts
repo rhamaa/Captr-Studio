@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createTimelineProject, placeAsset, registerMedia } from "./commands";
+import { fixtureClip, fixtureText, ownershipFixture } from "./storyOwnership.fixtures";
 import type { TimelineClip } from "./types";
 import { validateTimelineProject } from "./validation";
-import { fixtureClip, fixtureText, ownershipFixture } from "./storyOwnership.fixtures";
 
 describe("canonical Story ownership validation", () => {
 	it("defaults to canonical validation for duplicate cross-owner placement IDs", () => {

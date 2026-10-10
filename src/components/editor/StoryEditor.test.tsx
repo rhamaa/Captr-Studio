@@ -47,6 +47,9 @@ describe("StoryEditor", () => {
 			success: true,
 			path: "test.captr",
 		}));
+		const siblingBefore = structuredClone(
+			controller.snapshot.project.repurposeBoard!.artboards[1],
+		);
 		const scope = { kind: "artboard", artboardId: "A" } as const;
 		const render = () =>
 			renderToStaticMarkup(
@@ -105,9 +108,7 @@ describe("StoryEditor", () => {
 			root.designTemplates[0].content,
 		);
 		expect(controller.snapshot.project.assets).toEqual(root.assets);
-		expect(controller.snapshot.project.repurposeBoard!.artboards[1]).toEqual(
-			root.repurposeBoard!.artboards[1],
-		);
+		expect(controller.snapshot.project.repurposeBoard!.artboards[1]).toEqual(siblingBefore);
 		controls.onPublish!("voice-A");
 		expect(controller.snapshot.project.assets.at(-1)).toEqual(
 			root.repurposeBoard!.artboards[0].localAssets![0],

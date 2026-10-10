@@ -22,4 +22,12 @@ Recorded 2026-10-10 on Experiment, base 0a439ce. No production source changes ex
 -  electron/ipc/register/project/v3LifecycleVerification.test.ts > V3 Lifecycle & Regression Verification Suite > QA 2: Tempatkan Record dua kali, split/trim/rate/edit independen, import media, dan verifikasi reopen parity
 -  electron/ipc/register/project/v3LifecycleVerification.test.ts > V3 Lifecycle & Regression Verification Suite > persists clip transitions, component animation, and pathless shapes through save and reopen
 
-Raw logs remain in `.superpowers/sdd/2026-10-10-story-asset-ownership/task-1-baseline-*.log`. The manager/lifecycle failures include recent-projects.json access errors (`UNKNOWN: unknown error, open`). Do not treat native QA as completed. Final full-suite comparison belongs to Task 8.
+Raw logs remain in `.superpowers/sdd/2026-10-10-story-asset-ownership/task-1-baseline-*.log`. The manager/lifecycle failures include recent-projects.json access errors (`UNKNOWN: unknown error, open`). Do not treat native QA as completed. Final comparison is recorded below and in the durable verification notes.
+
+## Task 8 final comparison (2026-10-10)
+
+Final default-parallel npm test: exit 1, 211 passed / 5 failed files; 1491 passed / 9 failed tests (1500 total), 113.38 seconds. Exact original twelve failures reconcile to nine unchanged and three resolved (manager unused-media case and both lifecycle cases); zero introduced failures remain. The two introduced ownership fixture mismatches were corrected without weakening validation; a transient Windows Rename journal EPERM passed targeted and final runs. Original 14 Task 1 RED assertions are excluded from pre-existing failures.
+
+Final tsc exits 0. Existing-config changed-path Biome: baseline 106 errors/22 warnings in 83 existing files at 0a439ce; final 42 errors/22 warnings across 97 files, with all 14 added files clean and no new path/category/severity/description keys or increased counts. Safe test formatting/import fixes removed new diagnostics. Diff check and final graft build exit 0; recent-projects.json is byte-identical HEAD after all writers. Native QA remains pending.
+
+See [durable acceptance, exact twelve-case comparison, diagnostic inventory, review dispositions and chronological rulings](2026-10-10-story-asset-ownership-verification.md).

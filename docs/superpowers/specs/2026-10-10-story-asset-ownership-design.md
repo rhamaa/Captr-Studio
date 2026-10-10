@@ -2,7 +2,7 @@
 
 Date: 2026-10-10 (Asia/Jakarta)
 
-Status: Written specification approved by the user on 2026-10-10 with “ok bro, eksekusi spec nya”. Product intent and ownership categories are recorded in [issue #12](../../../ISSUE.md#12-pemisahan-assets-global-elemen-story-dan-komposisi-record-10-oktober-2026). Product implementation has not started; the implementation plan is the next review artifact.
+Status: Written specification approved by the user on 2026-10-10 with “ok bro, eksekusi spec nya”. Product intent and ownership categories are recorded in [issue #12](../../../ISSUE.md#12-pemisahan-assets-global-elemen-story-dan-komposisi-record-10-oktober-2026). Execution plan approved on 2026-10-10 with “ok implementasikan rencana”. Tasks 1–7 are implemented and independently reviewed; Task 8 acceptance documentation, its independent review, and the separate whole-branch review are the current gate. Native QA remains pending; see [durable verification](../plans/2026-10-10-story-asset-ownership-verification.md).
 
 ## Purpose and scope
 
@@ -14,7 +14,7 @@ Success: adding Text/Shape creates only a local timeline element; reusing global
 
 Subtitle burn-in, real waveform peaks, filmstrip thumbnails, new grouping tools, grading, masks, speed curves, tracking, and proxy generation are later roadmap work. This foundation must preserve existing caption metadata and APIs, but does not claim to implement those finishing features. Do not introduce a new TTS engine; any future Story-generated audio uses the private-media API defined here.
 
-## Current code and observed risks
+## Pre-implementation code and observed risks
 
 - `src/core/timeline/commands.ts:154-200`: `addTextOverlay` creates a global `MediaAsset` and a placement.
 - `src/core/timeline/shapeCommands.ts:14-43`: shape creation uses `registerMedia` and `placeAsset`.
@@ -73,7 +73,7 @@ This initial collection also preserves legacy Text/Shape entries that have no pl
 
 Root tracks are authoritative for the default Story; an Artboard's explicit tracks and local metadata are authoritative for its own Story. Legacy Artboards with absent tracks are materialized once from the root sequence during normalization, with independent placement/Record composition/private-media identities. An explicit empty array remains empty. Newly created Artboards take an independent snapshot of the current root sequence, preserving the existing initial-content behavior without a continuing live link. Subsequent root or sibling edits cannot alter that snapshot.
 
-`project.stories`, `storyManifest`, and `Story/*.json` are projections generated from the current canonical owners. They must not override newer root/Artboard edits on save. Both conversion directions preserve local media, caption settings, canvas settings, transitions, duration, framing, and stable Story–Artboard association. Add an explicit optional Artboard association to Story metadata so new files do not depend only on the `story-` prefix convention.
+`project.stories`, `storyManifest`, and `Story/*.json` are projections generated from the current canonical owners. They must not override newer root/Artboard edits on save. Both conversion directions preserve local media, caption settings, canvas settings, transitions, framing, and stable Story–Artboard association. Story duration is regenerated from canonical clip clocks, not an independent serialized trailing-blank duration. A separate authored trailing-blank/export-length control is deferred. Add an explicit optional Artboard association to Story metadata so new files do not depend only on the `story-` prefix convention.
 
 On loading older files, hydrate explicit standalone Stories with no canonical owner into an Artboard, or into the existing default root Story when their identity denotes that root. Keep the original Story identity. Resolve old prefix mappings only when unambiguous; conflicting mappings reject load before active project state changes. For a matching canonical owner, its tracks win over the previously generated Story projection; metadata that the old conversion omitted is carried forward when the canonical field is absent. Explicit values, including empty collections, win over fallback metadata.
 
@@ -96,7 +96,7 @@ Keep existing editor styling and controls. A private media card offers **Publish
 
 Deleting a clip removes only that placement. Removing source media is a separate explicit action with reference checks across all canonical Story scopes. Private source media stays in its library even when unplaced. Deleting a Story removes its owner metadata through normal undoable project editing; actual orphan-file cleanup must not run during the editing command or erase media needed by undo.
 
-AI/MCP context identifies global sources, active Story-private sources, and local design clips separately. Structured text/shape tools produce inline elements. Cross-Story private lookup and stale scoped edit proposals reject atomically instead of falling back to root tracks.
+Transient StoryEditContext requires scope, projectId, import generation, and current revision. All MCP edit tools require captured context; stored/broadcast plans carry that context, are nullable, and invalidate when stale. Terminal configuration is project-level. AI/MCP context identifies global sources, active Story-private sources, and local design clips separately. Structured text/shape tools produce inline elements. Cross-Story private lookup and stale scoped edit proposals reject atomically instead of falling back to root tracks.
 
 ## Voiceover lifecycle
 
@@ -104,7 +104,7 @@ Existing Story voiceover recording defaults to its originating private library. 
 
 After saving/probing audio, finalize only if the token/project and Story owner still match the capture context. Story switching cannot redirect a take to another scope; block switching while the take is active using the existing navigation guards. A deleted owner, abandoned project, or canceled token causes rejection/cleanup through the existing bounded temporary-file IPC.
 
-Registration of a kept take and its subsequent placement preserve current undo semantics: undoing placement retains the private source, and redo restores the same clip ID. A private source is bundled even with no placement. Imported audio remains global by default; existing global voiceovers are not silently moved into a Story. Screen Record completion stays global Assets-only.
+Ordinary Story edits do not invalidate the immutable originating take context. Registration commits separately before placement; a placement failure retains the private source. Registration of a kept take and its subsequent placement preserve current undo semantics: undoing placement retains the private source, and redo restores the same clip ID. A private source is bundled even with no placement. Imported audio remains global by default; existing global voiceovers are not silently moved into a Story. Screen Record completion stays global Assets-only.
 
 ## Rendering and clocks
 
@@ -117,12 +117,12 @@ The current subtitle DOM overlay remains a known finishing gap. This task preser
 ## Persistence and compatibility
 
 - Keep V3 and version `1.4.0-beta.1`; new optional fields must accept older V3 input. Do not claim that older app versions can open newly extended files.
-- Keep one `.captr`; `project.json` is authoritative. Stage all global and private sources/sidecars under `assets/<assetId>/`, Record compositions separately, and current Story projections under `Story/`.
+- Keep one `.captr`; `project.json` is authoritative. Stage all global and private sources/sidecars under `assets/<assetId>/`, Record compositions separately, and current Story projections under `Story/`. Manifest projection filenames use bounded unique ordinals; staging consumes each exact manifest `file`. IDs remain unchanged, including long valid legacy IDs, prefix/case distinctions and reserved basename words; filenames are projections, not identities.
 - Extend media traversal, asset manifests, transcript/caption sidecar copying, media-path validation, and workspace resolution to all private libraries, including libraries in empty Stories. Generate current Story projections after canonical paths are staged, with no stale absolute references in projection copies.
 - Unplaced global and private media must survive save/reopen. Text/Shape inline definitions and Templates are metadata; they require no fake media files.
 - Preserve atomic transactions, identity-checked Ctrl+S, capture path preservation, Rename/Save As behavior, recovery queueing, and navigation freezes. Missing private media rejects the entire load before replacing the active project.
 
-Normalize old V3 input on a clone before canonical installation; never rewrite the original bundle during load. For every placed legacy global Text/Shape, construct local content from source metadata plus the existing placement override precedence. Preserve clip IDs, start/range/rate, keyframes, animation, transitions, and shape overrides. Materialized duplicated sequences receive remapped IDs where required for independent ownership. Remove legacy design Assets from the canonical media library only after all references are resolved. Preserve unplaced legacy design entries in Templates.
+Normalize old V3 input on a clone before canonical installation; never rewrite the original bundle during load. For every placed legacy global Text/Shape, construct local content from source metadata plus the existing placement override precedence. Preserve clip IDs, start/rate, visible duration, keyframes, animation, transitions, and shape overrides. Preserve source ranges/extents when sufficient; legacy static Shapes previously allowed infinite handles, so add equal sourceIn/sourceOut head padding and grow logical extent only when required for their existing transitions, without changing visible or clip-local animation clocks. Materialized duplicated sequences receive remapped IDs where required for independent ownership. Remove legacy design Assets from the canonical media library only after all references are resolved. Preserve unplaced legacy design entries in Templates.
 
 Normalization is idempotent. Malformed source content, dangling references, unsafe paths, contradictory inline/media fields, or ambiguous Story association reject the whole load without changing the original file, active project, or save path. V1/V2 Record conversion remains an explicit copy with new identity/path; unsupported metadata and Video/Motion legacy remain rejected.
 
@@ -155,4 +155,4 @@ Run relevant domain/component/bundle Vitest suites and `npx tsc --noEmit`; compa
 
 ## Review and next handoff
 
-Review this written specification before creating the task-by-task implementation plan. After spec approval, use Superpowers writing-plans to define exact interfaces/files/tests and select an execution method before product implementation. This document contains no completed-feature claims or new native-QA claims.
+Specification and execution plan are approved. Tasks 1–7 passed independent task review after recorded fixes. Task 8 independent review and the separate complete-branch review remain pending at this documentation commit; the coordinator will finalize their dispositions. Native regression QA is pending and no release/push/merge is authorized by these notes.
