@@ -1,6 +1,6 @@
 # Story ownership implementation and verification
 
-2026-10-10, Experiment, implementation baseline 0a439ce; Task 8 began at d951fb5. Version confirmed as 1.4.0-beta.1 in package.json, package-lock.json and root package-lock metadata. Spec and execution plan were approved. Tasks 1–7 passed independent reviews; Task 8 and separate whole-branch review are pending.
+2026-10-10, Experiment, implementation baseline 0a439ce; Task 8 began at d951fb5. Version confirmed as 1.4.0-beta.1 in package.json, package-lock.json and root package-lock metadata. Spec and execution plan were approved. Tasks 1–8 passed independent task reviews. The separate whole-branch review identified I1/I2; the focused final fixes are implemented and awaiting scoped re-review. Native QA remains pending.
 
 ## Acceptance evidence
 
@@ -58,61 +58,63 @@ Raw output is in the ignored workspace: task-8-full-test-initial.log, task-8-ful
 
 ### Surviving diagnostic comparison
 
-| Path | Category | Severity | Baseline → final count |
-| --- | --- | --- | --- |
-| src/components/editor/AIAssistantModal.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/CopilotSidebar.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/ProjectApplication.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/ProjectApplication.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/ProjectApplication.tsx | lint/correctness/useExhaustiveDependencies | warning | 2 → 2 |
-| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| src/components/editor/StoryEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | 1 → 1 |
-| electron/electron-env.d.ts | format | error | 1 → 1 |
-| electron/ipc/agent/agentRunner.ts | lint/suspicious/noEmptyBlockStatements | error | 1 → 1 |
-| electron/ipc/agent/mcpServer.ts | lint/suspicious/noExplicitAny | error | 5 → 5 |
-| electron/ipc/agent/mcpServer.ts | lint/suspicious/noEmptyBlockStatements | error | 3 → 3 |
-| electron/ipc/agent/mcpServer.ts | lint/correctness/noUnusedVariables | error | 2 → 2 |
-| electron/ipc/project/manager.test.ts | format | error | 1 → 1 |
-| electron/ipc/project/manager.ts | format | error | 1 → 1 |
-| electron/ipc/project/projectBundle.test.ts | format | error | 1 → 1 |
-| electron/ipc/project/projectFileService.ts | lint/correctness/noUnsafeFinally | error | 1 → 1 |
-| electron/ipc/project/timelineBundle.test.ts | format | error | 1 → 1 |
-| electron/ipc/register/project/save.ts | lint/correctness/noUnsafeFinally | error | 1 → 1 |
-| electron/ipc/register/project/save.ts | format | error | 1 → 1 |
-| electron/ipc/register/project/templateWallpaperSave.test.ts | format | error | 1 → 1 |
-| electron/ipc/register/project/v3LifecycleVerification.test.ts | format | error | 1 → 1 |
-| electron/preload.ts | format | error | 1 → 1 |
-| src/components/editor/AIAssistantModal.tsx | lint/suspicious/noEmptyBlockStatements | error | 1 → 1 |
-| src/components/editor/CopilotSidebar.tsx | lint/suspicious/noEmptyBlockStatements | error | 1 → 1 |
-| src/components/editor/ProjectEditor.tsx | lint/suspicious/noEmptyBlockStatements | error | 1 → 1 |
-| src/components/editor/ProjectEditor.tsx | format | error | 1 → 1 |
-| src/components/editor/ProjectInspector.tsx | assist/source/organizeImports | error | 1 → 1 |
-| src/components/editor/ProjectInspector.tsx | format | error | 1 → 1 |
-| src/components/editor/ProjectTimeline.tsx | assist/source/organizeImports | error | 1 → 1 |
-| src/components/editor/ProjectTimeline.tsx | format | error | 1 → 1 |
-| src/components/editor/SubtitleOverlay.tsx | lint/suspicious/noEmptyBlockStatements | error | 3 → 3 |
-| src/components/editor/canvasGizmoMath.ts | format | error | 1 → 1 |
-| src/core/story/storyTypes.ts | assist/source/organizeImports | error | 1 → 1 |
-| src/core/timeline/agentTools.ts | lint/suspicious/noExplicitAny | error | 2 → 2 |
-| src/core/timeline/clipTransitions.test.ts | format | error | 1 → 1 |
-| src/core/timeline/clipTransitions.ts | format | error | 1 → 1 |
-| src/core/timeline/visualAnimation.test.ts | format | error | 1 → 1 |
-| src/lib/exporter/projectFrameRenderer.test.ts | format | error | 1 → 1 |
-| src/lib/exporter/projectFrameRenderer.ts | format | error | 1 → 1 |
+| Path | Category | Severity | Diagnostic description | Dependency classification | Baseline → final count |
+| --- | --- | --- | --- | --- | --- |
+| src/components/editor/AIAssistantModal.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook specifies more dependencies than necessary: logs. | Excess dependency | 1 → 1 |
+| src/components/editor/CopilotSidebar.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook specifies more dependencies than necessary: logs. | Excess dependency | 1 → 1 |
+| src/components/editor/ProjectApplication.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook does not specify its dependency on install. | Missing dependency | 1 → 1 |
+| src/components/editor/ProjectApplication.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook does not specify its dependency on refresh. | Missing dependency | 1 → 1 |
+| src/components/editor/ProjectApplication.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook does not specify its dependency on report. | Missing dependency | 2 → 2 |
+| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook does not specify its dependency on props.navigationBlocked. | Missing dependency | 1 → 1 |
+| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook does not specify its dependency on controller.snapshot.project. | Missing dependency | 1 → 1 |
+| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | errorMessage changes on every re-render and should not be used as a hook dependency. | Unstable dependency | 1 → 1 |
+| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook does not specify its dependency on audioRecorderOpen. | Missing dependency | 1 → 1 |
+| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook does not specify its dependency on exportProgress. | Missing dependency | 1 → 1 |
+| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook does not specify its dependency on open. | Missing dependency | 1 → 1 |
+| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook does not specify its dependency on save. | Missing dependency | 1 → 1 |
+| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook does not specify its dependency on run. | Missing dependency | 1 → 1 |
+| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook does not specify its dependency on newProject. | Missing dependency | 1 → 1 |
+| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook does not specify its dependency on openConfig. | Missing dependency | 1 → 1 |
+| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook does not specify its dependency on nameDialog. | Missing dependency | 1 → 1 |
+| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook does not specify its dependency on editingClipId. | Missing dependency | 1 → 1 |
+| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook does not specify its dependency on exportProject. | Missing dependency | 1 → 1 |
+| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook does not specify its dependency on controller.seek. | Missing dependency | 1 → 1 |
+| src/components/editor/ProjectEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook does not specify its dependency on controller.snapshot.playheadUs. | Missing dependency | 1 → 1 |
+| src/components/editor/StoryEditor.tsx | lint/correctness/useExhaustiveDependencies | warning | This hook specifies more dependencies than necessary: playing. | Excess dependency | 1 → 1 |
+| electron/electron-env.d.ts | format | error | Formatter would have printed the following content: | Non-dependency diagnostic | 1 → 1 |
+| electron/ipc/agent/agentRunner.ts | lint/suspicious/noEmptyBlockStatements | error | Unexpected empty block. | Non-dependency diagnostic | 1 → 1 |
+| electron/ipc/agent/mcpServer.ts | lint/suspicious/noExplicitAny | error | Unexpected any. Specify a different type. | Non-dependency diagnostic | 5 → 5 |
+| electron/ipc/agent/mcpServer.ts | lint/suspicious/noEmptyBlockStatements | error | Unexpected empty block. | Non-dependency diagnostic | 3 → 3 |
+| electron/ipc/agent/mcpServer.ts | lint/correctness/noUnusedVariables | error | This variable err is unused. | Non-dependency diagnostic | 2 → 2 |
+| electron/ipc/project/manager.test.ts | format | error | Formatter would have printed the following content: | Non-dependency diagnostic | 1 → 1 |
+| electron/ipc/project/manager.ts | format | error | Formatter would have printed the following content: | Non-dependency diagnostic | 1 → 1 |
+| electron/ipc/project/projectBundle.test.ts | format | error | Formatter would have printed the following content: | Non-dependency diagnostic | 1 → 1 |
+| electron/ipc/project/projectFileService.ts | lint/correctness/noUnsafeFinally | error | Unsafe usage of 'throw'. | Non-dependency diagnostic | 1 → 1 |
+| electron/ipc/project/timelineBundle.test.ts | format | error | Formatter would have printed the following content: | Non-dependency diagnostic | 1 → 1 |
+| electron/ipc/register/project/save.ts | lint/correctness/noUnsafeFinally | error | Unsafe usage of 'throw'. | Non-dependency diagnostic | 1 → 1 |
+| electron/ipc/register/project/save.ts | format | error | Formatter would have printed the following content: | Non-dependency diagnostic | 1 → 1 |
+| electron/ipc/register/project/templateWallpaperSave.test.ts | format | error | Formatter would have printed the following content: | Non-dependency diagnostic | 1 → 1 |
+| electron/ipc/register/project/v3LifecycleVerification.test.ts | format | error | Formatter would have printed the following content: | Non-dependency diagnostic | 1 → 1 |
+| electron/preload.ts | format | error | Formatter would have printed the following content: | Non-dependency diagnostic | 1 → 1 |
+| src/components/editor/AIAssistantModal.tsx | lint/suspicious/noEmptyBlockStatements | error | Unexpected empty block. | Non-dependency diagnostic | 1 → 1 |
+| src/components/editor/CopilotSidebar.tsx | lint/suspicious/noEmptyBlockStatements | error | Unexpected empty block. | Non-dependency diagnostic | 1 → 1 |
+| src/components/editor/ProjectEditor.tsx | lint/suspicious/noEmptyBlockStatements | error | Unexpected empty block. | Non-dependency diagnostic | 1 → 1 |
+| src/components/editor/ProjectEditor.tsx | format | error | Formatter would have printed the following content: | Non-dependency diagnostic | 1 → 1 |
+| src/components/editor/ProjectInspector.tsx | assist/source/organizeImports | error | The imports and exports are not sorted. | Non-dependency diagnostic | 1 → 1 |
+| src/components/editor/ProjectInspector.tsx | format | error | Formatter would have printed the following content: | Non-dependency diagnostic | 1 → 1 |
+| src/components/editor/ProjectTimeline.tsx | assist/source/organizeImports | error | The imports and exports are not sorted. | Non-dependency diagnostic | 1 → 1 |
+| src/components/editor/ProjectTimeline.tsx | format | error | Formatter would have printed the following content: | Non-dependency diagnostic | 1 → 1 |
+| src/components/editor/SubtitleOverlay.tsx | lint/suspicious/noEmptyBlockStatements | error | Unexpected empty block. | Non-dependency diagnostic | 3 → 3 |
+| src/components/editor/canvasGizmoMath.ts | format | error | Formatter would have printed the following content: | Non-dependency diagnostic | 1 → 1 |
+| src/core/story/storyTypes.ts | assist/source/organizeImports | error | The imports and exports are not sorted. | Non-dependency diagnostic | 1 → 1 |
+| src/core/timeline/agentTools.ts | lint/suspicious/noExplicitAny | error | Unexpected any. Specify a different type. | Non-dependency diagnostic | 2 → 2 |
+| src/core/timeline/clipTransitions.test.ts | format | error | Formatter would have printed the following content: | Non-dependency diagnostic | 1 → 1 |
+| src/core/timeline/clipTransitions.ts | format | error | Formatter would have printed the following content: | Non-dependency diagnostic | 1 → 1 |
+| src/core/timeline/visualAnimation.test.ts | format | error | Formatter would have printed the following content: | Non-dependency diagnostic | 1 → 1 |
+| src/lib/exporter/projectFrameRenderer.test.ts | format | error | Formatter would have printed the following content: | Non-dependency diagnostic | 1 → 1 |
+| src/lib/exporter/projectFrameRenderer.ts | format | error | Formatter would have printed the following content: | Non-dependency diagnostic | 1 → 1 |
+
+Every surviving exact path/category/severity/description signature and count is preserved above from task-8-lint-comparison.json. Dependency classification distinguishes missing, excess and unstable hook inputs from other existing diagnostics; counts remain the Task 8 baseline 0a439ce comparison.
 
 All 14 added modules/tests are clean under the existing configuration. Graft calls during Task 8 saved approximately 1,648,230 tokens (sum of reported estimates).
 
@@ -128,6 +130,34 @@ Native computer APIs are disabled; shell Vitest and real bundle tests cannot exe
 
 Deferred minors triaged without broad fixture architecture rewrites: Task 4 projectAudioRenderer scheduling mock does not assert connect/start scheduling; real decoder/stretch/WAV checks and renderer clock tests remain meaningful, but audible/scheduling QA is pending. Task 6 ProjectEditor.test.tsx uses UI-stack/eleventh-useState mocking and remains brittle; dedicated controller/async cases verify the ownership contract. Existing experimental localStorage warnings and expected missing-source stderr are recorded warnings, not failed ownership assertions. Task 6 ProjectEditor lint was compared against b8153d3 (2 errors/15 warnings unchanged there); final aggregate comparison below uses 0a439ce. Caption burn-in/final editing, real waveform/filmstrip, grouping, grading/masks, speed curves/tracking/proxies, new TTS, and authored trailing-blank duration control remain deferred.
 
+## Final whole-branch review fix evidence
+
+The complete branch review at 72573d8 found two Important migration defects. I1 is repaired in both `normalizeStoryOwnership` and `forkArtboardSequence`: defined inherited-Artboard transitions, including `[]`, precede root fallback and enter the existing snapshot reference checks/ID remapping. I2 now rejects an explicit missing `artboardId` before standalone hydration; unassociated legacy Stories still hydrate successfully. These repairs enforce the approved contract without changing validation rules or dependencies.
+
+Focused regression cases prove absent fallback, explicit empty override, a distinct authored valid override, remapped track/clip/transition IDs, dangling track/from/to references, clone immutability, normalization idempotence and repeated-fork stability. Controller ingress cases preserve the same active snapshot, path, undo history, pending imports and import token. Real bundle load cases use the same project identity as the active workspace and verify active/rejected `.captr` bytes, active `project.json`, video path and global/Record/private source bytes remain unchanged after both missing-owner and dangling-transition rejection.
+
+| Check | Final-fix result |
+| --- | --- |
+| RED: `npx vitest run src/core/timeline/normalizeStoryOwnership.test.ts src/core/timeline/repurposeCommands.test.ts src/components/editor/useProjectController.test.ts electron/ipc/project/manager.test.ts` | Sandbox attempt: four cache-rename EPERM suite errors, no tests. Same local retry: 15 expected assertion failures / 74 passed / 89 total; all failures reproduced I1/I2, including both ingress boundaries. |
+| GREEN: same four-suite command after minimal fixes | Exit 0; 4 files, 89 tests passed. |
+| Covering `npx vitest run` over the four suites plus storyOwnership, validation, storyUtils, storyEditContext, timelineBundle, projectFileService, projectBundle, mediaReferences, projectMediaValidation, save and v3LifecycleVerification | Exit 0; 15 files, 224 tests passed. Includes real bundles/sidecars, ownership validation, Rename/Save As and repeated Record service regressions. |
+| `npx tsc --noEmit` | Exit 0; no diagnostics. |
+| Covering suite retry during simultaneous graph/TypeScript work | Exit 1; 223 passed / 1 existing manager case timed out, with ENOTEMPTY in cleanup: "normalizes raw legacy V3 before installation and rejects private media without touching active bytes". The same command retried after those processes completed passes 224/224 in 4.15 seconds. No timeout/config/assertion changes. |
+| `npx biome check --reporter=json` on the six amended TS paths, existing config, versus exact 72573d8 copies with its biome.json/.gitignore | Both exit 1 for the same existing manager.test.ts `format` signature ("Formatter would have printed the following content:"): 1 error / 0 warnings; zero added signatures or count increases. Five other paths are clean. |
+| `graft build` after final code/test changes | Exit 0; 5188 nodes, 12981 edges, 735 cards; 6 files parsed / 737 cache-replayed / 743 total. Graph remains ignored. |
+| `git diff --check` | Exit 0. |
+
+The prior whole-suite result remains 1491 passed / 9 exact original baseline failures / 1500 total at 72573d8; these narrow fixes introduce no unresolved integration doubt requiring another full-suite run. This is not a new fully green suite claim. Native QA stays pending. Scratch command/output records are final-fix-red.log, final-fix-red-local.log, final-fix-green.log, final-fix-focused.log, final-fix-focused-concurrent.log, final-fix-tsc.log, final-fix-biome-current.json, final-fix-biome-baseline.json, final-fix-lint-comparison.json and final-fix-graft-build.log. The coordinator will record the one scoped re-review verdict; no push/merge/release.
+
+All four final-review Minor findings are dispositioned explicitly:
+
+| Minor | Disposition, reason and cost |
+| --- | --- |
+| Audio scheduling mock lacks connect/start assertions | Deferred nonblocking test cleanup. Current case exercises private lookup, decoder/stretch arguments and WAV sizing; existing real decoder/stretch/WAV and renderer-clock evidence remains. Replacing scheduling doubles is outside these migration fixes. Cost: disconnected/unstarted audio could evade this specific test until scheduling assertions and native listening QA are added. |
+| ProjectEditor stack text/eleventh-useState harness | Deferred nonblocking harness cleanup. Dedicated controller/async tests protect frozen ownership, held save/probe, ordinary edits, deletion, exit/cancel/disposal and placement undo. A controlled UI or DOM harness belongs with the next UI expansion. Cost: hook insertion or stack-format changes may break this harness without a product regression. |
+| Durable lint table lacks descriptions/classification | Addressed above by preserving every exact surviving task-8-lint-comparison.json diagnostic description/count and classifying missing, excess, unstable and non-dependency diagnostics. The durable ledger now stands alone after scratch cleanup. |
+| Task 5 StoryEditContext omits revision | Addressed in the plan: `revision: number` is present and comparison requires the complete captured scope/projectId/generation/revision context. Existing runtime and approved-spec behavior is unchanged. |
+
 ## Per-task commits and independent review dispositions
 
 | Task | Commits / disposition |
@@ -139,8 +169,8 @@ Deferred minors triaged without broad fixture architecture rewrites: Task 4 proj
 | 5 | 4d2321a, b8153d3; terminal boundary and context-bound nullable plans fixed; re-review approved. |
 | 6 | dc1e924; both verdicts approved; fixture/warning/lint minors deferred below. |
 | 7 | 93d3a68, 05d133f, d951fb5; initial prefix/case collision and then hex basename overflow fixed; bounded ordinal manifest/staging re-review approved. |
-| 8 | a1184db; both independent review verdicts approved; documentation precision minors remain for whole-branch triage. |
-| Whole branch | Pending after approved Task 8 review, selected gpt-6.1-sol xhigh due Astra quota until October 14. No push/merge/release. |
+| 8 | a1184db; both independent review verdicts approved; documentation precision minors are addressed in the final fix evidence above. |
+| Whole branch | Complete review found I1/I2; focused fixes await one scoped re-review. Four Minor dispositions are recorded above. Selected gpt-6.1-sol xhigh due Astra quota until October 14. No push/merge/release. |
 
 ## Chronological execution rulings
 

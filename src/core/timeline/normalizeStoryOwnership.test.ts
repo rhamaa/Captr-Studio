@@ -12,6 +12,101 @@ import {
 import { validateTimelineProject } from "./validation";
 
 describe("normalizeStoryOwnership", () => {
+	it.each([
+		"absent",
+		"empty",
+		"override",
+	] as const)("preserves %s inherited Artboard transitions while remapping placements", (mode) => {
+		const input = ownershipFixture();
+		input.tracks = [
+			fixtureTrack("transition-track", [
+				fixtureClip("left", { assetId: "shared", sourceOutUs: 2_000_000 }),
+				fixtureClip("right", {
+					assetId: "shared",
+					startUs: 2_000_000,
+					sourceInUs: 1_000_000,
+					sourceOutUs: 3_000_000,
+				}),
+			]),
+		];
+		input.clipTransitions = [
+			{
+				id: "root-fade",
+				trackId: "transition-track",
+				fromClipId: "left",
+				toClipId: "right",
+				durationUs: 500_000,
+				preset: { kind: "cross-dissolve" },
+				easing: "linear",
+			},
+		];
+		const owner = input.repurposeBoard!.artboards[0];
+		delete owner.tracks;
+		if (mode === "empty") owner.clipTransitions = [];
+		if (mode === "override")
+			owner.clipTransitions = [
+				{
+					...input.clipTransitions[0],
+					id: "owner-fade",
+					durationUs: 250_000,
+					easing: "ease-in",
+				},
+			];
+		const before = structuredClone(input);
+		const result = normalizeStoryOwnership(input);
+		const fork = result.repurposeBoard!.artboards[0];
+		expect(fork.tracks![0].id).not.toBe("transition-track");
+		expect(fork.tracks![0].clips.map((clip) => clip.id)).not.toEqual(["left", "right"]);
+		if (mode === "empty") expect(fork.clipTransitions).toEqual([]);
+		else {
+			expect(fork.clipTransitions).toHaveLength(1);
+			const transition = fork.clipTransitions![0];
+			expect(transition.id).not.toBe(mode === "override" ? "owner-fade" : "root-fade");
+			expect(transition).toMatchObject({
+				trackId: fork.tracks![0].id,
+				fromClipId: fork.tracks![0].clips[0].id,
+				toClipId: fork.tracks![0].clips[1].id,
+				durationUs: mode === "override" ? 250_000 : 500_000,
+				easing: mode === "override" ? "ease-in" : "linear",
+			});
+		}
+		expect(result.clipTransitions).toEqual(before.clipTransitions);
+		expect(input).toEqual(before);
+		expect(normalizeStoryOwnership(result)).toEqual(result);
+		expect(() => validateTimelineProject(result)).not.toThrow();
+	});
+	it.each([
+		"trackId",
+		"fromClipId",
+		"toClipId",
+	] as const)("rejects dangling inherited Artboard transition %s without changing input", (field) => {
+		const input = ownershipFixture();
+		const owner = input.repurposeBoard!.artboards[0];
+		delete owner.tracks;
+		owner.clipTransitions = [
+			{
+				id: "dangling-fade",
+				trackId: "root",
+				fromClipId: "root-video",
+				toClipId: "root-video",
+				durationUs: 500_000,
+				preset: { kind: "cross-dissolve" },
+				easing: "linear",
+				[field]: "missing",
+			},
+		];
+		const before = structuredClone(input);
+		expect(() => normalizeStoryOwnership(input)).toThrow(/transition.*missing/i);
+		expect(input).toEqual(before);
+	});
+	it("rejects an explicit missing Story owner without resurrecting it or changing input", () => {
+		const input = ownershipFixture();
+		input.stories = [artboardToStory(input.repurposeBoard!.artboards[0])];
+		input.repurposeBoard!.artboards.shift();
+		const before = structuredClone(input);
+		expect(() => normalizeStoryOwnership(input)).toThrow(/Story owner not found: A/);
+		expect(input).toEqual(before);
+	});
 	it("keeps an existing Shape extent when it already fits a padded trimmed incoming range", () => {
 		const input = ownershipFixture();
 		input.assets.push({

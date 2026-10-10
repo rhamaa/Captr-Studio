@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import { artboardToStory } from "@/core/story/storyUtils";
 import {
 	addTextOverlay,
 	createTimelineProject,
@@ -10,6 +11,45 @@ import { addRepurposeArtboard } from "@/core/timeline/repurposeCommands";
 import { applyStoryCommand } from "@/core/timeline/storyOwnership";
 import { fixtureText, ownershipFixture } from "@/core/timeline/storyOwnership.fixtures";
 import { ProjectController } from "./useProjectController";
+
+it.each([
+	"missing-owner",
+	"dangling-transition",
+])("rejects %s ingress while retaining the complete active session and source", (failure) => {
+	const controller = new ProjectController(ownershipFixture(), vi.fn());
+	controller.open(ownershipFixture(), "Active.captr");
+	controller.execute((project) => ({ ...project, canvas: { ...project.canvas, width: 1280 } }));
+	controller.setPendingWork("import", 1);
+	const previous = controller.snapshot;
+	const token = controller.importToken();
+	const invalid = ownershipFixture();
+	if (failure === "missing-owner") {
+		invalid.stories = [artboardToStory(invalid.repurposeBoard!.artboards[0])];
+		invalid.repurposeBoard!.artboards.shift();
+	} else {
+		const owner = invalid.repurposeBoard!.artboards[0];
+		delete owner.tracks;
+		owner.clipTransitions = [
+			{
+				id: "dangling-fade",
+				trackId: "root",
+				fromClipId: "root-video",
+				toClipId: "missing",
+				durationUs: 500_000,
+				preset: { kind: "cross-dissolve" },
+				easing: "linear",
+			},
+		];
+	}
+	const source = JSON.stringify(invalid);
+	expect(() => controller.open(invalid, "Rejected.captr")).toThrow();
+	expect(controller.snapshot).toBe(previous);
+	expect(controller.snapshot.path).toBe("Active.captr");
+	expect(controller.snapshot.canUndo).toBe(true);
+	expect(controller.snapshot.pendingWork).toBe(1);
+	expect(controller.importToken()).toEqual(token);
+	expect(JSON.stringify(invalid)).toBe(source);
+});
 
 it("normalizes legacy V3 on installation and rejects invalid opens without changing session", () => {
 	const raw = ownershipFixture();

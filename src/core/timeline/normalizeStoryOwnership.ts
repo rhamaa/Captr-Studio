@@ -74,6 +74,8 @@ export function normalizeStoryOwnership(input: TimelineProject): TimelineProject
 			story.id === (project.defaultStoryId ?? project.storyMetadata?.id ?? "story-main");
 		if (candidates.length > 1 || (root && candidates.length))
 			throw new Error("Ambiguous Story owner");
+		if (story.artboardId !== undefined && !candidates.length)
+			throw new Error(`Story owner not found: ${story.artboardId}`);
 		let owner:
 			| TimelineProject
 			| NonNullable<TimelineProject["repurposeBoard"]>["artboards"][number];
@@ -132,7 +134,10 @@ export function normalizeStoryOwnership(input: TimelineProject): TimelineProject
 		const source = inherited
 			? {
 					tracks: project.tracks,
-					clipTransitions: project.clipTransitions,
+					clipTransitions:
+						artboard.clipTransitions === undefined
+							? project.clipTransitions
+							: artboard.clipTransitions,
 					localAssets: project.localAssets,
 					subtitles: project.subtitles,
 				}

@@ -457,7 +457,11 @@ export function forkArtboardSequence(
 	const owner = project.repurposeBoard?.artboards.find((a) => a.id === artboardId);
 	if (!owner) throw new Error(`Story owner not found: ${artboardId}`);
 	if (owner.tracks !== undefined) return project;
-	const snapshot = createStorySnapshot(project, project);
+	const snapshot = createStorySnapshot(project, {
+		...project,
+		clipTransitions:
+			owner.clipTransitions === undefined ? project.clipTransitions : owner.clipTransitions,
+	});
 	return refreshStoryProjections({
 		...project,
 		compositions: [...project.compositions, ...snapshot.compositions],
