@@ -1,6 +1,11 @@
 import { artboardToStory, createDefaultStory, storyToArtboard } from "../story/storyUtils";
-import { createStorySnapshot, refreshStoryProjections } from "./storyOwnership";
-import type { TimelineProject } from "./types";
+import {
+	createStorySnapshot,
+	getStoryProject,
+	listStoryScopes,
+	refreshStoryProjections,
+} from "./storyOwnership";
+import type { StoryClipContent, TimelineClip, TimelineProject } from "./types";
 import { validateStoryPresentation, validateTimelineProject } from "./validation";
 
 /** Legacy ingress only. Never mutate the source project or persist migration during load. */
@@ -180,10 +185,82 @@ export function normalizeStoryOwnership(input: TimelineProject): TimelineProject
 		if (artboard.canvas === undefined) artboard.canvas = { ...project.canvas, ...story.canvas };
 		if (artboard.clipTransitions === undefined) artboard.clipTransitions = [];
 	}
-	const normalized = refreshStoryProjections(project);
-	// Task 3 migrates historical Text/Shape assets after this ownership stage.
-	const hasLegacyDesign = normalized.assets.some(
+	// Validate legacy definitions before removing them; a malformed unused preset rejects the clone too.
+	validateTimelineProject(project, { mode: "legacy" });
+	const designs = project.assets.filter(
 		(asset) => asset.kind === "text" || asset.kind === "shape",
 	);
-	return validateTimelineProject(normalized, { mode: hasLegacyDesign ? "legacy" : "canonical" });
+	const placed = new Set<string>();
+	const migratedShapes = new Set<TimelineClip>();
+	for (const scope of listStoryScopes(project)) {
+		for (const track of getStoryProject(project, scope).tracks) {
+			for (const clip of track.clips) {
+				const asset = designs.find((candidate) => candidate.id === clip.assetId);
+				if (!asset) continue;
+				placed.add(asset.id);
+				if (asset.kind === "shape") migratedShapes.add(clip);
+				clip.content =
+					asset.kind === "text"
+						? {
+								kind: "text",
+								text: structuredClone(clip.text ?? asset.text!),
+								durationUs: asset.durationUs,
+							}
+						: {
+								kind: "shape",
+								shapeDefinition: structuredClone(asset.shapeDefinition!),
+								durationUs: asset.durationUs,
+							};
+				delete clip.assetId;
+				delete clip.text;
+			}
+		}
+	}
+	// Historical static shapes had unlimited handles. Add only missing logical handles,
+	// preserving visible placement duration, rate and clip-local animation/keyframe clocks.
+	for (const scope of listStoryScopes(project)) {
+		const view = getStoryProject(project, scope);
+		for (const clip of view.tracks.flatMap((track) => track.clips)) {
+			if (!migratedShapes.has(clip) || clip.content?.kind !== "shape") continue;
+			let headUs = 0,
+				tailUs = 0;
+			for (const transition of view.clipTransitions ?? []) {
+				const handleUs = Math.ceil((transition.durationUs / 2) * clip.rate);
+				if (transition.toClipId === clip.id) headUs = Math.max(headUs, handleUs);
+				if (transition.fromClipId === clip.id) tailUs = Math.max(tailUs, handleUs);
+			}
+			const paddingUs = Math.max(0, headUs - clip.sourceInUs);
+			clip.sourceInUs += paddingUs;
+			clip.sourceOutUs += paddingUs;
+			clip.content.durationUs = Math.max(
+				clip.content.durationUs + paddingUs,
+				clip.sourceOutUs + tailUs,
+			);
+		}
+	}
+	for (const asset of designs) {
+		if (placed.has(asset.id)) continue;
+		const content: StoryClipContent =
+			asset.kind === "text"
+				? { kind: "text", text: structuredClone(asset.text!), durationUs: asset.durationUs }
+				: {
+						kind: "shape",
+						shapeDefinition: structuredClone(asset.shapeDefinition!),
+						durationUs: asset.durationUs,
+					};
+		project.designTemplates ??= [];
+		project.designTemplates.push({
+			id: asset.id,
+			name: asset.name,
+			kind: content.kind,
+			content,
+			width: asset.width,
+			height: asset.height,
+			defaultDurationUs: asset.durationUs,
+		});
+	}
+	project.assets = project.assets.filter(
+		(asset) => asset.kind !== "text" && asset.kind !== "shape",
+	);
+	return validateTimelineProject(refreshStoryProjections(project));
 }

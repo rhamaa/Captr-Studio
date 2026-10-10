@@ -1,11 +1,266 @@
 import { describe, expect, it } from "vitest";
 import { artboardToStory, extractStoriesFromProject } from "../story/storyUtils";
+import { evaluateProject } from "./evaluation";
 import { normalizeStoryOwnership } from "./normalizeStoryOwnership";
 import { applyStoryCommand, getStoryProject } from "./storyOwnership";
-import { fixtureClip, fixtureTrack, ownershipFixture } from "./storyOwnership.fixtures";
+import {
+	fixtureClip,
+	fixtureText,
+	fixtureTrack,
+	ownershipFixture,
+} from "./storyOwnership.fixtures";
 import { validateTimelineProject } from "./validation";
 
 describe("normalizeStoryOwnership", () => {
+	it("preserves untrimmed legacy Shape transitions by adding finite static source handles", () => {
+		const input = ownershipFixture();
+		input.assets.push({
+			id: "static-rectangle",
+			kind: "shape",
+			name: "Rectangle",
+			width: 100,
+			height: 50,
+			durationUs: 5_000_000,
+			shapeDefinition: {
+				kind: "rectangle",
+				width: 100,
+				height: 50,
+				style: { fill: "#ffffff", stroke: null },
+			},
+		});
+		input.tracks = [
+			fixtureTrack("static-track", [
+				fixtureClip("out-shape", {
+					assetId: "static-rectangle",
+					keyframes: [
+						{
+							id: "out-key",
+							timeMs: 0,
+							property: "opacity",
+							value: 0.5,
+							easing: "linear",
+						},
+					],
+				}),
+				fixtureClip("in-shape", {
+					assetId: "static-rectangle",
+					startUs: 5_000_000,
+					componentAnimation: {
+						enter: { preset: "fade", durationUs: 1_000_000, easing: "linear" },
+					},
+					shapeStyleOverride: { fill: "#123456", stroke: null },
+				}),
+			]),
+		];
+		input.clipTransitions = [
+			{
+				id: "static-transition",
+				trackId: "static-track",
+				fromClipId: "out-shape",
+				toClipId: "in-shape",
+				durationUs: 500_000,
+				preset: { kind: "cross-dissolve" },
+				easing: "linear",
+			},
+		];
+		const before = structuredClone(input);
+		const legacyVisual = evaluateProject(input, 5_500_000).visuals[0];
+		const migrated = normalizeStoryOwnership(input);
+		const [outgoing, incoming] = migrated.tracks[0].clips;
+		expect(outgoing).toMatchObject({
+			id: "out-shape",
+			startUs: 0,
+			sourceInUs: 0,
+			sourceOutUs: 5_000_000,
+			rate: 1,
+			content: { durationUs: 5_250_000 },
+		});
+		expect(incoming).toMatchObject({
+			id: "in-shape",
+			startUs: 5_000_000,
+			sourceInUs: 250_000,
+			sourceOutUs: 5_250_000,
+			rate: 1,
+			content: { durationUs: 5_250_000 },
+		});
+		expect(migrated.clipTransitions).toEqual(input.clipTransitions);
+		expect(incoming.componentAnimation).toEqual(before.tracks[0].clips[1].componentAnimation);
+		expect(outgoing.keyframes).toEqual(before.tracks[0].clips[0].keyframes);
+		expect(incoming.shapeStyleOverride).toEqual(before.tracks[0].clips[1].shapeStyleOverride);
+		const canonicalVisual = evaluateProject(migrated, 5_500_000).visuals[0];
+		expect(canonicalVisual.asset.shapeDefinition).toEqual(legacyVisual.asset.shapeDefinition);
+		expect(canonicalVisual.transform).toEqual(legacyVisual.transform);
+		expect(canonicalVisual.componentAnimations).toEqual(legacyVisual.componentAnimations);
+		expect(input).toEqual(before);
+		expect(normalizeStoryOwnership(migrated)).toEqual(migrated);
+		expect(() => validateTimelineProject(migrated)).not.toThrow();
+	});
+	it("keeps sufficient legacy Shape source handles and non-default ranges and rates exact", () => {
+		const input = ownershipFixture();
+		input.assets.push({
+			id: "handled-shape",
+			kind: "shape",
+			name: "Rectangle",
+			width: 100,
+			height: 50,
+			durationUs: 5_000_000,
+			shapeDefinition: {
+				kind: "rectangle",
+				width: 100,
+				height: 50,
+				style: { fill: "#ffffff", stroke: null },
+			},
+		});
+		input.tracks = [
+			fixtureTrack("handled-track", [
+				fixtureClip("handled-out", {
+					assetId: "handled-shape",
+					sourceInUs: 500_000,
+					sourceOutUs: 4_500_000,
+					rate: 2,
+				}),
+				fixtureClip("handled-in", {
+					assetId: "handled-shape",
+					startUs: 2_000_000,
+					sourceInUs: 500_000,
+					sourceOutUs: 4_500_000,
+					rate: 2,
+				}),
+			]),
+		];
+		input.clipTransitions = [
+			{
+				id: "handled-transition",
+				trackId: "handled-track",
+				fromClipId: "handled-out",
+				toClipId: "handled-in",
+				durationUs: 500_000,
+				preset: { kind: "cross-dissolve" },
+				easing: "linear",
+			},
+		];
+		const migrated = normalizeStoryOwnership(input);
+		for (const clip of migrated.tracks[0].clips)
+			expect(clip).toMatchObject({
+				sourceInUs: 500_000,
+				sourceOutUs: 4_500_000,
+				rate: 2,
+				content: { durationUs: 5_000_000 },
+			});
+		expect(migrated.clipTransitions).toEqual(input.clipTransitions);
+	});
+	it("migrates placed designs inline in every canonical owner and preserves unused designs as Templates", () => {
+		const input = ownershipFixture();
+		input.assets.push(
+			{
+				id: "legacy-text",
+				kind: "text",
+				name: "Legacy title",
+				width: 1920,
+				height: 1080,
+				durationUs: 10_000_000,
+				text: { ...fixtureText },
+			},
+			{
+				id: "legacy-shape",
+				kind: "shape",
+				name: "Legacy rectangle",
+				width: 100,
+				height: 50,
+				durationUs: 5_000_000,
+				shapeDefinition: {
+					kind: "rectangle",
+					width: 100,
+					height: 50,
+					style: { fill: "#ffffff", stroke: null },
+				},
+			},
+			{
+				id: "unused-shape",
+				kind: "shape",
+				name: "Unused rectangle",
+				width: 100,
+				height: 50,
+				durationUs: 5_000_000,
+				shapeDefinition: {
+					kind: "rectangle",
+					width: 100,
+					height: 50,
+					style: { fill: "#123456", stroke: null },
+				},
+			},
+		);
+		const text = fixtureClip("legacy-title", {
+			assetId: "legacy-text",
+			text: { ...fixtureText, content: "Placement wins" },
+			sourceInUs: 2_000_000,
+			sourceOutUs: 8_000_000,
+			rate: 2,
+			keyframes: [
+				{ id: "opacity-key", property: "opacity", timeMs: 0, value: 0.5, easing: "linear" },
+			],
+			componentAnimation: {
+				enter: { preset: "fade", durationUs: 100_000, easing: "linear" },
+			},
+		});
+		input.tracks = [fixtureTrack("legacy-track", [text])];
+		const a = input.repurposeBoard!.artboards[0];
+		a.tracks!.push(
+			fixtureTrack("legacy-shape-track", [
+				fixtureClip("legacy-rectangle", {
+					assetId: "legacy-shape",
+					shapeStyleOverride: { fill: "#ff0000", stroke: null },
+				}),
+			]),
+		);
+		const before = structuredClone(input);
+		const migrated = normalizeStoryOwnership(input);
+		const textClip = migrated.tracks[0].clips[0];
+		const expected = {
+			...text,
+			content: {
+				kind: "text",
+				text: { ...fixtureText, content: "Placement wins" },
+				durationUs: 10_000_000,
+			},
+		};
+		delete expected.assetId;
+		delete expected.text;
+		expect(textClip).toEqual(expected);
+		expect(migrated.repurposeBoard!.artboards[0].tracks!.at(-1)!.clips[0]).toMatchObject({
+			id: "legacy-rectangle",
+			content: { kind: "shape" },
+			shapeStyleOverride: { fill: "#ff0000", stroke: null },
+		});
+		expect(migrated.designTemplates?.some((t) => t.id === "unused-shape")).toBe(true);
+		expect(migrated.assets.some((a) => a.kind === "text" || a.kind === "shape")).toBe(false);
+		expect(input).toEqual(before);
+		expect(normalizeStoryOwnership(migrated)).toEqual(migrated);
+		expect(() => validateTimelineProject(migrated)).not.toThrow();
+	});
+	it("rejects malformed legacy definitions and conflicting inline/media input without changing the source", () => {
+		const input = ownershipFixture();
+		input.assets.push({
+			id: "bad-design",
+			kind: "text",
+			name: "Bad",
+			width: 1920,
+			height: 1080,
+			durationUs: 5_000_000,
+			text: { ...fixtureText, fontSizePx: -1 },
+		});
+		const before = structuredClone(input);
+		expect(() => normalizeStoryOwnership(input)).toThrow(/text/i);
+		expect(input).toEqual(before);
+		input.assets.at(-1)!.text = { ...fixtureText };
+		input.tracks[0].clips[0] = fixtureClip("conflict", {
+			assetId: "bad-design",
+			content: { kind: "text", text: { ...fixtureText }, durationUs: 5_000_000 },
+		});
+		const conflicting = structuredClone(input);
+		expect(() => normalizeStoryOwnership(input)).toThrow();
+		expect(input).toEqual(conflicting);
+	});
 	it.each(
 		["root", "artboard"].flatMap((kind) =>
 			["localAssets", "clipTransitions"].flatMap((field) =>

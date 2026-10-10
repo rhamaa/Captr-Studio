@@ -1,3 +1,4 @@
+import { refreshStoryProjections } from "./storyOwnership";
 import type { TimelineProject } from "./types";
 import { validateTimelineProject } from "./validation";
 export type ProjectCommand = (project: TimelineProject) => TimelineProject;
@@ -15,7 +16,7 @@ export class ProjectHistory {
 	private future: Snapshot[] = [];
 	constructor(project: TimelineProject) {
 		this.current = {
-			project: structuredClone(validateTimelineProject(project, { mode: "legacy" })),
+			project: structuredClone(validateTimelineProject(project)),
 			selection: [],
 		};
 	}
@@ -50,9 +51,9 @@ export class ProjectHistory {
 		this.current = { ...this.current, selection: validSelection(this.project, selection) };
 	}
 	execute(command: ProjectCommand, selection = this.selection): TimelineProject {
-		const next = command(this.project);
-		if (next === this.project) return next;
-		validateTimelineProject(next, { mode: "legacy" });
+		const result = command(this.project);
+		if (result === this.project) return result;
+		const next = validateTimelineProject(refreshStoryProjections(result));
 		this.past.push(this.current);
 		if (this.past.length > 100) this.past.shift();
 		this.future = [];
