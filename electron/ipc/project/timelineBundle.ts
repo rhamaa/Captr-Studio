@@ -4,6 +4,7 @@ import path from "node:path";
 import {
 	extractStoriesFromProject,
 	generateStoryManifest,
+	storyProjectionFileName,
 } from "../../../src/core/story/storyUtils";
 import {
 	timelineMediaAssets,
@@ -117,7 +118,7 @@ export async function stageTimelineProject(
 	const storyDir = path.join(workspaceDir, "Story");
 	await fs.mkdir(storyDir, { recursive: true });
 	for (const story of stories) {
-		const storyFileName = `${story.id.startsWith("story-") ? "" : "story-"}${safeId(story.id)}.json`;
+		const storyFileName = storyProjectionFileName(story.id);
 		await fs.writeFile(path.join(storyDir, storyFileName), JSON.stringify(story, null, 2));
 	}
 	staged.stories = stories;

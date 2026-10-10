@@ -9,10 +9,58 @@ import { normalizeStoryOwnership } from "../../../src/core/timeline/normalizeSto
 import { createAndPlaceShape, setShapeStyleOverride } from "../../../src/core/timeline/shapeCommands";
 import { fixtureClip, fixtureText, ownershipFixture } from "../../../src/core/timeline/storyOwnership.fixtures";
 import type { ShapeDefinition } from "../../../src/core/timeline/types";
-import { inspectProjectBundle, packProjectWorkspace, unpackProjectBundle } from "./projectBundle";
+import { inspectProjectBundle, packProjectWorkspace, readProjectBundleEntry, unpackProjectBundle } from "./projectBundle";
 import { resolveTimelineProject, stageTimelineProject } from "./timelineBundle";
 
 const roots:string[]=[];afterEach(async()=>{for(const r of roots.splice(0))await fs.rm(r,{recursive:true,force:true});});
+it.each([
+	["foo", "story-foo", "Story/story-666f6f.json", "Story/story-73746f72792d666f6f.json"],
+	["Foo", "foo", "Story/story-466f6f.json", "Story/story-666f6f.json"],
+	["CON", "con", "Story/story-434f4e.json", "Story/story-636f6e.json"],
+])("bundles distinct Story IDs %s and %s without replacing either owner's projection", async (rootId, artboardStoryId, rootFile, artboardFile) => {
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-story-filename-"));
+	roots.push(root);
+	const project = createTimelineProject("story-filenames", "Story filenames");
+	project.defaultStoryId = rootId;
+	project.repurposeBoard = {
+		artboards: [
+			{
+				id: "bar",
+				name: "Artboard",
+				storyMetadata: { id: artboardStoryId },
+				aspectRatio: "16:9",
+				width: 1920,
+				height: 1080,
+				framing: { scale: 1, offsetX: 0, offsetY: 0, fitMode: "contain" },
+				tracks: [],
+			},
+		],
+		slices: [],
+		activeSliceId: null,
+	};
+	const staged = await stageTimelineProject(project, path.join(root, "staged"));
+	const bundle = path.join(root, "distinct.captr");
+	await packProjectWorkspace(path.join(root, "staged"), bundle);
+	for (const [id, ownerId, name, tracks] of [
+		[rootId, undefined, "Main Video", project.tracks],
+		[artboardStoryId, "bar", "Artboard", []],
+	] as const) {
+		const manifest = staged.storyManifest!.find((entry) => entry.id === id)!;
+		const saved = await readProjectBundleEntry(bundle, manifest.file);
+		expect(saved.success).toBe(true);
+		const story = JSON.parse(saved.content!);
+		expect(story.id).toBe(id);
+		expect(story.artboardId).toBe(ownerId);
+		expect(story.name).toBe(name);
+		expect(story.tracks).toEqual(tracks);
+	}
+	expect(staged.storyManifest!.map((entry) => entry.file)).toEqual([rootFile, artboardFile]);
+	const bundleEntries = (await inspectProjectBundle(bundle)).entries.map((entry) => entry.path);
+	expect(bundleEntries).toContain(rootFile);
+	expect(bundleEntries).toContain(artboardFile);
+	expect(new Set(staged.storyManifest!.map((entry) => entry.file.toLowerCase())).size).toBe(2);
+});
+
 it("round trips every canonical media library, sidecars and current Story projections", async () => {
 	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-private-roundtrip-"));
 	roots.push(root);
@@ -80,7 +128,7 @@ it("round trips every canonical media library, sidecars and current Story projec
 	expect(bundleEntries.some((p) => p.startsWith("slides/"))).toBe(false);
 	expect(bundleEntries.some((p) => p === "assets/inline-title/asset.json")).toBe(false);
 	for (const manifest of staged.storyManifest!) expect(bundleEntries).toContain(manifest.file);
-	expect(bundleEntries).toContain("Story/story-A.json");
+	expect(bundleEntries).toContain("Story/story-73746f72792d41.json");
 	expect(bundleEntries).not.toContain("Story/story-story-A.json");
 	expect(timelineMediaPaths(staged)).toHaveLength(5);
 	const savedStory = staged.stories!.find((s) => s.artboardId === "A")!;
@@ -418,7 +466,7 @@ it("timelineBundle_stagesModularStoryAndHyperframeAndCategorizesEntries", async 
 
 	const storyDir = path.join(workspace, "Story");
 	const storyFiles = await fs.readdir(storyDir);
-	expect(storyFiles).toContain("story-main.json");
+	expect(storyFiles).toContain("story-73746f72792d6d61696e.json");
 
 	// Verify Hyperframe folder and HTML were generated
 	const hfDir = path.join(workspace, "hyperframe");

@@ -15,6 +15,35 @@ import {
 } from "./storyUtils";
 
 describe("storyUtils", () => {
+	it("keeps prefix and case distinct Story identities portable in generated manifests", () => {
+		const project = createTimelineProject("filenames", "Filenames");
+		const stories = ["foo", "story-foo", "Foo", "CON", "con"].map((id) =>
+			createDefaultStory(project, id),
+		);
+		const manifest = generateStoryManifest(stories);
+		expect(manifest.map((entry) => entry.id)).toEqual([
+			"foo",
+			"story-foo",
+			"Foo",
+			"CON",
+			"con",
+		]);
+		expect(manifest.map((entry) => entry.file)).toEqual([
+			"Story/story-666f6f.json",
+			"Story/story-73746f72792d666f6f.json",
+			"Story/story-466f6f.json",
+			"Story/story-434f4e.json",
+			"Story/story-636f6e.json",
+		]);
+		expect(new Set(manifest.map((entry) => entry.file.toLowerCase())).size).toBe(5);
+	});
+	it("rejects invalid Story identities before producing a file path", () => {
+		const project = createTimelineProject("invalid-filenames", "Invalid filenames");
+		for (const id of ["", "../escape", "non-ASCII-é"])
+			expect(() => generateStoryManifest([createDefaultStory(project, id)])).toThrow(
+				/Story ID/,
+			);
+	});
 	it("projects current canonical owners including empty Artboards", () => {
 		const project = ownershipFixture();
 		project.stories = extractStoriesFromProject(project);
@@ -111,8 +140,8 @@ describe("storyUtils", () => {
 
 		const manifest = generateStoryManifest(stories);
 		expect(manifest).toHaveLength(2);
-		expect(manifest[0].file).toBe("Story/story-main.json");
-		expect(manifest[1].file).toBe("Story/story-reels.json");
+		expect(manifest[0].file).toBe("Story/story-73746f72792d6d61696e.json");
+		expect(manifest[1].file).toBe("Story/story-73746f72792d7265656c73.json");
 	});
 
 	it("generates a valid HTML5/GSAP Hyperframe template with seekFrame driver", () => {
