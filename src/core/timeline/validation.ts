@@ -1,12 +1,12 @@
+import { resolveClipSource } from "./clipSource";
+import { getStoryProject } from "./storyOwnership";
 import {
 	clipDurationUs,
 	type MediaAsset,
 	type MediaSource,
-	type TimelineProject,
 	type StoryClipContent,
+	type TimelineProject,
 } from "./types";
-import { resolveClipSource } from "./clipSource";
-import { getStoryProject } from "./storyOwnership";
 
 function requireValue(condition: unknown, message: string): asserts condition {
 	if (!condition) throw new Error(message);
@@ -53,7 +53,7 @@ function serializable(value: unknown, seen = new Set<unknown>()) {
 	for (const v of Object.values(value)) serializable(v, seen);
 	seen.delete(value);
 }
-function sameMetadata(a: unknown, b: unknown): boolean {
+export function sameMetadata(a: unknown, b: unknown): boolean {
 	if (a === b) return true;
 	if (!a || !b || typeof a !== "object" || typeof b !== "object") return false;
 	if (Array.isArray(a) || Array.isArray(b))

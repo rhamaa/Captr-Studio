@@ -1,11 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { normalizeStoryOwnership } from "./normalizeStoryOwnership";
-import { fixtureClip, fixtureTrack, ownershipFixture } from "./storyOwnership.fixtures";
-import { getStoryProject, applyStoryCommand } from "./storyOwnership";
 import { artboardToStory, extractStoriesFromProject } from "../story/storyUtils";
+import { normalizeStoryOwnership } from "./normalizeStoryOwnership";
+import { applyStoryCommand, getStoryProject } from "./storyOwnership";
+import { fixtureClip, fixtureTrack, ownershipFixture } from "./storyOwnership.fixtures";
 import { validateTimelineProject } from "./validation";
 
 describe("normalizeStoryOwnership", () => {
+	it.each(
+		["root", "artboard"].flatMap((kind) =>
+			["localAssets", "clipTransitions"].flatMap((field) =>
+				[null, {}, "invalid"].map((invalid) => ({ kind, field, invalid })),
+			),
+		),
+	)("rejects invalid collection $kind.$field=$invalid without changing input", ({
+		kind,
+		field,
+		invalid,
+	}) => {
+		const input = ownershipFixture();
+		input.stories = extractStoriesFromProject(input);
+		const owner = kind === "root" ? input : input.repurposeBoard!.artboards[0];
+		Object.assign(owner, { [field]: invalid });
+		const before = structuredClone(input);
+		expect(() => normalizeStoryOwnership(input)).toThrow();
+		expect(input).toEqual(before);
+	});
 	it("materializes inherited canvas settings without a later root-background link", () => {
 		const input = ownershipFixture();
 		input.canvas.background = "#123456";

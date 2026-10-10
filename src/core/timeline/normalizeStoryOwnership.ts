@@ -6,6 +6,35 @@ import { validateStoryPresentation, validateTimelineProject } from "./validation
 /** Legacy ingress only. Never mutate the source project or persist migration during load. */
 export function normalizeStoryOwnership(input: TimelineProject): TimelineProject {
 	const project = structuredClone(input);
+	const array = (value: unknown, name: string, required = false) => {
+		if ((required || value !== undefined) && !Array.isArray(value))
+			throw new Error(`Invalid ${name}: expected an array`);
+	};
+	const ownerCollections = (owner: {
+		tracks?: unknown;
+		localAssets?: unknown;
+		clipTransitions?: unknown;
+	}) => {
+		array(owner.tracks, "Story tracks");
+		array(owner.localAssets, "Story localAssets");
+		array(owner.clipTransitions, "Story clipTransitions");
+	};
+	for (const key of ["assets", "packages", "compositions", "tracks"] as const)
+		array(project[key], key, true);
+	for (const key of ["stories", "storyManifest", "designTemplates"] as const)
+		array(project[key], key);
+	ownerCollections(project);
+	if (project.repurposeBoard !== undefined) {
+		if (!project.repurposeBoard || typeof project.repurposeBoard !== "object")
+			throw new Error("Invalid repurpose board");
+		array(project.repurposeBoard.artboards, "Artboards", true);
+		array(project.repurposeBoard.slices, "Repurpose slices", true);
+		for (const owner of project.repurposeBoard.artboards) ownerCollections(owner);
+	}
+	for (const story of project.stories ?? []) {
+		array(story.tracks, "Story projection tracks", true);
+		ownerCollections(story);
+	}
 	validateStoryPresentation(project);
 	for (const owner of project.repurposeBoard?.artboards ?? []) validateStoryPresentation(owner);
 	const occupied = new Set<string>();
@@ -48,7 +77,8 @@ export function normalizeStoryOwnership(input: TimelineProject): TimelineProject
 		else {
 			// A standalone Story becomes a canonical owner, retaining all original placements.
 			const artboard = storyToArtboard(story);
-			project.repurposeBoard ??= { artboards: [], slices: [], activeSliceId: null };
+			if (project.repurposeBoard === undefined)
+				project.repurposeBoard = { artboards: [], slices: [], activeSliceId: null };
 			if (project.repurposeBoard.artboards.some((ab) => ab.id === artboard.id))
 				throw new Error("Ambiguous standalone Story owner");
 			project.repurposeBoard.artboards.push(artboard);
@@ -57,9 +87,10 @@ export function normalizeStoryOwnership(input: TimelineProject): TimelineProject
 		const key = owner === project ? "root" : `artboard:${"id" in owner ? owner.id : ""}`;
 		if (mapped.has(key)) throw new Error("Ambiguous multiple Stories for one owner");
 		mapped.add(key);
-		owner.localAssets ??= structuredClone(story.localAssets);
-		owner.subtitles ??= structuredClone(story.subtitles);
-		owner.clipTransitions ??= structuredClone(story.clipTransitions);
+		if (owner.localAssets === undefined) owner.localAssets = structuredClone(story.localAssets);
+		if (owner.subtitles === undefined) owner.subtitles = structuredClone(story.subtitles);
+		if (owner.clipTransitions === undefined)
+			owner.clipTransitions = structuredClone(story.clipTransitions);
 		const metadata = {
 			id: story.id,
 			createdAt: story.createdAt,
@@ -70,13 +101,13 @@ export function normalizeStoryOwnership(input: TimelineProject): TimelineProject
 		};
 		owner.storyMetadata = { ...metadata, ...owner.storyMetadata };
 		if (root) {
-			project.defaultStoryId ??= story.id;
+			if (project.defaultStoryId === undefined) project.defaultStoryId = story.id;
 			project.canvas = { ...story.canvas, ...project.canvas };
 		} else {
 			const artboard = owner as NonNullable<
 				TimelineProject["repurposeBoard"]
 			>["artboards"][number];
-			artboard.canvas ??= structuredClone(story.canvas);
+			if (artboard.canvas === undefined) artboard.canvas = structuredClone(story.canvas);
 		}
 	}
 	// Projections are never a source of newer sequence data. Remove them before checking edits.
@@ -115,7 +146,7 @@ export function normalizeStoryOwnership(input: TimelineProject): TimelineProject
 				inherited && artboard.localAssets !== undefined
 					? [...artboard.localAssets, ...(snapshot.localAssets ?? [])]
 					: snapshot.localAssets;
-			artboard.subtitles ??= snapshot.subtitles;
+			if (artboard.subtitles === undefined) artboard.subtitles = snapshot.subtitles;
 			project.compositions.push(...snapshot.compositions);
 		}
 		for (const id of sequenceIds({
@@ -126,7 +157,7 @@ export function normalizeStoryOwnership(input: TimelineProject): TimelineProject
 	}
 	// Persist defaults once as canonical metadata, so generated mirrors cannot add them on a second pass.
 	const rootStory = createDefaultStory(project);
-	project.defaultStoryId ??= rootStory.id;
+	if (project.defaultStoryId === undefined) project.defaultStoryId = rootStory.id;
 	project.storyMetadata = {
 		id: rootStory.id,
 		name: rootStory.name,
@@ -137,7 +168,7 @@ export function normalizeStoryOwnership(input: TimelineProject): TimelineProject
 		...project.storyMetadata,
 	};
 	project.canvas = rootStory.canvas;
-	project.clipTransitions ??= [];
+	if (project.clipTransitions === undefined) project.clipTransitions = [];
 	for (const artboard of project.repurposeBoard?.artboards ?? []) {
 		const story = artboardToStory(artboard, project.canvas.fps);
 		artboard.storyMetadata = {
@@ -146,8 +177,8 @@ export function normalizeStoryOwnership(input: TimelineProject): TimelineProject
 			updatedAt: story.updatedAt,
 			...artboard.storyMetadata,
 		};
-		artboard.canvas ??= { ...project.canvas, ...story.canvas };
-		artboard.clipTransitions ??= [];
+		if (artboard.canvas === undefined) artboard.canvas = { ...project.canvas, ...story.canvas };
+		if (artboard.clipTransitions === undefined) artboard.clipTransitions = [];
 	}
 	const normalized = refreshStoryProjections(project);
 	// Task 3 migrates historical Text/Shape assets after this ownership stage.

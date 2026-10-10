@@ -1,7 +1,7 @@
-import type { StoryScope, TimelineProject } from "./types";
-import type { ProjectCommand } from "./history";
 import { extractStoriesFromProject, generateStoryManifest } from "../story/storyUtils";
-import { validateTimelineProject } from "./validation";
+import type { ProjectCommand } from "./history";
+import type { StoryScope, TimelineProject } from "./types";
+import { sameMetadata, validateTimelineProject } from "./validation";
 
 export function listStoryScopes(project: TimelineProject): StoryScope[] {
 	return [
@@ -42,13 +42,29 @@ export function refreshStoryProjections(project: TimelineProject): TimelineProje
 	return { ...project, stories, storyManifest: generateStoryManifest(stories) };
 }
 
+/** Keep existing shared catalog entries immutable while admitting new imports. */
+function appendSharedImports<T extends { id: string }>(existing: T[], updated: T[], name: string) {
+	if (!Array.isArray(updated)) throw new Error(`Invalid shared ${name} library`);
+	for (const entry of existing) {
+		const candidate = updated.find((item) => item.id === entry.id);
+		if (!candidate || !sameMetadata(entry, candidate))
+			throw new Error(`Story command cannot modify or remove shared ${name}: ${entry.id}`);
+	}
+	const existingIds = new Set(existing.map((entry) => entry.id));
+	const imports = updated.filter((entry) => !existingIds.has(entry.id));
+	if (new Set(updated.map((entry) => entry.id)).size !== updated.length)
+		throw new Error(`Duplicate shared ${name} identity`);
+	return { entries: [...existing, ...imports], imports };
+}
+
 /** Execute against an isolated view, then atomically validate the complete canonical project. */
 export function applyStoryCommand(
 	project: TimelineProject,
 	scope: StoryScope,
 	command: ProjectCommand,
 ): TimelineProject {
-	const view = structuredClone(getStoryProject(project, scope));
+	const originalView = getStoryProject(project, scope);
+	const view = structuredClone(originalView);
 	view.repurposeBoard = undefined;
 	view.stories = undefined;
 	view.storyManifest = undefined;
@@ -59,15 +75,36 @@ export function applyStoryCommand(
 	const updated = command(view);
 	if (updated.projectId !== project.projectId)
 		throw new Error("Story command changed project identity");
+	const assets = appendSharedImports(project.assets, updated.assets, "asset");
+	const packages = appendSharedImports(project.packages, updated.packages, "package");
+	for (const asset of assets.imports) {
+		const published = originalView.localAssets?.find((media) => media.id === asset.id);
+		if (published && !sameMetadata(published, asset))
+			throw new Error(`Story publication must preserve private media: ${asset.id}`);
+	}
+	for (const pkg of packages.imports)
+		if (
+			!assets.imports.some(
+				(asset) => asset.kind === "recording" && asset.packageId === pkg.id,
+			)
+		)
+			throw new Error(`Imported package requires a new global Recording Asset: ${pkg.id}`);
+	if (
+		!sameMetadata(
+			project.designTemplates === undefined ? [] : project.designTemplates,
+			updated.designTemplates === undefined ? [] : updated.designTemplates,
+		)
+	)
+		throw new Error("Story command cannot modify shared design templates");
 	let next: TimelineProject = {
 		...project,
-		assets: updated.assets,
-		packages: updated.packages,
+		assets: assets.entries,
+		packages: packages.entries,
 		compositions: [
 			...project.compositions.filter((c) => !ownedCompositions.has(c.id)),
 			...updated.compositions,
 		],
-		designTemplates: updated.designTemplates,
+		designTemplates: project.designTemplates,
 		updatedAt: updated.updatedAt,
 	};
 	if (scope.kind === "root") {

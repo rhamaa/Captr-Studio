@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { extractStoriesFromProject } from "../story/storyUtils";
 import { createTimelineProject } from "./commands";
 import {
 	addRepurposeArtboard,
@@ -20,11 +21,33 @@ import {
 	updateRepurposeFraming,
 	updateRepurposeSlice,
 } from "./repurposeCommands";
+import { fixtureClip, fixtureTrack, ownershipFixture } from "./storyOwnership.fixtures";
 import { validateTimelineProject } from "./validation";
-import { ownershipFixture, fixtureClip, fixtureTrack } from "./storyOwnership.fixtures";
-import { extractStoriesFromProject } from "../story/storyUtils";
 
 describe("repurposeCommands", () => {
+	it("forks an inherited owner without losing unplaced private media or linking its canvas to root", () => {
+		const input = ownershipFixture();
+		const owner = input.repurposeBoard!.artboards[0];
+		delete owner.tracks;
+		input.localAssets = [{ ...structuredClone(owner.localAssets![0]), id: "root-private" }];
+		input.canvas = { width: 1920, height: 1080, fps: 24, background: "#123456" };
+		const before = structuredClone(input);
+		const result = forkArtboardSequence(input, "A");
+		const fork = result.repurposeBoard!.artboards[0];
+		expect(fork.localAssets).toHaveLength(2);
+		expect(fork.localAssets![0]).toEqual(owner.localAssets![0]);
+		expect(fork.localAssets![1].id).not.toBe("root-private");
+		expect(fork.localAssets![1].source).toEqual(input.localAssets[0].source);
+		result.canvas = { ...result.canvas, fps: 60, background: "#abcdef" };
+		expect(getArtboardProjectView(result, "A").canvas).toEqual({
+			width: owner.width,
+			height: owner.height,
+			fps: 24,
+			background: "#123456",
+		});
+		expect(input).toEqual(before);
+		expect(() => validateTimelineProject(result)).not.toThrow();
+	});
 	it("removes obsolete Story projections when deleting an owner", () => {
 		const input = ownershipFixture();
 		input.stories = extractStoriesFromProject(input);

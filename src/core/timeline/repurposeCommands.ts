@@ -1,9 +1,3 @@
-import {
-	applyStoryCommand,
-	createStorySnapshot,
-	getStoryProject,
-	refreshStoryProjections,
-} from "./storyOwnership";
 import { placeAsset } from "./commands";
 import {
 	type ArtboardPreset,
@@ -14,7 +8,13 @@ import {
 	type RepurposeSlice,
 	SLICE_COLORS,
 } from "./repurposeTypes";
-import { projectDurationUs, clipDurationUs, type TimelineProject } from "./types";
+import {
+	applyStoryCommand,
+	createStorySnapshot,
+	getStoryProject,
+	refreshStoryProjections,
+} from "./storyOwnership";
+import { clipDurationUs, projectDurationUs, type TimelineProject } from "./types";
 
 /**
  * Creates default RepurposeBoardSettings with standard social media artboards (9:16, 1:1, 16:9)
@@ -469,8 +469,17 @@ export function forkArtboardSequence(
 							...a,
 							tracks: snapshot.tracks,
 							clipTransitions: snapshot.clipTransitions,
-							localAssets: snapshot.localAssets,
-							subtitles: a.subtitles ?? snapshot.subtitles,
+							localAssets:
+								a.localAssets === undefined
+									? snapshot.localAssets
+									: [
+											...structuredClone(a.localAssets),
+											...(snapshot.localAssets ?? []),
+										],
+							subtitles: a.subtitles === undefined ? snapshot.subtitles : a.subtitles,
+							canvas: structuredClone(
+								a.canvas ?? { ...project.canvas, width: a.width, height: a.height },
+							),
 						}
 					: a,
 			),

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { applyStoryCommand, getStoryProject, listStoryScopes } from "./storyOwnership";
-import { ownershipFixture } from "./storyOwnership.fixtures";
 import { extractStoriesFromProject } from "../story/storyUtils";
 import { removeClip, splitClip } from "./commands";
+import { applyStoryCommand, getStoryProject, listStoryScopes } from "./storyOwnership";
+import { fixtureText, ownershipFixture } from "./storyOwnership.fixtures";
+import type { StoryScope, TimelineProject } from "./types";
 import { validateTimelineProject } from "./validation";
 
 describe("Story ownership views", () => {
@@ -27,6 +28,133 @@ describe("Story ownership views", () => {
 });
 
 describe("scoped Story commands", () => {
+	const scopes: StoryScope[] = [{ kind: "root" }, { kind: "artboard", artboardId: "A" }];
+	describe.each(scopes)("shared-library boundary in %j", (scope) => {
+		const cases: { name: string; mutate: (p: TimelineProject) => void }[] = [
+			{
+				name: "asset mutation",
+				mutate: (p) => {
+					p.assets[0].name = "Changed shared asset";
+				},
+			},
+			{
+				name: "asset removal",
+				mutate: (p) => {
+					p.assets = p.assets.filter((a) => a.id !== "unused");
+				},
+			},
+			{
+				name: "package mutation",
+				mutate: (p) => {
+					p.packages[0].settings = { changed: true };
+				},
+			},
+			{
+				name: "package removal",
+				mutate: (p) => {
+					p.packages = p.packages.filter((a) => a.id !== "unused-package");
+				},
+			},
+			{
+				name: "template mutation",
+				mutate: (p) => {
+					p.designTemplates![0].name = "Changed shared template";
+				},
+			},
+			{
+				name: "template removal",
+				mutate: (p) => {
+					p.designTemplates = [];
+				},
+			},
+		];
+		it.each(cases)("rejects $name atomically", ({ mutate }) => {
+			const input = ownershipFixture();
+			input.assets.push({ ...structuredClone(input.assets[0]), id: "unused" });
+			input.packages.push({
+				...structuredClone(input.packages[0]),
+				id: "unused-package",
+				captureId: "unused-capture",
+			});
+			input.designTemplates = [
+				{
+					id: "template",
+					name: "Title",
+					kind: "text",
+					width: 1920,
+					height: 1080,
+					defaultDurationUs: 5_000_000,
+					content: { kind: "text", text: fixtureText, durationUs: 5_000_000 },
+				},
+			];
+			const before = structuredClone(input);
+			expect(() =>
+				applyStoryCommand(input, scope, (p) => {
+					mutate(p);
+					return p;
+				}),
+			).toThrow(/shared/i);
+			expect(input).toEqual(before);
+		});
+	});
+	it.each(scopes)("allows shared imports and unchanged private publication in %j", (scope) => {
+		const input = ownershipFixture();
+		const owner = scope.kind === "root" ? input : input.repurposeBoard!.artboards[0];
+		if (scope.kind === "root")
+			owner.localAssets = [
+				{
+					...structuredClone(input.repurposeBoard!.artboards[0].localAssets![0]),
+					id: "root-private",
+				},
+			];
+		const privateAsset = structuredClone(owner.localAssets![0]);
+		const result = applyStoryCommand(input, scope, (p) => {
+			p.assets.push(privateAsset, { ...structuredClone(p.assets[0]), id: "imported-video" });
+			p.localAssets = p.localAssets!.filter((a) => a.id !== privateAsset.id);
+			return p;
+		});
+		expect(result.assets.find((a) => a.id === privateAsset.id)).toEqual(privateAsset);
+		expect(result.assets.some((a) => a.id === "imported-video")).toBe(true);
+		expect(result.assets.slice(0, input.assets.length)).toEqual(input.assets);
+		expect(getStoryProject(result, scope).localAssets).toEqual([]);
+	});
+	it("rejects uncorrelated package imports and altered publications, while accepting a new Recording source/package pair", () => {
+		const input = ownershipFixture();
+		const scope = { kind: "artboard", artboardId: "A" } as const;
+		const newPackage = {
+			...structuredClone(input.packages[0]),
+			id: "imported-package",
+			captureId: "new-capture",
+		};
+		expect(() =>
+			applyStoryCommand(input, scope, (p) => ({
+				...p,
+				packages: [...p.packages, newPackage],
+			})),
+		).toThrow(/package/i);
+		expect(() =>
+			applyStoryCommand(input, scope, (p) => {
+				p.assets.push({
+					...p.localAssets![0],
+					source: { ...p.localAssets![0].source!, path: "different.wav" },
+				});
+				p.localAssets = [];
+				return p;
+			}),
+		).toThrow(/publication/i);
+		const result = applyStoryCommand(input, scope, (p) => ({
+			...p,
+			packages: [...p.packages, newPackage],
+			assets: [
+				...p.assets,
+				{ ...p.assets[1], id: "imported-record", packageId: newPackage.id },
+			],
+		}));
+		expect(result.packages).toHaveLength(2);
+		expect(result.assets.find((a) => a.id === "imported-record")!.packageId).toBe(
+			"imported-package",
+		);
+	});
 	it("does not expose sibling Record compositions to scoped commands", () => {
 		const project = ownershipFixture();
 		let visible: string[] = [];
