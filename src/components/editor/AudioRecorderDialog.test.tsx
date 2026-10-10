@@ -78,6 +78,26 @@ function createFixture(options?: { permissionError?: string; saveErrors?: number
 }
 
 describe("AudioRecorderDialogController", () => {
+	it("waits for a kept Story take to finalize before continuing Finish navigation", async () => {
+		const fixture = createFixture();
+		let finishKeep!: () => void;
+		vi.mocked(fixture.callbacks.onTakeRecorded).mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					finishKeep = resolve;
+				}),
+		);
+		await fixture.controller.loadInputs();
+		await fixture.controller.start();
+		fixture.controller.requestNavigation();
+		const completion = fixture.controller.resolveNavigation("finish");
+		await vi.waitFor(() => expect(finishKeep).toBeDefined());
+		expect(fixture.controller.getSnapshot().finalizing).toBe(true);
+		expect(fixture.callbacks.onNavigationChoice).not.toHaveBeenCalled();
+		finishKeep();
+		await completion;
+		expect(fixture.callbacks.onNavigationChoice).toHaveBeenCalledWith("finish");
+	});
 	it("loads microphone inputs and anchors capture with the selected device", async () => {
 		const fixture = createFixture();
 		await fixture.controller.loadInputs();

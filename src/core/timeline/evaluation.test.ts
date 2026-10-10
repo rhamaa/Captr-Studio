@@ -1,17 +1,60 @@
 import { expect, it } from "vitest";
-import { buildProjectAudioPlan } from "./audioPlan";
-import { audioAtTime } from "./audioPlan";
+import { audioAtTime, buildProjectAudioPlan } from "./audioPlan";
+import { resolveClipSource } from "./clipSource";
+import { addClipTransition, setComponentAnimation } from "./clipTransitions";
 import {
 	addTrack,
 	createTimelineProject,
 	placeAsset,
+	registerMedia,
 	registerRecording,
 	setClipRate,
 	updateComposition,
 } from "./commands";
 import { evaluateProject } from "./evaluation";
-import { addClipTransition, setComponentAnimation } from "./clipTransitions";
-import { registerMedia } from "./commands";
+import { fixtureClip, fixtureText, fixtureTrack } from "./storyOwnership.fixtures";
+
+it.each([0.5, 2])("schedules private Story audio and silent inline content at rate %s", (rate) => {
+	const project = createTimelineProject("scoped-audio", "Scoped audio");
+	project.tracks = [
+		fixtureTrack("design", [
+			fixtureClip("title", {
+				content: { kind: "text", text: fixtureText, durationUs: 5_000_000 },
+			}),
+		]),
+	];
+	expect(buildProjectAudioPlan(project)).toHaveLength(0);
+	project.localAssets = [
+		{
+			id: "private-audio",
+			kind: "audio",
+			name: "Voice",
+			width: 0,
+			height: 0,
+			durationUs: 5_000_000,
+			source: { path: "voice.wav", durationUs: 4_000_000, offsetUs: 1_000_000 },
+		},
+	];
+	const clip = fixtureClip("voice", { assetId: "private-audio" });
+	clip.rate = rate;
+	project.tracks.push(fixtureTrack("voice-track", [clip], "audio"));
+	expect(buildProjectAudioPlan(project)).toHaveLength(1);
+	expect(buildProjectAudioPlan(project)[0]).toMatchObject({
+		startUs: 1_000_000 / rate,
+		endUs: 5_000_000 / rate,
+		rate,
+	});
+	for (const sourceUs of [1_000_000, 3_000_000, 4_999_999])
+		expect(evaluateProject(project, sourceUs / rate).audio[0]).toMatchObject({
+			path: "voice.wav",
+			sourceUs: sourceUs - 1_000_000,
+			rate,
+		});
+	expect(evaluateProject(project, 5_000_000 / rate).audio).toEqual([]);
+	const sibling = { ...project, localAssets: [] };
+	expect(() => resolveClipSource(sibling, clip)).toThrow(/Story scope/);
+	expect(() => buildProjectAudioPlan(sibling)).toThrow(/Story scope/);
+});
 
 const recording = {
 	captureId: "capture",

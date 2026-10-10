@@ -455,6 +455,141 @@ describe("local media path policy", () => {
 		expect(JSON.parse(await fs.readFile(path.join(getProjectWorkspaceDir("library"), "project.json"), "utf8")).title).toBe("Library");
 	});
 
+	it("normalizes raw legacy V3 before installation and rejects private media without touching active bytes", async () => {
+		const { ownershipFixture, fixtureText } = await import(
+			"../../../src/core/timeline/storyOwnership.fixtures"
+		);
+		const { loadProjectFromPath, isAllowedLocalMediaPath } = await import("./manager");
+		const state = await import("../state");
+		const { getProjectWorkspaceDir } = await import("./projectWorkspace");
+		const raw = ownershipFixture();
+		raw.repurposeBoard!.artboards[0].tracks = [];
+		delete raw.repurposeBoard!.artboards[1].tracks;
+		raw.assets.push({
+			id: "unused-title",
+			kind: "text",
+			name: "Preset",
+			width: 1920,
+			height: 1080,
+			durationUs: 5_000_000,
+			text: fixtureText,
+		});
+		const bundle = await makeBundle(
+			tempPath,
+			path.join(tempPath, "legacy-owner.captr"),
+			raw as unknown as Record<string, unknown>,
+			{ "shared.mp4": "shared", "screen.mp4": "screen", "voice.wav": "voice" },
+		);
+		const originalBundleBytes = await fs.readFile(bundle);
+		const loaded = await loadProjectFromPath(bundle);
+		expect(loaded.success).toBe(true);
+		const active = loaded.project as typeof raw;
+		expect(active.designTemplates?.[0].id).toBe("unused-title");
+		expect(active.repurposeBoard!.artboards[0].tracks).toEqual([]);
+		expect(active.repurposeBoard!.artboards[1].tracks).toBeDefined();
+		expect(
+			await isAllowedLocalMediaPath(
+				active.repurposeBoard!.artboards[0].localAssets![0].source!.path,
+			),
+		).toBe(true);
+		expect(await fs.readFile(bundle)).toEqual(originalBundleBytes);
+		const activeMetadata = await fs.readFile(
+			path.join(getProjectWorkspaceDir(raw.projectId), "project.json"),
+		);
+		for (const invalidPath of ["missing.wav", "../escape.wav"]) {
+			const invalid = structuredClone(raw);
+			invalid.repurposeBoard!.artboards[0].localAssets![0].source!.path = invalidPath;
+			const rejectedBundle = await makeBundle(
+				tempPath,
+				path.join(tempPath, invalidPath.startsWith("..") ? "unsafe.captr" : "missing.captr"),
+				invalid as unknown as Record<string, unknown>,
+				{ "shared.mp4": "shared", "screen.mp4": "screen" },
+			);
+			const before = await fs.readFile(rejectedBundle);
+			expect((await loadProjectFromPath(rejectedBundle)).success).toBe(false);
+			expect(state.currentProjectPath).toBe(bundle);
+			expect(
+				await fs.readFile(path.join(getProjectWorkspaceDir(raw.projectId), "project.json")),
+			).toEqual(activeMetadata);
+			const originalBundleBytesAfterRejectedLoad = await fs.readFile(bundle);
+			expect(originalBundleBytesAfterRejectedLoad).toEqual(originalBundleBytes);
+			expect(await fs.readFile(rejectedBundle)).toEqual(before);
+		}
+	});
+
+	it.each([
+		"missing-owner",
+		"dangling-transition",
+	])("rejects %s V3 load before replacing the active project, path or source bytes", async (failure) => {
+		const { ownershipFixture } = await import(
+			"../../../src/core/timeline/storyOwnership.fixtures"
+		);
+		const { artboardToStory } = await import("../../../src/core/story/storyUtils");
+		const { loadProjectFromPath } = await import("./manager");
+		const { getProjectWorkspaceDir } = await import("./projectWorkspace");
+		const state = await import("../state");
+		const raw = ownershipFixture();
+		const media = { "shared.mp4": "shared", "screen.mp4": "screen", "voice.wav": "voice" };
+		const activeBundle = await makeBundle(
+			tempPath,
+			path.join(tempPath, "active.captr"),
+			raw as unknown as Record<string, unknown>,
+			media,
+		);
+		const activeBundleBytes = await fs.readFile(activeBundle);
+		const activeResult = await loadProjectFromPath(activeBundle);
+		expect(activeResult.success).toBe(true);
+		const activeProject = activeResult.project as typeof raw;
+		const activeMetadataPath = path.join(getProjectWorkspaceDir(raw.projectId), "project.json");
+		const activeMetadataBytes = await fs.readFile(activeMetadataPath);
+		const activeVideoPath = state.currentVideoPath;
+		const sourcePaths = [
+			activeProject.assets[0].source!.path,
+			activeProject.packages[0].screen.path,
+			activeProject.repurposeBoard!.artboards[0].localAssets![0].source!.path,
+		];
+		const sourceBytes = await Promise.all(sourcePaths.map((source) => fs.readFile(source)));
+		const invalid = structuredClone(raw);
+		if (failure === "missing-owner") {
+			invalid.stories = [artboardToStory(invalid.repurposeBoard!.artboards[0])];
+			invalid.repurposeBoard!.artboards.shift();
+		} else {
+			const owner = invalid.repurposeBoard!.artboards[0];
+			delete owner.tracks;
+			owner.clipTransitions = [
+				{
+					id: "dangling-fade",
+					trackId: "root",
+					fromClipId: "root-video",
+					toClipId: "missing",
+					durationUs: 500_000,
+					preset: { kind: "cross-dissolve" },
+					easing: "linear",
+				},
+			];
+		}
+		const rejectedBundle = await makeBundle(
+			tempPath,
+			path.join(tempPath, "rejected.captr"),
+			invalid as unknown as Record<string, unknown>,
+			media,
+		);
+		const rejectedBundleBytes = await fs.readFile(rejectedBundle);
+		const rejected = await loadProjectFromPath(rejectedBundle);
+		expect(rejected.success).toBe(false);
+		expect(rejected.message).toMatch(
+			failure === "missing-owner" ? /Story owner not found: A/ : /transition.*missing/i,
+		);
+		expect(state.currentProjectPath).toBe(activeBundle);
+		expect(state.currentVideoPath).toBe(activeVideoPath);
+		expect(await fs.readFile(activeMetadataPath)).toEqual(activeMetadataBytes);
+		expect(await fs.readFile(activeBundle)).toEqual(activeBundleBytes);
+		expect(await fs.readFile(rejectedBundle)).toEqual(rejectedBundleBytes);
+		expect(await Promise.all(sourcePaths.map((source) => fs.readFile(source)))).toEqual(
+			sourceBytes,
+		);
+	});
+
 	it("legacy conversion candidates preserve the active destination and original bytes",async()=>{
 		const legacy=path.join(tempPath,"convert.captr");await makeBundle(tempPath,legacy,{version:1,projectId:"old",videoPath:"screen.mp4",editor:{},clips:[{id:"record",videoPath:"screen.mp4",durationMs:1000}]},{"screen.mp4":"source"});
 		const bytes=await fs.readFile(legacy);const state=await import("../state");state.setCurrentProjectPath("active.captr");

@@ -1,5 +1,6 @@
 import type { PointerEvent } from "react";
 import { useMemo, useRef, useState } from "react";
+import { resolveClipSource } from "@/core/timeline/clipSource";
 import type { ProjectCommand } from "@/core/timeline/history";
 import { clipDurationUs, type TimelineClip, type TimelineProject } from "@/core/timeline/types";
 import {
@@ -87,9 +88,8 @@ export function TimelineClipItem({
 	snappingEnabled = true,
 	onSnapChange,
 }: Props) {
-	const asset = project.assets.find((a) => a.id === clip.assetId)!,
-		label =
-			asset.kind === "text" ? (clip.text ?? asset.text)?.content || asset.name : asset.name;
+	const asset = resolveClipSource(project, clip),
+		label = asset.name;
 	const [preview, setPreview] = useState<TimelineClip | null>(null);
 	const gesture = useRef<{ startX: number; kind: ClipGesture["kind"]; deltaUs: number } | null>(
 		null,
@@ -134,14 +134,14 @@ export function TimelineClipItem({
 	const waveformPath = useMemo(() => {
 		if (asset.kind !== "audio") return null;
 		return generateWaveformPath(
-			clip.assetId,
+			clip.assetId ?? clip.id,
 			shown.sourceInUs,
 			shown.rate,
 			scale,
 			clipWidthPx,
 			51,
 		);
-	}, [asset.kind, clip.assetId, shown.sourceInUs, shown.rate, scale, clipWidthPx]);
+	}, [asset.kind, clip.assetId, clip.id, shown.sourceInUs, shown.rate, scale, clipWidthPx]);
 	return (
 		<div
 			role="button"

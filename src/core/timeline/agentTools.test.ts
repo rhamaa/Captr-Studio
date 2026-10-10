@@ -7,10 +7,33 @@ import {
 	formatProjectContext,
 } from "./agentTools";
 import { createTimelineProject, placeAsset, registerMedia } from "./commands";
+import { getStoryEditProject } from "./storyOwnership";
+import { ownershipFixture } from "./storyOwnership.fixtures";
 import type { AssetTranscript } from "./transcriptTypes";
 import type { MediaAsset } from "./types";
 
 describe("agentTools", () => {
+	it("creates scoped Shape output inline with no media allocation", () => {
+		const view = getStoryEditProject(ownershipFixture(), { kind: "artboard", artboardId: "A" });
+		const result = applyAddBRollOrOverlay(view, {
+			type: "shape",
+			shapeDefinition: {
+				kind: "ellipse",
+				width: 100,
+				height: 60,
+				style: { fill: "#ffffff", stroke: null },
+			},
+			startUs: 0,
+			durationUs: 2_000_000,
+		});
+		const clip = result.project.tracks
+			.flatMap((t) => t.clips)
+			.find((c) => c.id === result.clipId)!;
+		expect(clip.content).toMatchObject({ kind: "shape", shapeDefinition: { kind: "ellipse" } });
+		expect(clip.assetId).toBeUndefined();
+		expect(clip.sourceOutUs).toBe(2_000_000);
+		expect(result.project.assets).toEqual(view.assets);
+	});
 	function buildTestProject() {
 		let project = createTimelineProject("proj-1", "Test Project");
 		const videoAsset: MediaAsset = {
@@ -152,5 +175,13 @@ describe("agentTools", () => {
 			t.clips.some((c) => c.id === res.clipId),
 		);
 		expect(hasTextTrack).toBe(true);
+		const clip = res.project.tracks.flatMap((t) => t.clips).find((c) => c.id === res.clipId)!;
+		expect(clip.content).toMatchObject({
+			kind: "text",
+			text: { content: "Highlight Key Topic" },
+		});
+		expect(clip.assetId).toBeUndefined();
+		expect(clip.sourceOutUs).toBe(3_000_000);
+		expect(res.project.assets).toEqual(project.assets);
 	});
 });

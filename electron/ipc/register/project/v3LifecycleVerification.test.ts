@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { addClipTransition, setComponentAnimation } from "../../../../src/core/timeline/clipTransitions";
 import {
 	createTimelineProject,
 	placeAsset,
@@ -9,8 +10,8 @@ import {
 	registerRecording,
 	splitClip,
 } from "../../../../src/core/timeline/commands";
-import { addClipTransition, setComponentAnimation } from "../../../../src/core/timeline/clipTransitions";
 import { createAndPlaceShape, setShapeStyleOverride } from "../../../../src/core/timeline/shapeCommands";
+import { fixtureText } from "../../../../src/core/timeline/storyOwnership.fixtures";
 import type { CompletedRecording, ShapeDefinition, TimelineProject } from "../../../../src/core/timeline/types";
 import {
 	inspectProjectBundle,
@@ -47,6 +48,21 @@ vi.mock("../../utils", async (importOriginal) => {
 	return {
 		...actual,
 		getRecordingsDir: async () => path.join(mock.root, "Recordings"),
+	};
+});
+
+vi.mock("../../../appPaths", () => ({
+	get USER_DATA_PATH() { return mock.root; },
+	get RECORDINGS_DIR() { return path.join(mock.root, "Recordings"); },
+}));
+
+// Keep filesystem state inside this suite's root rather than racing other workers' Home lists.
+vi.mock("../../constants", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../../constants")>();
+	return {
+		...actual,
+		get RECENT_PROJECTS_FILE() { return path.join(mock.root, "recent-projects.json"); },
+		get RECORDINGS_SETTINGS_FILE() { return path.join(mock.root, "recordings-settings.json"); },
 	};
 });
 
@@ -117,6 +133,28 @@ describe("V3 Lifecycle & Regression Verification Suite", () => {
 		system: { path: sources.systemPath, durationUs: 10_000_000, offsetUs: 0 },
 		cursorPath: sources.cursorPath,
 		settings: { autoZoom: true },
+	});
+
+	it("normalizes legacy V3 save ingress to metadata-only design Templates", async () => {
+		const raw = createTimelineProject("legacy-design-save", "Legacy design");
+		raw.assets.push({
+			id: "preset",
+			kind: "text",
+			name: "Title preset",
+			width: 1920,
+			height: 1080,
+			durationUs: 5_000_000,
+			text: fixtureText,
+		});
+		const target = path.join(mock.root, "Projects", "Legacy design.captr");
+		mock.saveDialog.mockResolvedValueOnce({ filePath: target, canceled: false });
+		const saved = await mock.handlers.get("save-project-file")!(null, raw, "Legacy design");
+		expect(saved.success).toBe(true);
+		const inspection = await inspectProjectBundle(target);
+		expect(inspection.projectData?.assets).toEqual([]);
+		expect((inspection.projectData?.designTemplates as Array<{ id: string }>)[0].id).toBe("preset");
+		expect(inspection.entries.some((e) => e.path === "assets/preset/asset.json")).toBe(false);
+		expect(raw.assets).toHaveLength(1);
 	});
 
 	it("QA 1: Record dua kali pada .captr aktif, Ctrl+S tanpa Save As, buka ulang Assets tanpa timeline dan semua sidecar utuh", async () => {
@@ -476,8 +514,9 @@ describe("V3 Lifecycle & Regression Verification Suite", () => {
 		expect(reopened.clipTransitions).toEqual(project.clipTransitions);
 		expect(reopened.tracks[0]!.clips.find((clip) => clip.id === "in")?.componentAnimation)
 			.toEqual(project.tracks[0]!.clips.find((clip) => clip.id === "in")?.componentAnimation);
-		expect(reopened.assets.find((asset) => asset.id === "shape-asset")?.shapeDefinition)
-			.toEqual(rectangle);
+		expect(reopened.tracks[0]!.clips.find((clip) => clip.id === "shape-placement")?.content)
+			.toMatchObject({kind:"shape",shapeDefinition:rectangle});
+		expect(reopened.assets.some((asset) => asset.id === "shape-asset")).toBe(false);
 		expect(reopened.tracks[0]!.clips.find((clip) => clip.id === "shape-placement")?.shapeStyleOverride)
 			.toEqual({ fill: "#cc8844", stroke: { color: "#221100", width: 2 } });
 		const inspection = await inspectProjectBundle(projectPath);

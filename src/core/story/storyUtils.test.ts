@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createTimelineProject, placeAsset, registerMedia } from "../timeline/commands";
 import type { RepurposeArtboard } from "../timeline/repurposeTypes";
+import { ownershipFixture } from "../timeline/storyOwnership.fixtures";
 import {
 	artboardToStory,
 	calculateStoryDurationUs,
@@ -14,6 +15,73 @@ import {
 } from "./storyUtils";
 
 describe("storyUtils", () => {
+	it("bounds manifest path components while preserving long legacy Story identities", () => {
+		const project = createTimelineProject("long-identities", "Long identities");
+		const ids = ["a".repeat(123), "b".repeat(1024)];
+		const manifest = generateStoryManifest(ids.map((id) => createDefaultStory(project, id)));
+		expect(manifest.map((entry) => entry.id)).toEqual(ids);
+		expect(manifest.map((entry) => entry.file)).toEqual([
+			"Story/story-0.json",
+			"Story/story-1.json",
+		]);
+		expect(
+			manifest.every((entry) =>
+				entry.file.split("/").every((component) => component.length <= 255),
+			),
+		).toBe(true);
+	});
+	it("keeps prefix and case distinct Story identities portable in generated manifests", () => {
+		const project = createTimelineProject("filenames", "Filenames");
+		const stories = ["foo", "story-foo", "Foo", "CON", "con"].map((id) =>
+			createDefaultStory(project, id),
+		);
+		const manifest = generateStoryManifest(stories);
+		expect(manifest.map((entry) => entry.id)).toEqual([
+			"foo",
+			"story-foo",
+			"Foo",
+			"CON",
+			"con",
+		]);
+		expect(manifest.map((entry) => entry.file)).toEqual([
+			"Story/story-0.json",
+			"Story/story-1.json",
+			"Story/story-2.json",
+			"Story/story-3.json",
+			"Story/story-4.json",
+		]);
+		expect(new Set(manifest.map((entry) => entry.file.toLowerCase())).size).toBe(5);
+	});
+	it("rejects invalid Story identities before producing a file path", () => {
+		const project = createTimelineProject("invalid-filenames", "Invalid filenames");
+		for (const id of ["", "../escape", "non-ASCII-é"])
+			expect(() => generateStoryManifest([createDefaultStory(project, id)])).toThrow(
+				/Story ID/,
+			);
+	});
+	it("projects current canonical owners including empty Artboards", () => {
+		const project = ownershipFixture();
+		project.stories = extractStoriesFromProject(project);
+		project.stories[0].durationUs = 99_000_000;
+		project.tracks = [];
+		project.repurposeBoard!.artboards[1].tracks = [];
+		const stories = extractStoriesFromProject(project);
+		expect(stories).toHaveLength(3);
+		expect(stories[0].tracks).toEqual([]);
+		expect(stories[0].durationUs).toBe(0);
+		expect(stories.find((s) => s.artboardId === "B")!.tracks).toEqual([]);
+	});
+	it("round-trips private media, explicit empty metadata, caption and canvas settings", () => {
+		const story = artboardToStory(ownershipFixture().repurposeBoard!.artboards[0]);
+		story.id = "stable-story-identity";
+		story.canvas = { ...story.canvas, fps: 24, background: "#123456" };
+		story.subtitles = { enabled: false };
+		story.clipTransitions = [];
+		story.durationUs = 5_000_000;
+		expect(artboardToStory(storyToArtboard(story))).toEqual(story);
+		const empty = { ...story, localAssets: [], tracks: [], durationUs: 0 };
+		expect(artboardToStory(storyToArtboard(empty))).toEqual(empty);
+	});
 	it("creates default story from project root tracks and canvas", () => {
 		const project = createTimelineProject("test-p", "My Video Project");
 		const story = createDefaultStory(project);
@@ -87,8 +155,8 @@ describe("storyUtils", () => {
 
 		const manifest = generateStoryManifest(stories);
 		expect(manifest).toHaveLength(2);
-		expect(manifest[0].file).toBe("Story/story-main.json");
-		expect(manifest[1].file).toBe("Story/story-reels.json");
+		expect(manifest[0].file).toBe("Story/story-0.json");
+		expect(manifest[1].file).toBe("Story/story-1.json");
 	});
 
 	it("generates a valid HTML5/GSAP Hyperframe template with seekFrame driver", () => {
@@ -120,7 +188,9 @@ describe("storyUtils", () => {
 		expect(() => validateStoryComposition(validStory)).not.toThrow();
 
 		expect(() => validateStoryComposition({ id: "", name: "Story" })).toThrow(/valid id/);
-		expect(() => validateStoryComposition({ id: "s", name: "", canvas: {} })).toThrow(/valid name/);
+		expect(() => validateStoryComposition({ id: "s", name: "", canvas: {} })).toThrow(
+			/valid name/,
+		);
 
 		const validHf = {
 			id: "hf-1",

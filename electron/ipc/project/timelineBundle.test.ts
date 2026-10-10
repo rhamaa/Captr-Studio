@@ -2,14 +2,209 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, it } from "vitest";
-import { addTextOverlay, createTimelineProject, registerMedia, registerRecording, placeAsset } from "../../../src/core/timeline/commands";
 import { addClipTransition, setComponentAnimation } from "../../../src/core/timeline/clipTransitions";
+import { addTextOverlay, createTimelineProject, placeAsset, registerMedia, registerRecording } from "../../../src/core/timeline/commands";
+import { timelineMediaPaths } from "../../../src/core/timeline/mediaPaths";
+import { normalizeStoryOwnership } from "../../../src/core/timeline/normalizeStoryOwnership";
 import { createAndPlaceShape, setShapeStyleOverride } from "../../../src/core/timeline/shapeCommands";
+import { fixtureClip, fixtureText, ownershipFixture } from "../../../src/core/timeline/storyOwnership.fixtures";
 import type { ShapeDefinition } from "../../../src/core/timeline/types";
+import { inspectProjectBundle, packProjectWorkspace, readProjectBundleEntry, unpackProjectBundle } from "./projectBundle";
 import { resolveTimelineProject, stageTimelineProject } from "./timelineBundle";
-import { inspectProjectBundle, packProjectWorkspace, unpackProjectBundle } from "./projectBundle";
 
 const roots:string[]=[];afterEach(async()=>{for(const r of roots.splice(0))await fs.rm(r,{recursive:true,force:true});});
+it.each([
+	["foo", "story-foo", "Story/story-0.json", "Story/story-1.json"],
+	["Foo", "foo", "Story/story-0.json", "Story/story-1.json"],
+	["CON", "con", "Story/story-0.json", "Story/story-1.json"],
+])("bundles distinct Story IDs %s and %s without replacing either owner's projection", async (rootId, artboardStoryId, rootFile, artboardFile) => {
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-story-filename-"));
+	roots.push(root);
+	const project = createTimelineProject("story-filenames", "Story filenames");
+	project.defaultStoryId = rootId;
+	project.repurposeBoard = {
+		artboards: [
+			{
+				id: "bar",
+				name: "Artboard",
+				storyMetadata: { id: artboardStoryId },
+				aspectRatio: "16:9",
+				width: 1920,
+				height: 1080,
+				framing: { scale: 1, offsetX: 0, offsetY: 0, fitMode: "contain" },
+				tracks: [],
+			},
+		],
+		slices: [],
+		activeSliceId: null,
+	};
+	const staged = await stageTimelineProject(project, path.join(root, "staged"));
+	const bundle = path.join(root, "distinct.captr");
+	await packProjectWorkspace(path.join(root, "staged"), bundle);
+	for (const [id, ownerId, name, tracks] of [
+		[rootId, undefined, "Main Video", project.tracks],
+		[artboardStoryId, "bar", "Artboard", []],
+	] as const) {
+		const manifest = staged.storyManifest!.find((entry) => entry.id === id)!;
+		const saved = await readProjectBundleEntry(bundle, manifest.file);
+		expect(saved.success).toBe(true);
+		const story = JSON.parse(saved.content!);
+		expect(story.id).toBe(id);
+		expect(story.artboardId).toBe(ownerId);
+		expect(story.name).toBe(name);
+		expect(story.tracks).toEqual(tracks);
+	}
+	expect(staged.storyManifest!.map((entry) => entry.file)).toEqual([rootFile, artboardFile]);
+	const bundleEntries = (await inspectProjectBundle(bundle)).entries.map((entry) => entry.path);
+	expect(bundleEntries).toContain(rootFile);
+	expect(bundleEntries).toContain(artboardFile);
+	expect(new Set(staged.storyManifest!.map((entry) => entry.file.toLowerCase())).size).toBe(2);
+});
+
+it("saves legacy Story IDs of 123 and 1024 ASCII characters with bounded projection paths", async () => {
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-long-story-id-"));
+	roots.push(root);
+	const project = createTimelineProject("long-story-identities", "Long identities");
+	project.defaultStoryId = "a".repeat(123);
+	project.repurposeBoard = {
+		artboards: [
+			{
+				id: "long-owner",
+				name: "Long Story",
+				storyMetadata: { id: "b".repeat(1024) },
+				aspectRatio: "16:9",
+				width: 1920,
+				height: 1080,
+				framing: { scale: 1, offsetX: 0, offsetY: 0, fitMode: "contain" },
+				tracks: [],
+			},
+		],
+		slices: [],
+		activeSliceId: null,
+	};
+	const staged = await stageTimelineProject(project, path.join(root, "stage"));
+	const bundle = path.join(root, "long-identities.captr");
+	await packProjectWorkspace(path.join(root, "stage"), bundle);
+	expect(staged.defaultStoryId).toBe(project.defaultStoryId);
+	expect(staged.storyManifest!.map((entry) => entry.file)).toEqual([
+		"Story/story-0.json",
+		"Story/story-1.json",
+	]);
+	for (const [index, manifest] of staged.storyManifest!.entries()) {
+		expect(path.basename(manifest.file).length).toBeLessThanOrEqual(255);
+		const entry = await readProjectBundleEntry(bundle, manifest.file);
+		expect(entry.success).toBe(true);
+		const story = JSON.parse(entry.content!);
+		expect(story.id).toBe(index === 0 ? "a".repeat(123) : "b".repeat(1024));
+		expect(story.artboardId).toBe(index === 0 ? undefined : "long-owner");
+		expect(story.tracks).toEqual(index === 0 ? project.tracks : []);
+	}
+	const reopenedDir = path.join(root, "reopened");
+	await unpackProjectBundle(bundle, reopenedDir);
+	const reopened = resolveTimelineProject(
+		JSON.parse(await fs.readFile(path.join(reopenedDir, "project.json"), "utf8")),
+		reopenedDir,
+	);
+	expect(reopened.defaultStoryId).toBe("a".repeat(123));
+	expect(reopened.stories!.map((story) => story.id)).toEqual(["a".repeat(123), "b".repeat(1024)]);
+	expect(reopened.repurposeBoard!.artboards[0].storyMetadata!.id).toBe("b".repeat(1024));
+});
+
+it("round trips every canonical media library, sidecars and current Story projections", async () => {
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-private-roundtrip-"));
+	roots.push(root);
+	let project = ownershipFixture();
+	const owner = project.repurposeBoard!.artboards[0];
+	owner.tracks = [];
+	owner.subtitles = { enabled: true, style: "classic", fontSize: 28 };
+	owner.localAssets!.push({
+		id: "video-A",
+		kind: "video",
+		name: "Private B-roll",
+		width: 1920,
+		height: 1080,
+		durationUs: 5_000_000,
+		source: { path: "private.mp4", durationUs: 5_000_000, offsetUs: 0 },
+	});
+	project.localAssets = [
+		{
+			...owner.localAssets![0],
+			id: "voice-root",
+			source: { ...owner.localAssets![0].source!, path: "root.wav" },
+		},
+	];
+	project.tracks[0].clips.push(
+		fixtureClip("inline-title", {
+			startUs: 5_000_000,
+			content: { kind: "text", text: fixtureText, durationUs: 5_000_000 },
+		}),
+	);
+	project.designTemplates = [
+		{
+			id: "preset",
+			name: "Title preset",
+			kind: "text",
+			content: { kind: "text", text: fixtureText, durationUs: 5_000_000 },
+			width: 1920,
+			height: 1080,
+			defaultDurationUs: 5_000_000,
+		},
+	];
+	for (const asset of [...project.assets, ...project.localAssets, ...owner.localAssets!]) {
+		const dir = path.join(root, asset.id);
+		await fs.mkdir(dir);
+		if (asset.source) {
+			asset.source.path = path.join(dir, path.basename(asset.source.path));
+			await fs.writeFile(asset.source.path, asset.id);
+		}
+	}
+	project.packages[0].screen.path = path.join(root, "record", "screen.mp4");
+	await fs.writeFile(project.packages[0].screen.path, "screen");
+	await fs.writeFile(path.join(root, "voice-A", "transcript.json"), '{"segments":[]}');
+	await fs.writeFile(path.join(root, "voice-A", "captions.vtt"), "WEBVTT\n\nPrivate captions");
+	project = normalizeStoryOwnership(project);
+	// Old projections deliberately disagree with the authoritative owners.
+	project.stories!.find((s) => s.artboardId === "A")!.tracks = [
+		structuredClone(project.tracks[0]),
+	];
+	const staged = await stageTimelineProject(project, path.join(root, "stage"));
+	const bundle = path.join(root, "all.captr");
+	await packProjectWorkspace(path.join(root, "stage"), bundle);
+	const bundleEntries = (await inspectProjectBundle(bundle)).entries.map((e) => e.path);
+	expect(bundleEntries).toContain("assets/voice-A/asset.json");
+	expect(bundleEntries).toContain("assets/voice-A/transcript.json");
+	expect(bundleEntries).toContain("assets/voice-A/captions.vtt");
+	expect(bundleEntries.some((p) => p.startsWith("slides/"))).toBe(false);
+	expect(bundleEntries.some((p) => p === "assets/inline-title/asset.json")).toBe(false);
+	for (const manifest of staged.storyManifest!) expect(bundleEntries).toContain(manifest.file);
+	expect(bundleEntries).toContain("Story/story-1.json");
+	expect(bundleEntries).not.toContain("Story/story-story-A.json");
+	expect(timelineMediaPaths(staged)).toHaveLength(5);
+	const savedStory = staged.stories!.find((s) => s.artboardId === "A")!;
+	expect(savedStory.tracks).toEqual(staged.repurposeBoard!.artboards[0].tracks);
+	expect(savedStory.localAssets![0].source!.path).toMatch(/^assets\/voice-A\//);
+	const extracted = path.join(root, "reopen");
+	await unpackProjectBundle(bundle, extracted);
+	const reopened = resolveTimelineProject(
+		JSON.parse(await fs.readFile(path.join(extracted, "project.json"), "utf8")),
+		extracted,
+	);
+	const reopenedArtboard = reopened.repurposeBoard!.artboards[0];
+	expect(reopenedArtboard.localAssets?.length).toBe(2);
+	expect(await fs.readFile(reopenedArtboard.localAssets![0].source!.path, "utf8")).toBe(
+		"voice-A",
+	);
+	expect(reopened.stories!.find((s) => s.artboardId === "A")!.localAssets).toEqual(
+		reopenedArtboard.localAssets,
+	);
+	expect(reopenedArtboard.subtitles).toEqual(owner.subtitles);
+	expect(reopened.designTemplates).toEqual(project.designTemplates);
+	expect(reopened.compositions).toEqual(project.compositions);
+	reopened.repurposeBoard!.artboards[1].tracks = [];
+	const savedAgain = await stageTimelineProject(reopened, path.join(root, "again"));
+	expect(savedAgain.stories!.find((s) => s.artboardId === "B")!.tracks).toEqual([]);
+});
+
 it("bundles unused recording assets with every sidecar and no Slide folders",async()=>{
  const root=await fs.mkdtemp(path.join(os.tmpdir(),"captr-timeline-"));roots.push(root);const sources=path.join(root,"sources");await fs.mkdir(sources);
  for(const name of ["screen.mp4","camera.mp4","mic.wav","system.wav","cursor.json"])await fs.writeFile(path.join(sources,name),name);
@@ -29,12 +224,13 @@ it("saves and reopens text overlays as project data without staging fake media",
  const root=await fs.mkdtemp(path.join(os.tmpdir(),"captr-text-"));roots.push(root);
  const project=addTextOverlay(createTimelineProject("text-project","Text project"),1_000_000,{assetId:"title",trackId:"title-track",clipId:"title-clip"});
  const workspace=path.join(root,"workspace"),staged=await stageTimelineProject(project,workspace);
- expect(staged.assets[0].text?.content).toBe("Your text");
- expect(await fs.readdir(path.join(workspace,"assets","title"))).toEqual(["asset.json"]);
+ expect(staged.assets).toEqual([]);
+ expect(staged.tracks.find(t=>t.id==="title-track")?.clips[0].content?.kind).toBe("text");
+ await expect(fs.access(path.join(workspace,"assets","title"))).rejects.toThrow();
  const bundle=path.join(root,"text.captr"),loaded=path.join(root,"loaded");
  await packProjectWorkspace(workspace,bundle);await unpackProjectBundle(bundle,loaded);
  const reopened=resolveTimelineProject(JSON.parse(await fs.readFile(path.join(loaded,"project.json"),"utf8")),loaded);
- expect(reopened.tracks.find(t=>t.id==="title-track")?.clips[0].text?.content).toBe("Your text");
+ expect(reopened.tracks.find(t=>t.id==="title-track")?.clips[0].content).toMatchObject({kind:"text",text:{content:"Your text"}});
 });
 it("stages an unplaced voiceover Asset and reopens it alongside a placed audio clip", async () => {
 	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-voiceover-bundle-"));
@@ -150,7 +346,7 @@ it("timelineBundle_roundTripsClipTransitionAndComponentAnimations", async () => 
 		.toBe("outgoing media");
 });
 
-it("timelineBundle_roundTripsPathlessShapeAssetAndPlacementOverride", async () => {
+it("timelineBundle_roundTripsInlineShapeAndPlacementOverride", async () => {
 	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-shape-roundtrip-"));
 	roots.push(root);
 	const rectangle: ShapeDefinition = {
@@ -170,11 +366,10 @@ it("timelineBundle_roundTripsPathlessShapeAssetAndPlacementOverride", async () =
 	});
 	project.clipTransitions = [];
 	const workspace = path.join(root, "workspace"),
-		staged = await stageTimelineProject(project, workspace),
-		shapeFiles = await fs.readdir(path.join(workspace, "assets", "shape"));
-	expect(shapeFiles).toEqual(["asset.json"]);
-	expect(staged.assets[0]!.source).toBeUndefined();
-	expect(staged.assets[0]!.shapeDefinition).toEqual(rectangle);
+		staged = await stageTimelineProject(project, workspace);
+	await expect(fs.access(path.join(workspace, "assets", "shape"))).rejects.toThrow();
+	expect(staged.assets).toEqual([]);
+	expect(staged.tracks[0]!.clips[0]!.content).toMatchObject({kind:"shape",shapeDefinition:rectangle});
 
 	const bundle = path.join(root, "shape.captr"), loaded = path.join(root, "loaded");
 	await packProjectWorkspace(workspace, bundle);
@@ -183,12 +378,12 @@ it("timelineBundle_roundTripsPathlessShapeAssetAndPlacementOverride", async () =
 		JSON.parse(await fs.readFile(path.join(loaded, "project.json"), "utf8")),
 		loaded,
 	);
-	expect(reopened.assets[0]!.shapeDefinition).toEqual(rectangle);
+	expect(reopened.tracks[0]!.clips[0]!.content).toMatchObject({kind:"shape",shapeDefinition:rectangle});
 	expect(reopened.tracks[0]!.clips[0]!.shapeStyleOverride).toEqual({
 		fill: "#abcdef",
 		stroke: { color: "#123456", width: 1.5 },
 	});
-	expect(reopened.assets[0]!.source).toBeUndefined();
+	expect(reopened.assets).toEqual([]);
 });
 
 it("timelineBundle_loadsOldV3WithoutVisualEffectFields", async () => {
@@ -196,6 +391,12 @@ it("timelineBundle_loadsOldV3WithoutVisualEffectFields", async () => {
 	roots.push(root);
 	const workspace = path.join(root, "workspace");
 	await stageTimelineProject(createTimelineProject("old-v3", "Old V3"), workspace);
+	const legacy = JSON.parse(await fs.readFile(path.join(workspace, "project.json"), "utf8"));
+	delete legacy.clipTransitions;
+	delete legacy.localAssets;
+	delete legacy.stories;
+	delete legacy.storyManifest;
+	await fs.writeFile(path.join(workspace, "project.json"), JSON.stringify(legacy));
 	const bundle = path.join(root, "old.captr"), loaded = path.join(root, "loaded");
 	await packProjectWorkspace(workspace, bundle);
 	await unpackProjectBundle(bundle, loaded);
@@ -204,7 +405,7 @@ it("timelineBundle_loadsOldV3WithoutVisualEffectFields", async () => {
 		loaded,
 	);
 	expect(reopened.version).toBe(3);
-	expect(reopened.clipTransitions).toBeUndefined();
+	expect(reopened.clipTransitions).toEqual([]);
 });
 
 it("timelineBundle_bundlesAndPreservesTranscriptSidecars", async () => {
@@ -246,6 +447,35 @@ it("timelineBundle_bundlesAndPreservesTranscriptSidecars", async () => {
 	expect(await fs.readFile(path.join(loaded, "assets", "v1", "captions.vtt"), "utf8")).toContain("WEBVTT");
 });
 
+it("stages private sidecars beside a relative source resolved inside the workspace", async () => {
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-relative-private-"));
+	roots.push(root);
+	const input = path.join(root, "input");
+	await fs.mkdir(input);
+	await fs.writeFile(path.join(input, "voice.wav"), "voice");
+	await fs.writeFile(path.join(input, "transcript.json"), '{"segments":[]}');
+	await fs.writeFile(path.join(input, "captions.vtt"), "WEBVTT");
+	const project = createTimelineProject("relative-private", "Relative private");
+	project.localAssets = [
+		{
+			id: "relative-voice",
+			kind: "audio",
+			name: "Voice",
+			width: 0,
+			height: 0,
+			durationUs: 5_000_000,
+			source: { path: "input/voice.wav", durationUs: 5_000_000, offsetUs: 0 },
+		},
+	];
+	await stageTimelineProject(project, root);
+	expect(
+		await fs.readFile(path.join(root, "assets", "relative-voice", "transcript.json"), "utf8"),
+	).toBe('{"segments":[]}');
+	expect(
+		await fs.readFile(path.join(root, "assets", "relative-voice", "captions.vtt"), "utf8"),
+	).toBe("WEBVTT");
+});
+
 it("timelineBundle_rejectsMalformedTransitionWithoutPartialLoad", async () => {
 	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-invalid-transition-"));
 	roots.push(root);
@@ -285,7 +515,7 @@ it("timelineBundle_stagesModularStoryAndHyperframeAndCategorizesEntries", async 
 
 	const storyDir = path.join(workspace, "Story");
 	const storyFiles = await fs.readdir(storyDir);
-	expect(storyFiles).toContain("story-story-main.json");
+	expect(storyFiles).toContain("story-0.json");
 
 	// Verify Hyperframe folder and HTML were generated
 	const hfDir = path.join(workspace, "hyperframe");

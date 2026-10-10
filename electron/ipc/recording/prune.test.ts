@@ -123,6 +123,32 @@ describe("pruneAutoRecordings", () => {
 		await expect(fs.access(files[3])).rejects.toThrow();
 	});
 
+	it("protects unplaced private media owned by an empty Story from pruning", async () => {
+		const { getRecordingsDir } = await import("../utils");
+		const { PROJECTS_DIRECTORY_NAME, AUTO_RECORDING_MAX_AGE_MS } = await import("../constants");
+		const { pruneAutoRecordings } = await import("./prune");
+		const { ownershipFixture } = await import(
+			"../../../src/core/timeline/storyOwnership.fixtures"
+		);
+		const dir = await getRecordingsDir(),
+			projects = path.join(dir, PROJECTS_DIRECTORY_NAME);
+		await fs.mkdir(projects, { recursive: true });
+		const project = ownershipFixture();
+		project.repurposeBoard!.artboards[0].tracks = [];
+		const privateSource = path.join(dir, "recording-private.mp4"),
+			unused = path.join(dir, "recording-unused.mp4");
+		for (const file of [privateSource, unused]) {
+			await fs.writeFile(file, "media");
+			const old = new Date(Date.now() - AUTO_RECORDING_MAX_AGE_MS - 60000);
+			await fs.utimes(file, old, old);
+		}
+		project.repurposeBoard!.artboards[0].localAssets![0].source!.path = privateSource;
+		await fs.writeFile(path.join(projects, "private.captr"), JSON.stringify(project));
+		await pruneAutoRecordings();
+		await expect(fs.access(privateSource)).resolves.toBeUndefined();
+		await expect(fs.access(unused)).rejects.toThrow();
+	});
+
 	it("skips unreadable/corrupt project files gracefully without aborting the prune", async () => {
 		const { getRecordingsDir } = await import("../utils");
 		const { PROJECTS_DIRECTORY_NAME, PROJECT_FILE_EXTENSION, AUTO_RECORDING_MAX_AGE_MS } =

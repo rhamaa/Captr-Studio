@@ -1,3 +1,4 @@
+import { resolveClipSource, resolveMediaAsset } from "@/core/timeline/clipSource";
 import {
 	addTrack,
 	duplicateClip,
@@ -211,8 +212,7 @@ export interface TimelineDropTarget {
 
 function dropKind(project: TimelineProject, request: TimelineDropRequest): "visual" | "audio" {
 	if (request.type === "asset") {
-		const asset = project.assets.find((entry) => entry.id === request.id);
-		if (!asset) throw new Error("Asset not found");
+		const asset = resolveMediaAsset(project, request.id);
 		return asset.kind === "audio" ? "audio" : "visual";
 	}
 
@@ -351,7 +351,7 @@ export function applyClipGesture(
 		return trimClip(project, clipId, nextIn, clip.sourceOutUs, nextStartUs);
 	}
 
-	const asset = project.assets.find((a) => a.id === clip.assetId)!;
+	const asset = resolveClipSource(project, clip);
 	const composition = project.compositions.find((c) => c.id === clip.compositionId);
 	const maxSourceDuration = composition?.durationUs ?? asset.durationUs;
 	const nextClip = otherClips.find((c) => c.startUs >= clip.startUs + clipDurationUs(clip));

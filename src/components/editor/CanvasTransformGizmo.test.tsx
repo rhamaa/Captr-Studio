@@ -1,6 +1,8 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { getStoryProject } from "@/core/timeline/storyOwnership";
+import { ownershipFixture } from "@/core/timeline/storyOwnership.fixtures";
 import type { TimelineProject } from "@/core/timeline/types";
 import { CanvasTransformGizmo } from "./CanvasTransformGizmo";
 import {
@@ -11,6 +13,14 @@ import {
 } from "./canvasGizmoMath";
 
 describe("CanvasTransformGizmo", () => {
+	it("resolves inline text and shape bounds without allocating media or changing project state", () => {
+		const view = getStoryProject(ownershipFixture(), { kind: "artboard", artboardId: "A" });
+		const before = structuredClone(view);
+		const bounds = getActiveVisualClipsBounds(view, 500_000);
+		expect(bounds.find((b) => b.clipId === "text-A")?.assetId).toBe("text-A");
+		expect(bounds.find((b) => b.clipId === "shape-A")?.assetId).toBe("shape-A");
+		expect(view).toEqual(before);
+	});
 	const mockProject: TimelineProject = {
 		id: "proj_1",
 		title: "Test",

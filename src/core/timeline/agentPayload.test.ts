@@ -4,7 +4,10 @@ import {
 	parseAgentProjectOutput,
 	summarizeProjectDiff,
 } from "./agentPayload";
+import { formatProjectContext } from "./agentTools";
 import { createTimelineProject, placeAsset, registerMedia } from "./commands";
+import { getStoryProject } from "./storyOwnership";
+import { ownershipFixture } from "./storyOwnership.fixtures";
 import type { AssetTranscript } from "./transcriptTypes";
 
 function createMockProject() {
@@ -46,14 +49,32 @@ const mockTranscript: AssetTranscript = {
 			startUs: 12_000_000,
 			endUs: 16_000_000,
 			text: "Sekarang kita bahas bagian kedua",
-			words: [
-				{ word: "Sekarang", startUs: 12_000_000, endUs: 13_000_000 },
-			],
+			words: [{ word: "Sekarang", startUs: 12_000_000, endUs: 13_000_000 }],
 		},
 	],
 };
 
 describe("agentPayload", () => {
+	it("exposes inline designs and owner-private transcripts without sibling leakage", () => {
+		const view = getStoryProject(ownershipFixture(), { kind: "artboard", artboardId: "A" });
+		const transcript = (id: string, text: string) => ({
+			...mockTranscript,
+			assetId: id,
+			segments: [{ ...mockTranscript.segments[0], text }],
+		});
+		const transcripts = {
+			"voice-A": transcript("voice-A", "Owner voice"),
+			"voice-B": transcript("voice-B", "Sibling secret"),
+		};
+		const payload = assembleAgentEditingContext(view, transcripts, "Edit owner");
+		expect(payload.formattedTranscripts).toContain("Voice A");
+		expect(payload.formattedTranscripts).not.toContain("Sibling secret");
+		expect(payload.clipsSummary).toContain("Local title");
+		const summary = formatProjectContext(view, transcripts);
+		expect(summary.assets.map((a) => a.id)).not.toContain("voice-A");
+		expect(summary.storyMedia.map((a) => a.id)).toEqual(["voice-A"]);
+		expect(Object.keys(summary.transcripts)).toEqual(["voice-A"]);
+	});
 	it("assembles rich editing context including timeline clips and transcripts", () => {
 		const project = createMockProject();
 		const transcripts: Record<string, AssetTranscript> = { "asset-1": mockTranscript };

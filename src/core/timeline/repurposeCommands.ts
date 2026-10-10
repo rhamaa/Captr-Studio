@@ -1,5 +1,4 @@
-import { createRecordComposition } from "@/recording/packageAdapter";
-import type { RecordComposition } from "@/recording/types";
+import { placeAsset } from "./commands";
 import {
 	type ArtboardPreset,
 	type RepurposeArtboard,
@@ -9,7 +8,13 @@ import {
 	type RepurposeSlice,
 	SLICE_COLORS,
 } from "./repurposeTypes";
-import { projectDurationUs, type TimelineClip, type TimelineProject, type TimelineTrack } from "./types";
+import {
+	applyStoryCommand,
+	createStorySnapshot,
+	getStoryProject,
+	refreshStoryProjections,
+} from "./storyOwnership";
+import { clipDurationUs, projectDurationUs, type TimelineProject } from "./types";
 
 /**
  * Creates default RepurposeBoardSettings with standard social media artboards (9:16, 1:1, 16:9)
@@ -99,9 +104,15 @@ export function addRepurposeArtboard(
 		name = `${name} ${count}`;
 	}
 
+	const snapshot = createStorySnapshot(current, current);
 	const newArtboard: RepurposeArtboard = {
 		id: crypto.randomUUID(),
 		name,
+		tracks: snapshot.tracks,
+		clipTransitions: snapshot.clipTransitions,
+		localAssets: snapshot.localAssets,
+		subtitles: snapshot.subtitles,
+		canvas: { ...current.canvas, width: presetOrConfig.width, height: presetOrConfig.height },
 		aspectRatio: presetOrConfig.aspectRatio,
 		width: presetOrConfig.width,
 		height: presetOrConfig.height,
@@ -113,14 +124,15 @@ export function addRepurposeArtboard(
 		},
 	};
 
-	return {
+	return refreshStoryProjections({
 		...current,
+		compositions: [...current.compositions, ...snapshot.compositions],
 		repurposeBoard: {
 			...board,
 			artboards: [...board.artboards, newArtboard],
 		},
 		updatedAt: new Date().toISOString(),
-	};
+	});
 }
 
 /**
@@ -241,14 +253,14 @@ export function removeRepurposeArtboard(
 	const current = ensureRepurposeBoard(project);
 	const board = current.repurposeBoard!;
 
-	return {
+	return refreshStoryProjections({
 		...current,
 		repurposeBoard: {
 			...board,
 			artboards: board.artboards.filter((ab: RepurposeArtboard) => ab.id !== artboardId),
 		},
 		updatedAt: new Date().toISOString(),
-	};
+	});
 }
 
 const MIN_SLICE_DURATION_US = 500_000; // 0.5 second minimum slice length
@@ -419,26 +431,7 @@ export function getArtboardProjectView(
 	project: TimelineProject,
 	artboardId: string,
 ): TimelineProject {
-	const current = ensureRepurposeBoard(project);
-	const artboard = current.repurposeBoard?.artboards.find((a) => a.id === artboardId);
-	if (!artboard) return current;
-
-	return {
-		...current,
-		canvas: {
-			...current.canvas,
-			width: artboard.width,
-			height: artboard.height,
-		},
-		tracks: artboard.tracks
-			? structuredClone(artboard.tracks)
-			: structuredClone(current.tracks),
-		clipTransitions: artboard.clipTransitions
-			? structuredClone(artboard.clipTransitions)
-			: current.clipTransitions
-				? structuredClone(current.clipTransitions)
-				: [],
-	};
+	return getStoryProject(project, { kind: "artboard", artboardId });
 }
 
 /**
@@ -451,35 +444,7 @@ export function updateArtboardProject(
 	artboardId: string,
 	updater: (artboardProject: TimelineProject) => TimelineProject,
 ): TimelineProject {
-	const current = ensureRepurposeBoard(project);
-	const artboardIndex = current.repurposeBoard!.artboards.findIndex((a) => a.id === artboardId);
-	if (artboardIndex === -1) return current;
-
-	const artboard = current.repurposeBoard!.artboards[artboardIndex]!;
-	const artboardView = getArtboardProjectView(current, artboardId);
-	const updatedView = updater(artboardView);
-
-	const updatedArtboard: RepurposeArtboard = {
-		...artboard,
-		tracks: updatedView.tracks,
-		clipTransitions: updatedView.clipTransitions,
-	};
-
-	const updatedArtboards = [...current.repurposeBoard!.artboards];
-	updatedArtboards[artboardIndex] = updatedArtboard;
-
-	return {
-		...current,
-		// Shared assets and packages preserve any new media added during editing
-		assets: updatedView.assets,
-		packages: updatedView.packages,
-		compositions: updatedView.compositions,
-		repurposeBoard: {
-			...current.repurposeBoard!,
-			artboards: updatedArtboards,
-		},
-		updatedAt: new Date().toISOString(),
-	};
+	return applyStoryCommand(project, { kind: "artboard", artboardId }, updater);
 }
 
 /**
@@ -489,50 +454,42 @@ export function forkArtboardSequence(
 	project: TimelineProject,
 	artboardId: string,
 ): TimelineProject {
-	const current = ensureRepurposeBoard(project);
-	const artboardIndex = current.repurposeBoard!.artboards.findIndex((a) => a.id === artboardId);
-	if (artboardIndex === -1) return current;
-
-	const artboard = current.repurposeBoard!.artboards[artboardIndex]!;
-	if (artboard.tracks) return current; // Already forked
-
-	const clonedTracks: TimelineTrack[] = structuredClone(current.tracks);
-	const newCompositions: RecordComposition[] = [];
-	for (const track of clonedTracks) {
-		for (const clip of track.clips) {
-			clip.id = crypto.randomUUID();
-			if (clip.compositionId) {
-				const origComp = current.compositions.find((c) => c.id === clip.compositionId);
-				if (origComp) {
-					const newCompId = crypto.randomUUID();
-					newCompositions.push({
-						...structuredClone(origComp),
-						id: newCompId,
-					});
-					clip.compositionId = newCompId;
-				}
-			}
-		}
-	}
-
-	const updatedArtboard: RepurposeArtboard = {
-		...artboard,
-		tracks: clonedTracks,
-		clipTransitions: current.clipTransitions ? structuredClone(current.clipTransitions) : [],
-	};
-
-	const updatedArtboards = [...current.repurposeBoard!.artboards];
-	updatedArtboards[artboardIndex] = updatedArtboard;
-
-	return {
-		...current,
-		compositions: [...current.compositions, ...newCompositions],
+	const owner = project.repurposeBoard?.artboards.find((a) => a.id === artboardId);
+	if (!owner) throw new Error(`Story owner not found: ${artboardId}`);
+	if (owner.tracks !== undefined) return project;
+	const snapshot = createStorySnapshot(project, {
+		...project,
+		clipTransitions:
+			owner.clipTransitions === undefined ? project.clipTransitions : owner.clipTransitions,
+	});
+	return refreshStoryProjections({
+		...project,
+		compositions: [...project.compositions, ...snapshot.compositions],
 		repurposeBoard: {
-			...current.repurposeBoard!,
-			artboards: updatedArtboards,
+			...project.repurposeBoard!,
+			artboards: project.repurposeBoard!.artboards.map((a) =>
+				a.id === artboardId
+					? {
+							...a,
+							tracks: snapshot.tracks,
+							clipTransitions: snapshot.clipTransitions,
+							localAssets:
+								a.localAssets === undefined
+									? snapshot.localAssets
+									: [
+											...structuredClone(a.localAssets),
+											...(snapshot.localAssets ?? []),
+										],
+							subtitles: a.subtitles === undefined ? snapshot.subtitles : a.subtitles,
+							canvas: structuredClone(
+								a.canvas ?? { ...project.canvas, width: a.width, height: a.height },
+							),
+						}
+					: a,
+			),
 		},
 		updatedAt: new Date().toISOString(),
-	};
+	});
 }
 
 /**
@@ -543,52 +500,28 @@ export function duplicateRepurposeArtboard(
 	project: TimelineProject,
 	artboardId: string,
 ): TimelineProject {
-	const current = ensureRepurposeBoard(project);
-	const artboard = current.repurposeBoard!.artboards.find((a) => a.id === artboardId);
-	if (!artboard) return current;
-
-	const newCompositions: RecordComposition[] = [];
-	let duplicatedTracks: TimelineTrack[] | undefined;
-	if (artboard.tracks) {
-		duplicatedTracks = structuredClone(artboard.tracks);
-		for (const track of duplicatedTracks) {
-			for (const clip of track.clips) {
-				clip.id = crypto.randomUUID();
-				if (clip.compositionId) {
-					const origComp = current.compositions.find((c) => c.id === clip.compositionId);
-					if (origComp) {
-						const newCompId = crypto.randomUUID();
-						newCompositions.push({
-							...structuredClone(origComp),
-							id: newCompId,
-						});
-						clip.compositionId = newCompId;
-					}
-				}
-			}
-		}
-	}
-
+	const source = getStoryProject(project, { kind: "artboard", artboardId });
+	const artboard = project.repurposeBoard!.artboards.find((a) => a.id === artboardId)!;
+	const snapshot = createStorySnapshot(project, source);
 	const duplicated: RepurposeArtboard = {
-		...artboard,
+		...structuredClone(artboard),
 		id: crypto.randomUUID(),
 		name: `${artboard.name} (Copy)`,
-		framing: structuredClone(artboard.framing),
-		tracks: duplicatedTracks,
-		clipTransitions: artboard.clipTransitions
-			? structuredClone(artboard.clipTransitions)
-			: undefined,
+		storyMetadata: { ...artboard.storyMetadata, id: undefined },
+		tracks: snapshot.tracks,
+		clipTransitions: snapshot.clipTransitions,
+		localAssets: snapshot.localAssets,
+		subtitles: snapshot.subtitles,
 	};
-
-	return {
-		...current,
-		compositions: [...current.compositions, ...newCompositions],
+	return refreshStoryProjections({
+		...project,
+		compositions: [...project.compositions, ...snapshot.compositions],
 		repurposeBoard: {
-			...current.repurposeBoard!,
-			artboards: [...current.repurposeBoard!.artboards, duplicated],
+			...project.repurposeBoard!,
+			artboards: [...project.repurposeBoard!.artboards, duplicated],
 		},
 		updatedAt: new Date().toISOString(),
-	};
+	});
 }
 
 /**
@@ -601,90 +534,27 @@ export function placeAssetIntoArtboard(
 	artboardId: string,
 	assetId: string,
 ): TimelineProject {
-	const current = ensureRepurposeBoard(project);
-	const artboardIndex = current.repurposeBoard!.artboards.findIndex((a) => a.id === artboardId);
-	if (artboardIndex === -1) return current;
-
-	const artboard = current.repurposeBoard!.artboards[artboardIndex]!;
-	const asset = current.assets.find((a) => a.id === assetId);
-	if (!asset) return current;
-
-	const tracks: TimelineTrack[] = artboard.tracks
-		? structuredClone(artboard.tracks)
-		: current.tracks.length > 0
-			? structuredClone(current.tracks)
-			: [
-					{
-						id: crypto.randomUUID(),
-						name: asset.kind === "audio" ? "Audio 1" : "Track 1",
-						kind: asset.kind === "audio" ? "audio" : "visual",
-						locked: false,
-						muted: false,
-						hidden: false,
-						clips: [],
-					},
-				];
-
-	const targetKind = asset.kind === "audio" ? "audio" : "visual";
-	let track = tracks.find((t) => !t.locked && t.kind === targetKind);
-	if (!track) {
-		track = {
-			id: crypto.randomUUID(),
-			name: targetKind === "audio" ? "Audio Track" : "Video Track",
-			kind: targetKind,
-			locked: false,
-			muted: false,
-			hidden: false,
-			clips: [],
-		};
-		tracks.push(track);
-	}
-
-	const startUs = Math.max(
-		0,
-		...track.clips.map((c) => c.startUs + Math.round((c.sourceOutUs - c.sourceInUs) / c.rate)),
-	);
-
-	let compositionId: string | undefined;
-	const addedCompositions: RecordComposition[] = [];
-	if (asset.kind === "recording" && asset.packageId) {
-		const pkg = current.packages.find((p) => p.id === asset.packageId);
-		if (pkg) {
-			compositionId = crypto.randomUUID();
-			const composition = createRecordComposition(pkg, compositionId);
-			addedCompositions.push(composition);
+	return applyStoryCommand(project, { kind: "artboard", artboardId }, (view) => {
+		const asset = view.assets.find((a) => a.id === assetId);
+		if (!asset) throw new Error(`Shared asset not found: ${assetId}`);
+		const kind = asset.kind === "audio" ? "audio" : "visual";
+		let track = view.tracks.find((t) => !t.locked && t.kind === kind);
+		if (!track) {
+			track = {
+				id: crypto.randomUUID(),
+				name: kind === "audio" ? "Audio Track" : "Video Track",
+				kind,
+				locked: false,
+				muted: false,
+				hidden: false,
+				clips: [],
+			};
+			view.tracks.push(track);
 		}
-	}
-
-	const clipId = crypto.randomUUID();
-	const newClip: TimelineClip = {
-		id: clipId,
-		assetId,
-		compositionId,
-		startUs,
-		sourceInUs: 0,
-		sourceOutUs: Math.max(1_000_000, addedCompositions[0]?.durationUs ?? asset.durationUs),
-		rate: 1,
-		transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
-		gain: 1,
-		enabled: true,
-	};
-	track.clips.push(newClip);
-
-	const updatedArtboards = [...current.repurposeBoard!.artboards];
-	updatedArtboards[artboardIndex] = {
-		...artboard,
-		tracks,
-	};
-
-	return {
-		...current,
-		compositions: [...current.compositions, ...addedCompositions],
-		repurposeBoard: {
-			...current.repurposeBoard!,
-			artboards: updatedArtboards,
-		},
-		updatedAt: new Date().toISOString(),
-	};
+		const startUs = Math.max(0, ...track.clips.map((c) => c.startUs + clipDurationUs(c)));
+		return placeAsset(view, assetId, track.id, startUs, {
+			clipId: crypto.randomUUID(),
+			compositionId: crypto.randomUUID(),
+		});
+	});
 }
-

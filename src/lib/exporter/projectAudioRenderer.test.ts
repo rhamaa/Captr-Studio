@@ -1,6 +1,86 @@
-import { expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
+import { createTimelineProject } from "@/core/timeline/commands";
+import { fixtureClip, fixtureText, fixtureTrack } from "@/core/timeline/storyOwnership.fixtures";
 import { AudioProcessor } from "./audioEncoder";
-import { projectSpeechIntervals } from "./projectAudioRenderer";
+import { projectSpeechIntervals, renderProjectAudio } from "./projectAudioRenderer";
+
+afterEach(() => {
+	vi.restoreAllMocks();
+	vi.unstubAllGlobals();
+});
+
+it.each([
+	0.5, 2,
+])("mixes private audio through the existing decoder and stretch contract at rate %s", async (rate) => {
+	const project = createTimelineProject("private-mix", "Private mix");
+	const clip = fixtureClip("voice", { assetId: "voice" });
+	clip.rate = rate;
+	clip.sourceInUs = 1_000_000;
+	clip.sourceOutUs = 2_000_000;
+	project.localAssets = [
+		{
+			id: "voice",
+			kind: "audio",
+			name: "Voice",
+			width: 0,
+			height: 0,
+			durationUs: 5_000_000,
+			source: { path: "voice.wav", durationUs: 4_000_000, offsetUs: 500_000 },
+		},
+	];
+	project.tracks = [fixtureTrack("voice-track", [clip], "audio")];
+	const buffer = { duration: 4, numberOfChannels: 1 } as AudioBuffer;
+	const decode = vi
+		.spyOn(AudioProcessor.prototype, "decodeAudioFromUrl")
+		.mockResolvedValue(buffer);
+	const stretch = vi
+		.spyOn(AudioProcessor.prototype, "stretchAudioBuffer")
+		.mockReturnValue(buffer);
+	vi.spyOn(AudioProcessor.prototype, "cancel").mockImplementation(() => undefined);
+	vi.stubGlobal("window", {
+		electronAPI: { getLocalMediaUrl: async (path: string) => ({ success: true, url: path }) },
+	});
+	vi.stubGlobal(
+		"OfflineAudioContext",
+		class {
+			destination = {};
+			private samples: Float32Array;
+			constructor(_channels: number, length: number) {
+				this.samples = new Float32Array(length).fill(0.25);
+			}
+			createBufferSource() {
+				return {
+					buffer: null,
+					connect: () => ({ connect: () => undefined }),
+					start: () => undefined,
+				};
+			}
+			createGain() {
+				return { gain: { value: 1 } };
+			}
+			async startRendering() {
+				return { getChannelData: () => this.samples };
+			}
+		},
+	);
+	const wav = await renderProjectAudio(project);
+	expect(decode).toHaveBeenCalledOnce();
+	expect(stretch.mock.calls[0].slice(0, 5)).toEqual([buffer, rate, 0.5, 1, 1 / rate]);
+	expect(wav?.type).toBe("audio/wav");
+	expect(wav?.size).toBe(44 + Math.ceil(48_000 / rate) * 4);
+});
+
+it("emits no exported audio for inline-only Story content", async () => {
+	const project = createTimelineProject("silent-inline", "Inline");
+	project.tracks = [
+		fixtureTrack("design", [
+			fixtureClip("title", {
+				content: { kind: "text", text: fixtureText, durationUs: 5_000_000 },
+			}),
+		]),
+	];
+	expect(await renderProjectAudio(project)).toBeNull();
+});
 
 it("decodes WAV natively before asking a container demuxer", async () => {
 	const processor = new AudioProcessor();

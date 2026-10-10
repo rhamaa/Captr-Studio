@@ -85,9 +85,22 @@ export interface ClipTransform {
 	rotation: number;
 	opacity: number;
 }
-export interface TimelineClip {
+export type StoryScope = { kind: "root" } | { kind: "artboard"; artboardId: string };
+export type StoryClipContent =
+	| { kind: "text"; text: TextOverlay; durationUs: number }
+	| { kind: "shape"; shapeDefinition: ShapeDefinition; durationUs: number };
+export type StoryDesignTemplate = {
 	id: string;
-	assetId: string;
+	name: string;
+	kind: StoryClipContent["kind"];
+	content: StoryClipContent;
+	width: number;
+	height: number;
+	defaultDurationUs: number;
+};
+export type PrivateMediaAsset = MediaAsset & { kind: "video" | "image" | "audio" };
+export interface TimelineClipFields {
+	id: string;
 	compositionId?: string;
 	startUs: number;
 	sourceInUs: number;
@@ -101,6 +114,8 @@ export interface TimelineClip {
 	componentAnimation?: { enter?: ComponentAnimation; exit?: ComponentAnimation };
 	shapeStyleOverride?: ShapeStyle;
 }
+export type TimelineClip = TimelineClipFields &
+	({ assetId: string; content?: never } | { assetId?: never; content: StoryClipContent });
 export interface TimelineTrack {
 	id: string;
 	name: string;
@@ -114,8 +129,12 @@ export interface TimelineProject {
 	version: 3;
 	projectId: string;
 	title: string;
-	canvas: { width: number; height: number; fps: number };
+	canvas: import("../story/storyTypes").StoryCanvasSettings;
+	storyMetadata?: StoryOwnerMetadata;
 	assets: MediaAsset[];
+	localAssets?: PrivateMediaAsset[];
+	designTemplates?: StoryDesignTemplate[];
+	subtitles?: import("../story/storyTypes").StorySubtitleSettings;
 	packages: RecordingPackage[];
 	compositions: RecordComposition[];
 	tracks: TimelineTrack[];
@@ -131,6 +150,13 @@ export interface TimelineProject {
 	createdAt: string;
 	updatedAt: string;
 }
+/** Non-sequence Story identity and legacy presentation metadata retained by its owner. */
+export type StoryOwnerMetadata = Partial<
+	Pick<
+		import("../story/storyTypes").StoryComposition,
+		"id" | "name" | "aspectRatio" | "framing" | "createdAt" | "updatedAt"
+	>
+>;
 export interface ProjectTerminalConfig {
 	preferredShell?: "powershell" | "cmd" | "bash" | "default";
 	startupCommand?: string;

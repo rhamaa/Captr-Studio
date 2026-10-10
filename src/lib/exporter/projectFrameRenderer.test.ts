@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import {
 	createTimelineProject,
+	duplicateClip,
 	placeAsset,
 	registerMedia,
 	registerRecording,
@@ -8,18 +9,22 @@ import {
 } from "@/core/timeline/commands";
 import { evaluateProject } from "@/core/timeline/evaluation";
 import { createAndPlaceShape, setShapeStyleOverride } from "@/core/timeline/shapeCommands";
+import { refreshStoryProjections } from "@/core/timeline/storyOwnership";
+import { fixtureClip, fixtureText, fixtureTrack } from "@/core/timeline/storyOwnership.fixtures";
 import type { ClipTransitionPreset, ShapeDefinition, TimelineProject } from "@/core/timeline/types";
+import { TimelineProjectExporter } from "./timelineProjectExporter";
 
 const configs = vi.hoisted(() => [] as any[]);
 const videoFrames = vi.hoisted(() => [] as any[]);
 const renderedCanvases = vi.hoisted(() => [] as any[]);
+const recordFrames = vi.hoisted(() => [] as any[][]);
 vi.mock("./frameRenderer", () => ({
 	FrameRenderer: class {
 		constructor(config: any) {
 			configs.push(config);
 		}
 		async initialize() {}
-		async renderFrame() {}
+		async renderFrame(...args: any[]) { recordFrames.push(args); }
 		getCanvas() {
 			return { width: 100, height: 100, marker: "record-effect-frame" };
 		}
@@ -46,6 +51,7 @@ afterEach(() => {
 	configs.length = 0;
 	videoFrames.length = 0;
 	renderedCanvases.length = 0;
+	recordFrames.length = 0;
 });
 
 function installCanvas() {
@@ -62,7 +68,8 @@ function installCanvas() {
 			textAlign: "center",
 			textBaseline: "middle",
 				record(name: string, ...args: unknown[]) {
-					this.operations.push({ name, args, alpha: this.globalAlpha, composite: this.globalCompositeOperation, fill: this.fillStyle, stroke: this.strokeStyle, lineWidth: this.lineWidth });
+				this.operations.push({ name, args, alpha: this.globalAlpha, composite: this.globalCompositeOperation, fill: this.fillStyle, stroke: this.strokeStyle, lineWidth: this.lineWidth,
+					...(name === "fillText" ? { font: this.font, align: this.textAlign } : {}) });
 			},
 			fillRect(...args: unknown[]) { this.record("fillRect", ...args); },
 			strokeRect(...args: unknown[]) { this.record("strokeRect", ...args); },
@@ -215,11 +222,11 @@ it.each([
 	renderer.destroy();
 });
 
-it("projectFrameRenderer applies per-placement shape style without changing the shared asset", async () => {
+it("projectFrameRenderer applies per-placement shape style without changing inline content", async () => {
 	const canvases = installCanvas();
 	const definition: ShapeDefinition = { kind: "rectangle", width: 100, height: 50, style: { fill: "#0000ff", stroke: null } };
 	let project = shapeProject(definition);
-	project = placeAsset(project, "shape-asset", "visual-1", 6_000_000, { clipId: "second-placement" });
+	project = duplicateClip(project, "shape-clip", 6_000_000, { clipId: "second-placement" });
 	project = setShapeStyleOverride(project, "second-placement", { fill: "#ff0000", stroke: null });
 	const renderer = new ProjectFrameRenderer();
 	await renderer.render(evaluateProject(project, 0));
@@ -227,7 +234,9 @@ it("projectFrameRenderer applies per-placement shape style without changing the 
 	const fills = canvases().flatMap((canvas: any) => canvas.context.operations).filter((op: any) => op.name === "fillRect").map((op: any) => op.fill);
 	expect(fills).toContain("#0000ff");
 	expect(fills).toContain("#ff0000");
-	expect(project.assets[0]!.shapeDefinition?.kind).toBe("rectangle");
+	expect(project.assets).toEqual([]);
+	expect(project.tracks[0].clips[0].content?.kind).toBe("shape");
+	expect(project.tracks[0].clips[0].shapeStyleOverride).toBeUndefined();
 	renderer.destroy();
 });
 
@@ -300,5 +309,91 @@ it("projectFrameRenderer composites the fully effected Record frame during a tra
 	expect(configs).toHaveLength(1);
 	expect(videoFrames).toHaveLength(2);
 	expect(canvases().flatMap((canvas: any) => canvas.context.operations).some((op: any) => op.name === "drawImage" && op.args[0] === "record-effect-frame")).toBe(true);
+	renderer.destroy();
+});
+
+it.each([0.5, 2])("preview draws match encoder export draws for inline transitions and private video at rate %s", async (rate) => {
+	const canvases = installCanvas();
+	const project = createTimelineProject("private-parity", "Private parity");
+	const shape = fixtureClip("from", { content: { kind: "shape", durationUs: 5_000_000,
+		shapeDefinition: { kind: "rectangle", width: 100, height: 50, style: { fill: "#0000ff", stroke: null } } } });
+	shape.rate = rate; shape.sourceOutUs = 4_000_000;
+	shape.shapeStyleOverride = { fill: "#ff0000", stroke: null };
+	const title = fixtureClip("to", { content: { kind: "text", durationUs: 5_000_000,
+		text: { ...fixtureText, content: "Scoped title", fontFamily: "Arial", fontWeight: 700, fontSizePx: 72, color: "#00ff00", align: "left" } } });
+	title.rate = rate; title.sourceInUs = 1_000_000; title.startUs = 4_000_000 / rate;
+	const video = fixtureClip("video", { assetId: "private-video" }); video.rate = rate;
+	project.localAssets = [{ id: "private-video", kind: "video", name: "Private", width: 2, height: 2, durationUs: 5_000_000,
+		source: { path: "private.mp4", durationUs: 5_000_000, offsetUs: 0 } }];
+	project.tracks = [fixtureTrack("media", [video]), fixtureTrack("design", [shape, title])];
+	project.clipTransitions = [{ id: "inline-transition", trackId: "design", fromClipId: "from", toClipId: "to",
+		preset: { kind: "cross-dissolve" }, durationUs: 1_000_000 / rate, easing: "linear" }];
+	const draws = (pool: any[], lengths: number[]) => pool.map((canvas, index) => {
+		const operations = canvas.context.operations.slice(lengths[index] ?? 0);
+		lengths[index] = canvas.context.operations.length;
+		return operations.map((operation: any) => ({ ...operation, args: operation.args.map((arg: any) => arg?.getContext ? `canvas:${arg.width}x${arg.height}` : arg) }));
+	});
+	const preview = new ProjectFrameRenderer(), previewCalls: any[] = [], previewLengths: number[] = [];
+	for (let frame = 0; frame < 16; frame++) {
+		await preview.render(evaluateProject(project, frame * 500_000 / rate), { continuousPlayback: true });
+		previewCalls.push(draws(canvases(), previewLengths));
+	}
+	preview.destroy();
+	const exportStart = canvases().length, exportLengths: number[] = [], exportCalls: any[] = [];
+	const exporter = new TimelineProjectExporter({
+		renderer: () => {
+			const renderer = new ProjectFrameRenderer();
+			return { render: async (evaluation) => {
+				const canvas = await renderer.render(evaluation);
+				exportCalls.push(draws(canvases().slice(exportStart), exportLengths));
+				return canvas;
+			}, destroy: () => renderer.destroy() };
+		},
+		audio: async () => null,
+		api: {
+			nativeVideoExportStart: async () => ({ success: true, sessionId: "parity" }),
+			nativeVideoExportWriteFrame: async () => ({ success: true }),
+			nativeVideoExportFinish: async () => ({ success: true, tempPath: "temp.mp4" }),
+			finalizeExportedVideo: async () => ({ success: true, path: "out.mp4" }),
+		} as any,
+	});
+	expect((await exporter.export(refreshStoryProjections(project), { outputPath: "out.mp4", fps: 2 * rate })).success).toBe(true);
+	expect(exportCalls).toEqual(previewCalls);
+	const operations = exportCalls.flat(2);
+	expect(operations.some((op: any) => op.name === "fillRect" && op.fill === "#ff0000")).toBe(true);
+	expect(operations.some((op: any) => op.name === "fillText" && op.args[0] === "Scoped title" && op.font === '700 72px "Arial"' && op.fill === "#00ff00" && op.align === "left")).toBe(true);
+	expect(operations.some((op: any) => op.name === "drawImage" && op.args[0] === "video:private.mp4:2")).toBe(true);
+	expect(operations.filter((op: any) => op.name === "drawImage" && op.composite === "lighter" && op.alpha === 0.5)).toHaveLength(2);
+	expect(project.assets).toEqual([]);
+});
+
+it.each([0.5, 2])("renders mapped Record and cursor clocks before Story effects at rate %s", async (rate) => {
+	installCanvas();
+	let project = registerRecording(createTimelineProject("record-map", "Record map"), {
+		captureId: "mapped", name: "Mapped", durationUs: 10_000_000, width: 100, height: 100,
+		screen: { path: "record.mp4", durationUs: 10_000_000, offsetUs: 0 },
+		webcam: { path: "webcam.mp4", durationUs: 9_000_000, offsetUs: 1_000_000 },
+		microphone: { path: "mic.wav", durationUs: 9_000_000, offsetUs: 1_000_000 },
+		settings: { webcam: { enabled: true, sourcePath: "webcam.mp4", timeOffsetMs: 1000 } },
+	}, { assetId: "record", packageId: "pkg" });
+	project = placeAsset(project, "record", "visual-1", 0, { clipId: "record-clip", compositionId: "edit" });
+	project.compositions[0].durationUs = 8_000_000;
+	project.compositions[0].timeMap = [
+		{ outputStartUs: 0, outputEndUs: 4_000_000, sourceStartUs: 0, rate: 2 },
+		{ outputStartUs: 4_000_000, outputEndUs: 8_000_000, sourceStartUs: 8_000_000, rate: 0.5 },
+	];
+	const clip = project.tracks[0].clips[0]; clip.rate = rate; clip.sourceOutUs = 8_000_000;
+	clip.transform.x = 20;
+	const renderer = new ProjectFrameRenderer();
+	for (const [compositionUs, sourceUs] of [[0, 0], [2_000_000, 4_000_000], [6_000_000, 9_000_000], [7_999_999, 9_999_999.5]]) {
+		const evaluation = evaluateProject(project, compositionUs / rate);
+		expect(evaluation.visuals[0].sourceUs).toBe(sourceUs);
+		await renderer.render(evaluation);
+		expect(recordFrames.at(-1)?.slice(1)).toEqual([sourceUs, sourceUs, 1_000_000 / 30, compositionUs]);
+		expect(evaluation.visuals[0].recording?.webcamUs).toBe(sourceUs >= 1_000_000 ? sourceUs - 1_000_000 : null);
+		if (sourceUs >= 1_000_000) expect(evaluation.audio[0]).toMatchObject({ path: "mic.wav", sourceUs: sourceUs - 1_000_000,
+			rate: rate * (compositionUs < 4_000_000 ? 2 : 0.5) });
+	}
+	expect(evaluateProject(project, 8_000_000 / rate).visuals).toEqual([]);
 	renderer.destroy();
 });

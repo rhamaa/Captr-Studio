@@ -1,6 +1,85 @@
 import { expect, it, vi } from "vitest";
-import { createTimelineProject, placeAsset, registerMedia } from "@/core/timeline/commands";
+import { artboardToStory } from "@/core/story/storyUtils";
+import {
+	addTextOverlay,
+	createTimelineProject,
+	placeAsset,
+	registerMedia,
+} from "@/core/timeline/commands";
+import { extendInlineClip } from "@/core/timeline/designTemplateCommands";
+import { addRepurposeArtboard } from "@/core/timeline/repurposeCommands";
+import { applyStoryCommand } from "@/core/timeline/storyOwnership";
+import { fixtureText, ownershipFixture } from "@/core/timeline/storyOwnership.fixtures";
 import { ProjectController } from "./useProjectController";
+
+it.each([
+	"missing-owner",
+	"dangling-transition",
+])("rejects %s ingress while retaining the complete active session and source", (failure) => {
+	const controller = new ProjectController(ownershipFixture(), vi.fn());
+	controller.open(ownershipFixture(), "Active.captr");
+	controller.execute((project) => ({ ...project, canvas: { ...project.canvas, width: 1280 } }));
+	controller.setPendingWork("import", 1);
+	const previous = controller.snapshot;
+	const token = controller.importToken();
+	const invalid = ownershipFixture();
+	if (failure === "missing-owner") {
+		invalid.stories = [artboardToStory(invalid.repurposeBoard!.artboards[0])];
+		invalid.repurposeBoard!.artboards.shift();
+	} else {
+		const owner = invalid.repurposeBoard!.artboards[0];
+		delete owner.tracks;
+		owner.clipTransitions = [
+			{
+				id: "dangling-fade",
+				trackId: "root",
+				fromClipId: "root-video",
+				toClipId: "missing",
+				durationUs: 500_000,
+				preset: { kind: "cross-dissolve" },
+				easing: "linear",
+			},
+		];
+	}
+	const source = JSON.stringify(invalid);
+	expect(() => controller.open(invalid, "Rejected.captr")).toThrow();
+	expect(controller.snapshot).toBe(previous);
+	expect(controller.snapshot.path).toBe("Active.captr");
+	expect(controller.snapshot.canUndo).toBe(true);
+	expect(controller.snapshot.pendingWork).toBe(1);
+	expect(controller.importToken()).toEqual(token);
+	expect(JSON.stringify(invalid)).toBe(source);
+});
+
+it("normalizes legacy V3 on installation and rejects invalid opens without changing session", () => {
+	const raw = ownershipFixture();
+	delete raw.repurposeBoard!.artboards[1].tracks;
+	raw.assets.push({
+		id: "unused-title",
+		kind: "text",
+		name: "Preset",
+		width: 1920,
+		height: 1080,
+		durationUs: 5_000_000,
+		text: fixtureText,
+	});
+	const controller = new ProjectController(raw, vi.fn());
+	expect(controller.snapshot.project.assets.some((a) => a.id === "unused-title")).toBe(false);
+	expect(controller.snapshot.project.designTemplates?.[0].id).toBe("unused-title");
+	expect(controller.snapshot.project.repurposeBoard!.artboards[1].tracks).toBeDefined();
+	expect(raw.repurposeBoard!.artboards[1].tracks).toBeUndefined();
+	controller.setPendingWork("import", 1);
+	const previous = controller.snapshot,
+		token = controller.importToken();
+	const invalid = ownershipFixture();
+	invalid.repurposeBoard!.artboards[0].localAssets![0].source!.path = "../escape.wav";
+	expect(() => controller.open(invalid, "broken.captr")).toThrow();
+	expect(controller.snapshot).toBe(previous);
+	expect(controller.importToken()).toEqual(token);
+	expect(controller.snapshot.pendingWork).toBe(1);
+	controller.open(raw, "Legacy.captr");
+	expect(controller.snapshot.project.designTemplates?.[0].id).toBe("unused-title");
+});
 
 it("imports into an empty library, previews independently and retains dirty work after a save races an edit", async () => {
 	let finish!: (result: any) => void;
@@ -198,46 +277,24 @@ it("clamps seek playhead against root duration, artboard sequences, and explicit
 	expect(c.snapshot.playheadUs).toBe(0);
 
 	// Add artboard with tracks totaling 10s
-	c.execute((p) => ({
-		...p,
-		repurposeBoard: {
-			artboards: [
-				{
-					id: "ab-1",
-					name: "Square",
-					aspectRatio: "1:1",
-					width: 1080,
-					height: 1080,
-					framing: { scale: 1, offsetX: 0, offsetY: 0 },
-					tracks: [
-						{
-							id: "t-1",
-							kind: "visual",
-							name: "Track 1",
-							muted: false,
-							locked: false,
-							clips: [
-								{
-									id: "c-1",
-									assetId: "a-1",
-									compositionId: "comp-1",
-									startUs: 0,
-									sourceInUs: 0,
-									sourceOutUs: 10_000_000,
-									rate: 1,
-									volume: 1,
-									speed: 1,
-									enabled: true,
-								},
-							],
-						},
-					],
-				},
-			],
-			slices: [],
-			activeSliceId: null,
-		},
-	}));
+	c.execute((p) => {
+		const next = addRepurposeArtboard(p, {
+			aspectRatio: "1:1",
+			name: "Square",
+			width: 1080,
+			height: 1080,
+		});
+		return applyStoryCommand(
+			next,
+			{ kind: "artboard", artboardId: next.repurposeBoard!.artboards[0]!.id },
+			(view) =>
+				extendInlineClip(
+					addTextOverlay(view, 0, { clipId: "c-1", trackId: "t-1" }),
+					"c-1",
+					10_000_000,
+				),
+		);
+	});
 
 	// Without explicit maxDurationUs, seeks up to 10s using artboard fallback
 	c.seek(4_000_000);

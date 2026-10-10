@@ -1,6 +1,17 @@
 import { evaluateRecording } from "@/recording/evaluation";
+import { type ResolvedClipSource, resolveClipSource } from "./clipSource";
 import { sampleClipTransform } from "./clipTransform";
-import { clipDurationUs, type ClipTransition, type ComponentAnimation, type TimelineClip, type TimelineProject, type TimelineTrack, type TransitionEasing, type ClipTransform, type MediaAsset } from "./types";
+import {
+	type ClipTransform,
+	type ClipTransition,
+	type ComponentAnimation,
+	clipDurationUs,
+	type MediaAsset,
+	type TimelineClip,
+	type TimelineProject,
+	type TimelineTrack,
+	type TransitionEasing,
+} from "./types";
 
 export interface ComponentAnimationSample {
 	edge: "enter" | "exit";
@@ -13,6 +24,7 @@ export interface ProjectVisualSample {
 	clipId: string;
 	trackId: string;
 	clip: TimelineClip;
+	source: ResolvedClipSource;
 	asset: MediaAsset;
 	path: string;
 	sourceUs: number;
@@ -20,7 +32,10 @@ export interface ProjectVisualSample {
 	projectSampleUs: number;
 	transform: ClipTransform;
 	recording?: ReturnType<typeof evaluateRecording>;
-	componentAnimations?: { enter: ComponentAnimationSample | null; exit: ComponentAnimationSample | null };
+	componentAnimations?: {
+		enter: ComponentAnimationSample | null;
+		exit: ComponentAnimationSample | null;
+	};
 }
 
 export interface EvaluatedComponentAnimations {
@@ -52,7 +67,7 @@ export function easeVisualProgress(progress: number, easing: TransitionEasing): 
 		case "ease-out":
 			return 1 - (1 - t) * (1 - t);
 		case "ease-in-out":
-			return t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2;
+			return t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
 		default:
 			return t;
 	}
@@ -87,8 +102,20 @@ function visualSample(
 	clip: TimelineClip,
 	timeUs: number,
 ): ProjectVisualSample {
-	const asset = project.assets.find((candidate) => candidate.id === clip.assetId);
-	if (!asset) throw new Error(`Missing asset for ${clip.id}`);
+	const resolved = resolveClipSource(project, clip);
+	// Compatibility display descriptor only: inline sources never enter either media library.
+	const asset: MediaAsset = resolved.media ?? {
+		id: clip.id,
+		kind: resolved.kind,
+		name: resolved.name,
+		width: resolved.width,
+		height: resolved.height,
+		durationUs: resolved.durationUs,
+		...(resolved.content?.kind === "text" ? { text: resolved.content.text } : {}),
+		...(resolved.content?.kind === "shape"
+			? { shapeDefinition: resolved.content.shapeDefinition }
+			: {}),
+	};
 	const compositionUs = clip.sourceInUs + (timeUs - clip.startUs) * clip.rate,
 		clipSourceDurationUs = clip.sourceOutUs - clip.sourceInUs,
 		transform = sampleClipTransform(
@@ -100,8 +127,11 @@ function visualSample(
 		recording: ReturnType<typeof evaluateRecording> | undefined;
 	if (asset.kind === "recording") {
 		const pkg = project.packages.find((candidate) => candidate.id === asset.packageId),
-			composition = project.compositions.find((candidate) => candidate.id === clip.compositionId);
-		if (!pkg?.screen.path || !composition) throw new Error(`Missing screen source for ${clip.id}`);
+			composition = project.compositions.find(
+				(candidate) => candidate.id === clip.compositionId,
+			);
+		if (!pkg?.screen.path || !composition)
+			throw new Error(`Missing screen source for ${clip.id}`);
 		recording = evaluateRecording(pkg, composition, compositionUs);
 		if (recording.screenUs === null) throw new Error(`Missing screen frame for ${clip.id}`);
 		path = pkg.screen.path;
@@ -116,10 +146,22 @@ function visualSample(
 	const componentAnimations = clip.componentAnimation
 		? {
 				enter: clip.componentAnimation.enter
-					? sampleComponentAnimation(clip.componentAnimation.enter, "enter", clip.startUs, clipEndUs, timeUs)
+					? sampleComponentAnimation(
+							clip.componentAnimation.enter,
+							"enter",
+							clip.startUs,
+							clipEndUs,
+							timeUs,
+						)
 					: null,
 				exit: clip.componentAnimation.exit
-					? sampleComponentAnimation(clip.componentAnimation.exit, "exit", clip.startUs, clipEndUs, timeUs)
+					? sampleComponentAnimation(
+							clip.componentAnimation.exit,
+							"exit",
+							clip.startUs,
+							clipEndUs,
+							timeUs,
+						)
 					: null,
 			}
 		: undefined;
@@ -127,6 +169,7 @@ function visualSample(
 		clipId: clip.id,
 		trackId: track.id,
 		clip,
+		source: resolved,
 		asset,
 		path,
 		sourceUs,

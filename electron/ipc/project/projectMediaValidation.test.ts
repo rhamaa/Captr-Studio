@@ -24,6 +24,7 @@ vi.mock("electron", () => ({
 	},
 }));
 
+import { ownershipFixture } from "../../../src/core/timeline/storyOwnership.fixtures";
 import {
 	assertProjectMediaInsideBundle,
 	findProjectMediaIssues,
@@ -33,6 +34,18 @@ import {
 	convertProjectToBundleRelative,
 	convertProjectToWorkspaceAbsolute,
 } from "./projectWorkspace";
+
+it("rejects a missing unplaced private source in an empty Story", async () => {
+	const project = ownershipFixture();
+	project.repurposeBoard!.artboards[0].tracks = [];
+	await writeWorkspaceFile("shared.mp4");
+	await writeWorkspaceFile("screen.mp4");
+	const issues = await findProjectMediaIssues(project, workspaceDir);
+	expect(issues).toEqual([{ location: "assets/media[2]", path: "voice.wav", reason: "missing" }]);
+	await expect(assertProjectMediaInsideBundle(project, workspaceDir)).rejects.toBeInstanceOf(
+		ProjectBundleValidationError,
+	);
+});
 
 let workspaceDir: string;
 

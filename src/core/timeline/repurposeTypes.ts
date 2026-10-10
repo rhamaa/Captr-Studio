@@ -1,4 +1,4 @@
-import type { ClipTransition, TimelineTrack } from "./types";
+import type { ClipTransition, PrivateMediaAsset, TimelineTrack } from "./types";
 
 export type RepurposeAspectRatio = "9:16" | "1:1" | "16:9" | "4:5" | "custom";
 
@@ -11,6 +11,8 @@ export interface RepurposeArtboardFraming {
 
 export interface RepurposeArtboard {
 	id: string;
+	storyMetadata?: import("./types").StoryOwnerMetadata;
+	canvas?: import("../story/storyTypes").StoryCanvasSettings;
 	name: string;
 	aspectRatio: RepurposeAspectRatio;
 	width: number;
@@ -18,6 +20,8 @@ export interface RepurposeArtboard {
 	framing: RepurposeArtboardFraming;
 	tracks?: TimelineTrack[];
 	clipTransitions?: ClipTransition[];
+	localAssets?: PrivateMediaAsset[];
+	subtitles?: import("../story/storyTypes").StorySubtitleSettings;
 }
 
 export interface RepurposeSlice {

@@ -14,19 +14,24 @@ import {
 	injectBRollClipsIntoProject,
 	validateBRollSpecs,
 } from "../../../src/core/timeline/brollTypes";
+import {
+	getStoryEditProject,
+	type StoryEditContext,
+	sameStoryEditContext,
+} from "../../../src/core/timeline/storyOwnership";
 import type { AssetTranscript } from "../../../src/core/timeline/transcriptTypes";
 import type { TimelineProject } from "../../../src/core/timeline/types";
 import { renderHyperframeBRoll } from "../hyperframe/hyperframeRenderer";
-import { KNOWN_AGENTS, checkAgentAvailability, getAugmentedEnv } from "./agentDetector";
+import { checkAgentAvailability, getAugmentedEnv, KNOWN_AGENTS } from "./agentDetector";
 import {
 	getMcpProjectContext,
 	getMcpServerInfo,
 	getSpeculativeProject,
-	setMcpProjectContext,
 	setSpeculativeProject,
 } from "./mcpServer";
 
 export interface RunAgentTaskParams {
+	editContext: StoryEditContext;
 	agentId: string;
 	customCommand?: string;
 	userPrompt: string;
@@ -35,6 +40,7 @@ export interface RunAgentTaskParams {
 }
 
 export interface RunAgentTaskResult {
+	context?: StoryEditContext;
 	success: boolean;
 	project?: TimelineProject;
 	diff?: AgentDiffSummary;
@@ -122,21 +128,16 @@ export async function runAgentTask(
 	const contextFile = path.join(tempDir, "CONTEXT.md");
 
 	try {
+		const current = getMcpProjectContext();
+		if (!sameStoryEditContext(params.editContext, current?.editContext))
+			throw new Error("Stale Story edit context");
 		// Assemble context
 		const context = assembleAgentEditingContext(
 			params.project,
 			params.transcripts,
 			params.userPrompt,
+			params.editContext,
 		);
-
-		const prevCtx = getMcpProjectContext();
-		setMcpProjectContext({
-			project: params.project,
-			transcripts: params.transcripts,
-			playheadUs: prevCtx?.playheadUs ?? 0,
-			selection: prevCtx?.selection ?? [],
-			activeArtboardId: prevCtx?.activeArtboardId ?? null,
-		});
 
 		const mcpInfo = getMcpServerInfo();
 		if (mcpInfo.running) {
@@ -168,8 +169,7 @@ export async function runAgentTask(
 		log(`[Captr Studio] Launching agent: ${command} in ${tempDir}...\n`);
 
 		// Windows: If command is an .exe, run without cmd.exe shell so arguments aren't broken
-		const useShell =
-			process.platform === "win32" && !command.toLowerCase().endsWith(".exe");
+		const useShell = process.platform === "win32" && !command.toLowerCase().endsWith(".exe");
 
 		const child = spawn(command, args, {
 			cwd: tempDir,
@@ -225,7 +225,10 @@ export async function runAgentTask(
 		if (!parsedResult || !parsedResult.success) {
 			const spec = getSpeculativeProject();
 			if (spec && JSON.stringify(spec) !== JSON.stringify(params.project)) {
-				parsedResult = { success: true, project: spec };
+				parsedResult = {
+					success: true,
+					project: getStoryEditProject(spec, params.editContext.scope),
+				};
 			}
 		}
 
@@ -261,7 +264,9 @@ export async function runAgentTask(
 				const rawBroll = JSON.parse(await fsPromises.readFile(brollSpecFile, "utf-8"));
 				const validatedSpecs = validateBRollSpecs(rawBroll);
 				if (validatedSpecs.length > 0) {
-					log(`\n[Captr Studio] Detected ${validatedSpecs.length} B-Roll specifications in broll_specs.json.\n`);
+					log(
+						`\n[Captr Studio] Detected ${validatedSpecs.length} B-Roll specifications in broll_specs.json.\n`,
+					);
 					log(`[Captr Studio] Rendering motion graphics via Hyperframe Engine...\n`);
 
 					const userDataPath = app?.getPath?.("userData") ?? os.tmpdir();
@@ -272,9 +277,15 @@ export async function runAgentTask(
 					for (const spec of validatedSpecs) {
 						const assetDir = path.join(brollStorageDir, `broll-${spec.id}`);
 						log(`  • Rendering B-Roll [${spec.type}]: "${spec.title}"...\n`);
-						const res = await renderHyperframeBRoll(spec, assetDir, finalProject.canvas);
+						const res = await renderHyperframeBRoll(
+							spec,
+							assetDir,
+							finalProject.canvas,
+						);
 						if (res.success) {
-							log(`    ✓ Rendered successfully (${(res.durationUs / 1_000_000).toFixed(1)}s)\n`);
+							log(
+								`    ✓ Rendered successfully (${(res.durationUs / 1_000_000).toFixed(1)}s)\n`,
+							);
 						} else {
 							log(`    ⚠ Render notice: ${res.error}\n`);
 						}
@@ -290,10 +301,11 @@ export async function runAgentTask(
 		}
 
 		const diff = summarizeProjectDiff(params.project, finalProject);
-		setSpeculativeProject(finalProject, diff);
+		setSpeculativeProject(finalProject, diff, params.editContext);
 		return {
 			success: true,
 			project: finalProject,
+			context: params.editContext,
 			diff,
 			logs,
 		};

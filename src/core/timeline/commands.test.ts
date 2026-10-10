@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { addClipTransition, setComponentAnimation } from "./clipTransitions";
 import {
 	addTrack,
 	createTimelineProject,
 	moveClip,
 	placeAsset,
-	registerRecording,
 	registerMedia,
+	registerRecording,
 	removeAsset,
 	removeClip,
 	removeTrack,
@@ -20,10 +21,24 @@ import {
 	updateComposition,
 	updateProjectCanvas,
 } from "./commands";
-import { addClipTransition, setComponentAnimation } from "./clipTransitions";
 import { ProjectHistory } from "./history";
+import { fixtureText } from "./storyOwnership.fixtures";
 import { mapClipTime, mapCompositionTime, mapStreamTime } from "./timeMapping";
 import { validateTimelineProject } from "./validation";
+
+it("rejects registration of source-free designs in the global media library", () => {
+	expect(() =>
+		registerMedia(createTimelineProject("design-register", "Designs"), {
+			id: "legacy-design",
+			kind: "text",
+			name: "Title",
+			durationUs: 5_000_000,
+			width: 1920,
+			height: 1080,
+			text: fixtureText,
+		}),
+	).toThrow(/design/i);
+});
 
 export const capture = {
 	captureId: "capture-1",
@@ -290,8 +305,9 @@ describe("transition and component animation command cleanup", () => {
 		expect(history.project.clipTransitions).toEqual([]);
 		history.undo();
 		expect(history.project.clipTransitions).toHaveLength(1);
-		expect(history.project.tracks[0]!.clips.find((clip) => clip.id === "in")?.startUs)
-			.toBe(8_000_000);
+		expect(history.project.tracks[0]!.clips.find((clip) => clip.id === "in")?.startUs).toBe(
+			8_000_000,
+		);
 	});
 
 	it("clamps or removes edge animations on trim and preserves outer edges on split", () => {
@@ -313,15 +329,23 @@ describe("transition and component animation command cleanup", () => {
 			exit: { durationUs: 500_000 },
 		});
 		const removed = trimClip(project, "out", 0, 1_000_000);
-		expect(removed.tracks[0]!.clips[0]!.componentAnimation).toEqual({ enter: {
-			preset: "fade", durationUs: 1_000_000, easing: "linear",
-		} });
+		expect(removed.tracks[0]!.clips[0]!.componentAnimation).toEqual({
+			enter: {
+				preset: "fade",
+				durationUs: 1_000_000,
+				easing: "linear",
+			},
+		});
 
 		const split = splitClip(project, "out", 4_000_000, { rightClipId: "animation-right" });
 		const left = split.tracks[0]!.clips.find((clip) => clip.id === "out")!;
 		const right = split.tracks[0]!.clips.find((clip) => clip.id === "animation-right")!;
-		expect(left.componentAnimation).toEqual({ enter: project.tracks[0]!.clips[0]!.componentAnimation!.enter });
-		expect(right.componentAnimation).toEqual({ exit: project.tracks[0]!.clips[0]!.componentAnimation!.exit });
+		expect(left.componentAnimation).toEqual({
+			enter: project.tracks[0]!.clips[0]!.componentAnimation!.enter,
+		});
+		expect(right.componentAnimation).toEqual({
+			exit: project.tracks[0]!.clips[0]!.componentAnimation!.exit,
+		});
 	});
 
 	it("updates project canvas dimensions and fps", () => {

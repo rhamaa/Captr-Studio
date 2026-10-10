@@ -1,4 +1,5 @@
-import type { TimelineProject } from "./types";
+import { getStoryProject, listStoryScopes } from "./storyOwnership";
+import type { MediaAsset, TimelineProject } from "./types";
 
 const fields = new Set([
 	"videoPath",
@@ -61,12 +62,22 @@ function settingsPaths(value: unknown, visit: (path: string, set: (path: string)
 		}
 	}
 }
+/** Physical libraries only; Story projections are mirrors, never additional owners. */
+export function timelineMediaAssets(project: TimelineProject): MediaAsset[] {
+	return [
+		...project.assets,
+		...listStoryScopes(project).flatMap(
+			(scope) => getStoryProject(project, scope).localAssets ?? [],
+		),
+	];
+}
+
 /** Visits explicit media references only; arbitrary metadata strings never grant file access. */
 export function visitTimelineMediaPaths(
 	project: TimelineProject,
 	visit: (path: string, set: (path: string) => void, ownerId: string) => void,
 ): void {
-	for (const asset of project.assets) {
+	for (const asset of timelineMediaAssets(project)) {
 		if (asset.source)
 			visit(
 				asset.source.path,

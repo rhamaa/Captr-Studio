@@ -1,8 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { createTimelineProject, placeAsset, registerMedia, registerRecording } from "./commands";
-import { clipDurationUs, type ComponentAnimation } from "./types";
 import { addClipTransition } from "./clipTransitions";
+import { createTimelineProject, placeAsset, registerMedia, registerRecording } from "./commands";
+import { evaluateProject } from "./evaluation";
+import { fixtureClip, fixtureText, fixtureTrack } from "./storyOwnership.fixtures";
+import { type ComponentAnimation, clipDurationUs } from "./types";
 import { sampleClipTransition, sampleComponentAnimation } from "./visualAnimation";
+
+it("retains a resolved inline descriptor without registering a media asset", () => {
+	const project = createTimelineProject("inline-sample", "Inline");
+	project.tracks = [fixtureTrack("design", [fixtureClip("title", {
+		content: { kind: "text", text: fixtureText, durationUs: 5_000_000 },
+	})])];
+	const visual = evaluateProject(project, 1_000_000).visuals[0];
+	expect(visual.source).toMatchObject({ kind: "text", width: 1920, height: 1080, durationUs: 5_000_000, content: { text: fixtureText } });
+	expect(visual.source.media).toBeUndefined();
+	expect(project.assets).toEqual([]);
+});
 
 function projectWithTransition(fromRate = 1, toRate = 1) {
 	let project = createTimelineProject("sample-project", "Sampling");

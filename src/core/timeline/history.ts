@@ -1,3 +1,4 @@
+import { refreshStoryProjections } from "./storyOwnership";
 import type { TimelineProject } from "./types";
 import { validateTimelineProject } from "./validation";
 export type ProjectCommand = (project: TimelineProject) => TimelineProject;
@@ -6,7 +7,11 @@ interface Snapshot {
 	selection: string[];
 }
 export function validSelection(project: TimelineProject, selection: string[]): string[] {
-	const ids = new Set(project.tracks.flatMap((t) => t.clips.map((c) => c.id)));
+	const tracks = [
+		...project.tracks,
+		...(project.repurposeBoard?.artboards ?? []).flatMap((owner) => owner.tracks ?? []),
+	];
+	const ids = new Set(tracks.flatMap((t) => t.clips.map((c) => c.id)));
 	return selection.filter((id) => ids.has(id));
 }
 export class ProjectHistory {
@@ -50,9 +55,9 @@ export class ProjectHistory {
 		this.current = { ...this.current, selection: validSelection(this.project, selection) };
 	}
 	execute(command: ProjectCommand, selection = this.selection): TimelineProject {
-		const next = command(this.project);
-		if (next === this.project) return next;
-		validateTimelineProject(next);
+		const result = command(this.project);
+		if (result === this.project) return result;
+		const next = validateTimelineProject(refreshStoryProjections(result));
 		this.past.push(this.current);
 		if (this.past.length > 100) this.past.shift();
 		this.future = [];

@@ -2,15 +2,92 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, it } from "vitest";
+import type { ProjectFileRequest } from "../../../src/core/project/fileOperationTypes";
 import {
 	createTimelineProject,
-	registerRecording,
 	placeAsset,
+	registerRecording,
 	updateComposition,
 } from "../../../src/core/timeline/commands";
-import type { ProjectFileRequest } from "../../../src/core/project/fileOperationTypes";
+import { ownershipFixture } from "../../../src/core/timeline/storyOwnership.fixtures";
 import { inspectProjectBundle } from "./projectBundle";
-import { performProjectFileOperation, type ProjectFileServicePorts } from "./projectFileService";
+import { type ProjectFileServicePorts, performProjectFileOperation } from "./projectFileService";
+
+it("Rename and Save As retain private media and reject missing sources atomically", async () => {
+	const f = await setup();
+	const project = ownershipFixture();
+	project.projectId = "project";
+	project.repurposeBoard!.artboards[0].tracks = [];
+	const files = [
+		project.assets[0].source!,
+		project.packages[0].screen,
+		project.repurposeBoard!.artboards[0].localAssets![0].source!,
+	];
+	for (const [i, source] of files.entries()) {
+		source.path = path.join(f.root, `source-${i}.mp4`);
+		await fs.writeFile(source.path, `bytes-${i}`);
+	}
+	f.request.project = project;
+	expect((await performProjectFileOperation(f.request, f.ports)).success).toBe(true);
+	const original = f.context.path!;
+	const renamed = await performProjectFileOperation(
+		{
+			...f.request,
+			operationId: "private-rename",
+			expectedPath: original,
+			intent: "rename",
+			name: "Private",
+		},
+		f.ports,
+	);
+	expect(renamed.success).toBe(true);
+	expect(f.context.id).toBe("project");
+	const renamedBytes = await fs.readFile(f.context.path!);
+	const renamedPath = f.context.path!;
+	const entries = (await inspectProjectBundle(renamedPath)).entries.map((e) => e.path);
+	expect(entries).toContain("assets/voice-A/asset.json");
+	f.choose(path.join(f.root, "Copy.captr"));
+	expect(
+		(
+			await performProjectFileOperation(
+				{
+					...f.request,
+					operationId: "private-copy",
+					expectedPath: renamedPath,
+					intent: "save-as",
+					project: { ...project, projectId: "copy" },
+				},
+				f.ports,
+			)
+		).success,
+	).toBe(true);
+	expect(f.context.id).toBe("copy");
+	expect(await fs.readFile(renamedPath)).toEqual(renamedBytes);
+	expect((await inspectProjectBundle(f.context.path!)).entries.map((e) => e.path)).toContain(
+		"assets/voice-A/asset.json",
+	);
+	const copyBytes = await fs.readFile(f.context.path!),
+		copyPath = f.context.path!;
+	const invalid = structuredClone(project);
+	invalid.projectId = "copy";
+	invalid.repurposeBoard!.artboards[0].localAssets![0].source!.path = path.join(
+		f.root,
+		"missing.wav",
+	);
+	const rejected = await performProjectFileOperation(
+		{
+			...f.request,
+			ownerProjectId: "copy",
+			operationId: "private-missing",
+			expectedPath: copyPath,
+			project: invalid,
+		},
+		f.ports,
+	);
+	expect(rejected.success).toBe(false);
+	expect(f.context.path).toBe(copyPath);
+	expect(await fs.readFile(copyPath)).toEqual(copyBytes);
+});
 
 const roots: string[] = [];
 afterEach(async () => {

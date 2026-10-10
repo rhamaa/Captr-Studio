@@ -25,6 +25,7 @@ export interface AssetCardProps {
 	onPreview: () => void;
 	onPlace: () => void;
 	onRemove: () => void;
+	onPublish?: () => void;
 	onTranscribe?: (asset: MediaAsset) => void;
 }
 export function AssetCard({
@@ -35,6 +36,7 @@ export function AssetCard({
 	onPreview,
 	onPlace,
 	onRemove,
+	onPublish,
 	onTranscribe,
 }: AssetCardProps) {
 	const [url, setUrl] = useState("");
@@ -63,7 +65,8 @@ export function AssetCard({
 	useEffect(() => {
 		let current = true;
 		if (sourcePath && canHaveCaptions) {
-			window.electronAPI?.loadAssetTranscript?.(sourcePath)
+			window.electronAPI
+				?.loadAssetTranscript?.(sourcePath)
 				.then((t) => {
 					if (current) setTranscript(t ?? null);
 				})
@@ -100,14 +103,20 @@ export function AssetCard({
 			} else {
 				const errMsg = res.error ?? "Failed to transcribe audio";
 				setTranscribeError(errMsg);
-				if (errMsg.toLowerCase().includes("model") && errMsg.toLowerCase().includes("not found")) {
+				if (
+					errMsg.toLowerCase().includes("model") &&
+					errMsg.toLowerCase().includes("not found")
+				) {
 					setDialogOpen(true);
 				}
 			}
 		} catch (err) {
 			const errMsg = err instanceof Error ? err.message : String(err);
 			setTranscribeError(errMsg);
-			if (errMsg.toLowerCase().includes("model") && errMsg.toLowerCase().includes("not found")) {
+			if (
+				errMsg.toLowerCase().includes("model") &&
+				errMsg.toLowerCase().includes("not found")
+			) {
 				setDialogOpen(true);
 			}
 		} finally {
@@ -193,6 +202,15 @@ export function AssetCard({
 				<div className="project-asset-info">
 					<span title={asset.name}>{asset.name}</span>
 					<div className="project-asset-actions">
+						{onPublish && (
+							<button
+								aria-label="Publish to Assets"
+								title="Publish to Assets"
+								onClick={onPublish}
+							>
+								Publish to Assets
+							</button>
+						)}
 						{canHaveCaptions && (
 							<button
 								className={`project-asset-cc-btn ${transcript ? "has-cc" : ""} ${isTranscribing ? "loading" : ""}`}
@@ -209,7 +227,7 @@ export function AssetCard({
 										: transcript
 											? "View captions (CC)"
 											: "Generate captions (CC)"
-										}
+								}
 								disabled={isTranscribing}
 								onClick={(e) => {
 									e.stopPropagation();
@@ -219,7 +237,10 @@ export function AssetCard({
 								{isTranscribing ? (
 									<CircleNotch size={15} className="project-asset-spin" />
 								) : (
-									<ClosedCaptioning size={15} weight={transcript ? "fill" : "regular"} />
+									<ClosedCaptioning
+										size={15}
+										weight={transcript ? "fill" : "regular"}
+									/>
 								)}
 							</button>
 						)}

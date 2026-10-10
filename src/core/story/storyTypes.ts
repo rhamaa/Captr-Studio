@@ -1,5 +1,5 @@
 import type { RepurposeAspectRatio, RepurposeArtboardFraming } from "../timeline/repurposeTypes";
-import type { ClipTransition, TimelineTrack } from "../timeline/types";
+import type { ClipTransition, PrivateMediaAsset, TimelineTrack } from "../timeline/types";
 
 export interface StoryCanvasSettings {
 	width: number;
@@ -23,6 +23,8 @@ export interface StorySubtitleSettings {
  */
 export interface StoryComposition {
 	id: string;
+	artboardId?: string;
+	localAssets?: PrivateMediaAsset[];
 	name: string;
 	aspectRatio: RepurposeAspectRatio;
 	canvas: StoryCanvasSettings;

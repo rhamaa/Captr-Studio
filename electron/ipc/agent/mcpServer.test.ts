@@ -1,14 +1,18 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
-	executeMcpToolCall,
+	createTimelineProject,
+	placeAsset,
+	registerMedia,
+} from "../../../src/core/timeline/commands";
+import type { MediaAsset } from "../../../src/core/timeline/types";
+import {
+	executeMcpToolCall as executeCapturedMcpToolCall,
 	getMcpServerInfo,
 	handleJsonRpcMessage,
 	setMcpProjectContext,
 	startMcpServer,
 	stopMcpServer,
 } from "./mcpServer";
-import { createTimelineProject, placeAsset, registerMedia } from "../../../src/core/timeline/commands";
-import type { MediaAsset } from "../../../src/core/timeline/types";
 
 // Mock BrowserWindow for electron
 vi.mock("electron", () => ({
@@ -36,6 +40,12 @@ describe("mcpServer", () => {
 		project = registerMedia(project, asset);
 		project = placeAsset(project, "a1", "visual-1", 0, { clipId: "c1" });
 		return {
+			editContext: {
+				scope: { kind: "root" as const },
+				projectId: project.projectId,
+				generation: 1,
+				revision: 0,
+			},
 			project,
 			transcripts: {},
 			playheadUs: 2_000_000,
@@ -43,6 +53,9 @@ describe("mcpServer", () => {
 			activeArtboardId: null,
 		};
 	}
+
+	const executeMcpToolCall = (name: string, args: Record<string, unknown>) =>
+		executeCapturedMcpToolCall(name, { editContext: createMockContext().editContext, ...args });
 
 	beforeAll(async () => {
 		setMcpProjectContext(createMockContext());
@@ -82,6 +95,10 @@ describe("mcpServer", () => {
 		expect(toolNames).toContain("preview_speculative_edits");
 		expect(toolNames).toContain("commit_edits");
 		expect(toolNames.length).toBe(8);
+		for (const tool of res.result.tools) {
+			if (tool.name !== "get_project_context")
+				expect(tool.inputSchema.required).toContain("editContext");
+		}
 	});
 
 	it("executes get_project_context tool", async () => {
@@ -163,7 +180,7 @@ describe("mcpServer", () => {
 		expect(parsed.clipId).toBeDefined();
 	});
 
-	it("executes preview_speculative_edits and commit_edits updating activeContext in memory", async () => {
+	it("previews and commits without replacing the authoritative renderer context", async () => {
 		const prev = await executeMcpToolCall("preview_speculative_edits", {});
 		expect(prev.isError).toBeFalsy();
 
@@ -174,10 +191,10 @@ describe("mcpServer", () => {
 		const commitParsed = JSON.parse(commit.text);
 		expect(commitParsed.success).toBe(true);
 
-		// Context in memory should reflect committed project
+		// Renderer synchronization remains authoritative after broadcasting the commit.
 		const ctxRes = await executeMcpToolCall("get_project_context", {});
 		const ctxParsed = JSON.parse(ctxRes.text);
-		expect(ctxParsed.tracks[0].clips.length).toBeGreaterThanOrEqual(1);
+		expect(ctxParsed.tracks[0].clips.length).toBe(1);
 	});
 
 	it("connects to SSE endpoint and receives endpoint discovery event", async () => {
@@ -202,15 +219,18 @@ describe("mcpServer", () => {
 		const sessionId = match![1];
 
 		// Send tools/list to /message with sessionId
-		const postRes = await fetch(`http://127.0.0.1:${info.port}/message?sessionId=${sessionId}`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				jsonrpc: "2.0",
-				id: 99,
-				method: "tools/list",
-			}),
-		});
+		const postRes = await fetch(
+			`http://127.0.0.1:${info.port}/message?sessionId=${sessionId}`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					jsonrpc: "2.0",
+					id: 99,
+					method: "tools/list",
+				}),
+			},
+		);
 		expect(postRes.status).toBe(202);
 
 		// Read response over SSE stream

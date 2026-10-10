@@ -1,10 +1,6 @@
 import type { RepurposeArtboard } from "../timeline/repurposeTypes";
 import { clipDurationUs, type TimelineProject, type TimelineTrack } from "../timeline/types";
-import type {
-	HyperframeComposition,
-	StoryComposition,
-	StoryManifestItem,
-} from "./storyTypes";
+import type { HyperframeComposition, StoryComposition, StoryManifestItem } from "./storyTypes";
 
 /**
  * Calculates total duration of a story based on its clips.
@@ -23,8 +19,8 @@ export function calculateStoryDurationUs(tracks: TimelineTrack[]): number {
  */
 export function createDefaultStory(
 	project: TimelineProject,
-	id = "story-main",
-	name = "Main Video",
+	id = project.defaultStoryId ?? project.storyMetadata?.id ?? "story-main",
+	name = project.storyMetadata?.name ?? "Main Video",
 ): StoryComposition {
 	const durationUs = Math.max(
 		0,
@@ -38,24 +34,26 @@ export function createDefaultStory(
 	return {
 		id,
 		name,
-		aspectRatio: aspect,
+		aspectRatio: project.storyMetadata?.aspectRatio ?? aspect,
 		canvas: {
-			width: project.canvas.width,
-			height: project.canvas.height,
-			fps: project.canvas.fps,
 			background: "#000000",
+			...structuredClone(project.canvas),
 		},
-		framing: {
-			scale: 1,
-			offsetX: 0,
-			offsetY: 0,
-			fitMode: "contain",
-		},
+		framing: structuredClone(
+			project.storyMetadata?.framing ?? {
+				scale: 1,
+				offsetX: 0,
+				offsetY: 0,
+				fitMode: "contain",
+			},
+		),
 		tracks: structuredClone(project.tracks),
+		localAssets: structuredClone(project.localAssets),
+		subtitles: structuredClone(project.subtitles),
 		clipTransitions: project.clipTransitions ? structuredClone(project.clipTransitions) : [],
 		durationUs,
-		createdAt: project.createdAt,
-		updatedAt: project.updatedAt,
+		createdAt: project.storyMetadata?.createdAt ?? project.createdAt,
+		updatedAt: project.storyMetadata?.updatedAt ?? project.updatedAt,
 	};
 }
 
@@ -67,18 +65,26 @@ export function artboardToStory(artboard: RepurposeArtboard, fps = 60): StoryCom
 	const durationUs = calculateStoryDurationUs(tracks);
 
 	return {
-		id: artboard.id.startsWith("story-") ? artboard.id : `story-${artboard.id}`,
+		id:
+			artboard.storyMetadata?.id ??
+			(artboard.id.startsWith("story-") ? artboard.id : `story-${artboard.id}`),
+		artboardId: artboard.id,
 		name: artboard.name,
 		aspectRatio: artboard.aspectRatio,
 		canvas: {
+			fps,
+			...structuredClone(artboard.canvas),
 			width: artboard.width,
 			height: artboard.height,
-			fps,
 		},
 		framing: structuredClone(artboard.framing),
 		tracks,
+		localAssets: structuredClone(artboard.localAssets),
+		subtitles: structuredClone(artboard.subtitles),
 		clipTransitions: artboard.clipTransitions ? structuredClone(artboard.clipTransitions) : [],
 		durationUs,
+		createdAt: artboard.storyMetadata?.createdAt,
+		updatedAt: artboard.storyMetadata?.updatedAt,
 	};
 }
 
@@ -87,27 +93,28 @@ export function artboardToStory(artboard: RepurposeArtboard, fps = 60): StoryCom
  */
 export function storyToArtboard(story: StoryComposition): RepurposeArtboard {
 	return {
-		id: story.id.replace(/^story-/, ""),
+		id: story.artboardId ?? story.id.replace(/^story-/, ""),
+		storyMetadata: { id: story.id, createdAt: story.createdAt, updatedAt: story.updatedAt },
+		canvas: structuredClone(story.canvas),
 		name: story.name,
 		aspectRatio: story.aspectRatio,
 		width: story.canvas.width,
 		height: story.canvas.height,
-		framing: story.framing ?? { scale: 1, offsetX: 0, offsetY: 0, fitMode: "cover" },
+		framing: structuredClone(
+			story.framing ?? { scale: 1, offsetX: 0, offsetY: 0, fitMode: "cover" },
+		),
 		tracks: structuredClone(story.tracks),
+		localAssets: structuredClone(story.localAssets),
+		subtitles: structuredClone(story.subtitles),
 		clipTransitions: story.clipTransitions ? structuredClone(story.clipTransitions) : [],
 	};
 }
 
 /**
  * Extracts all stories from a TimelineProject.
- * If project already has explicit stories, returns them.
- * Otherwise, synthesizes stories from root tracks and repurposeBoard artboards.
+ * Projects canonical owners. Normalize legacy standalone Stories before calling this.
  */
 export function extractStoriesFromProject(project: TimelineProject): StoryComposition[] {
-	if (project.stories && project.stories.length > 0) {
-		return structuredClone(project.stories);
-	}
-
 	const stories: StoryComposition[] = [];
 
 	// 1. Root timeline story
@@ -117,26 +124,34 @@ export function extractStoriesFromProject(project: TimelineProject): StoryCompos
 	// 2. Artboard stories
 	if (project.repurposeBoard?.artboards) {
 		for (const artboard of project.repurposeBoard.artboards) {
-			if (artboard.tracks && artboard.tracks.length > 0) {
-				stories.push(artboardToStory(artboard, project.canvas.fps));
-			}
+			if (artboard.tracks === undefined)
+				throw new Error(`Story owner has not been materialized: ${artboard.id}`);
+			stories.push(artboardToStory(artboard, project.canvas.fps));
 		}
 	}
 
 	return stories;
 }
 
-/**
- * Generates manifest items for all stories in a project.
- */
+/** Bounded portable basename for a position in the current canonical Story roster. */
+export function storyProjectionFileName(ordinal: number): string {
+	if (!Number.isSafeInteger(ordinal) || ordinal < 0) throw new Error("Invalid Story ordinal");
+	return `story-${ordinal}.json`;
+}
+
+/** Generates manifest items for all stories in a project. */
 export function generateStoryManifest(stories: StoryComposition[]): StoryManifestItem[] {
-	return stories.map((story) => ({
-		id: story.id,
-		name: story.name,
-		file: `Story/${story.id.startsWith("story-") ? story.id : `story-${story.id}`}.json`,
-		aspectRatio: story.aspectRatio,
-		durationUs: story.durationUs ?? calculateStoryDurationUs(story.tracks),
-	}));
+	return stories.map((story, ordinal) => {
+		if (typeof story.id !== "string" || !/^[a-zA-Z0-9_-]+$/.test(story.id))
+			throw new Error("Invalid Story ID");
+		return {
+			id: story.id,
+			name: story.name,
+			file: `Story/${storyProjectionFileName(ordinal)}`,
+			aspectRatio: story.aspectRatio,
+			durationUs: story.durationUs ?? calculateStoryDurationUs(story.tracks),
+		};
+	});
 }
 
 /**
@@ -311,7 +326,8 @@ export function validateStoryComposition(value: unknown): StoryComposition {
 	}
 	const s = value as Partial<StoryComposition>;
 	if (typeof s.id !== "string" || !s.id.trim()) throw new Error("Story must have a valid id");
-	if (typeof s.name !== "string" || !s.name.trim()) throw new Error("Story must have a valid name");
+	if (typeof s.name !== "string" || !s.name.trim())
+		throw new Error("Story must have a valid name");
 	if (!s.canvas || typeof s.canvas !== "object") throw new Error("Story canvas is required");
 	if (
 		typeof s.canvas.width !== "number" ||
@@ -334,7 +350,8 @@ export function validateHyperframeComposition(value: unknown): HyperframeComposi
 		throw new Error("Invalid hyperframe: must be an object");
 	}
 	const h = value as Partial<HyperframeComposition>;
-	if (typeof h.id !== "string" || !h.id.trim()) throw new Error("Hyperframe must have a valid id");
+	if (typeof h.id !== "string" || !h.id.trim())
+		throw new Error("Hyperframe must have a valid id");
 	if (typeof h.name !== "string" || !h.name.trim())
 		throw new Error("Hyperframe must have a valid name");
 	if (typeof h.entryHtml !== "string" || !h.entryHtml.trim())

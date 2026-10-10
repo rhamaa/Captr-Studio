@@ -1,14 +1,11 @@
-import {
-	ClosedCaptioning,
-	Sliders,
-} from "@phosphor-icons/react";
+import { ClosedCaptioning, Sliders } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import {
 	type AssetTranscript,
-	type TranscriptSegment,
-	type TranscriptWord,
 	getActiveSubtitleAtTime,
 	mapTranscriptToClip,
+	type TranscriptSegment,
+	type TranscriptWord,
 } from "@/core/timeline/transcriptTypes";
 import type { TimelineProject } from "@/core/timeline/types";
 
@@ -58,7 +55,7 @@ export function getSubtitleForProjectAtTime(
 	for (const track of project.tracks) {
 		if (track.muted || track.hidden) continue;
 		for (const clip of track.clips) {
-			if (!clip.enabled) continue;
+			if (!clip.enabled || !clip.assetId) continue;
 			const rate = clip.rate > 0 ? clip.rate : 1;
 			const clipDurUs = Math.round((clip.sourceOutUs - clip.sourceInUs) / rate);
 
@@ -119,10 +116,7 @@ export function SubtitleOverlay({
 	});
 	const [showMenu, setShowMenu] = useState(false);
 
-	const activeStyle = useMemo(
-		() => ({ ...style, ...styleOverrides }),
-		[style, styleOverrides],
-	);
+	const activeStyle = useMemo(() => ({ ...style, ...styleOverrides }), [style, styleOverrides]);
 
 	// Load transcripts for all audio/video/recording assets in project
 	useEffect(() => {
@@ -132,7 +126,7 @@ export function SubtitleOverlay({
 
 		const loadAll = async () => {
 			const results: Record<string, AssetTranscript> = {};
-			for (const asset of project.assets) {
+			for (const asset of [...project.assets, ...(project.localAssets ?? [])]) {
 				if (
 					asset.kind === "video" ||
 					asset.kind === "recording" ||
@@ -220,10 +214,7 @@ export function SubtitleOverlay({
 
 			{/* Customization Dropdown Panel */}
 			{showMenu && activeStyle.enabled && (
-				<div
-					className="subtitle-settings-dropdown"
-					onClick={(e) => e.stopPropagation()}
-				>
+				<div className="subtitle-settings-dropdown" onClick={(e) => e.stopPropagation()}>
 					<div className="subtitle-settings-row">
 						<span>Position</span>
 						<div className="subtitle-btn-group">
@@ -257,7 +248,9 @@ export function SubtitleOverlay({
 							type="button"
 							className={`subtitle-toggle-switch ${activeStyle.highlightActiveWord ? "on" : "off"}`}
 							onClick={() =>
-								updateStyle({ highlightActiveWord: !activeStyle.highlightActiveWord })
+								updateStyle({
+									highlightActiveWord: !activeStyle.highlightActiveWord,
+								})
 							}
 						>
 							{activeStyle.highlightActiveWord ? "Karaoke ON" : "Karaoke OFF"}
@@ -333,7 +326,9 @@ export function SubtitleOverlay({
 										key={idx}
 										className={`subtitle-word ${w.active ? "word-active" : ""} ${w.passed ? "word-passed" : ""}`}
 										style={{
-											color: w.active ? activeStyle.highlightColor : undefined,
+											color: w.active
+												? activeStyle.highlightColor
+												: undefined,
 										}}
 									>
 										{w.word}{" "}

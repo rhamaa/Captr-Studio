@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { extractStoriesFromProject } from "../story/storyUtils";
 import { createTimelineProject } from "./commands";
 import {
 	addRepurposeArtboard,
@@ -20,9 +21,190 @@ import {
 	updateRepurposeFraming,
 	updateRepurposeSlice,
 } from "./repurposeCommands";
+import { fixtureClip, fixtureTrack, ownershipFixture } from "./storyOwnership.fixtures";
 import { validateTimelineProject } from "./validation";
 
 describe("repurposeCommands", () => {
+	it.each([
+		"absent",
+		"empty",
+		"override",
+	] as const)("forks inherited tracks with %s owner transitions", (mode) => {
+		const input = ownershipFixture();
+		input.tracks = [
+			fixtureTrack("transition-track", [
+				fixtureClip("left", { assetId: "shared", sourceOutUs: 2_000_000 }),
+				fixtureClip("right", {
+					assetId: "shared",
+					startUs: 2_000_000,
+					sourceInUs: 1_000_000,
+					sourceOutUs: 3_000_000,
+				}),
+			]),
+		];
+		input.clipTransitions = [
+			{
+				id: "root-fade",
+				trackId: "transition-track",
+				fromClipId: "left",
+				toClipId: "right",
+				durationUs: 500_000,
+				preset: { kind: "cross-dissolve" },
+				easing: "linear",
+			},
+		];
+		const owner = input.repurposeBoard!.artboards[0];
+		delete owner.tracks;
+		if (mode === "empty") owner.clipTransitions = [];
+		if (mode === "override")
+			owner.clipTransitions = [
+				{
+					...input.clipTransitions[0],
+					id: "owner-fade",
+					durationUs: 250_000,
+					easing: "ease-in",
+				},
+			];
+		const before = structuredClone(input);
+		const result = forkArtboardSequence(input, "A");
+		const fork = result.repurposeBoard!.artboards[0];
+		expect(fork.tracks![0].id).not.toBe("transition-track");
+		expect(fork.tracks![0].clips.map((clip) => clip.id)).not.toEqual(["left", "right"]);
+		if (mode === "empty") expect(fork.clipTransitions).toEqual([]);
+		else {
+			expect(fork.clipTransitions).toHaveLength(1);
+			const transition = fork.clipTransitions![0];
+			expect(transition.id).not.toBe(mode === "override" ? "owner-fade" : "root-fade");
+			expect(transition).toMatchObject({
+				trackId: fork.tracks![0].id,
+				fromClipId: fork.tracks![0].clips[0].id,
+				toClipId: fork.tracks![0].clips[1].id,
+				durationUs: mode === "override" ? 250_000 : 500_000,
+				easing: mode === "override" ? "ease-in" : "linear",
+			});
+		}
+		expect(result.clipTransitions).toEqual(before.clipTransitions);
+		expect(input).toEqual(before);
+		expect(forkArtboardSequence(result, "A")).toBe(result);
+		expect(() => validateTimelineProject(result)).not.toThrow();
+	});
+	it.each([
+		"trackId",
+		"fromClipId",
+		"toClipId",
+	] as const)("rejects dangling owner transition %s before forking", (field) => {
+		const input = ownershipFixture();
+		const owner = input.repurposeBoard!.artboards[0];
+		delete owner.tracks;
+		owner.clipTransitions = [
+			{
+				id: "dangling-fade",
+				trackId: "root",
+				fromClipId: "root-video",
+				toClipId: "root-video",
+				durationUs: 500_000,
+				preset: { kind: "cross-dissolve" },
+				easing: "linear",
+				[field]: "missing",
+			},
+		];
+		const before = structuredClone(input);
+		expect(() => forkArtboardSequence(input, "A")).toThrow(/transition.*missing/i);
+		expect(input).toEqual(before);
+	});
+	it("forks an inherited owner without losing unplaced private media or linking its canvas to root", () => {
+		const input = ownershipFixture();
+		const owner = input.repurposeBoard!.artboards[0];
+		delete owner.tracks;
+		input.localAssets = [{ ...structuredClone(owner.localAssets![0]), id: "root-private" }];
+		input.canvas = { width: 1920, height: 1080, fps: 24, background: "#123456" };
+		const before = structuredClone(input);
+		const result = forkArtboardSequence(input, "A");
+		const fork = result.repurposeBoard!.artboards[0];
+		expect(fork.localAssets).toHaveLength(2);
+		expect(fork.localAssets![0]).toEqual(owner.localAssets![0]);
+		expect(fork.localAssets![1].id).not.toBe("root-private");
+		expect(fork.localAssets![1].source).toEqual(input.localAssets[0].source);
+		result.canvas = { ...result.canvas, fps: 60, background: "#abcdef" };
+		expect(getArtboardProjectView(result, "A").canvas).toEqual({
+			width: owner.width,
+			height: owner.height,
+			fps: 24,
+			background: "#123456",
+		});
+		expect(input).toEqual(before);
+		expect(() => validateTimelineProject(result)).not.toThrow();
+	});
+	it("removes obsolete Story projections when deleting an owner", () => {
+		const input = ownershipFixture();
+		input.stories = extractStoriesFromProject(input);
+		const result = removeRepurposeArtboard(input, "A");
+		expect(result.stories!.some((s) => s.artboardId === "A")).toBe(false);
+		expect(() => validateTimelineProject(result)).not.toThrow();
+	});
+	it("rejects stale or unmaterialized placement scopes rather than copying root IDs", () => {
+		const input = ownershipFixture();
+		expect(() => placeAssetIntoArtboard(input, "missing", "shared")).toThrow();
+		delete input.repurposeBoard!.artboards[0].tracks;
+		expect(() => placeAssetIntoArtboard(input, "A", "shared")).toThrow(/materialized/);
+	});
+	it("refreshes projection tracks when placing a shared Record source", () => {
+		const input = ownershipFixture();
+		input.stories = extractStoriesFromProject(input);
+		const result = placeAssetIntoArtboard(input, "B", "record");
+		expect(result.stories!.find((s) => s.artboardId === "B")!.tracks[0].clips).toHaveLength(2);
+		expect(result.repurposeBoard!.artboards[0]).toEqual(input.repurposeBoard!.artboards[0]);
+		expect(() => validateTimelineProject(result)).not.toThrow();
+	});
+	it("new and duplicate Artboards snapshot private media, Record edits and transition references independently", () => {
+		const project = ownershipFixture();
+		const owner = project.repurposeBoard!.artboards[0];
+		project.tracks = owner.tracks!;
+		project.localAssets = owner.localAssets;
+		project.repurposeBoard!.artboards = [];
+		const left = fixtureClip("left");
+		left.sourceOutUs = 2_000_000;
+		const right = fixtureClip("right");
+		right.startUs = 2_000_000;
+		right.sourceInUs = 1_000_000;
+		right.sourceOutUs = 3_000_000;
+		project.tracks.push(fixtureTrack("transition-track", [left, right]));
+		project.clipTransitions = [
+			{
+				id: "fade",
+				trackId: "transition-track",
+				fromClipId: "left",
+				toClipId: "right",
+				preset: { kind: "cross-dissolve" },
+				durationUs: 500_000,
+				easing: "linear",
+			},
+		];
+		const added = addRepurposeArtboard(project, {
+			name: "Snapshot",
+			aspectRatio: "9:16",
+			width: 1080,
+			height: 1920,
+		});
+		const a = added.repurposeBoard!.artboards[0];
+		expect(a.tracks).toBeDefined();
+		expect(a.tracks![0].id).not.toBe(project.tracks[0].id);
+		expect(a.localAssets![0].id).not.toBe(project.localAssets![0].id);
+		expect(a.tracks![0].clips[0].compositionId).not.toBe(
+			project.tracks[0].clips[0].compositionId,
+		);
+		const transition = a.clipTransitions![0];
+		expect(transition.id).not.toBe("fade");
+		const track = a.tracks!.find((t) => t.id === transition.trackId)!;
+		expect(track.clips.map((c) => c.id)).toEqual([transition.fromClipId, transition.toClipId]);
+		const duplicated = duplicateRepurposeArtboard(added, a.id);
+		const b = duplicated.repurposeBoard!.artboards[1];
+		expect(b.localAssets![0].id).not.toBe(a.localAssets![0].id);
+		expect(b.tracks![0].clips[0].compositionId).not.toBe(a.tracks![0].clips[0].compositionId);
+		expect(() => validateTimelineProject(duplicated)).not.toThrow();
+		duplicated.tracks[0].clips[0].transform.scale = 2;
+		expect(b.tracks![0].clips[0].transform.scale).toBe(1);
+	});
 	it("initializes default repurpose board with empty artboards by default and full slice", () => {
 		const project = createTimelineProject("p1", "Test Project");
 		expect(project.repurposeBoard).toBeUndefined();
@@ -170,7 +352,7 @@ describe("repurposeCommands", () => {
 		expect(() => validateTimelineProject(project)).not.toThrow();
 	});
 
-	it("creates artboard project view and falls back to project tracks until customized", () => {
+	it("creates an Artboard view with independently identified snapshot tracks", () => {
 		let project = createTimelineProject("p1", "Test Project");
 		project = addRepurposeArtboard(project, {
 			aspectRatio: "9:16",
@@ -186,8 +368,8 @@ describe("repurposeCommands", () => {
 		const view = getArtboardProjectView(project, artboard916.id);
 		expect(view.canvas.width).toBe(1080);
 		expect(view.canvas.height).toBe(1920);
-		// Falls back to root project tracks
-		expect(view.tracks).toEqual(project.tracks);
+		expect(view.tracks.map((t) => t.name)).toEqual(project.tracks.map((t) => t.name));
+		expect(view.tracks[0].id).not.toBe(project.tracks[0].id);
 	});
 
 	it("updates artboard independent sequence and syncs shared assets", () => {
@@ -251,7 +433,6 @@ describe("repurposeCommands", () => {
 		expect(foundAsset).toBeDefined();
 		expect(foundAsset?.name).toBe("Sticker.png");
 
-		// Validation should pass
 		expect(() => validateTimelineProject(project)).not.toThrow();
 	});
 
@@ -277,10 +458,12 @@ describe("repurposeCommands", () => {
 		const duplicated = project.repurposeBoard!.artboards[1];
 		expect(duplicated.name).toContain("(Copy)");
 		expect(duplicated.tracks).toBeDefined();
-		expect(duplicated.tracks).toEqual(targetArtboard.tracks);
+		expect(duplicated.tracks!.map((t) => t.name)).toEqual(
+			targetArtboard.tracks!.map((t) => t.name),
+		);
+		expect(duplicated.tracks![0].id).not.toBe(targetArtboard.tracks![0].id);
 		expect(duplicated.id).not.toBe(targetArtboard.id);
 
-		// Validation check
 		expect(() => validateTimelineProject(project)).not.toThrow();
 	});
 
@@ -356,7 +539,6 @@ describe("repurposeCommands", () => {
 		expect(audioTrack?.clips).toHaveLength(1);
 		expect(audioTrack?.clips[0].assetId).toBe("audio-asset-1");
 
-		// Validation check
 		expect(() => validateTimelineProject(project)).not.toThrow();
 	});
 

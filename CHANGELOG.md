@@ -9,26 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Documentation — 2026-10-10
+### Implemented — Story ownership foundation (2026-10-10)
 
-- Added [issue #12 and its implementation/regression TODOs](ISSUE.md#12-pemisahan-assets-global-elemen-story-dan-komposisi-record-10-oktober-2026) for separating reusable global media from Story-owned design elements and private media.
-- Recorded the agreed hierarchy: Artboard owns its Story; Story assembles the final video above placement-specific Record compositions. Source Recording packages remain shared and editable without flattening.
-- Added a dated [Story Editor development timeline and ordered backlog](ROADMAP.md#fokus-dan-timeline-pengembangan-story-editor--update-10-oktober-2026): ownership first, then finishing essentials, editing workflow, visual polish, and advanced tools.
+- Text/Shapes belong inline to each Story clip; independent Templates preserve reusable presets and unused legacy designs. New designs use finite five-second source extents with undoable extension.
+- Root and Artboard tracks/private media are authoritative. Assets contain reusable media and Recording sources; Story Media contains the active owner's private file media. Publish to Assets preserves source IDs and undoable references.
+- Shared Recording packages retain independent placement compositions. Preview/export use scoped resolution and existing source clocks; no source flattening.
+- Voiceover captures immutable originating Story/token/playhead/IDs and registers private source separately from placement. Deleted/stale/canceled takes reject with bounded cleanup. Screen Record remains global Assets-only.
+- V3 clone normalization and real bundle persistence retain all libraries including unplaced private sources, sidecars, captions metadata and current projections. Bounded manifest filenames preserve long/case/prefix-distinct Story IDs. Atomic ingress and project identity/path protections remain.
+- Legacy inherited Artboards preserve explicit transition overrides, including empty lists, through independent snapshot remapping. Dangling transitions and Story owner associations reject atomically without changing active project paths or source bytes.
+- Version remains `1.4.0-beta.1`; no release/version bump. [Verification](docs/superpowers/plans/2026-10-10-story-asset-ownership-verification.md) records approved task/whole-branch reviews, 224 passing final covering tests, exact baseline comparison and native gaps.
 
-### Development snapshot — 2026-10-10
+### Deferred finishing and verification
 
-- Version remains `1.4.0-beta.1`; no release or version bump accompanies this documentation update. The latest existing implementation commit at the time of this snapshot is `92f2cd7` (2026-10-09), fixing Story Editor interaction freezes.
-- Recent committed work includes the modular Story Editor, NLE playback/inspector/shortcut controls, workspace zoom/pan, direct canvas transforms, project terminal configuration, and Copilot/MCP speculative editing. Their recorded verification results are in ISSUE.md; tests were not rerun for this snapshot.
-- Current ownership behavior: Text and Shape still register global Assets, and Artboard updates synchronize those Assets to the root project. Story-local design elements and private media are planned, not implemented.
-- Current finishing gaps: the Story timeline waveform is synthetic, keyframe diamonds are display markers, and subtitle preview is a DOM overlay outside the exported frame canvas. `StoryComposition.subtitles` metadata exists, but complete Story/Artboard persistence and final subtitle rendering remain pending.
-- Native QA items and the older full-suite failures recorded in ISSUE.md remain unresolved verification entries; targeted passing tests do not imply full-suite or native coverage.
-
-### Planned — Story ownership contract
-
-- Global Assets: reusable Recording packages, imported video/images/GIFs, music, sound effects, and audio sources.
-- Story-owned elements: text/titles/callouts, shapes, final captions, backgrounds, transitions, keyframes, masks, grading, and grouping. Reusable design presets belong in Templates, not the global media library.
-- Story-private media: voiceover/TTS created specifically for that Story by default, with explicit publication to global Assets. This changes a future workflow only; current recording behavior is unchanged.
-- Preserve independent placement edits, nested source-time mapping, shared preview/export evaluation, undo/redo, and backward-compatible V3 loading. Persist all global/private media, including unplaced sources, in the same `.captr`; retain authoritative `project.json`, `assets/<assetId>/`, and existing recording/path protections.
+- Native recorder/microphone/editor lifecycle QA remains pending. Automated lifecycle tests do not verify HUD/native interaction.
+- Caption editing/burn-in, real waveform/filmstrip, grouping, grading/masks, speed curves/tracking/proxies and authored trailing-blank duration control remain backlog; this foundation preserves caption metadata.
+- Task 8 and whole-branch reviews are approved after the focused migration fixes. Nine original full-suite failures and existing lint debt remain recorded; native QA is pending.
 
 ---
 

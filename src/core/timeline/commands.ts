@@ -3,19 +3,21 @@ import {
 	createRecordComposition,
 	createRecordingPackage,
 } from "../../recording/packageAdapter";
+import { resolveMediaAsset } from "./clipSource";
+import { reconcileClipTransitions } from "./clipTransitions";
+import { getStoryProject, listStoryScopes, refreshStoryProjections } from "./storyOwnership";
 import {
-	type CompletedRecording,
 	type ClipTransform,
+	type CompletedRecording,
 	clipDurationUs,
 	type MediaAsset,
+	type ProjectTerminalConfig,
 	type RecordComposition,
 	type TextOverlay,
 	type TimelineClip,
 	type TimelineProject,
-	type ProjectTerminalConfig,
 } from "./types";
 import { validateTimelineProject } from "./validation";
-import { reconcileClipTransitions } from "./clipTransitions";
 
 export function createTimelineProject(projectId: string, title: string): TimelineProject {
 	const stamp = new Date().toISOString();
@@ -56,7 +58,7 @@ function edit(project: TimelineProject, update: (next: TimelineProject) => void)
 	update(next);
 	reconcileClipTransitions(next);
 	next.updatedAt = new Date().toISOString();
-	return validateTimelineProject(next);
+	return validateTimelineProject(refreshStoryProjections(next));
 }
 
 function clampEdgeAnimation(clip: TimelineClip, edge: "enter" | "exit", maxDurationUs: number) {
@@ -111,8 +113,7 @@ export function placeAsset(
 ): TimelineProject {
 	return edit(p, (n) => {
 		const t = track(n, trackId),
-			a = n.assets.find((a) => a.id === assetId);
-		if (!a) throw new Error("Asset not found");
+			a = resolveMediaAsset(n, assetId);
 		let composition: RecordComposition | undefined;
 		if (a.kind === "recording") {
 			if (!ids.compositionId) throw new Error("Composition ID required");
@@ -139,7 +140,6 @@ export function placeAsset(
 			},
 			gain: 1,
 			enabled: true,
-			...(a.kind === "text" ? { text: structuredClone(a.text!) } : {}),
 		});
 	});
 }
@@ -154,25 +154,16 @@ export const DEFAULT_TEXT_OVERLAY: TextOverlay = {
 export function addTextOverlay(
 	p: TimelineProject,
 	startUs: number,
-	ids: { assetId: string; trackId: string; clipId: string },
+	ids: { assetId?: string; trackId: string; clipId: string },
 ): TimelineProject {
 	const overlay = structuredClone(DEFAULT_TEXT_OVERLAY),
 		durationUs = 5_000_000,
 		number =
 			p.tracks.filter((t) => t.kind === "visual" && /^Text(?: \d+)?$/.test(t.name)).length +
 			1;
-	const asset: MediaAsset = {
-		id: ids.assetId,
-		kind: "text",
-		name: "Text overlay",
-		durationUs,
-		width: p.canvas.width,
-		height: p.canvas.height,
-		text: overlay,
-	};
 	const clip: TimelineClip = {
 		id: ids.clipId,
-		assetId: ids.assetId,
+		content: { kind: "text", text: overlay, durationUs },
 		startUs,
 		sourceInUs: 0,
 		sourceOutUs: durationUs,
@@ -180,7 +171,6 @@ export function addTextOverlay(
 		transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
 		gain: 1,
 		enabled: true,
-		text: structuredClone(overlay),
 	};
 	const newTrack = {
 		id: ids.trackId,
@@ -192,7 +182,6 @@ export function addTextOverlay(
 		clips: [clip],
 	};
 	return edit(p, (n) => {
-		n.assets.push(asset);
 		const audioIndex = n.tracks.findIndex((t) => t.kind === "audio");
 		if (audioIndex < 0) n.tracks.push(newTrack);
 		else n.tracks.splice(audioIndex, 0, newTrack);
@@ -204,10 +193,9 @@ export function updateTextOverlay(
 	patch: Partial<TextOverlay>,
 ): TimelineProject {
 	return edit(p, (n) => {
-		const { clip } = find(n, id),
-			asset = n.assets.find((a) => a.id === clip.assetId);
-		if (asset?.kind !== "text") throw new Error("Clip is not a text overlay");
-		clip.text = { ...structuredClone(clip.text ?? asset.text!), ...structuredClone(patch) };
+		const { clip } = find(n, id);
+		if (clip.content?.kind !== "text") throw new Error("Clip is not a text overlay");
+		clip.content.text = { ...clip.content.text, ...structuredClone(patch) };
 	});
 }
 export function removeClip(p: TimelineProject, id: string) {
@@ -270,7 +258,11 @@ export function rippleRemoveClip(p: TimelineProject, id: string): TimelineProjec
 }
 export function removeAsset(p: TimelineProject, id: string) {
 	return edit(p, (n) => {
-		if (n.tracks.some((t) => t.clips.some((c) => c.assetId === id)))
+		if (
+			listStoryScopes(n).some((scope) =>
+				getStoryProject(n, scope).tracks.some((t) => t.clips.some((c) => c.assetId === id)),
+			)
+		)
 			throw new Error("Asset is referenced by timeline clips");
 		const a = n.assets.find((a) => a.id === id);
 		n.assets = n.assets.filter((a) => a.id !== id);
@@ -548,5 +540,3 @@ export function toggleClipEnabled(p: TimelineProject, clipId: string): TimelineP
 		clip.enabled = !clip.enabled;
 	});
 }
-
-

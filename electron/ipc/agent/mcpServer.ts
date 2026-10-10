@@ -1,19 +1,28 @@
 import http from "node:http";
 import { BrowserWindow } from "electron";
 import {
-	type BRollOrOverlaySpec,
 	applyAddBRollOrOverlay,
 	applyRemoveSilence,
 	applySplitClip,
 	applyTrimClip,
+	type BRollOrOverlaySpec,
 	formatProjectContext,
 	summarizeProjectDiff,
 } from "../../../src/core/timeline/agentTools";
+import {
+	applyStoryCommand,
+	getStoryEditProject,
+	getStoryProject,
+	type StoryEditContext,
+	type StoryEditPlan,
+	sameStoryEditContext,
+} from "../../../src/core/timeline/storyOwnership";
 import type { AssetTranscript } from "../../../src/core/timeline/transcriptTypes";
 import type { TimelineProject } from "../../../src/core/timeline/types";
 import { validateTimelineProject } from "../../../src/core/timeline/validation";
 
 export interface ActiveProjectContext {
+	editContext: StoryEditContext;
 	project: TimelineProject;
 	transcripts: Record<string, AssetTranscript>;
 	playheadUs: number;
@@ -30,18 +39,14 @@ export interface McpServerInfo {
 	activeClientsCount: number;
 }
 
-export interface EditPlan {
-	summary: string;
-	steps: string[];
-	estimatedDurationSec?: number;
-	createdAt: string;
-}
+export type EditPlan = StoryEditPlan;
 
 const DEFAULT_MCP_PORT = 39420;
 let mcpHttpServer: http.Server | null = null;
 let currentPort = DEFAULT_MCP_PORT;
 let activeContext: ActiveProjectContext | null = null;
 let speculativeProject: TimelineProject | null = null;
+let speculativeContext: StoryEditContext | undefined;
 let activePlan: EditPlan | null = null;
 
 interface SseSession {
@@ -52,11 +57,18 @@ interface SseSession {
 const sseSessions = new Map<string, SseSession>();
 
 export function setMcpProjectContext(context: ActiveProjectContext): void {
-	activeContext = context;
-	// If speculativeProject exists, ensure it matches current project identity
-	if (speculativeProject && speculativeProject.projectId !== context.project.projectId) {
-		speculativeProject = null;
+	if (speculativeContext) {
+		let current = sameStoryEditContext(speculativeContext, context.editContext);
+		if (current) {
+			try {
+				getStoryProject(context.project, speculativeContext.scope);
+			} catch {
+				current = false;
+			}
+		}
+		if (!current) clearSpeculativeProject();
 	}
+	activeContext = structuredClone(context);
 }
 
 export function getMcpProjectContext(): ActiveProjectContext | null {
@@ -69,8 +81,10 @@ export function getActiveEditPlan(): EditPlan | null {
 
 export function clearSpeculativeProject(): void {
 	speculativeProject = null;
+	speculativeContext = undefined;
 	activePlan = null;
 	broadcastToRenderers("agent:speculative-preview", null);
+	broadcastToRenderers("agent:edit-plan", null);
 }
 
 export function getSpeculativeProject(): TimelineProject | null {
@@ -80,15 +94,28 @@ export function getSpeculativeProject(): TimelineProject | null {
 export function setSpeculativeProject(
 	project: TimelineProject | null,
 	diff?: import("../../../src/core/timeline/agentPayload").AgentDiffSummary,
+	context?: StoryEditContext,
 ): void {
-	speculativeProject = project;
 	if (project && activeContext?.project) {
-		const d = diff ?? summarizeProjectDiff(activeContext.project, project);
+		if (!sameStoryEditContext(context, activeContext.editContext))
+			throw new Error("Stale Story edit context");
+		speculativeProject = applyStoryCommand(
+			activeContext.project,
+			context!.scope,
+			() => project,
+		);
+		speculativeContext = structuredClone(context);
+		const d =
+			diff ??
+			summarizeProjectDiff(getStoryProject(activeContext.project, context!.scope), project);
 		broadcastToRenderers("agent:speculative-preview", {
 			project,
+			context,
 			diff: d,
 		});
 	} else if (!project) {
+		speculativeProject = null;
+		speculativeContext = undefined;
 		broadcastToRenderers("agent:speculative-preview", null);
 	}
 }
@@ -156,8 +183,7 @@ const MCP_TOOLS = [
 	},
 	{
 		name: "trim_clip",
-		description:
-			"Trims a clip's in-point, out-point, or timeline start position.",
+		description: "Trims a clip's in-point, out-point, or timeline start position.",
 		inputSchema: {
 			type: "object",
 			required: ["clipId"],
@@ -211,12 +237,16 @@ const MCP_TOOLS = [
 			properties: {
 				type: {
 					type: "string",
-					enum: ["hyperframe", "text", "asset"],
+					enum: ["hyperframe", "text", "shape", "asset"],
 					description: "Type of overlay to add",
 				},
 				title: { type: "string", description: "Title or text content" },
 				subtitle: { type: "string", description: "Optional subtitle" },
 				text: { type: "string", description: "Overlay text body" },
+				shapeDefinition: {
+					type: "object",
+					description: "Inline rectangle, ellipse, line or arrow definition with style",
+				},
 				assetId: { type: "string", description: "Asset ID if type is asset" },
 				trackId: { type: "string", description: "Target visual track ID" },
 				startUs: {
@@ -254,7 +284,8 @@ const MCP_TOOLS = [
 			properties: {
 				project: {
 					type: "object",
-					description: "Optional TimelineProject to commit. If omitted, commits current speculative draft.",
+					description:
+						"Optional TimelineProject to commit. If omitted, commits current speculative draft.",
 				},
 				commitMessage: {
 					type: "string",
@@ -276,26 +307,50 @@ export async function executeMcpToolCall(
 		};
 	}
 
-	const baseProject = speculativeProject ?? activeContext.project;
+	if (name !== "get_project_context" && !args.editContext)
+		return {
+			text: "Edit proposals require their captured Story editContext from get_project_context.",
+			isError: true,
+		};
+	const proposalContext =
+		(args.editContext as StoryEditContext | undefined) ??
+		speculativeContext ??
+		activeContext.editContext;
+	if (!sameStoryEditContext(proposalContext, activeContext.editContext))
+		return {
+			text: "Stale Story edit context. Refresh project context before proposing edits.",
+			isError: true,
+		};
+	const baseRoot = speculativeProject ?? activeContext.project;
+	let baseProject: TimelineProject;
+	try {
+		getStoryEditProject(activeContext.project, proposalContext.scope);
+		baseProject = getStoryEditProject(baseRoot, proposalContext.scope);
+	} catch (error) {
+		return { text: String(error), isError: true };
+	}
+	const propose = (view: TimelineProject) => {
+		speculativeProject = applyStoryCommand(baseRoot, proposalContext.scope, () => view);
+		speculativeContext = structuredClone(proposalContext);
+	};
 
 	switch (name) {
 		case "get_project_context": {
-			const summary = formatProjectContext(
-				baseProject,
-				activeContext.transcripts,
-				{
-					playheadUs: activeContext.playheadUs,
-					selection: activeContext.selection,
-					activeArtboardId: activeContext.activeArtboardId,
-				},
-			);
+			const summary = formatProjectContext(baseProject, activeContext.transcripts, {
+				playheadUs: activeContext.playheadUs,
+				selection: activeContext.selection,
+				activeArtboardId: activeContext.activeArtboardId,
+				editContext: activeContext.editContext,
+			});
 			return {
 				text: JSON.stringify(summary, null, 2),
 			};
 		}
 
 		case "propose_edit_plan": {
+			speculativeContext = structuredClone(proposalContext);
 			const plan: EditPlan = {
+				context: structuredClone(proposalContext),
 				summary: String(args.summary || "Edit plan"),
 				steps: Array.isArray(args.steps) ? args.steps.map(String) : [],
 				estimatedDurationSec:
@@ -321,7 +376,9 @@ export async function executeMcpToolCall(
 				atUs = Math.round(((args.atTimelineSec ?? args.atSec) as number) * 1_000_000);
 			} else if (typeof args.atRelativeSec === "number") {
 				// Find clip start
-				const clip = baseProject.tracks.flatMap((t) => t.clips).find((c) => c.id === clipId);
+				const clip = baseProject.tracks
+					.flatMap((t) => t.clips)
+					.find((c) => c.id === clipId);
 				if (!clip) {
 					return { text: `Error: Clip "${clipId}" not found`, isError: true };
 				}
@@ -329,15 +386,22 @@ export async function executeMcpToolCall(
 			}
 
 			if (atUs === undefined) {
-				return { text: "Error: Must provide atTimelineUs, atTimelineSec, or atRelativeSec", isError: true };
+				return {
+					text: "Error: Must provide atTimelineUs, atTimelineSec, or atRelativeSec",
+					isError: true,
+				};
 			}
 
 			try {
 				const res = applySplitClip(baseProject, clipId, atUs);
-				speculativeProject = res.project;
-				const diff = summarizeProjectDiff(activeContext.project, speculativeProject);
+				propose(res.project);
+				const diff = summarizeProjectDiff(
+					getStoryEditProject(activeContext.project, proposalContext.scope),
+					getStoryEditProject(speculativeProject!, proposalContext.scope),
+				);
 				broadcastToRenderers("agent:speculative-preview", {
-					project: speculativeProject,
+					project: getStoryEditProject(speculativeProject!, proposalContext.scope),
+					context: proposalContext,
 					diff,
 				});
 				return {
@@ -349,7 +413,10 @@ export async function executeMcpToolCall(
 					}),
 				};
 			} catch (err) {
-				return { text: `Split failed: ${err instanceof Error ? err.message : String(err)}`, isError: true };
+				return {
+					text: `Split failed: ${err instanceof Error ? err.message : String(err)}`,
+					isError: true,
+				};
 			}
 		}
 
@@ -380,17 +447,24 @@ export async function executeMcpToolCall(
 					sourceOutUs,
 					startUs,
 				});
-				speculativeProject = updated;
-				const diff = summarizeProjectDiff(activeContext.project, speculativeProject);
+				propose(updated);
+				const diff = summarizeProjectDiff(
+					getStoryEditProject(activeContext.project, proposalContext.scope),
+					getStoryEditProject(speculativeProject!, proposalContext.scope),
+				);
 				broadcastToRenderers("agent:speculative-preview", {
-					project: speculativeProject,
+					project: getStoryEditProject(speculativeProject!, proposalContext.scope),
+					context: proposalContext,
 					diff,
 				});
 				return {
 					text: JSON.stringify({ success: true, clipId }),
 				};
 			} catch (err) {
-				return { text: `Trim failed: ${err instanceof Error ? err.message : String(err)}`, isError: true };
+				return {
+					text: `Trim failed: ${err instanceof Error ? err.message : String(err)}`,
+					isError: true,
+				};
 			}
 		}
 
@@ -398,13 +472,20 @@ export async function executeMcpToolCall(
 			try {
 				const res = applyRemoveSilence(baseProject, activeContext.transcripts, {
 					assetId: args.assetId ? String(args.assetId) : undefined,
-					minDurationMs: typeof args.minDurationMs === "number" ? args.minDurationMs : 800,
-					targetClipIds: Array.isArray(args.targetClipIds) ? args.targetClipIds.map(String) : undefined,
+					minDurationMs:
+						typeof args.minDurationMs === "number" ? args.minDurationMs : 800,
+					targetClipIds: Array.isArray(args.targetClipIds)
+						? args.targetClipIds.map(String)
+						: undefined,
 				});
-				speculativeProject = res.project;
-				const diff = summarizeProjectDiff(activeContext.project, speculativeProject);
+				propose(res.project);
+				const diff = summarizeProjectDiff(
+					getStoryEditProject(activeContext.project, proposalContext.scope),
+					getStoryEditProject(speculativeProject!, proposalContext.scope),
+				);
 				broadcastToRenderers("agent:speculative-preview", {
-					project: speculativeProject,
+					project: getStoryEditProject(speculativeProject!, proposalContext.scope),
+					context: proposalContext,
 					diff,
 				});
 				return {
@@ -415,13 +496,17 @@ export async function executeMcpToolCall(
 					}),
 				};
 			} catch (err) {
-				return { text: `Remove silence failed: ${err instanceof Error ? err.message : String(err)}`, isError: true };
+				return {
+					text: `Remove silence failed: ${err instanceof Error ? err.message : String(err)}`,
+					isError: true,
+				};
 			}
 		}
 
 		case "add_broll_or_overlay": {
 			try {
 				const spec: BRollOrOverlaySpec = {
+					shapeDefinition: args.shapeDefinition,
 					type: args.type || "text",
 					title: args.title ? String(args.title) : undefined,
 					subtitle: args.subtitle ? String(args.subtitle) : undefined,
@@ -429,14 +514,21 @@ export async function executeMcpToolCall(
 					assetId: args.assetId ? String(args.assetId) : undefined,
 					trackId: args.trackId ? String(args.trackId) : undefined,
 					startUs: typeof args.startUs === "number" ? Math.round(args.startUs) : 0,
-					durationUs: typeof args.durationUs === "number" ? Math.round(args.durationUs) : 3_000_000,
+					durationUs:
+						typeof args.durationUs === "number"
+							? Math.round(args.durationUs)
+							: 3_000_000,
 					theme: args.theme ? String(args.theme) : undefined,
 				};
 				const res = applyAddBRollOrOverlay(baseProject, spec);
-				speculativeProject = res.project;
-				const diff = summarizeProjectDiff(activeContext.project, speculativeProject);
+				propose(res.project);
+				const diff = summarizeProjectDiff(
+					getStoryEditProject(activeContext.project, proposalContext.scope),
+					getStoryEditProject(speculativeProject!, proposalContext.scope),
+				);
 				broadcastToRenderers("agent:speculative-preview", {
-					project: speculativeProject,
+					project: getStoryEditProject(speculativeProject!, proposalContext.scope),
+					context: proposalContext,
 					diff,
 				});
 				return {
@@ -447,7 +539,10 @@ export async function executeMcpToolCall(
 					}),
 				};
 			} catch (err) {
-				return { text: `Add overlay failed: ${err instanceof Error ? err.message : String(err)}`, isError: true };
+				return {
+					text: `Add overlay failed: ${err instanceof Error ? err.message : String(err)}`,
+					isError: true,
+				};
 			}
 		}
 
@@ -457,10 +552,14 @@ export async function executeMcpToolCall(
 				if (args.project && typeof args.project === "object") {
 					targetProject = validateTimelineProject(args.project as TimelineProject);
 				}
-				speculativeProject = targetProject;
-				const diff = summarizeProjectDiff(activeContext.project, speculativeProject);
+				propose(targetProject);
+				const diff = summarizeProjectDiff(
+					getStoryEditProject(activeContext.project, proposalContext.scope),
+					getStoryEditProject(speculativeProject!, proposalContext.scope),
+				);
 				broadcastToRenderers("agent:speculative-preview", {
-					project: speculativeProject,
+					project: getStoryEditProject(speculativeProject!, proposalContext.scope),
+					context: proposalContext,
 					diff,
 				});
 				return {
@@ -470,7 +569,10 @@ export async function executeMcpToolCall(
 					}),
 				};
 			} catch (err) {
-				return { text: `Speculative preview failed: ${err instanceof Error ? err.message : String(err)}`, isError: true };
+				return {
+					text: `Speculative preview failed: ${err instanceof Error ? err.message : String(err)}`,
+					isError: true,
+				};
 			}
 		}
 
@@ -478,34 +580,40 @@ export async function executeMcpToolCall(
 			try {
 				let toCommit: TimelineProject | null = null;
 				if (args.project && typeof args.project === "object") {
-					toCommit = validateTimelineProject(args.project as TimelineProject);
+					toCommit = applyStoryCommand(baseRoot, proposalContext.scope, () =>
+						validateTimelineProject(args.project as TimelineProject),
+					);
 				} else if (speculativeProject) {
 					toCommit = speculativeProject;
 				}
 
 				if (!toCommit) {
-					return { text: "Error: No speculative edits or project provided to commit", isError: true };
+					return {
+						text: "Error: No speculative edits or project provided to commit",
+						isError: true,
+					};
 				}
 
-				// Immediately update activeContext in memory so subsequent MCP queries use committed project
-				activeContext = {
-					...activeContext,
-					project: toCommit,
-				};
-
 				broadcastToRenderers("agent:commit-edits", {
-					project: toCommit,
+					project: getStoryEditProject(toCommit, proposalContext.scope),
+					context: proposalContext,
 					commitMessage: args.commitMessage || "Agent edits committed",
 				});
 				speculativeProject = null;
 				return {
 					text: JSON.stringify({
 						success: true,
-						committedClipsCount: toCommit.tracks.reduce((acc, t) => acc + t.clips.length, 0),
+						committedClipsCount: toCommit.tracks.reduce(
+							(acc, t) => acc + t.clips.length,
+							0,
+						),
 					}),
 				};
 			} catch (err) {
-				return { text: `Commit failed: ${err instanceof Error ? err.message : String(err)}`, isError: true };
+				return {
+					text: `Commit failed: ${err instanceof Error ? err.message : String(err)}`,
+					isError: true,
+				};
 			}
 		}
 
@@ -563,7 +671,25 @@ export function handleJsonRpcMessage(message: any): any {
 			jsonrpc: "2.0",
 			id,
 			result: {
-				tools: MCP_TOOLS,
+				tools: MCP_TOOLS.map((tool) => ({
+					...tool,
+					inputSchema: {
+						...tool.inputSchema,
+						required: [
+							...(("required" in tool.inputSchema ? tool.inputSchema.required : []) ??
+								[]),
+							...(tool.name === "get_project_context" ? [] : ["editContext"]),
+						],
+						properties: {
+							...tool.inputSchema.properties,
+							editContext: {
+								type: "object",
+								description:
+									"Exact scope, projectId, generation and revision captured from get_project_context when the proposal began",
+							},
+						},
+					},
+				})),
 			},
 		};
 	}
@@ -656,7 +782,11 @@ export async function startMcpServer(desiredPort = DEFAULT_MCP_PORT): Promise<Mc
 				const sessionId = urlObj.searchParams.get("sessionId");
 				if (!sessionId || !sseSessions.has(sessionId)) {
 					res.writeHead(404, { "Content-Type": "application/json" });
-					res.end(JSON.stringify({ error: `Session "${sessionId}" not found or disconnected` }));
+					res.end(
+						JSON.stringify({
+							error: `Session "${sessionId}" not found or disconnected`,
+						}),
+					);
 					return;
 				}
 				const session = sseSessions.get(sessionId)!;
@@ -673,7 +803,9 @@ export async function startMcpServer(desiredPort = DEFAULT_MCP_PORT): Promise<Mc
 						const response = await Promise.resolve(responsePromiseOrObj);
 
 						if (response && session) {
-							session.res.write(`event: message\r\ndata: ${JSON.stringify(response)}\r\n\r\n`);
+							session.res.write(
+								`event: message\r\ndata: ${JSON.stringify(response)}\r\n\r\n`,
+							);
 						}
 
 						res.writeHead(202, { "Content-Type": "application/json" });

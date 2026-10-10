@@ -1,6 +1,6 @@
 # Issue Log & Regression Checklist
 
-**Fokus berikutnya — 10 Oktober 2026:** [Issue #12: kepemilikan Assets global dan elemen lokal Story](#12-pemisahan-assets-global-elemen-story-dan-komposisi-record-10-oktober-2026). Keputusan produk disepakati; implementasi dan QA belum dimulai. Timeline pengerjaan tercatat di [ROADMAP.md](ROADMAP.md), kondisi pengembangan di [CHANGELOG.md](CHANGELOG.md).
+**Fokus berikutnya — 10 Oktober 2026:** [Issue #12: kepemilikan Assets global dan elemen lokal Story](#12-pemisahan-assets-global-elemen-story-dan-komposisi-record-10-oktober-2026). Fondasi kepemilikan selesai dan review akhir disetujui; QA native masih pending. Timeline pengerjaan tercatat di [ROADMAP.md](ROADMAP.md), kondisi pengembangan di [CHANGELOG.md](CHANGELOG.md).
 
 
 ## 1. Keyframing engine pada timeline overlay (Text Overlay & Gambar)
@@ -49,7 +49,7 @@
 
 - [x] Domain V3 mendeduplikasi capture ID; registration menghasilkan nol placement, dan dua placement mempunyai komposisi independen.
 - [x] Bundle V3 menyimpan seluruh library di `assets/<assetId>/`, termasuk Record yang belum masuk timeline; `project.json` authoritative, komposisi terpisah, tanpa tulisan `slides/`/`slide.json` baru pada jalur V3.
-- [x] Text overlay disimpan sebagai asset metadata tanpa file media; setiap placement membawa salinan teks/style sendiri dan dievaluasi lewat renderer project bersama untuk preview/export.
+- [x] Text/Shape canonical kini inline pada clip Story, tanpa Asset sintetis; desain global V3 lama dinormalisasi pada clone dan desain tak terpakai dipertahankan sebagai Templates. Preview/export memakai renderer project bersama.
 - [x] Load memvalidasi semua media sebelum memasang workspace; sumber hilang tidak mengganti project aktif. Save gagal mempertahankan bytes bundle dan path aktif.
 - [x] Pemulihan target Ctrl+S memverifikasi identitas, termasuk path yang sudah trusted.
 - [x] Konverter Record V1/V2 mengutamakan slides canonical, membuat identitas baru, menjaga trim/settings/audio; transitions/extensions dan audio loop/fades yang belum didukung ditolak utuh, tanpa mutasi input.
@@ -61,10 +61,12 @@
 **Audio Recorder Project Editor (5 Oktober 2026):**
 
 - [x] Audio Recorder menangkap mikrofon saja, di luar Screen Record, dan mengunci posisi klip ke playhead saat rekaman dimulai.
-- [x] Take yang selesai didaftarkan sebagai audio Asset terpisah lalu ditempatkan di track audio; undo placement mempertahankan Asset dan redo memulihkan clip ID yang sama.
+- [x] Take selesai didaftarkan ke Story Media privat owner asal dengan scope/token/playhead/IDs immutable saat begin, lalu placement terpisah; undo placement atau kegagalan placement mempertahankan source, redo memulihkan clip ID. Audio impor tetap global.
 - [x] Perpindahan Home/New/Open dan penutupan window menawarkan Finish and keep, Discard and continue, atau Stay; take lama tidak dapat masuk ke project baru dan file sementara dibersihkan lewat IPC terbatas.
 - [x] Bundle/reopen V3 mempertahankan file audio Asset di `assets/<assetId>/`, termasuk Asset yang tidak ditempatkan, dan clip audio tetap merujuk ke Asset yang benar.
 - [ ] Native QA Audio Recorder: record/discard, rekam sambil preview berjalan, playhead anchor, track audio penuh, undo/redo, save/reopen, dan pilihan Finish/Discard/Stay untuk Home/Open/New/window close.
+
+**QA ulang setelah perubahan ownership (10 Oktober 2026):** native belum dijalankan; checkbox native historis di atas bukan verifikasi branch ini. Pending: Record berulang + Ctrl+S; import video/gambar/audio; Assets-only save/reopen; dua placement Record dan edit independen; voiceover Finish/Discard/Stay; Rename/Save As/New; konversi Record V1/V2 eksplisit serta finalisasi native/browser/Windows. Tes lifecycle/bundle otomatis tetap berbeda dari HUD/mikrofon/UI native.
 
 **Instruksi berikutnya:** pertahankan preservasi path native/browser/Windows dan pemeriksaan identitas. Jangan menentukan project kosong dari source aktif. Aset milik library, penghapusan clip tidak menghapus source; seluruh library harus ikut save meskipun timeline kosong. Perbarui checklist ini dan `AGENTS.md` saat kontrak berubah.
 
@@ -87,7 +89,7 @@
 ## Transisi visual dan shape V3 (5 Oktober 2026)
 
 - `project.json` V3 menyimpan relasi `clipTransitions` dan animasi masuk/keluar pada clip; field transisi bersifat opsional agar project V3 lama tanpa efek visual tetap bisa dibuka.
-- Shape rectangle, ellipse, line, dan arrow adalah asset metadata `shapeDefinition` tanpa file media raster. Style yang diedit pada placement tersimpan di `shapeStyleOverride` clip.
+- Shape rectangle, ellipse, line, dan arrow canonical disimpan inline di `clip.content.shapeDefinition` tanpa Asset/file media sintetis. Style placement tetap di `shapeStyleOverride`. Desain V3 lama dinormalisasi pada clone; entri tak terpakai menjadi Templates.
 - Relasi transisi menghubungkan dua clip visual yang bersebelahan pada track yang sama. Durasi project tidak berubah; sampling memakai source handle sesuai rate clip, dan transisi ditolak atau dibatasi bila handle tidak cukup. Operasi timeline membersihkan relasi yang tidak lagi valid dan undo memulihkannya.
 - Preview dan export menggunakan evaluasi/render frame yang sama. Recording package serta komposisinya tetap utuh dan tidak diratakan sebelum transisi.
 - Tes bundle memverifikasi round-trip metadata transisi, animasi, shape, style placement, serta pembukaan project V3 lama tanpa field efek. QA desktop native untuk tambah/edit/duplikasi shape, playback, save/reopen, dan parity preview/export masih pending.
@@ -426,20 +428,20 @@ Mentransformasikan integrasi AI Agent CLI (`agy`, `claude`, `opencode`) yang seb
 
 ## 12. Pemisahan Assets global, elemen Story, dan komposisi Record (10 Oktober 2026)
 
-**Status:** Open / Planned. Pembagian kepemilikan disepakati pengguna pada 10 Oktober 2026; belum ada perubahan schema, UI, renderer, atau bundler untuk issue ini.
+**Status:** Implementasi fondasi dan review akhir selesai; acceptance otomatis dicatat, QA native pending. Issue eksternal/release belum ditutup.
 
 **Prioritas:** Fondasi sebelum pengembangan fitur finishing Story Editor setara CapCut Desktop.
 
-**Masalah saat ini:** Menambahkan Text atau Shape pada Story membuat entri di Assets global. Elemen desain khusus suatu Story terlihat sebagai sumber bersama project dan mengisi library media yang seharusnya berisi media reusable.
+**Masalah sebelum implementasi:** Menambahkan Text atau Shape pada Story membuat entri di Assets global. Elemen desain khusus suatu Story terlihat sebagai sumber bersama project dan mengisi library media yang seharusnya berisi media reusable.
 
-**Akar masalah yang teridentifikasi:**
+**Akar masalah sebelum implementasi:**
 
 - `addTextOverlay` (`src/core/timeline/commands.ts:154`) membuat `MediaAsset` dengan `kind: "text"` dan memasukkannya ke `project.assets`.
 - `createAndPlaceShape` (`src/core/timeline/shapeCommands.ts:14`) mendaftarkan definisi shape melalui `registerMedia` sebelum membuat placement.
 - `updateArtboardProject` (`src/core/timeline/repurposeCommands.ts:449`) menyimpan timeline Artboard secara independen, tetapi menyalin seluruh `updatedView.assets`, packages, dan compositions kembali ke project induk. Belum ada batas kepemilikan media privat Story.
 - `StoryEditor` sudah menerima project view Artboard aktif serta project induk; library media dan komposisi Record tetap berbagi penyimpanan induk. Fondasi ini harus dipertahankan dengan isolasi kepemilikan yang eksplisit.
 
-**Hierarki dan kontrak target:**
+**Hierarki dan kontrak canonical:**
 
 - Satu project `.captr` memiliki Assets global dan Artboard. Story adalah subproject logis milik Artboard, menyusun video final dari placement Record, B-roll, teks, musik, subtitle, dan elemen desain.
 - Record Editor mengedit komposisi rekaman pada placement yang dibuka dari Story. Recording package/source/sidecar tetap bersama; komposisi placement harus dapat diedit independen, termasuk antar-Artboard.
@@ -458,42 +460,46 @@ Mentransformasikan integrasi AI Agent CLI (`agy`, `claude`, `opencode`) yang seb
 | Background warna/gradient | Story | Pengaturan komposisi; background gambar merujuk source media. |
 | Transition, keyframe, animation, mask, crop, color adjustment | Story/placement | Instruksi editing, bukan item library media. |
 | Group/compound clip | Story | Struktur komposisi lokal; implementasi fitur menyusul. |
-| Voiceover/TTS yang dibuat khusus dalam Story | Media privat Story secara default | Source file beridentitas; dapat dipublikasikan ke Assets global melalui aksi eksplisit. Scope privat belum diimplementasikan. |
+| Voiceover/TTS yang dibuat khusus dalam Story | Media privat Story secara default | Source file beridentitas; dapat dipublikasikan ke Assets global melalui aksi eksplisit. Voiceover privat diterapkan; engine TTS baru tidak ditambahkan. |
 | Zoom, cursor, webcam layout, efek rekaman | Komposisi Record per placement | Diedit melalui Record Editor; source package tetap utuh. |
 | Preset reusable untuk teks/shape/animasi | Templates | Library preset terpisah dari Assets media; penerapan menghasilkan elemen lokal independen. |
 
-**Target UI:** Assets menampilkan media global; Story Media menampilkan media privat Story aktif; Text/Shapes adalah alat pembuat elemen; Templates adalah library preset reusable. Pembagian ini merupakan target, bukan kondisi aplikasi sekarang.
+**Target UI:** Assets menampilkan media global; Story Media menampilkan media privat Story aktif; Text/Shapes adalah alat pembuat elemen; Templates adalah library preset reusable. Pembagian ini sudah diterapkan dengan style editor yang ada.
 
-**TODO implementasi, dalam urutan pengerjaan:**
+**Implementasi dan acceptance otomatis:**
 
-- [ ] Tulis dan review spec schema/kepemilikan: satu representasi authoritative untuk elemen lokal dan media privat, serta relasi Story–Artboard–placement Record. Sinkronisasi representasi Story/Artboard tidak boleh menghilangkan metadata.
-- [ ] Audit seluruh consumer asset lookup, command, validator, evaluator, renderer, inspector, library, AI/MCP, bundle, dan konversi sebelum mengubah model; petakan caller melalui graft.
-- [ ] Tambahkan model/validasi elemen lokal Text/Shape dan media privat Story. Clip media tetap merujuk source; clip desain tidak membutuhkan Asset global sintetis.
-- [ ] Ubah command tambah/edit/duplikasi/hapus Text dan Shape agar scope-nya Story aktif, dengan undo/redo dan dirty revisions yang benar.
-- [ ] Ubah project view dan update Artboard agar elemen/media privat tidak tersalin ke Assets global; media reusable dan Recording package tetap tersimpan di induk.
-- [ ] Pastikan duplikasi Artboard/Story dan copy antar-Story menghasilkan ID elemen/placement/komposisi baru yang independen; source media global tetap dipakai bersama.
-- [ ] Tambahkan UI Assets, Story Media, Text/Shapes, dan Templates sesuai pembagian kepemilikan. Media privat hanya dipublikasikan ke global lewat aksi eksplisit dengan referensi yang tetap valid.
-- [ ] Terapkan scope privat untuk voiceover/TTS Story tanpa mengubah kontrak finalisasi Screen Record Assets-only; pertahankan guard capture, navigasi, stale completion, dan cleanup.
-- [ ] Perbarui preview/export untuk mengevaluasi elemen lokal dan source privat; pertahankan pemetaan waktu bertingkat serta komposisi Record tanpa flatten.
-- [ ] Perbarui save/autosave/load/bundling agar seluruh media global dan privat, termasuk yang belum ditempatkan, tersimpan dalam satu `.captr`. `project.json` authoritative; source/sidecar di `assets/<assetId>/`; tidak membuat `slides/` atau `slide.json` baru.
-- [ ] Tambahkan jalur kompatibilitas V3 lama: Text/Shape global yang sudah dipakai diterjemahkan menjadi elemen lokal independen per Story sambil mempertahankan konten, styling placement, timing, keyframe, dan transisi. Tentukan perlakuan entri lama yang belum dipakai agar tidak hilang diam-diam; load tidak menulis ulang bundle asli.
-- [ ] Perbarui kontrak `AGENTS.md` dan checklist shape V3 saat migrasi diterapkan; kontrak asset `shapeDefinition` sekarang tetap mencatat implementasi lama sampai perubahan tersebut selesai.
-- [ ] Jalankan tes domain/UI/bundle yang relevan, TypeScript, dan QA native berikut; catat hasil aktual serta refresh graft setelah perubahan kode besar.
+- [x] Tulis dan review spec schema/kepemilikan: satu representasi authoritative untuk elemen lokal dan media privat, serta relasi Story–Artboard–placement Record. Sinkronisasi representasi Story/Artboard tidak boleh menghilangkan metadata.
+- [x] Audit seluruh consumer asset lookup, command, validator, evaluator, renderer, inspector, library, AI/MCP, bundle, dan konversi sebelum mengubah model; petakan caller melalui graft.
+- [x] Tambahkan model/validasi elemen lokal Text/Shape dan media privat Story. Clip media tetap merujuk source; clip desain tidak membutuhkan Asset global sintetis.
+- [x] Ubah command tambah/edit/duplikasi/hapus Text dan Shape agar scope-nya Story aktif, dengan undo/redo dan dirty revisions yang benar.
+- [x] Ubah project view dan update Artboard agar elemen/media privat tidak tersalin ke Assets global; media reusable dan Recording package tetap tersimpan di induk.
+- [x] Pastikan duplikasi Artboard/Story dan copy antar-Story menghasilkan ID elemen/placement/komposisi baru yang independen; source media global tetap dipakai bersama.
+- [x] Tambahkan UI Assets, Story Media, Text/Shapes, dan Templates sesuai pembagian kepemilikan. Media privat hanya dipublikasikan ke global lewat aksi eksplisit dengan referensi yang tetap valid.
+- [x] Terapkan API media privat dan voiceover Story (tanpa engine TTS baru) tanpa mengubah kontrak finalisasi Screen Record Assets-only; pertahankan guard capture, navigasi, stale completion, dan cleanup.
+- [x] Perbarui preview/export untuk mengevaluasi elemen lokal dan source privat; pertahankan pemetaan waktu bertingkat serta komposisi Record tanpa flatten.
+- [x] Perbarui save/autosave/load/bundling agar seluruh media global dan privat, termasuk yang belum ditempatkan, tersimpan dalam satu `.captr`. `project.json` authoritative; source/sidecar di `assets/<assetId>/`; tidak membuat `slides/` atau `slide.json` baru.
+- [x] Tambahkan jalur kompatibilitas V3 lama: Text/Shape global yang sudah dipakai diterjemahkan menjadi elemen lokal independen per Story sambil mempertahankan konten, styling placement, timing, keyframe, dan transisi. Tentukan perlakuan entri lama yang belum dipakai agar tidak hilang diam-diam; load tidak menulis ulang bundle asli.
+- [x] Perbarui AGENTS/checklist: inline Text/Shape, private media, Templates dan normalisasi legacy.
+- [x] Jalankan tes domain/UI/bundle, TypeScript, Biome terhadap baseline dan refresh graft; hasil serta semua sepuluh acceptance dipetakan ke kasus tes di [verification](docs/superpowers/plans/2026-10-10-story-asset-ownership-verification.md).
+- [ ] Jalankan QA native regresi berikut; hasil otomatis tidak menggantikan interaksi desktop.
 
 **Acceptance / checklist regresi:**
 
-- [ ] Tambah Text/Shape di Story A: hanya ada di A, tidak muncul di Assets global dan Story B; edit serta undo/redo tetap lokal.
-- [ ] Copy/duplicate ke Story B: ID dan konten edit independen; perubahan B tidak mengubah A.
-- [ ] Media global yang sama ditempatkan di A/B: source tetap bersama, trim/rate/transform/efek dan komposisi Record independen.
-- [ ] Media privat hanya terlihat/dapat diakses melalui Story pemilik; publikasi eksplisit ke global mempertahankan file dan referensi placement.
-- [ ] Hapus clip tidak menghapus source media global/privat. Seluruh library, termasuk media tanpa placement, lolos save/reopen.
-- [ ] Bundle V3 lama dengan Text/Shape global tetap terbuka dengan tampilan yang sama, termasuk referensi lintas-Artboard dan entri tanpa placement; file asli tidak berubah saat load.
-- [ ] Record berulang pada project aktif → Ctrl+S tanpa Save As; import video/gambar/audio, Assets-only save/reopen, dan placement Record ganda dengan edit independen tetap lulus.
-- [ ] Save As/New menjaga identitas/path; konversi Record V1/V2 tetap eksplisit ke salinan baru, metadata tidak didukung ditolak utuh, Video/Motion legacy tetap ditolak.
-- [ ] Preview/export parity untuk teks/shape, subtitle final, media privat, efek Story di atas komposisi Record, serta seek/split/trim/rate bertingkat.
+- [x] Tambah Text/Shape di Story A: hanya ada di A, tidak muncul di Assets global dan Story B; edit serta undo/redo tetap lokal.
+- [x] Duplikasi Story/Artboard ke B: ID dan konten edit independen; perubahan B tidak mengubah A. UI copy/paste clip tetap backlog workflow.
+- [x] Media global yang sama ditempatkan di A/B: source tetap bersama, trim/rate/transform/efek dan komposisi Record independen.
+- [x] Media privat hanya terlihat/dapat diakses melalui Story pemilik; publikasi eksplisit ke global mempertahankan file dan referensi placement.
+- [x] Hapus clip tidak menghapus source media global/privat. Seluruh library, termasuk media tanpa placement, lolos save/reopen.
+- [x] Bundle V3 lama dengan Text/Shape global tetap terbuka dengan tampilan yang sama, termasuk referensi lintas-Artboard dan entri tanpa placement; file asli tidak berubah saat load.
+- [ ] Native: Record berulang pada project aktif → Ctrl+S tanpa Save As; import video/gambar/audio, Assets-only save/reopen, dan placement Record ganda dengan edit independen tetap lulus.
+- [ ] Native: Save As/New menjaga identitas/path; konversi Record V1/V2 tetap eksplisit ke salinan baru, metadata tidak didukung ditolak utuh, Video/Motion legacy tetap ditolak.
+- [x] Parity renderer otomatis untuk inline designs/private media, transisi dan nested Record clocks pada 0.5×/2×.
+- [ ] Native preview/export parity; subtitle final/burn-in merupakan finishing terpisah yang belum diimplementasikan.
 
-**Catatan kondisi sekarang dan pekerjaan lanjutan:** Waveform Story masih sintetis; marker keyframe masih indikator; subtitle preview berada di luar canvas yang diekspor. `StoryComposition.subtitles` sudah tersedia sebagai metadata, tetapi alur Story/Artboard dan renderer/export belum menggunakannya secara lengkap. Finishing dasar, workflow editing cepat, visual polish, dan fitur advanced dijadwalkan setelah batas kepemilikan ini selesai; rincian urutan di [ROADMAP.md](ROADMAP.md).
+**Catatan kondisi sekarang dan pekerjaan lanjutan:** Waveform Story masih sintetis; marker keyframe masih indikator; subtitle preview berada di luar canvas yang diekspor. Metadata subtitle kini dipertahankan oleh owner/proyeksi/bundle; final editing dan burn-in export tetap belum diimplementasikan. Finishing dasar, workflow editing cepat, visual polish, dan fitur advanced dijadwalkan setelah batas kepemilikan ini selesai; rincian urutan di [ROADMAP.md](ROADMAP.md).
 
-**Verifikasi 10 Oktober 2026:** Pembacaan graph/source dan pencatatan keputusan saja. Implementasi, migrasi, tes fitur baru, dan QA native issue ini belum dijalankan. Hasil tes issue sebelumnya tidak dianggap verifikasi issue #12.
+**Verifikasi 10 Oktober 2026:** Lihat [hasil aktual, perbandingan baseline, acceptance, ruling dan status review](docs/superpowers/plans/2026-10-10-story-asset-ownership-verification.md). Version tetap `1.4.0-beta.1`; native belum dijalankan. Durasi Story berasal dari canonical clip clocks; kontrol trailing blank deferred.
+
+Suite penuh default parallel sebelum perbaikan review akhir: 1.491/1.500 tes lulus; 9 kegagalan di 5 file sama persis dengan baseline, 3 kegagalan baseline manager/lifecycle kini lulus. Perbaikan terakhir di `8c2fe68` mempertahankan override transisi Artboard dan menolak asosiasi Story tanpa owner; 224 tes terkait di 15 suite lulus, TypeScript dan diff check exit 0. Biome konfigurasi existing: 42 error/22 warning tersisa dibanding baseline 106/22 pada path yang sama; seluruh 14 file baru clean. Enam path yang diubah pada perbaikan akhir tidak menambah diagnostic/count. Graft build terbaru: 5.188 node, 12.981 edge, 735 card. Review Task 8 dan whole branch disetujui; dua minor tes ditunda dengan alasan/biaya di catatan verifikasi. QA native dan sembilan kegagalan baseline tetap terbuka; suite penuh tidak diulang setelah perbaikan terarah.
 
 

@@ -16,21 +16,26 @@ import {
 } from "@phosphor-icons/react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { AgentDiffSummary } from "@/core/timeline/agentPayload";
+import { resolveMediaAsset } from "@/core/timeline/clipSource";
 import {
+	addTextOverlay,
 	placeAsset,
 	removeAsset,
 	updateClip,
 	updateProjectCanvas,
 	updateProjectTerminalConfig,
 } from "@/core/timeline/commands";
+import { applyDesignTemplate } from "@/core/timeline/designTemplateCommands";
 import type { ProjectCommand } from "@/core/timeline/history";
+import { publishStoryMedia, removeStoryMedia } from "@/core/timeline/storyMediaCommands";
+import type { StoryEditContext } from "@/core/timeline/storyOwnership";
+import type { AssetTranscript } from "@/core/timeline/transcriptTypes";
 import {
 	clipDurationUs,
 	projectDurationUs,
 	type ShapeDefinition,
 	type TimelineProject,
 } from "@/core/timeline/types";
-import type { AssetTranscript } from "@/core/timeline/transcriptTypes";
 import { ProjectTerminal } from "../terminal/ProjectTerminal";
 import { AssetLibrary } from "./AssetLibrary";
 import { AssetSourcePreview } from "./AssetSourcePreview";
@@ -56,11 +61,16 @@ export interface StoryEditorProps {
 	speculativeDraft: {
 		project: TimelineProject;
 		diff: AgentDiffSummary;
+		context: StoryEditContext;
 	} | null;
 	editPlan: EditPlan | null;
 	onApplyDraft: (project: TimelineProject) => void;
 	onDiscardDraft: () => void;
-	onDraftReady: (draft: { project: TimelineProject; diff: AgentDiffSummary }) => void;
+	onDraftReady: (draft: {
+		project: TimelineProject;
+		diff: AgentDiffSummary;
+		context: StoryEditContext;
+	}) => void;
 	onBackToBoard?: () => void;
 	onImportMedia?: (paths?: string[]) => void;
 	onStartRecord?: () => void;
@@ -71,6 +81,8 @@ export interface StoryEditorProps {
 	editingClipId: string | null;
 	setEditingClipId: (clipId: string | null) => void;
 	onCommand: (command: ProjectCommand, selection?: string[]) => void;
+	onProjectCommand?: (command: ProjectCommand) => void;
+	editContext?: StoryEditContext;
 	onError: (error: string | null) => void;
 	busy?: boolean;
 	previewStageRef?: React.RefObject<HTMLDivElement>;
@@ -78,6 +90,28 @@ export interface StoryEditorProps {
 	onScaleChange?: (scale: number | ((s: number) => number)) => void;
 	snappingEnabled?: boolean;
 	onToggleSnapping?: () => void;
+}
+
+/** Terminal settings belong to the project, including when opened from a Story. */
+export function StoryProjectTerminal({
+	rootProject,
+	onProjectCommand,
+	onClose,
+}: {
+	rootProject: TimelineProject;
+	onProjectCommand: (command: ProjectCommand) => void;
+	onClose: () => void;
+}) {
+	return (
+		<ProjectTerminal
+			className="h-[300px] rounded-none border-x-0 border-b-0"
+			terminalConfig={rootProject.terminalConfig}
+			onUpdateTerminalConfig={(config) =>
+				onProjectCommand((p) => updateProjectTerminalConfig(p, config))
+			}
+			onClose={onClose}
+		/>
+	);
 }
 
 export function formatTimecode(timeUs: number, fps = 30): string {
@@ -112,6 +146,8 @@ export function StoryEditor({
 	editingClipId,
 	setEditingClipId,
 	onCommand,
+	onProjectCommand,
+	editContext,
 	onError,
 	busy,
 	previewStageRef,
@@ -140,7 +176,12 @@ export function StoryEditor({
 	const [previewZoom, setPreviewZoom] = useState<"fit" | number>("fit");
 	const [previewPan, setPreviewPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 	const [isPanning, setIsPanning] = useState(false);
-	const panDragRef = useRef<{ startX: number; startY: number; initialPanX: number; initialPanY: number } | null>(null);
+	const panDragRef = useRef<{
+		startX: number;
+		startY: number;
+		initialPanX: number;
+		initialPanY: number;
+	} | null>(null);
 
 	const handleStageWheel = (e: React.WheelEvent<HTMLDivElement>) => {
 		if (e.ctrlKey || e.metaKey) {
@@ -189,8 +230,7 @@ export function StoryEditor({
 
 	const handleDropAssetOnCanvas = (assetId: string, canvasX: number, canvasY: number) => {
 		try {
-			const asset = rootProject.assets.find((a) => a.id === assetId);
-			if (!asset) return;
+			resolveMediaAsset(storyProject, assetId);
 
 			const visualTracks = storyProject.tracks.filter((t) => t.kind === "visual");
 			const track = visualTracks.find((t) => !t.locked) ?? visualTracks[0];
@@ -344,12 +384,17 @@ export function StoryEditor({
 
 	const [internalSnappingEnabled, setInternalSnappingEnabled] = useState(true);
 	const snappingEnabled = externalSnappingEnabled ?? internalSnappingEnabled;
-	const toggleSnapping = externalOnToggleSnapping ?? (() => setInternalSnappingEnabled((v) => !v));
+	const toggleSnapping =
+		externalOnToggleSnapping ?? (() => setInternalSnappingEnabled((v) => !v));
 
 	const sourceAsset = useMemo(() => {
 		if (!selectedAssetId) return null;
-		return rootProject.assets.find((a) => a.id === selectedAssetId) ?? null;
-	}, [rootProject.assets, selectedAssetId]);
+		return (
+			[...storyProject.assets, ...(storyProject.localAssets ?? [])].find(
+				(a) => a.id === selectedAssetId,
+			) ?? null
+		);
+	}, [storyProject.assets, storyProject.localAssets, selectedAssetId]);
 
 	const sourcePath = useMemo(() => {
 		if (!sourceAsset) return null;
@@ -362,7 +407,6 @@ export function StoryEditor({
 
 	const addShape = (kind: ShapeDefinition["kind"]) => {
 		const ids = {
-			assetId: crypto.randomUUID(),
 			clipId: crypto.randomUUID(),
 			trackId: crypto.randomUUID(),
 		};
@@ -370,8 +414,7 @@ export function StoryEditor({
 	};
 
 	const addToTimeline = (assetId: string) => {
-		const asset = rootProject.assets.find((a) => a.id === assetId);
-		if (!asset) return;
+		const asset = resolveMediaAsset(storyProject, assetId);
 		const track = storyProject.tracks.find(
 			(t) => !t.locked && t.kind === (asset.kind === "audio" ? "audio" : "visual"),
 		);
@@ -403,6 +446,53 @@ export function StoryEditor({
 			<div className={`project-workspace ${copilotOpen ? "with-copilot" : ""}`}>
 				<ProjectToolRail onAddShape={addShape} />
 				<AssetLibrary
+					storyAssets={storyProject.localAssets ?? []}
+					templates={rootProject.designTemplates ?? []}
+					onCreateText={() => {
+						const clipId = crypto.randomUUID();
+						onCommand(
+							(p) =>
+								addTextOverlay(p, playheadUs, {
+									clipId,
+									trackId: crypto.randomUUID(),
+								}),
+							[clipId],
+						);
+					}}
+					onCreateShape={addShape}
+					onApplyTemplate={(id) => {
+						const clipId = crypto.randomUUID();
+						onCommand(
+							(p) =>
+								applyDesignTemplate(p, id, playheadUs, {
+									clipId,
+									trackId: crypto.randomUUID(),
+								}),
+							[clipId],
+						);
+					}}
+					onPublish={(id) =>
+						onProjectCommand?.((root) =>
+							publishStoryMedia(
+								root,
+								storyId
+									? { kind: "artboard", artboardId: storyId }
+									: { kind: "root" },
+								id,
+							),
+						)
+					}
+					onRemoveStoryMedia={(id) =>
+						onProjectCommand?.((root) =>
+							removeStoryMedia(
+								root,
+								storyId
+									? { kind: "artboard", artboardId: storyId }
+									: { kind: "root" },
+								id,
+							),
+						)
+					}
 					assets={rootProject.assets}
 					packages={rootProject.packages}
 					selectedAssetId={selectedAssetId}
@@ -411,10 +501,13 @@ export function StoryEditor({
 					onRecordAudio={() => onOpenAudioRecorder?.()}
 					onPreview={(id) => {
 						setPlaying(false);
-						controller.preview(id);
+						controller.preview(
+							id,
+							storyId ? { kind: "artboard", artboardId: storyId } : { kind: "root" },
+						);
 					}}
 					onPlace={addToTimeline}
-					onRemove={(id) => onCommand((p: TimelineProject) => removeAsset(p, id))}
+					onRemove={(id) => onProjectCommand?.((root) => removeAsset(root, id))}
 				/>
 				<section className="project-preview-panel">
 					<header className="project-panel-header">
@@ -452,18 +545,33 @@ export function StoryEditor({
 									const val = map[e.target.value];
 									if (val) {
 										onCommand((p) =>
-											updateProjectCanvas(p, { width: val[0], height: val[1] }),
+											updateProjectCanvas(p, {
+												width: val[0],
+												height: val[1],
+											}),
 										);
 									}
 								}}
 								className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-white/90 font-medium focus:outline-none cursor-pointer"
 							>
-								<option value="16:9" className="bg-[#12141a]">16:9 Landscape</option>
-								<option value="9:16" className="bg-[#12141a]">9:16 Shorts/Reels</option>
-								<option value="1:1" className="bg-[#12141a]">1:1 Square</option>
-								<option value="4:5" className="bg-[#12141a]">4:5 Portrait</option>
-								<option value="21:9" className="bg-[#12141a]">21:9 Ultrawide</option>
-								<option value="custom" className="bg-[#12141a]">Custom</option>
+								<option value="16:9" className="bg-[#12141a]">
+									16:9 Landscape
+								</option>
+								<option value="9:16" className="bg-[#12141a]">
+									9:16 Shorts/Reels
+								</option>
+								<option value="1:1" className="bg-[#12141a]">
+									1:1 Square
+								</option>
+								<option value="4:5" className="bg-[#12141a]">
+									4:5 Portrait
+								</option>
+								<option value="21:9" className="bg-[#12141a]">
+									21:9 Ultrawide
+								</option>
+								<option value="custom" className="bg-[#12141a]">
+									Custom
+								</option>
 							</select>
 							<div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px]">
 								<button
@@ -474,7 +582,9 @@ export function StoryEditor({
 									onClick={() => {
 										setPreviewZoom((current) => {
 											const cur = current === "fit" ? 1.0 : current;
-											const lower = [...ZOOM_PRESETS].reverse().find((p) => p < cur);
+											const lower = [...ZOOM_PRESETS]
+												.reverse()
+												.find((p) => p < cur);
 											return lower ?? ZOOM_PRESETS[0];
 										});
 									}}
@@ -483,7 +593,11 @@ export function StoryEditor({
 								</button>
 								<select
 									aria-label="Preview Zoom"
-									value={typeof previewZoom === "number" ? String(previewZoom) : "fit"}
+									value={
+										typeof previewZoom === "number"
+											? String(previewZoom)
+											: "fit"
+									}
 									onChange={(e) => {
 										const val = e.target.value;
 										if (val === "fit") {
@@ -495,15 +609,33 @@ export function StoryEditor({
 									}}
 									className="bg-transparent text-white/90 font-medium focus:outline-none cursor-pointer text-[10px]"
 								>
-									<option value="fit" className="bg-[#12141a]">Fit</option>
-									<option value="0.25" className="bg-[#12141a]">25%</option>
-									<option value="0.5" className="bg-[#12141a]">50%</option>
-									<option value="0.75" className="bg-[#12141a]">75%</option>
-									<option value="1" className="bg-[#12141a]">100%</option>
-									<option value="1.25" className="bg-[#12141a]">125%</option>
-									<option value="1.5" className="bg-[#12141a]">150%</option>
-									<option value="2" className="bg-[#12141a]">200%</option>
-									<option value="3" className="bg-[#12141a]">300%</option>
+									<option value="fit" className="bg-[#12141a]">
+										Fit
+									</option>
+									<option value="0.25" className="bg-[#12141a]">
+										25%
+									</option>
+									<option value="0.5" className="bg-[#12141a]">
+										50%
+									</option>
+									<option value="0.75" className="bg-[#12141a]">
+										75%
+									</option>
+									<option value="1" className="bg-[#12141a]">
+										100%
+									</option>
+									<option value="1.25" className="bg-[#12141a]">
+										125%
+									</option>
+									<option value="1.5" className="bg-[#12141a]">
+										150%
+									</option>
+									<option value="2" className="bg-[#12141a]">
+										200%
+									</option>
+									<option value="3" className="bg-[#12141a]">
+										300%
+									</option>
 								</select>
 								<button
 									type="button"
@@ -573,8 +705,14 @@ export function StoryEditor({
 								aspectRatio: `${storyProject.canvas.width} / ${storyProject.canvas.height}`,
 								maxHeight: previewZoom === "fit" ? "100%" : undefined,
 								maxWidth: previewZoom === "fit" ? "100%" : undefined,
-								width: previewZoom === "fit" ? "100%" : `${storyProject.canvas.width}px`,
-								height: previewZoom === "fit" ? "100%" : `${storyProject.canvas.height}px`,
+								width:
+									previewZoom === "fit"
+										? "100%"
+										: `${storyProject.canvas.width}px`,
+								height:
+									previewZoom === "fit"
+										? "100%"
+										: `${storyProject.canvas.height}px`,
 								display: "flex",
 								alignItems: "center",
 								justifyContent: "center",
@@ -603,7 +741,9 @@ export function StoryEditor({
 										}
 									}}
 									onUpdateClipTransform={(clipId, transform) => {
-										onCommand((p: TimelineProject) => updateClip(p, clipId, { transform }));
+										onCommand((p: TimelineProject) =>
+											updateClip(p, clipId, { transform }),
+										);
 									}}
 									onDropAsset={handleDropAssetOnCanvas}
 								/>
@@ -662,7 +802,9 @@ export function StoryEditor({
 								disabled={!durationUs}
 								onClick={() => {
 									controller.preview(null);
-									const frameUs = Math.round(1_000_000 / (storyProject.canvas.fps || 30));
+									const frameUs = Math.round(
+										1_000_000 / (storyProject.canvas.fps || 30),
+									);
 									controller.seek(Math.max(0, playheadUs - frameUs), durationUs);
 								}}
 							>
@@ -695,8 +837,13 @@ export function StoryEditor({
 								disabled={!durationUs}
 								onClick={() => {
 									controller.preview(null);
-									const frameUs = Math.round(1_000_000 / (storyProject.canvas.fps || 30));
-									controller.seek(Math.min(durationUs, playheadUs + frameUs), durationUs);
+									const frameUs = Math.round(
+										1_000_000 / (storyProject.canvas.fps || 30),
+									);
+									controller.seek(
+										Math.min(durationUs, playheadUs + frameUs),
+										durationUs,
+									);
 								}}
 							>
 								<CaretRight size={15} weight="bold" />
@@ -718,7 +865,11 @@ export function StoryEditor({
 							<button
 								type="button"
 								className={`project-transport-extra-btn ${loopPlayback ? "active" : ""}`}
-								title={loopPlayback ? "Loop Playback: ON (L)" : "Loop Playback: OFF (L)"}
+								title={
+									loopPlayback
+										? "Loop Playback: ON (L)"
+										: "Loop Playback: OFF (L)"
+								}
 								onClick={() => setLoopPlayback((v) => !v)}
 							>
 								<Repeat size={14} weight={loopPlayback ? "bold" : "regular"} />
@@ -726,7 +877,11 @@ export function StoryEditor({
 							<button
 								type="button"
 								className={`project-transport-extra-btn ${showGridGuide ? "active" : ""}`}
-								title={showGridGuide ? "Grid & Safe Zones: ON" : "Grid & Safe Zones: OFF"}
+								title={
+									showGridGuide
+										? "Grid & Safe Zones: ON"
+										: "Grid & Safe Zones: OFF"
+								}
 								onClick={() => setShowGridGuide((v) => !v)}
 							>
 								<GridFour size={14} weight={showGridGuide ? "fill" : "regular"} />
@@ -752,6 +907,7 @@ export function StoryEditor({
 				/>
 				{copilotOpen && (
 					<CopilotSidebar
+						editContext={editContext}
 						project={storyProject}
 						transcripts={transcripts}
 						playheadUs={playheadUs}
@@ -804,21 +960,16 @@ export function StoryEditor({
 			/>
 			{terminalOpen && (
 				<div className="border-t border-white/10 bg-[#090a0d] shadow-2xl relative z-40">
-					<ProjectTerminal
-						className="h-[300px] rounded-none border-x-0 border-b-0"
-						terminalConfig={storyProject.terminalConfig}
-						onUpdateTerminalConfig={(cfg) =>
-							onCommand((p) => updateProjectTerminalConfig(p, cfg))
-						}
+					<StoryProjectTerminal
+						rootProject={rootProject}
+						onProjectCommand={onProjectCommand ?? onCommand}
 						onClose={() => setTerminalOpen(false)}
 					/>
 				</div>
 			)}
 			<footer className="project-footer justify-between">
 				<div className="flex items-center gap-4">
-					<span>
-						{busy ? "Importing media…" : `${rootProject.assets.length} assets`}
-					</span>
+					<span>{busy ? "Importing media…" : `${rootProject.assets.length} assets`}</span>
 					<span>{storyProject.canvas.fps} fps</span>
 				</div>
 				<button
@@ -839,7 +990,8 @@ export function StoryEditor({
 				<div className="fixed inset-0 z-50 bg-black/95 flex flex-col p-4 animate-in fade-in duration-150">
 					<div className="flex items-center justify-between pb-3 border-b border-white/10 text-white">
 						<span className="font-semibold text-sm">
-							{storyName || "Story Preview"} ({storyProject.canvas.width} × {storyProject.canvas.height})
+							{storyName || "Story Preview"} ({storyProject.canvas.width} ×{" "}
+							{storyProject.canvas.height})
 						</span>
 						<button
 							type="button"

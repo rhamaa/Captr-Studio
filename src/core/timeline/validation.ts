@@ -1,4 +1,12 @@
-import { clipDurationUs, type MediaAsset, type MediaSource, type TimelineProject } from "./types";
+import { resolveClipSource } from "./clipSource";
+import { getStoryProject } from "./storyOwnership";
+import {
+	clipDurationUs,
+	type MediaAsset,
+	type MediaSource,
+	type StoryClipContent,
+	type TimelineProject,
+} from "./types";
 
 function requireValue(condition: unknown, message: string): asserts condition {
 	if (!condition) throw new Error(message);
@@ -44,6 +52,24 @@ function serializable(value: unknown, seen = new Set<unknown>()) {
 	seen.add(value);
 	for (const v of Object.values(value)) serializable(v, seen);
 	seen.delete(value);
+}
+export function sameMetadata(a: unknown, b: unknown): boolean {
+	if (a === b) return true;
+	if (!a || !b || typeof a !== "object" || typeof b !== "object") return false;
+	if (Array.isArray(a) || Array.isArray(b))
+		return (
+			Array.isArray(a) &&
+			Array.isArray(b) &&
+			a.length === b.length &&
+			a.every((value, index) => sameMetadata(value, b[index]))
+		);
+	const left = a as Record<string, unknown>,
+		right = b as Record<string, unknown>;
+	const keys = Object.keys(left).filter((key) => left[key] !== undefined);
+	return (
+		keys.length === Object.keys(right).filter((key) => right[key] !== undefined).length &&
+		keys.every((key) => sameMetadata(left[key], right[key]))
+	);
 }
 function textOverlay(value: unknown) {
 	const text = value as Partial<import("./types").TextOverlay> | null;
@@ -245,9 +271,121 @@ function clipTransitionPreset(value: unknown) {
 			requireValue(false, "Invalid transition preset");
 	}
 }
-export function validateTimelineProject(value: unknown): TimelineProject {
+function inlineContent(value: StoryClipContent, width: number, height: number) {
+	requireValue(
+		object(value) && integer(value.durationUs) && value.durationUs > 0,
+		"Invalid inline source extent",
+	);
+	if (value.kind === "text") {
+		textOverlay(value.text);
+		requireValue(!("shapeDefinition" in value), "Unexpected inline shape definition");
+	} else {
+		requireValue(
+			value.kind === "shape" && object(value.shapeDefinition),
+			"Invalid inline source kind",
+		);
+		requireValue(!("text" in value), "Unexpected inline text");
+		const definition = value.shapeDefinition;
+		if (definition.kind === "rectangle" || definition.kind === "ellipse") {
+			width = Math.ceil(definition.width);
+			height = Math.ceil(definition.height);
+		} else if (definition.kind === "line" || definition.kind === "arrow") {
+			requireValue(
+				object(definition.from) && object(definition.to),
+				"Invalid shape endpoints",
+			);
+			width = Math.max(1, Math.ceil(Math.max(definition.from.x, definition.to.x)));
+			height = Math.max(1, Math.ceil(Math.max(definition.from.y, definition.to.y)));
+		}
+		// Reuse geometric validation; legacy shape Assets alone fix the source extent to five seconds.
+		shapeAsset({
+			id: "inline",
+			kind: "shape",
+			name: "Shape",
+			width,
+			height,
+			durationUs: 5_000_000,
+			shapeDefinition: definition,
+		});
+	}
+	serializable(value);
+}
+
+export type TimelineValidationOptions = { mode: "legacy" | "canonical" };
+/** Shared validation for optional canonical presentation metadata, including legacy hydration. */
+export function validateStoryPresentation(owner: {
+	canvas?: unknown;
+	storyMetadata?: unknown;
+	subtitles?: unknown;
+}) {
+	if (owner.canvas !== undefined) {
+		const canvas = owner.canvas;
+		requireValue(
+			object(canvas) &&
+				integer(canvas.width) &&
+				canvas.width > 0 &&
+				integer(canvas.height) &&
+				canvas.height > 0 &&
+				positive(canvas.fps),
+			"Invalid Story canvas",
+		);
+		if (canvas.background !== undefined)
+			requireValue(typeof canvas.background === "string", "Invalid Story canvas background");
+	}
+	if (owner.storyMetadata !== undefined) {
+		const metadata = owner.storyMetadata;
+		requireValue(object(metadata), "Invalid Story metadata");
+		if (metadata.id !== undefined)
+			requireValue(
+				typeof metadata.id === "string" && /^[a-zA-Z0-9_-]+$/.test(metadata.id),
+				"Invalid Story metadata ID",
+			);
+		for (const key of ["name", "createdAt", "updatedAt"])
+			if (metadata[key] !== undefined)
+				requireValue(
+					typeof metadata[key] === "string" && metadata[key].length > 0,
+					`Invalid Story metadata ${key}`,
+				);
+		if (metadata.aspectRatio !== undefined)
+			requireValue(
+				["9:16", "1:1", "16:9", "4:5", "custom"].includes(metadata.aspectRatio as string),
+				"Invalid Story aspect ratio",
+			);
+		if (metadata.framing !== undefined) {
+			const framing = metadata.framing;
+			requireValue(
+				object(framing) &&
+					positive(framing.scale) &&
+					Number.isFinite(framing.offsetX) &&
+					Number.isFinite(framing.offsetY) &&
+					["cover", "contain"].includes(framing.fitMode as string),
+				"Invalid Story framing",
+			);
+		}
+	}
+	if (owner.subtitles !== undefined) {
+		const subtitles = owner.subtitles;
+		requireValue(
+			object(subtitles) && typeof subtitles.enabled === "boolean",
+			"Invalid Story subtitles",
+		);
+		for (const key of ["style", "primaryColor", "secondaryColor"])
+			if (subtitles[key] !== undefined)
+				requireValue(typeof subtitles[key] === "string", `Invalid Story subtitles ${key}`);
+		if (subtitles.fontSize !== undefined)
+			requireValue(positive(subtitles.fontSize), "Invalid Story subtitle font size");
+	}
+}
+
+/** Canonical by default; raw ingress and unmigrated producers must select legacy explicitly. */
+export function validateTimelineProject(
+	value: unknown,
+	options: TimelineValidationOptions = { mode: "canonical" },
+): TimelineProject {
 	requireValue(value && typeof value === "object", "Invalid timeline project");
 	const p = value as TimelineProject;
+	serializable(p);
+	validateStoryPresentation(p);
 	requireValue(
 		p.version === 3 &&
 			typeof p.projectId === "string" &&
@@ -306,7 +444,26 @@ export function validateTimelineProject(value: unknown): TimelineProject {
 		new Set(p.packages.map((r) => r.captureId)).size === p.packages.length,
 		"Duplicate capture ID",
 	);
-	for (const a of p.assets) {
+	const privateLibraries = [
+		p.localAssets,
+		...(p.repurposeBoard?.artboards ?? []).map((ab) => ab.localAssets),
+	];
+	for (const library of privateLibraries) {
+		if (library === undefined) continue;
+		requireValue(Array.isArray(library), "Invalid private media library");
+		for (const asset of library)
+			requireValue(
+				["video", "image", "audio"].includes(asset.kind),
+				"Private media must be video, image, or audio",
+			);
+	}
+	if (options.mode === "canonical")
+		for (const asset of p.assets)
+			requireValue(
+				!["text", "shape"].includes(asset.kind),
+				"Canonical global assets cannot contain designs",
+			);
+	for (const a of [...p.assets, ...privateLibraries.flatMap((library) => library ?? [])]) {
 		id(a.id);
 		requireValue(
 			["video", "image", "audio", "recording", "text", "shape"].includes(a.kind) &&
@@ -370,186 +527,221 @@ export function validateTimelineProject(value: unknown): TimelineProject {
 		requireValue(end === c.durationUs, "Composition duration mismatch");
 		serializable(c.settings);
 	}
-	for (const t of p.tracks) {
-		id(t.id);
-		requireValue(
-			["visual", "audio"].includes(t.kind) &&
-				Array.isArray(t.clips) &&
-				[t.locked, t.muted, t.hidden].every((v) => typeof v === "boolean"),
-			"Invalid track",
-		);
-		let end = 0;
-		for (const c of [...t.clips].sort((a, b) => a.startUs - b.startUs)) {
-			id(c.id);
-			const a = p.assets.find((a) => a.id === c.assetId);
-			requireValue(a, "Missing clip asset");
-			requireValue((t.kind === "audio") === (a.kind === "audio"), "Incompatible asset track");
-			const composition = c.compositionId
-				? p.compositions.find((e) => e.id === c.compositionId)
-				: undefined;
+	function validateSequence(
+		view: TimelineProject,
+		id: (value: string) => void,
+		compositionOwners: Set<string>,
+	) {
+		for (const t of view.tracks) {
+			id(t.id);
 			requireValue(
-				a.kind !== "recording" || (composition && composition.packageId === a.packageId),
-				"Missing clip composition",
+				["visual", "audio"].includes(t.kind) &&
+					Array.isArray(t.clips) &&
+					[t.locked, t.muted, t.hidden].every((v) => typeof v === "boolean"),
+				"Invalid track",
 			);
-			requireValue(a.kind === "recording" || !c.compositionId, "Unexpected clip composition");
-			if (a.kind === "text") textOverlay(c.text ?? a.text);
-			else requireValue(!c.text, "Unexpected clip text overlay");
-			if (composition) {
+			let end = 0;
+			for (const c of [...t.clips].sort((a, b) => a.startUs - b.startUs)) {
+				id(c.id);
+				if (c.content !== undefined)
+					inlineContent(c.content, view.canvas.width, view.canvas.height);
+				const resolved = resolveClipSource(view, c);
+				const a = resolved.media ?? {
+					...resolved,
+					packageId: undefined,
+					text: c.content?.kind === "text" ? c.content.text : undefined,
+				};
+				if (options.mode === "canonical" || c.content !== undefined)
+					requireValue(c.text === undefined, "Unexpected legacy clip text overlay");
 				requireValue(
-					!compositionOwners.has(composition.id),
-					"Shared clip composition ownership",
+					(t.kind === "audio") === (a.kind === "audio"),
+					"Incompatible asset track",
 				);
-				compositionOwners.add(composition.id);
-			}
-			const duration = composition?.durationUs ?? a.durationUs;
-			requireValue(
-				integer(c.startUs) &&
-					integer(c.sourceInUs) &&
-					integer(c.sourceOutUs) &&
-					c.sourceOutUs > c.sourceInUs &&
-					c.sourceOutUs <= duration &&
-					positive(c.rate) &&
-					c.rate >= 0.125 &&
-					c.rate <= 8 &&
-					clipDurationUs(c) > 0,
-				"Invalid clip clock or rate",
-			);
-			requireValue(c.startUs >= end, "Clip overlap on track");
-			end = c.startUs + clipDurationUs(c);
-			requireValue(Number.isSafeInteger(end), "Unsafe clip end");
-			requireValue(
-				c.transform &&
-					[
-						c.transform.x,
-						c.transform.y,
-						c.transform.scale,
-						c.transform.rotation,
-						c.transform.opacity,
-					].every((v) => typeof v === "number" && Number.isFinite(v)) &&
-					c.transform.scale > 0 &&
-					c.transform.opacity >= 0 &&
-					c.transform.opacity <= 1 &&
-					typeof c.gain === "number" &&
-					Number.isFinite(c.gain) &&
-					c.gain >= 0 &&
-					typeof c.enabled === "boolean",
-				"Invalid clip transform/gain",
-			);
-			clipKeyframes(c.keyframes);
-			if (c.componentAnimation !== undefined) {
+				const composition = c.compositionId
+					? view.compositions.find((e) => e.id === c.compositionId)
+					: undefined;
 				requireValue(
-					t.kind === "visual" && a.kind !== "audio",
-					"Component animation requires a visual clip",
+					a.kind !== "recording" ||
+						(composition && composition.packageId === a.packageId),
+					"Missing clip composition",
 				);
-				requireValue(object(c.componentAnimation), "Invalid component animation settings");
-				const enter =
-					c.componentAnimation.enter === undefined
-						? 0
-						: componentAnimation(c.componentAnimation.enter);
-				const exit =
-					c.componentAnimation.exit === undefined
-						? 0
-						: componentAnimation(c.componentAnimation.exit);
-				requireValue(enter + exit <= clipDurationUs(c), "Component animations overlap");
+				requireValue(
+					a.kind === "recording" || !c.compositionId,
+					"Unexpected clip composition",
+				);
+				if (a.kind === "text") textOverlay(c.text ?? a.text);
+				else requireValue(!c.text, "Unexpected clip text overlay");
+				if (composition) {
+					requireValue(
+						!compositionOwners.has(composition.id),
+						"Shared clip composition ownership",
+					);
+					compositionOwners.add(composition.id);
+				}
+				const duration = composition?.durationUs ?? a.durationUs;
+				requireValue(
+					integer(c.startUs) &&
+						integer(c.sourceInUs) &&
+						integer(c.sourceOutUs) &&
+						c.sourceOutUs > c.sourceInUs &&
+						c.sourceOutUs <= duration &&
+						positive(c.rate) &&
+						c.rate >= 0.125 &&
+						c.rate <= 8 &&
+						clipDurationUs(c) > 0,
+					"Invalid clip clock or rate",
+				);
+				requireValue(c.startUs >= end, "Clip overlap on track");
+				end = c.startUs + clipDurationUs(c);
+				requireValue(Number.isSafeInteger(end), "Unsafe clip end");
+				requireValue(
+					c.transform &&
+						[
+							c.transform.x,
+							c.transform.y,
+							c.transform.scale,
+							c.transform.rotation,
+							c.transform.opacity,
+						].every((v) => typeof v === "number" && Number.isFinite(v)) &&
+						c.transform.scale > 0 &&
+						c.transform.opacity >= 0 &&
+						c.transform.opacity <= 1 &&
+						typeof c.gain === "number" &&
+						Number.isFinite(c.gain) &&
+						c.gain >= 0 &&
+						typeof c.enabled === "boolean",
+					"Invalid clip transform/gain",
+				);
+				clipKeyframes(c.keyframes);
+				if (c.componentAnimation !== undefined) {
+					requireValue(
+						t.kind === "visual" && a.kind !== "audio",
+						"Component animation requires a visual clip",
+					);
+					requireValue(
+						object(c.componentAnimation),
+						"Invalid component animation settings",
+					);
+					const enter =
+						c.componentAnimation.enter === undefined
+							? 0
+							: componentAnimation(c.componentAnimation.enter);
+					const exit =
+						c.componentAnimation.exit === undefined
+							? 0
+							: componentAnimation(c.componentAnimation.exit);
+					requireValue(enter + exit <= clipDurationUs(c), "Component animations overlap");
+				}
+				if (c.shapeStyleOverride !== undefined) {
+					requireValue(a.kind === "shape", "Shape style override requires a shape asset");
+					shapeStyle(c.shapeStyleOverride);
+				}
 			}
-			if (c.shapeStyleOverride !== undefined) {
-				requireValue(a.kind === "shape", "Shape style override requires a shape asset");
-				shapeStyle(c.shapeStyleOverride);
+		}
+		if (view.clipTransitions !== undefined) {
+			requireValue(Array.isArray(view.clipTransitions), "Invalid clip transitions");
+			const boundaries = new Set<string>();
+			for (const rawTransition of view.clipTransitions) {
+				requireValue(object(rawTransition), "Invalid clip transition");
+				const transition = rawTransition;
+				id(transition.id as string);
+				const track = view.tracks.find((candidate) => candidate.id === transition.trackId);
+				requireValue(track?.kind === "visual", "Transition must reference a visual track");
+				const ordered = [...track.clips].sort((a, b) => a.startUs - b.startUs);
+				const fromIndex = ordered.findIndex((clip) => clip.id === transition.fromClipId);
+				const from = ordered[fromIndex];
+				const to = ordered[fromIndex + 1];
+				requireValue(
+					fromIndex >= 0 &&
+						to &&
+						to.id === transition.toClipId &&
+						from.enabled &&
+						to.enabled &&
+						from.startUs + clipDurationUs(from) === to.startUs,
+					"Invalid transition clip references or non-adjacent clips",
+				);
+				const boundary = `${transition.trackId}:${transition.fromClipId}:${transition.toClipId}`;
+				requireValue(!boundaries.has(boundary), "Duplicate transition boundary");
+				boundaries.add(boundary);
+				requireValue(
+					integer(transition.durationUs) && transition.durationUs > 0,
+					"Invalid transition duration",
+				);
+				requireValue(
+					transitionEasings.includes(
+						transition.easing as (typeof transitionEasings)[number],
+					),
+					"Invalid transition easing",
+				);
+				clipTransitionPreset(transition.preset);
+			}
+			const projectEndUs = view.tracks.reduce(
+				(endUs, track) =>
+					Math.max(
+						endUs,
+						...track.clips.map((clip) => clip.startUs + clipDurationUs(clip)),
+					),
+				0,
+			);
+			for (const transition of view.clipTransitions) {
+				const track = view.tracks.find((candidate) => candidate.id === transition.trackId)!;
+				const from = track.clips.find((clip) => clip.id === transition.fromClipId)!;
+				const to = track.clips.find((clip) => clip.id === transition.toClipId)!;
+				const fromAsset = resolveClipSource(view, from);
+				const toAsset = resolveClipSource(view, to);
+				const fromComposition = from.compositionId
+					? view.compositions.find((composition) => composition.id === from.compositionId)
+					: undefined;
+				const outgoingTailUs =
+					!fromAsset.content && (fromAsset.kind === "shape" || fromAsset.kind === "image")
+						? Number.POSITIVE_INFINITY
+						: Math.max(
+								0,
+								((fromComposition?.durationUs ?? fromAsset.durationUs) -
+									from.sourceOutUs) /
+									from.rate,
+							);
+				const incomingHeadUs =
+					!toAsset.content && (toAsset.kind === "shape" || toAsset.kind === "image")
+						? Number.POSITIVE_INFINITY
+						: to.sourceInUs / to.rate;
+				const boundaryUs = to.startUs;
+				let maximumUs = Math.min(
+					outgoingTailUs,
+					incomingHeadUs,
+					boundaryUs,
+					Math.max(0, projectEndUs - boundaryUs),
+				);
+				maximumUs = Number.isFinite(maximumUs)
+					? Math.max(0, Math.floor(maximumUs * 2))
+					: Number.MAX_SAFE_INTEGER;
+				for (const other of view.clipTransitions) {
+					if (other.id === transition.id || other.trackId !== transition.trackId)
+						continue;
+					const otherBoundaryUs = track.clips.find(
+						(clip) => clip.id === other.toClipId,
+					)!.startUs;
+					maximumUs = Math.min(
+						maximumUs,
+						Math.max(0, 2 * Math.abs(boundaryUs - otherBoundaryUs) - other.durationUs),
+					);
+				}
+				requireValue(
+					transition.durationUs <= maximumUs,
+					"Transition exceeds available source handles or overlaps an adjacent transition",
+				);
 			}
 		}
 	}
-	if (p.clipTransitions !== undefined) {
-		requireValue(Array.isArray(p.clipTransitions), "Invalid clip transitions");
-		const boundaries = new Set<string>();
-		for (const rawTransition of p.clipTransitions) {
-			requireValue(object(rawTransition), "Invalid clip transition");
-			const transition = rawTransition;
-			id(transition.id as string);
-			const track = p.tracks.find((candidate) => candidate.id === transition.trackId);
-			requireValue(track?.kind === "visual", "Transition must reference a visual track");
-			const ordered = [...track.clips].sort((a, b) => a.startUs - b.startUs);
-			const fromIndex = ordered.findIndex((clip) => clip.id === transition.fromClipId);
-			const from = ordered[fromIndex];
-			const to = ordered[fromIndex + 1];
-			requireValue(
-				fromIndex >= 0 &&
-					to &&
-					to.id === transition.toClipId &&
-					from.enabled &&
-					to.enabled &&
-					from.startUs + clipDurationUs(from) === to.startUs,
-				"Invalid transition clip references or non-adjacent clips",
-			);
-			const boundary = `${transition.trackId}:${transition.fromClipId}:${transition.toClipId}`;
-			requireValue(!boundaries.has(boundary), "Duplicate transition boundary");
-			boundaries.add(boundary);
-			requireValue(
-				integer(transition.durationUs) && transition.durationUs > 0,
-				"Invalid transition duration",
-			);
-			requireValue(
-				transitionEasings.includes(transition.easing as (typeof transitionEasings)[number]),
-				"Invalid transition easing",
-			);
-			clipTransitionPreset(transition.preset);
-		}
-		const projectEndUs = p.tracks.reduce(
-			(endUs, track) =>
-				Math.max(endUs, ...track.clips.map((clip) => clip.startUs + clipDurationUs(clip))),
-			0,
-		);
-		for (const transition of p.clipTransitions) {
-			const track = p.tracks.find((candidate) => candidate.id === transition.trackId)!;
-			const from = track.clips.find((clip) => clip.id === transition.fromClipId)!;
-			const to = track.clips.find((clip) => clip.id === transition.toClipId)!;
-			const fromAsset = p.assets.find((asset) => asset.id === from.assetId)!;
-			const toAsset = p.assets.find((asset) => asset.id === to.assetId)!;
-			const fromComposition = from.compositionId
-				? p.compositions.find((composition) => composition.id === from.compositionId)
-				: undefined;
-			const outgoingTailUs =
-				fromAsset.kind === "shape" || fromAsset.kind === "image"
-					? Number.POSITIVE_INFINITY
-					: Math.max(
-							0,
-							((fromComposition?.durationUs ?? fromAsset.durationUs) -
-								from.sourceOutUs) /
-								from.rate,
-						);
-			const incomingHeadUs =
-				toAsset.kind === "shape" || toAsset.kind === "image"
-					? Number.POSITIVE_INFINITY
-					: to.sourceInUs / to.rate;
-			const boundaryUs = to.startUs;
-			let maximumUs = Math.min(
-				outgoingTailUs,
-				incomingHeadUs,
-				boundaryUs,
-				Math.max(0, projectEndUs - boundaryUs),
-			);
-			maximumUs = Number.isFinite(maximumUs)
-				? Math.max(0, Math.floor(maximumUs * 2))
-				: Number.MAX_SAFE_INTEGER;
-			for (const other of p.clipTransitions) {
-				if (other.id === transition.id || other.trackId !== transition.trackId) continue;
-				const otherBoundaryUs = track.clips.find(
-					(clip) => clip.id === other.toClipId,
-				)!.startUs;
-				maximumUs = Math.min(
-					maximumUs,
-					Math.max(0, 2 * Math.abs(boundaryUs - otherBoundaryUs) - other.durationUs),
-				);
-			}
-			requireValue(
-				transition.durationUs <= maximumUs,
-				"Transition exceeds available source handles or overlaps an adjacent transition",
-			);
-		}
-	}
+	validateSequence(p, id, compositionOwners);
 	if (p.repurposeBoard) {
 		requireValue(Array.isArray(p.repurposeBoard.artboards), "Invalid repurpose artboards");
 		requireValue(Array.isArray(p.repurposeBoard.slices), "Invalid repurpose slices");
+		const artboardIds = new Set<string>();
 		for (const ab of p.repurposeBoard.artboards) {
+			validateStoryPresentation(ab);
+			requireValue(!artboardIds.has(ab.id), "Duplicate artboard ID");
+			artboardIds.add(ab.id);
 			requireValue(typeof ab.id === "string" && ab.id.length > 0, "Invalid artboard ID");
 			requireValue(typeof ab.name === "string", "Invalid artboard name");
 			requireValue(integer(ab.width) && ab.width > 0, "Invalid artboard width");
@@ -572,6 +764,30 @@ export function validateTimelineProject(value: unknown): TimelineProject {
 					"Invalid artboard clip transitions",
 				);
 			}
+			if (options.mode === "canonical")
+				requireValue(
+					ab.tracks !== undefined,
+					"Canonical Story owner must have explicit tracks",
+				);
+			if (ab.tracks !== undefined) {
+				const view = getStoryProject(p, { kind: "artboard", artboardId: ab.id });
+				// Old Artboard snapshots may share placement IDs until normalization remaps them.
+				const localIds = new Set<string>();
+				const legacyId = (value: string) => {
+					requireValue(
+						typeof value === "string" &&
+							/^[a-zA-Z0-9_-]+$/.test(value) &&
+							!localIds.has(value),
+						"Duplicate or invalid ID",
+					);
+					localIds.add(value);
+				};
+				validateSequence(
+					view,
+					options.mode === "canonical" ? id : legacyId,
+					options.mode === "canonical" ? compositionOwners : new Set(),
+				);
+			}
 		}
 		for (const slice of p.repurposeBoard.slices) {
 			requireValue(typeof slice.id === "string" && slice.id.length > 0, "Invalid slice ID");
@@ -580,37 +796,159 @@ export function validateTimelineProject(value: unknown): TimelineProject {
 			requireValue(slice.endUs > slice.startUs, "Slice end must be after start");
 		}
 	}
+	if (p.designTemplates !== undefined) {
+		requireValue(Array.isArray(p.designTemplates), "Invalid design templates");
+		for (const template of p.designTemplates) {
+			id(template.id);
+			requireValue(
+				typeof template.name === "string" &&
+					template.content &&
+					template.kind === template.content.kind,
+				"Invalid template kind or name",
+			);
+			requireValue(
+				integer(template.width) &&
+					template.width > 0 &&
+					integer(template.height) &&
+					template.height > 0 &&
+					integer(template.defaultDurationUs) &&
+					template.defaultDurationUs > 0 &&
+					template.defaultDurationUs <= template.content.durationUs,
+				"Invalid template dimensions or duration",
+			);
+			inlineContent(template.content, template.width, template.height);
+		}
+	}
 	if (p.stories) {
 		requireValue(Array.isArray(p.stories), "Invalid stories: must be an array");
+		const storyIds = new Set<string>();
 		for (const story of p.stories) {
 			requireValue(typeof story.id === "string" && story.id.length > 0, "Invalid story ID");
-			requireValue(typeof story.name === "string" && story.name.length > 0, "Invalid story name");
-			requireValue(story.canvas && integer(story.canvas.width) && integer(story.canvas.height), "Invalid story canvas");
+			requireValue(!storyIds.has(story.id), "Duplicate story ID");
+			storyIds.add(story.id);
+			requireValue(
+				typeof story.name === "string" && story.name.length > 0,
+				"Invalid story name",
+			);
+			requireValue(
+				story.canvas && integer(story.canvas.width) && integer(story.canvas.height),
+				"Invalid story canvas",
+			);
 			requireValue(Array.isArray(story.tracks), "Invalid story tracks");
+			const candidates = (p.repurposeBoard?.artboards ?? []).filter((ab) =>
+				story.artboardId !== undefined
+					? ab.id === story.artboardId
+					: ab.id === story.id || `story-${ab.id}` === story.id,
+			);
+			requireValue(candidates.length <= 1, "Ambiguous Story owner");
+			const artboard = candidates[0];
+			const isRoot =
+				story.artboardId === undefined && story.id === (p.defaultStoryId ?? "story-main");
+			requireValue(!(isRoot && artboard), "Ambiguous root Story owner");
+			if (story.artboardId !== undefined)
+				requireValue(artboard, "Missing Story projection owner");
+			if (options.mode === "canonical")
+				requireValue(isRoot || artboard, "Standalone Story must be normalized to an owner");
+			const owner = isRoot ? p : artboard;
+			if (owner && story.localAssets !== undefined) {
+				requireValue(
+					Array.isArray(story.localAssets),
+					"Invalid Story private media mirror",
+				);
+				const mirrorIds = new Set<string>();
+				for (const media of story.localAssets) {
+					requireValue(
+						!mirrorIds.has(media.id),
+						"Duplicate Story private media mirror ID",
+					);
+					mirrorIds.add(media.id);
+					const canonical = owner.localAssets?.find((asset) => asset.id === media.id);
+					// Missing metadata in old owners may be hydrated at the normalization boundary.
+					if (options.mode === "canonical" || owner.localAssets !== undefined)
+						requireValue(
+							canonical && sameMetadata(canonical, media),
+							"Inconsistent Story private media mirror",
+						);
+				}
+			}
+			if (options.mode === "canonical" && owner) {
+				const placements = new Map(
+					owner.tracks?.flatMap((track) => track.clips).map((clip) => [clip.id, clip]),
+				);
+				for (const clip of story.tracks.flatMap((track) => track.clips)) {
+					if (!clip.compositionId) continue;
+					const placement = placements.get(clip.id);
+					requireValue(
+						placement &&
+							placement.compositionId === clip.compositionId &&
+							placement.assetId === clip.assetId,
+						"Story projection Record reference does not belong to its owner placement",
+					);
+				}
+			}
+			// Projection IDs and composition references are checked independently, not registered
+			// again in the canonical owner sets. Standalone legacy Stories are ingress only.
+			validateTimelineProject(
+				{
+					...p,
+					canvas: story.canvas,
+					tracks: story.tracks,
+					localAssets:
+						owner?.localAssets ??
+						(options.mode === "legacy" ? story.localAssets : undefined),
+					clipTransitions: story.clipTransitions,
+					subtitles: story.subtitles,
+					repurposeBoard: undefined,
+					stories: undefined,
+					designTemplates: undefined,
+				},
+				options,
+			);
 		}
 	}
 	if (p.storyManifest) {
 		requireValue(Array.isArray(p.storyManifest), "Invalid story manifest");
 		for (const item of p.storyManifest) {
-			requireValue(typeof item.id === "string" && item.id.length > 0, "Invalid story manifest ID");
-			requireValue(typeof item.file === "string" && !item.file.includes(".."), "Invalid story manifest file path");
+			requireValue(
+				typeof item.id === "string" && item.id.length > 0,
+				"Invalid story manifest ID",
+			);
+			requireValue(
+				typeof item.file === "string" && !item.file.includes(".."),
+				"Invalid story manifest file path",
+			);
 		}
 	}
 	if (p.hyperframes) {
 		requireValue(Array.isArray(p.hyperframes), "Invalid hyperframes: must be an array");
 		for (const hf of p.hyperframes) {
 			requireValue(typeof hf.id === "string" && hf.id.length > 0, "Invalid hyperframe ID");
-			requireValue(typeof hf.name === "string" && hf.name.length > 0, "Invalid hyperframe name");
-			requireValue(typeof hf.entryHtml === "string" && !hf.entryHtml.includes(".."), "Invalid hyperframe entry path");
-			requireValue(integer(hf.width) && hf.width > 0 && integer(hf.height) && hf.height > 0, "Invalid hyperframe dimensions");
+			requireValue(
+				typeof hf.name === "string" && hf.name.length > 0,
+				"Invalid hyperframe name",
+			);
+			requireValue(
+				typeof hf.entryHtml === "string" && !hf.entryHtml.includes(".."),
+				"Invalid hyperframe entry path",
+			);
+			requireValue(
+				integer(hf.width) && hf.width > 0 && integer(hf.height) && hf.height > 0,
+				"Invalid hyperframe dimensions",
+			);
 			requireValue(positive(hf.durationUs), "Invalid hyperframe duration");
 		}
 	}
 	if (p.hyperframeManifest) {
 		requireValue(Array.isArray(p.hyperframeManifest), "Invalid hyperframe manifest");
 		for (const item of p.hyperframeManifest) {
-			requireValue(typeof item.id === "string" && item.id.length > 0, "Invalid hyperframe manifest ID");
-			requireValue(typeof item.entryHtml === "string" && !item.entryHtml.includes(".."), "Invalid hyperframe manifest entry path");
+			requireValue(
+				typeof item.id === "string" && item.id.length > 0,
+				"Invalid hyperframe manifest ID",
+			);
+			requireValue(
+				typeof item.entryHtml === "string" && !item.entryHtml.includes(".."),
+				"Invalid hyperframe manifest entry path",
+			);
 		}
 	}
 	if (p.whiteboardSnapshot !== undefined) {
