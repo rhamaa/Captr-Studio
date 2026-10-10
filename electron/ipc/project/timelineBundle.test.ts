@@ -14,9 +14,9 @@ import { resolveTimelineProject, stageTimelineProject } from "./timelineBundle";
 
 const roots:string[]=[];afterEach(async()=>{for(const r of roots.splice(0))await fs.rm(r,{recursive:true,force:true});});
 it.each([
-	["foo", "story-foo", "Story/story-666f6f.json", "Story/story-73746f72792d666f6f.json"],
-	["Foo", "foo", "Story/story-466f6f.json", "Story/story-666f6f.json"],
-	["CON", "con", "Story/story-434f4e.json", "Story/story-636f6e.json"],
+	["foo", "story-foo", "Story/story-0.json", "Story/story-1.json"],
+	["Foo", "foo", "Story/story-0.json", "Story/story-1.json"],
+	["CON", "con", "Story/story-0.json", "Story/story-1.json"],
 ])("bundles distinct Story IDs %s and %s without replacing either owner's projection", async (rootId, artboardStoryId, rootFile, artboardFile) => {
 	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-story-filename-"));
 	roots.push(root);
@@ -59,6 +59,55 @@ it.each([
 	expect(bundleEntries).toContain(rootFile);
 	expect(bundleEntries).toContain(artboardFile);
 	expect(new Set(staged.storyManifest!.map((entry) => entry.file.toLowerCase())).size).toBe(2);
+});
+
+it("saves legacy Story IDs of 123 and 1024 ASCII characters with bounded projection paths", async () => {
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), "captr-long-story-id-"));
+	roots.push(root);
+	const project = createTimelineProject("long-story-identities", "Long identities");
+	project.defaultStoryId = "a".repeat(123);
+	project.repurposeBoard = {
+		artboards: [
+			{
+				id: "long-owner",
+				name: "Long Story",
+				storyMetadata: { id: "b".repeat(1024) },
+				aspectRatio: "16:9",
+				width: 1920,
+				height: 1080,
+				framing: { scale: 1, offsetX: 0, offsetY: 0, fitMode: "contain" },
+				tracks: [],
+			},
+		],
+		slices: [],
+		activeSliceId: null,
+	};
+	const staged = await stageTimelineProject(project, path.join(root, "stage"));
+	const bundle = path.join(root, "long-identities.captr");
+	await packProjectWorkspace(path.join(root, "stage"), bundle);
+	expect(staged.defaultStoryId).toBe(project.defaultStoryId);
+	expect(staged.storyManifest!.map((entry) => entry.file)).toEqual([
+		"Story/story-0.json",
+		"Story/story-1.json",
+	]);
+	for (const [index, manifest] of staged.storyManifest!.entries()) {
+		expect(path.basename(manifest.file).length).toBeLessThanOrEqual(255);
+		const entry = await readProjectBundleEntry(bundle, manifest.file);
+		expect(entry.success).toBe(true);
+		const story = JSON.parse(entry.content!);
+		expect(story.id).toBe(index === 0 ? "a".repeat(123) : "b".repeat(1024));
+		expect(story.artboardId).toBe(index === 0 ? undefined : "long-owner");
+		expect(story.tracks).toEqual(index === 0 ? project.tracks : []);
+	}
+	const reopenedDir = path.join(root, "reopened");
+	await unpackProjectBundle(bundle, reopenedDir);
+	const reopened = resolveTimelineProject(
+		JSON.parse(await fs.readFile(path.join(reopenedDir, "project.json"), "utf8")),
+		reopenedDir,
+	);
+	expect(reopened.defaultStoryId).toBe("a".repeat(123));
+	expect(reopened.stories!.map((story) => story.id)).toEqual(["a".repeat(123), "b".repeat(1024)]);
+	expect(reopened.repurposeBoard!.artboards[0].storyMetadata!.id).toBe("b".repeat(1024));
 });
 
 it("round trips every canonical media library, sidecars and current Story projections", async () => {
@@ -128,7 +177,7 @@ it("round trips every canonical media library, sidecars and current Story projec
 	expect(bundleEntries.some((p) => p.startsWith("slides/"))).toBe(false);
 	expect(bundleEntries.some((p) => p === "assets/inline-title/asset.json")).toBe(false);
 	for (const manifest of staged.storyManifest!) expect(bundleEntries).toContain(manifest.file);
-	expect(bundleEntries).toContain("Story/story-73746f72792d41.json");
+	expect(bundleEntries).toContain("Story/story-1.json");
 	expect(bundleEntries).not.toContain("Story/story-story-A.json");
 	expect(timelineMediaPaths(staged)).toHaveLength(5);
 	const savedStory = staged.stories!.find((s) => s.artboardId === "A")!;
@@ -466,7 +515,7 @@ it("timelineBundle_stagesModularStoryAndHyperframeAndCategorizesEntries", async 
 
 	const storyDir = path.join(workspace, "Story");
 	const storyFiles = await fs.readdir(storyDir);
-	expect(storyFiles).toContain("story-73746f72792d6d61696e.json");
+	expect(storyFiles).toContain("story-0.json");
 
 	// Verify Hyperframe folder and HTML were generated
 	const hfDir = path.join(workspace, "hyperframe");

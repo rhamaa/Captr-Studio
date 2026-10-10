@@ -15,6 +15,21 @@ import {
 } from "./storyUtils";
 
 describe("storyUtils", () => {
+	it("bounds manifest path components while preserving long legacy Story identities", () => {
+		const project = createTimelineProject("long-identities", "Long identities");
+		const ids = ["a".repeat(123), "b".repeat(1024)];
+		const manifest = generateStoryManifest(ids.map((id) => createDefaultStory(project, id)));
+		expect(manifest.map((entry) => entry.id)).toEqual(ids);
+		expect(manifest.map((entry) => entry.file)).toEqual([
+			"Story/story-0.json",
+			"Story/story-1.json",
+		]);
+		expect(
+			manifest.every((entry) =>
+				entry.file.split("/").every((component) => component.length <= 255),
+			),
+		).toBe(true);
+	});
 	it("keeps prefix and case distinct Story identities portable in generated manifests", () => {
 		const project = createTimelineProject("filenames", "Filenames");
 		const stories = ["foo", "story-foo", "Foo", "CON", "con"].map((id) =>
@@ -29,11 +44,11 @@ describe("storyUtils", () => {
 			"con",
 		]);
 		expect(manifest.map((entry) => entry.file)).toEqual([
-			"Story/story-666f6f.json",
-			"Story/story-73746f72792d666f6f.json",
-			"Story/story-466f6f.json",
-			"Story/story-434f4e.json",
-			"Story/story-636f6e.json",
+			"Story/story-0.json",
+			"Story/story-1.json",
+			"Story/story-2.json",
+			"Story/story-3.json",
+			"Story/story-4.json",
 		]);
 		expect(new Set(manifest.map((entry) => entry.file.toLowerCase())).size).toBe(5);
 	});
@@ -140,8 +155,8 @@ describe("storyUtils", () => {
 
 		const manifest = generateStoryManifest(stories);
 		expect(manifest).toHaveLength(2);
-		expect(manifest[0].file).toBe("Story/story-73746f72792d6d61696e.json");
-		expect(manifest[1].file).toBe("Story/story-73746f72792d7265656c73.json");
+		expect(manifest[0].file).toBe("Story/story-0.json");
+		expect(manifest[1].file).toBe("Story/story-1.json");
 	});
 
 	it("generates a valid HTML5/GSAP Hyperframe template with seekFrame driver", () => {

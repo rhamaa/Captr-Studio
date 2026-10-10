@@ -133,26 +133,25 @@ export function extractStoriesFromProject(project: TimelineProject): StoryCompos
 	return stories;
 }
 
-/** Portable projection basename; JSON retains the exact validated Story identity. */
-export function storyProjectionFileName(id: string): string {
-	if (typeof id !== "string" || !/^[a-zA-Z0-9_-]+$/.test(id)) throw new Error("Invalid Story ID");
-	// Valid Story IDs are ASCII: these character codes are their exact UTF-8 bytes.
-	// Hex preserves identity on case-insensitive filesystems and avoids reserved basenames.
-	const encoded = Array.from(id, (character) =>
-		character.charCodeAt(0).toString(16).padStart(2, "0"),
-	).join("");
-	return `story-${encoded}.json`;
+/** Bounded portable basename for a position in the current canonical Story roster. */
+export function storyProjectionFileName(ordinal: number): string {
+	if (!Number.isSafeInteger(ordinal) || ordinal < 0) throw new Error("Invalid Story ordinal");
+	return `story-${ordinal}.json`;
 }
 
 /** Generates manifest items for all stories in a project. */
 export function generateStoryManifest(stories: StoryComposition[]): StoryManifestItem[] {
-	return stories.map((story) => ({
-		id: story.id,
-		name: story.name,
-		file: `Story/${storyProjectionFileName(story.id)}`,
-		aspectRatio: story.aspectRatio,
-		durationUs: story.durationUs ?? calculateStoryDurationUs(story.tracks),
-	}));
+	return stories.map((story, ordinal) => {
+		if (typeof story.id !== "string" || !/^[a-zA-Z0-9_-]+$/.test(story.id))
+			throw new Error("Invalid Story ID");
+		return {
+			id: story.id,
+			name: story.name,
+			file: `Story/${storyProjectionFileName(ordinal)}`,
+			aspectRatio: story.aspectRatio,
+			durationUs: story.durationUs ?? calculateStoryDurationUs(story.tracks),
+		};
+	});
 }
 
 /**

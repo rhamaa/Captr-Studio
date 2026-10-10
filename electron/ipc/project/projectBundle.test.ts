@@ -50,10 +50,10 @@ describe("Project Bundle (ZIP) & Asset Isolation", () => {
 		const bundle = path.join(tempRoot, "manifest.captr");
 		await packProjectWorkspace(workspace, bundle);
 		const inspection = await inspectProjectBundle(bundle);
-		expect(inspection.entries.some((e) => e.path === "Story/story-73746f72792d6d61696e.json")).toBe(true);
+		expect(inspection.entries.some((e) => e.path === "Story/story-0.json")).toBe(true);
 		expect(inspection.entries.some((e) => e.path === "Story/story-story-main.json")).toBe(false);
 		const manifests = inspection.projectData!.storyManifest as Array<{ file: string }>;
-		expect(manifests[0].file).toBe("Story/story-73746f72792d6d61696e.json");
+		expect(manifests[0].file).toBe("Story/story-0.json");
 		const entry = await readProjectBundleEntry(bundle, manifests[0].file);
 		expect(entry.success).toBe(true);
 		expect(

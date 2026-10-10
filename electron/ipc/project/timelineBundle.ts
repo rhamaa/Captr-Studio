@@ -4,7 +4,6 @@ import path from "node:path";
 import {
 	extractStoriesFromProject,
 	generateStoryManifest,
-	storyProjectionFileName,
 } from "../../../src/core/story/storyUtils";
 import {
 	timelineMediaAssets,
@@ -115,14 +114,17 @@ export async function stageTimelineProject(
 
 	// Stage modular Story sub-projects
 	const stories = extractStoriesFromProject(staged);
+	const storyManifest = generateStoryManifest(stories);
 	const storyDir = path.join(workspaceDir, "Story");
 	await fs.mkdir(storyDir, { recursive: true });
-	for (const story of stories) {
-		const storyFileName = storyProjectionFileName(story.id);
-		await fs.writeFile(path.join(storyDir, storyFileName), JSON.stringify(story, null, 2));
+	for (const [ordinal, story] of stories.entries()) {
+		await fs.writeFile(
+			path.join(workspaceDir, storyManifest[ordinal].file),
+			JSON.stringify(story, null, 2),
+		);
 	}
 	staged.stories = stories;
-	staged.storyManifest = generateStoryManifest(stories);
+	staged.storyManifest = storyManifest;
 
 	// Stage code-driven Hyperframe compositions
 	if (staged.hyperframes && staged.hyperframes.length > 0) {
