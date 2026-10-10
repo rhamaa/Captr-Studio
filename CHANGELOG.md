@@ -16,13 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shared Recording packages retain independent placement compositions. Preview/export use scoped resolution and existing source clocks; no source flattening.
 - Voiceover captures immutable originating Story/token/playhead/IDs and registers private source separately from placement. Deleted/stale/canceled takes reject with bounded cleanup. Screen Record remains global Assets-only.
 - V3 clone normalization and real bundle persistence retain all libraries including unplaced private sources, sidecars, captions metadata and current projections. Bounded manifest filenames preserve long/case/prefix-distinct Story IDs. Atomic ingress and project identity/path protections remain.
-- Version remains `1.4.0-beta.1`; no release/version bump. [Verification](docs/superpowers/plans/2026-10-10-story-asset-ownership-verification.md) records exact baseline comparison, acceptance cases, native gaps and pending final review.
+- Legacy inherited Artboards preserve explicit transition overrides, including empty lists, through independent snapshot remapping. Dangling transitions and Story owner associations reject atomically without changing active project paths or source bytes.
+- Version remains `1.4.0-beta.1`; no release/version bump. [Verification](docs/superpowers/plans/2026-10-10-story-asset-ownership-verification.md) records approved task/whole-branch reviews, 224 passing final covering tests, exact baseline comparison and native gaps.
 
 ### Deferred finishing and verification
 
 - Native recorder/microphone/editor lifecycle QA remains pending. Automated lifecycle tests do not verify HUD/native interaction.
 - Caption editing/burn-in, real waveform/filmstrip, grouping, grading/masks, speed curves/tracking/proxies and authored trailing-blank duration control remain backlog; this foundation preserves caption metadata.
-- Separate Task 8 review and whole-branch review remain pending at this documentation commit; full-suite pre-existing failures and existing lint debt are explicitly retained in verification notes.
+- Task 8 and whole-branch reviews are approved after the focused migration fixes. Nine original full-suite failures and existing lint debt remain recorded; native QA is pending.
 
 ---
 

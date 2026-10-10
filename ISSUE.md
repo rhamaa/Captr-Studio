@@ -1,6 +1,6 @@
 # Issue Log & Regression Checklist
 
-**Fokus berikutnya — 10 Oktober 2026:** [Issue #12: kepemilikan Assets global dan elemen lokal Story](#12-pemisahan-assets-global-elemen-story-dan-komposisi-record-10-oktober-2026). Fondasi kepemilikan diimplementasikan dan tes otomatis dicatat; QA native serta review akhir branch masih pending. Timeline pengerjaan tercatat di [ROADMAP.md](ROADMAP.md), kondisi pengembangan di [CHANGELOG.md](CHANGELOG.md).
+**Fokus berikutnya — 10 Oktober 2026:** [Issue #12: kepemilikan Assets global dan elemen lokal Story](#12-pemisahan-assets-global-elemen-story-dan-komposisi-record-10-oktober-2026). Fondasi kepemilikan selesai dan review akhir disetujui; QA native masih pending. Timeline pengerjaan tercatat di [ROADMAP.md](ROADMAP.md), kondisi pengembangan di [CHANGELOG.md](CHANGELOG.md).
 
 
 ## 1. Keyframing engine pada timeline overlay (Text Overlay & Gambar)
@@ -428,7 +428,7 @@ Mentransformasikan integrasi AI Agent CLI (`agy`, `claude`, `opencode`) yang seb
 
 ## 12. Pemisahan Assets global, elemen Story, dan komposisi Record (10 Oktober 2026)
 
-**Status:** Implementasi fondasi selesai; acceptance otomatis dicatat, QA native dan review akhir branch pending. Issue eksternal/release belum ditutup.
+**Status:** Implementasi fondasi dan review akhir selesai; acceptance otomatis dicatat, QA native pending. Issue eksternal/release belum ditutup.
 
 **Prioritas:** Fondasi sebelum pengembangan fitur finishing Story Editor setara CapCut Desktop.
 
@@ -500,6 +500,6 @@ Mentransformasikan integrasi AI Agent CLI (`agy`, `claude`, `opencode`) yang seb
 
 **Verifikasi 10 Oktober 2026:** Lihat [hasil aktual, perbandingan baseline, acceptance, ruling dan status review](docs/superpowers/plans/2026-10-10-story-asset-ownership-verification.md). Version tetap `1.4.0-beta.1`; native belum dijalankan. Durasi Story berasal dari canonical clip clocks; kontrol trailing blank deferred.
 
-Suite penuh default parallel: 1.491/1.500 tes lulus; 9 kegagalan di 5 file sama persis dengan baseline, 3 kegagalan baseline manager/lifecycle kini lulus, nol regresi baru tersisa. TypeScript dan diff check exit 0. Biome konfigurasi existing: 42 error/22 warning tersisa dibanding baseline 106/22 pada path yang sama; seluruh 14 file baru clean, tanpa diagnostic/count baru. Graft inventory dan build selesai. Review Task 8 serta whole branch masih pending; ini bukan klaim suite/native sepenuhnya hijau.
+Suite penuh default parallel sebelum perbaikan review akhir: 1.491/1.500 tes lulus; 9 kegagalan di 5 file sama persis dengan baseline, 3 kegagalan baseline manager/lifecycle kini lulus. Perbaikan terakhir di `8c2fe68` mempertahankan override transisi Artboard dan menolak asosiasi Story tanpa owner; 224 tes terkait di 15 suite lulus, TypeScript dan diff check exit 0. Biome konfigurasi existing: 42 error/22 warning tersisa dibanding baseline 106/22 pada path yang sama; seluruh 14 file baru clean. Enam path yang diubah pada perbaikan akhir tidak menambah diagnostic/count. Graft build terbaru: 5.188 node, 12.981 edge, 735 card. Review Task 8 dan whole branch disetujui; dua minor tes ditunda dengan alasan/biaya di catatan verifikasi. QA native dan sembilan kegagalan baseline tetap terbuka; suite penuh tidak diulang setelah perbaikan terarah.
 
 

@@ -2,7 +2,7 @@
 
 Date: 2026-10-10 (Asia/Jakarta)
 
-Status: Written specification approved by the user on 2026-10-10 with “ok bro, eksekusi spec nya”. Product intent and ownership categories are recorded in [issue #12](../../../ISSUE.md#12-pemisahan-assets-global-elemen-story-dan-komposisi-record-10-oktober-2026). Execution plan approved on 2026-10-10 with “ok implementasikan rencana”. Tasks 1–7 are implemented and independently reviewed; Task 8 acceptance documentation, its independent review, and the separate whole-branch review are the current gate. Native QA remains pending; see [durable verification](../plans/2026-10-10-story-asset-ownership-verification.md).
+Status: Written specification approved by the user on 2026-10-10 with “ok bro, eksekusi spec nya”. Product intent and ownership categories are recorded in [issue #12](../../../ISSUE.md#12-pemisahan-assets-global-elemen-story-dan-komposisi-record-10-oktober-2026). Execution plan approved on 2026-10-10 with “ok implementasikan rencana”. Tasks 1–8 and the separate whole-branch review are approved after the focused migration fixes. Native QA remains pending; see [durable verification](../plans/2026-10-10-story-asset-ownership-verification.md).
 
 ## Purpose and scope
 
@@ -155,4 +155,4 @@ Run relevant domain/component/bundle Vitest suites and `npx tsc --noEmit`; compa
 
 ## Review and next handoff
 
-Specification and execution plan are approved. Tasks 1–7 passed independent task review after recorded fixes. Task 8 independent review and the separate complete-branch review remain pending at this documentation commit; the coordinator will finalize their dispositions. Native regression QA is pending and no release/push/merge is authorized by these notes.
+Specification and execution plan are approved. Tasks 1–8 passed independent reviews. Whole-branch review and its one scoped fix re-review are approved: explicit inherited-Artboard transitions are preserved and dangling Story associations reject atomically. Native regression QA is pending, nine original full-suite failures remain recorded, and no release/push/merge is authorized by these notes.

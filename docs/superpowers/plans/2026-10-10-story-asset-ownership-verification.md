@@ -1,6 +1,6 @@
 # Story ownership implementation and verification
 
-2026-10-10, Experiment, implementation baseline 0a439ce; Task 8 began at d951fb5. Version confirmed as 1.4.0-beta.1 in package.json, package-lock.json and root package-lock metadata. Spec and execution plan were approved. Tasks 1–8 passed independent task reviews. The separate whole-branch review identified I1/I2; the focused final fixes are implemented and awaiting scoped re-review. Native QA remains pending.
+2026-10-10, Experiment, implementation baseline 0a439ce; Task 8 began at d951fb5. Version confirmed as 1.4.0-beta.1 in package.json, package-lock.json and root package-lock metadata. Tasks 1–8 and whole-branch review are approved. Final fixes in 8c2fe68 passed the single scoped re-review: I1/I2 addressed, two documentation minors fixed, two test-maintenance minors accepted as deferred, zero new findings. Final covering verification: 224 tests in 15 suites pass; TypeScript passes. Native QA and nine original full-suite failures remain open. [Full review and fix evidence](2026-10-10-story-asset-ownership-review.md). Work remains local on Experiment; no push/merge/release.
 
 ## Acceptance evidence
 
@@ -147,7 +147,7 @@ Focused regression cases prove absent fallback, explicit empty override, a disti
 | `graft build` after final code/test changes | Exit 0; 5188 nodes, 12981 edges, 735 cards; 6 files parsed / 737 cache-replayed / 743 total. Graph remains ignored. |
 | `git diff --check` | Exit 0. |
 
-The prior whole-suite result remains 1491 passed / 9 exact original baseline failures / 1500 total at 72573d8; these narrow fixes introduce no unresolved integration doubt requiring another full-suite run. This is not a new fully green suite claim. Native QA stays pending. Scratch command/output records are final-fix-red.log, final-fix-red-local.log, final-fix-green.log, final-fix-focused.log, final-fix-focused-concurrent.log, final-fix-tsc.log, final-fix-biome-current.json, final-fix-biome-baseline.json, final-fix-lint-comparison.json and final-fix-graft-build.log. The coordinator will record the one scoped re-review verdict; no push/merge/release.
+The prior whole-suite result remains 1491 passed / 9 exact original baseline failures / 1500 total at 72573d8; these narrow fixes introduce no unresolved integration doubt requiring another full-suite run. This is not a new fully green suite claim. Native QA stays pending. Scratch command/output records are final-fix-red.log, final-fix-red-local.log, final-fix-green.log, final-fix-focused.log, final-fix-focused-concurrent.log, final-fix-tsc.log, final-fix-biome-current.json, final-fix-biome-baseline.json, final-fix-lint-comparison.json and final-fix-graft-build.log. The single scoped re-review approved both specification and quality, with I1/I2 addressed and zero new findings; no push/merge/release. The durable review record preserves the complete report and verification evidence after scratch cleanup.
 
 All four final-review Minor findings are dispositioned explicitly:
 
@@ -170,7 +170,7 @@ All four final-review Minor findings are dispositioned explicitly:
 | 6 | dc1e924; both verdicts approved; fixture/warning/lint minors deferred below. |
 | 7 | 93d3a68, 05d133f, d951fb5; initial prefix/case collision and then hex basename overflow fixed; bounded ordinal manifest/staging re-review approved. |
 | 8 | a1184db; both independent review verdicts approved; documentation precision minors are addressed in the final fix evidence above. |
-| Whole branch | Complete review found I1/I2; focused fixes await one scoped re-review. Four Minor dispositions are recorded above. Selected gpt-6.1-sol xhigh due Astra quota until October 14. No push/merge/release. |
+| Whole branch | Complete 107-path review found I1/I2; 8c2fe68 addressed both and passed the single scoped re-review, with zero new findings. Two documentation minors fixed; two fixture minors accepted as deferred with reasons/costs above. Selected gpt-6.1-sol xhigh due Astra quota until October 14. No push/merge/release. |
 
 ## Chronological execution rulings
 
@@ -203,3 +203,9 @@ Ruling: Supersede the hex-ID basename rule with bounded unique sequence filename
 Ruling: Use gpt-6.1-sol xhigh for the final whole-branch review as the most capable available model in this session — gpt-6-astra stopped on an account quota until October14 while today is October10, and standard-model task reviews have provided independent concrete findings — if wrong, frontier-model judgment is unavailable for this pass, mitigated by complete diff/spec review and actual automated evidence rather than skipping review.
 
 Ruling: Preserve the exhaustive chronological ruling list with every stated cost in a durable linked verification document, and deliver a terse final report pointing to it — the user explicitly asks for caveman one-sentence reporting, overriding the skill default of printing the entire ruling list inline — if wrong, the user must open the linked notes to inspect the full decisions; none are deleted or hidden with scratch cleanup.
+
+## Completion and context tooling
+
+All eight implementation tasks and final review gates are complete. Work stays local on Experiment. Native QA, nine original full-suite failures and the two accepted test-maintenance minors remain visible follow-ups. The ignored workspace for this plan is removed after preserving every ruling, exact diagnostic signature, review verdict and fix report here and in the linked review record; two accidentally tracked scratch reports are removed from the current tree, with their old contents recoverable in git. No sibling plan workspace is touched.
+
+Cumulative reported Graft savings across implementation, reviews and coordinator context are approximately 29,635,055 tokens; tool-provided estimates/lower bounds, not measured API consumption. Final whole-branch review added 1,364,000; final fix worker added at least 1,564,625 over 13 calls; scoped re-review required zero additional calls.

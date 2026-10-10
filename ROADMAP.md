@@ -8,7 +8,7 @@ Dokumen ini memetakan visi, arsitektur, dan tahapan pengembangan **Captr Studio*
 
 **Target produk:** Record Editor mengolah rekaman; Story Editor milik Artboard menyusun video final dari hasil Record Editor, B-roll, teks, shape, musik, subtitle, dan efek. CapCut Desktop menjadi referensi perilaku dan workflow. Seluruh data tetap dalam satu project `.captr` V3 dengan source media bersama dan edit placement independen.
 
-**Prioritas aktif:** [Issue #12 — pemisahan Assets global dan elemen/media lokal Story](ISSUE.md#12-pemisahan-assets-global-elemen-story-dan-komposisi-record-10-oktober-2026). Fondasi kepemilikan diimplementasikan; acceptance otomatis dicatat, QA native dan review akhir branch pending. TODO dan acceptance authoritative dicatat di issue tersebut.
+**Prioritas aktif:** [Issue #12 — pemisahan Assets global dan elemen/media lokal Story](ISSUE.md#12-pemisahan-assets-global-elemen-story-dan-komposisi-record-10-oktober-2026). Fondasi kepemilikan dan review akhir selesai; acceptance otomatis dicatat, QA native pending. TODO dan acceptance authoritative dicatat di issue tersebut.
 
 | Tanggal | Progres / keputusan | Status |
 | --- | --- | --- |
@@ -20,7 +20,7 @@ Dokumen ini memetakan visi, arsitektur, dan tahapan pengembangan **Captr Studio*
 
 **Urutan TODO pengembangan; tanpa estimasi tanggal selesai:**
 
-1. **Fondasi kepemilikan — issue #12:** schema/resolver scoped, inline Text/Shape, media privat, isolasi Record, UI/Templates, legacy normalization, history dan bundle round-trip sudah diimplementasikan. Selesaikan review akhir branch dan QA regresi native yang masih pending.
+1. **Fondasi kepemilikan — issue #12:** schema/resolver scoped, inline Text/Shape, media privat, isolasi Record, UI/Templates, legacy normalization, history dan bundle round-trip selesai serta lolos review akhir. Perbaikan override transisi dan missing owner ditutup dengan 224 tes terkait lulus. Lanjutkan QA regresi native yang masih pending.
 2. **Finishing dasar:** subtitle lokal yang ikut save/reopen dan export, waveform dari audio nyata, filmstrip thumbnail video. Metadata subtitle sudah ikut canonical owner/Story projection/save-reopen; editing dan burn-in final tetap perlu dikerjakan.
 3. **Workflow editing cepat:** copy/paste clip dan attributes, group/ungroup serta pemindahan grup, link/unlink video–audio, insert/overwrite, ripple trim, audio fades/crossfade dan volume automation.
 4. **Visual polish:** crop/mask/feather/blend per placement, color adjustment/LUT, keyframe drag/value/time dan graph editor, preset yang menghasilkan elemen lokal.
