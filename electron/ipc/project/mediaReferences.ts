@@ -1,7 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { timelineMediaPaths } from "../../../src/core/timeline/mediaPaths";
-import { validateTimelineProject } from "../../../src/core/timeline/validation";
+import { normalizeStoryOwnership } from "../../../src/core/timeline/normalizeStoryOwnership";
+import type { TimelineProject } from "../../../src/core/timeline/types";
 
 type DataObject = Record<string, unknown>;
 
@@ -27,7 +28,9 @@ export interface ProjectMediaReference {
  */
 export function collectProjectMediaRefs(project: unknown): ProjectMediaReference[] {
 	if (object(project).version === 3) {
-		return timelineMediaPaths(validateTimelineProject(project)).map((path, index) => ({ location: `assets/media[${index}]`, path }));
+		return timelineMediaPaths(normalizeStoryOwnership(project as TimelineProject)).map(
+			(path, index) => ({ location: `assets/media[${index}]`, path }),
+		);
 	}
 	const refs: ProjectMediaReference[] = [];
 	const push = (location: string, value: unknown) => {

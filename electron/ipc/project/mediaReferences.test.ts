@@ -1,5 +1,28 @@
 import { describe, expect, it } from "vitest";
+import { normalizeStoryOwnership } from "../../../src/core/timeline/normalizeStoryOwnership";
+import { ownershipFixture } from "../../../src/core/timeline/storyOwnership.fixtures";
 import { collectProjectMediaPaths, getProjectPrimaryMedia } from "./mediaReferences";
+
+it("enumerates unplaced private sources once and ignores stale projection paths", () => {
+	const project = ownershipFixture();
+	project.repurposeBoard!.artboards[0].tracks = [];
+	project.localAssets = [
+		{
+			...project.repurposeBoard!.artboards[0].localAssets![0],
+			id: "root-private",
+			source: { path: "root.wav", durationUs: 5_000_000, offsetUs: 0 },
+		},
+	];
+	const canonical = normalizeStoryOwnership(project);
+	canonical.stories!.find((s) => s.artboardId === "A")!.localAssets![0].source!.path =
+		"stale.wav";
+	expect(collectProjectMediaPaths(canonical)).toEqual([
+		"shared.mp4",
+		"screen.mp4",
+		"root.wav",
+		"voice.wav",
+	]);
+});
 
 describe("project media references", () => {
 	it("collects every scene's media and sidecars without approving unrelated strings", () => {

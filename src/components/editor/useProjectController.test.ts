@@ -8,7 +8,38 @@ import {
 import { extendInlineClip } from "@/core/timeline/designTemplateCommands";
 import { addRepurposeArtboard } from "@/core/timeline/repurposeCommands";
 import { applyStoryCommand } from "@/core/timeline/storyOwnership";
+import { fixtureText, ownershipFixture } from "@/core/timeline/storyOwnership.fixtures";
 import { ProjectController } from "./useProjectController";
+
+it("normalizes legacy V3 on installation and rejects invalid opens without changing session", () => {
+	const raw = ownershipFixture();
+	delete raw.repurposeBoard!.artboards[1].tracks;
+	raw.assets.push({
+		id: "unused-title",
+		kind: "text",
+		name: "Preset",
+		width: 1920,
+		height: 1080,
+		durationUs: 5_000_000,
+		text: fixtureText,
+	});
+	const controller = new ProjectController(raw, vi.fn());
+	expect(controller.snapshot.project.assets.some((a) => a.id === "unused-title")).toBe(false);
+	expect(controller.snapshot.project.designTemplates?.[0].id).toBe("unused-title");
+	expect(controller.snapshot.project.repurposeBoard!.artboards[1].tracks).toBeDefined();
+	expect(raw.repurposeBoard!.artboards[1].tracks).toBeUndefined();
+	controller.setPendingWork("import", 1);
+	const previous = controller.snapshot,
+		token = controller.importToken();
+	const invalid = ownershipFixture();
+	invalid.repurposeBoard!.artboards[0].localAssets![0].source!.path = "../escape.wav";
+	expect(() => controller.open(invalid, "broken.captr")).toThrow();
+	expect(controller.snapshot).toBe(previous);
+	expect(controller.importToken()).toEqual(token);
+	expect(controller.snapshot.pendingWork).toBe(1);
+	controller.open(raw, "Legacy.captr");
+	expect(controller.snapshot.project.designTemplates?.[0].id).toBe("unused-title");
+});
 
 it("imports into an empty library, previews independently and retains dirty work after a save races an edit", async () => {
 	let finish!: (result: any) => void;

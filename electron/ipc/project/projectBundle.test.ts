@@ -12,6 +12,7 @@ vi.mock("electron", () => ({
 	},
 }));
 
+import { addTextOverlay, createTimelineProject } from "../../../src/core/timeline/commands";
 import {
 	inspectProjectBundle,
 	isProjectBundle,
@@ -24,6 +25,7 @@ import {
 	convertProjectToBundleRelative,
 	convertProjectToWorkspaceAbsolute,
 } from "./projectWorkspace";
+import { stageTimelineProject } from "./timelineBundle";
 
 async function ensureAssetDir(workspace:string,id:string){const dir=path.join(workspace,"assets",id);await fs.mkdir(dir,{recursive:true});return dir;}
 
@@ -36,6 +38,29 @@ describe("Project Bundle (ZIP) & Asset Isolation", () => {
 
 	afterEach(async () => {
 		await fs.rm(tempRoot, { recursive: true, force: true }).catch(() => undefined);
+	});
+
+	it("reads a Story directly using its exact manifest path without duplicate prefixes", async () => {
+		const project = addTextOverlay(createTimelineProject("manifest", "Manifest"), 0, {
+			clipId: "inline-title",
+			trackId: "title-track",
+		});
+		const workspace = path.join(tempRoot, "workspace");
+		await stageTimelineProject(project, workspace);
+		const bundle = path.join(tempRoot, "manifest.captr");
+		await packProjectWorkspace(workspace, bundle);
+		const inspection = await inspectProjectBundle(bundle);
+		expect(inspection.entries.some((e) => e.path === "Story/story-main.json")).toBe(true);
+		expect(inspection.entries.some((e) => e.path === "Story/story-story-main.json")).toBe(false);
+		const manifests = inspection.projectData!.storyManifest as Array<{ file: string }>;
+		expect(manifests[0].file).toBe("Story/story-main.json");
+		const entry = await readProjectBundleEntry(bundle, manifests[0].file);
+		expect(entry.success).toBe(true);
+		expect(
+			JSON.parse(entry.content!).tracks.find((t: { id: string }) => t.id === "title-track")
+				.clips[0].content.kind,
+		).toBe("text");
+		expect(inspection.entries.some((e) => e.path === "assets/inline-title/asset.json")).toBe(false);
 	});
 
 	it("identifies ZIP bundle vs non-ZIP file via magic bytes", async () => {

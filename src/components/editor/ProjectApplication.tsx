@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { AppSettingsDialog } from "@/components/settings/AppSettingsDialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { WelcomeScreen } from "@/components/welcome/WelcomeScreen";
 import { createTimelineProject } from "@/core/timeline/commands";
 import { convertLegacyRecordProject } from "@/core/timeline/legacyConversion";
-import { validateTimelineProject } from "@/core/timeline/validation";
+import { normalizeStoryOwnership } from "@/core/timeline/normalizeStoryOwnership";
+import type { TimelineProject } from "@/core/timeline/types";
 import { probeLegacyRecordProject } from "@/recording/legacyProbe";
 import type { RecordingSessionData } from "../../../electron/ipc/types";
-import { useHomeProjects } from "./useHomeProjects";
 import { ProjectEditor } from "./ProjectEditor";
 import type { PendingProjectOpen, ProjectOpenResult } from "./projectLifecycle";
 import {
@@ -15,6 +15,7 @@ import {
 	requestProjectExit,
 	resolveApplicationBootstrap,
 } from "./projectNavigation";
+import { useHomeProjects } from "./useHomeProjects";
 import { createProjectController, type ProjectController } from "./useProjectController";
 
 export function ProjectApplication() {
@@ -49,7 +50,7 @@ export function ProjectApplication() {
 			setLegacy(result);
 			return;
 		}
-		const project = validateTimelineProject(result.project);
+		const project = normalizeStoryOwnership(result.project as TimelineProject);
 		const activated = await api?.activateTimelineProject?.(project.projectId);
 		if (activated && !activated.success) throw new Error("Could not activate project.");
 		const next = createProjectController(project);

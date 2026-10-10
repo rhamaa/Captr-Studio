@@ -13,7 +13,7 @@ import {
 	isBundledWallpaperReference,
 	visitTimelineMediaPaths,
 } from "../../../src/core/timeline/mediaPaths";
-import { validateTimelineProject } from "../../../src/core/timeline/validation";
+import { normalizeStoryOwnership } from "../../../src/core/timeline/normalizeStoryOwnership";
 import { inspectProjectBundle, packProjectWorkspace } from "./projectBundle";
 import { enqueueProjectFileOperation } from "./projectFileQueue";
 import { recoverProjectRenameTransactions, renameProjectBundle } from "./projectRenameTransaction";
@@ -106,7 +106,7 @@ export async function performProjectFileOperation(
 			const recovery = await recoverProjectRenameTransactions(ports.journalDir);
 			if (recovery.warnings.length) throw new Error(recovery.warnings.join("\n"));
 			if (ports.isBusy()) throw new Error("Finish recording before changing project files.");
-			const project = structuredClone(validateTimelineProject(request.project));
+			const project = normalizeStoryOwnership(request.project);
 			if (request.intent !== "save-as" && project.projectId !== request.ownerProjectId)
 				throw new Error("Project identity does not match the active session.");
 			if (request.intent === "save-as" && project.projectId === request.ownerProjectId)

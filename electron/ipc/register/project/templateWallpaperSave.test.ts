@@ -4,8 +4,8 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTimelineProject, placeAsset, registerRecording } from "../../../../src/core/timeline/commands";
 import type { CompletedRecording } from "../../../../src/core/timeline/types";
-import { unpackProjectBundle } from "../../project/projectBundle";
 import { loadProjectFromPath } from "../../project/manager";
+import { unpackProjectBundle } from "../../project/projectBundle";
 
 const mock = vi.hoisted(() => ({
 	handlers: new Map<string, (...args: any[]) => Promise<any>>(),
@@ -28,8 +28,22 @@ vi.mock("electron", () => ({
 	},
 }));
 
-import { registerProjectSaveHandlers } from "./save";
+// Workspace and Home metadata must follow each test's temporary root.
+vi.mock("../../../appPaths", () => ({
+	get USER_DATA_PATH() { return mock.root; },
+	get RECORDINGS_DIR() { return path.join(mock.root, "recordings"); },
+}));
+vi.mock("../../constants", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("../../constants")>();
+	return {
+		...actual,
+		get RECENT_PROJECTS_FILE() { return path.join(mock.root, "recent-projects.json"); },
+		get RECORDINGS_SETTINGS_FILE() { return path.join(mock.root, "recordings-settings.json"); },
+	};
+});
+
 import * as state from "../../state";
+import { registerProjectSaveHandlers } from "./save";
 
 describe("Template Background Save and .captr Self-Containment", () => {
 	let testDir: string;

@@ -4,9 +4,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { app } from "electron";
 import { assertSupportedLegacyProject } from "../../../src/core/project/legacySupport";
+import type { TimelineProject } from "../../../src/core/timeline/types";
 import { validateTimelineProject } from "../../../src/core/timeline/validation";
-import { resolveTimelineProject } from "./timelineBundle";
-import { setActiveRecordingProjectId } from "./recordingContext";
 import { RECORDINGS_DIR, USER_DATA_PATH } from "../../appPaths";
 import { isSupportedLocalMediaPath } from "../../mediaTypes";
 import {
@@ -35,19 +34,20 @@ import {
 	normalizeVideoSourcePath,
 	parseJsonWithByteOrderMark,
 } from "../utils";
+import { getAssetRootPath } from "./assetPaths";
 import {
 	assertProjectMediaInsideBundle,
 	collectProjectMediaPaths,
 	getProjectPrimaryMedia,
 	ProjectBundleValidationError,
 } from "./mediaReferences";
+import { getTimelineProjectActivity } from "./projectActivity";
 import { isProjectBundle, readBundleThumbnailDataUrl, unpackProjectBundle } from "./projectBundle";
-import { convertProjectToWorkspaceAbsolute, getProjectWorkspaceDir, getWorkspacesRoot } from "./projectWorkspace";
-
-import { getAssetRootPath } from "./assetPaths";
 import { enqueueProjectFileOperation } from "./projectFileQueue";
 import { recoverProjectRenameTransactions } from "./projectRenameTransaction";
-import { getTimelineProjectActivity } from "./projectActivity";
+import { convertProjectToWorkspaceAbsolute, getProjectWorkspaceDir, getWorkspacesRoot } from "./projectWorkspace";
+import { setActiveRecordingProjectId } from "./recordingContext";
+import { resolveTimelineProject } from "./timelineBundle";
 
 export { normalizePath, normalizeVideoSourcePath, getAssetRootPath };
 
@@ -556,7 +556,7 @@ async function loadProjectFromPathUnqueued(projectPath: string) {
 
 			// Validate every source before replacing any active project workspace.
 			const extractedProject = rawProject.version === 3
-				? resolveTimelineProject(validateTimelineProject(rawProject), tempExtractDir)
+				? resolveTimelineProject(rawProject as unknown as TimelineProject, tempExtractDir)
 				: convertProjectToWorkspaceAbsolute(rawProject, tempExtractDir);
 			await assertProjectMediaInsideBundle(extractedProject, tempExtractDir);
 			if (rawProject.version === 3) {
@@ -577,7 +577,7 @@ async function loadProjectFromPathUnqueued(projectPath: string) {
 					await fs.rm(next, { recursive: true, force: true }).catch(() => undefined);
 				}
 				await fs.rm(backup, { recursive: true, force: true }).catch(() => undefined);
-				project = resolveTimelineProject(validateTimelineProject(rawProject), finalWorkspace);
+				project = resolveTimelineProject(rawProject as unknown as TimelineProject, finalWorkspace);
 			}
 			await fs.rm(tempExtractDir, { recursive: true, force: true }).catch(() => undefined);
 		} catch (error) {

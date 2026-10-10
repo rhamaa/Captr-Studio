@@ -2,6 +2,7 @@ import { useRef, useSyncExternalStore } from "react";
 import type { ProjectPersistencePort } from "@/core/project/fileOperationTypes";
 import { projectTitleFromPath, validateProjectBaseName } from "@/core/project/projectNames";
 import { type ProjectCommand, ProjectHistory } from "@/core/timeline/history";
+import { normalizeStoryOwnership } from "@/core/timeline/normalizeStoryOwnership";
 import { ProjectSession } from "@/core/timeline/projectSession";
 import {
 	applyStoryCommand,
@@ -12,7 +13,6 @@ import {
 } from "@/core/timeline/storyOwnership";
 import type { StoryScope } from "@/core/timeline/types";
 import { projectDurationUs, type TimelineProject } from "@/core/timeline/types";
-import { validateTimelineProject } from "@/core/timeline/validation";
 import { type SaveProject, TimelinePersistence } from "./useTimelinePersistence";
 export interface ProjectControllerState {
 	project: TimelineProject;
@@ -43,6 +43,7 @@ export class ProjectController {
 	private thumbnailProvider: (() => Promise<string | null> | string | null) | null = null;
 	private work = new Map<string, number>();
 	constructor(project: TimelineProject, save: SaveProject | { persist: ProjectPersistencePort }) {
+		project = normalizeStoryOwnership(project);
 		this.verified = typeof save !== "function";
 		this.history = new ProjectHistory(project);
 		this.generation = this.importSession.beginProject(project.projectId);
@@ -183,9 +184,9 @@ export class ProjectController {
 		this.publish({ revision: this.state.revision + 1 });
 	}
 	open(project: TimelineProject, path: string | null): void {
-		this.work.clear();
-		const next = structuredClone(validateTimelineProject(project));
+		const next = normalizeStoryOwnership(project);
 		if (path) next.title = projectTitleFromPath(path);
+		this.work.clear();
 		this.history = new ProjectHistory(next);
 		this.generation = this.importSession.beginProject(next.projectId);
 		this.persistence.beginProject(next.projectId);

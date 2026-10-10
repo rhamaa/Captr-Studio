@@ -1,22 +1,24 @@
 import fs from "node:fs/promises";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
 import { dialog, ipcMain } from "electron";
-import { LEGACY_PROJECT_FILE_EXTENSIONS, PROJECT_FILE_EXTENSION } from "../../constants";
-import { stageTimelineProject } from "../../project/timelineBundle";
+import type { ProjectFileRequest } from "../../../../src/core/project/fileOperationTypes";
+import { normalizeStoryOwnership } from "../../../../src/core/timeline/normalizeStoryOwnership";
+import type { TimelineProject } from "../../../../src/core/timeline/types";
 import { validateTimelineProject } from "../../../../src/core/timeline/validation";
+import { LEGACY_PROJECT_FILE_EXTENSIONS, PROJECT_FILE_EXTENSION } from "../../constants";
 import {
+	getLegacyConversionOrigin,
 	getProjectsDir,
 	isTrustedProjectPath,
 	rememberRecentProject,
-	getLegacyConversionOrigin,
 } from "../../project/manager";
 import { inspectProjectBundle, packProjectWorkspace } from "../../project/projectBundle";
+import { enqueueProjectFileOperation } from "../../project/projectFileQueue";
+import { performProjectFileOperation } from "../../project/projectFileService";
+import { stageTimelineProject } from "../../project/timelineBundle";
 import { setCurrentProjectPath } from "../../state";
 import { ensureProjectDataHasProjectId, normalizeProjectSaveName } from "./shared";
-import { performProjectFileOperation } from "../../project/projectFileService";
-import { enqueueProjectFileOperation } from "../../project/projectFileQueue";
-import type { ProjectFileRequest } from "../../../../src/core/project/fileOperationTypes";
 export function registerProjectSaveHandlers() {
 	ipcMain.handle("operate-timeline-project-file", (_, request: ProjectFileRequest) => performProjectFileOperation(request));
 	async function saveAndBundleProject(
@@ -25,7 +27,7 @@ export function registerProjectSaveHandlers() {
 		thumbnailDataUrl?: string | null,
 	) {
 		if (preparedProject.projectData.version === 3) {
-			const project = validateTimelineProject(preparedProject.projectData);
+			const project = normalizeStoryOwnership(preparedProject.projectData as unknown as TimelineProject);
 			const staging = await fs.mkdtemp(path.join(os.tmpdir(), "captr-save-v3-"));
 			try {
 				await stageTimelineProject(project, staging);
