@@ -14,6 +14,7 @@ import {
 	getStoryEditProject,
 	getStoryProject,
 	type StoryEditContext,
+	type StoryEditPlan,
 	sameStoryEditContext,
 } from "../../../src/core/timeline/storyOwnership";
 import type { AssetTranscript } from "../../../src/core/timeline/transcriptTypes";
@@ -38,12 +39,7 @@ export interface McpServerInfo {
 	activeClientsCount: number;
 }
 
-export interface EditPlan {
-	summary: string;
-	steps: string[];
-	estimatedDurationSec?: number;
-	createdAt: string;
-}
+export type EditPlan = StoryEditPlan;
 
 const DEFAULT_MCP_PORT = 39420;
 let mcpHttpServer: http.Server | null = null;
@@ -61,8 +57,17 @@ interface SseSession {
 const sseSessions = new Map<string, SseSession>();
 
 export function setMcpProjectContext(context: ActiveProjectContext): void {
-	if (speculativeContext && !sameStoryEditContext(speculativeContext, context.editContext))
-		clearSpeculativeProject();
+	if (speculativeContext) {
+		let current = sameStoryEditContext(speculativeContext, context.editContext);
+		if (current) {
+			try {
+				getStoryProject(context.project, speculativeContext.scope);
+			} catch {
+				current = false;
+			}
+		}
+		if (!current) clearSpeculativeProject();
+	}
 	activeContext = structuredClone(context);
 }
 
@@ -79,6 +84,7 @@ export function clearSpeculativeProject(): void {
 	speculativeContext = undefined;
 	activePlan = null;
 	broadcastToRenderers("agent:speculative-preview", null);
+	broadcastToRenderers("agent:edit-plan", null);
 }
 
 export function getSpeculativeProject(): TimelineProject | null {
@@ -344,6 +350,7 @@ export async function executeMcpToolCall(
 		case "propose_edit_plan": {
 			speculativeContext = structuredClone(proposalContext);
 			const plan: EditPlan = {
+				context: structuredClone(proposalContext),
 				summary: String(args.summary || "Edit plan"),
 				steps: Array.isArray(args.steps) ? args.steps.map(String) : [],
 				estimatedDurationSec:

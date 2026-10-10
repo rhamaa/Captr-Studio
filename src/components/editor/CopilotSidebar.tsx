@@ -15,16 +15,15 @@ import {
 import { useEffect, useRef, useState } from "react";
 import type { AgentDiffSummary } from "@/core/timeline/agentPayload";
 import { resolveClipSource } from "@/core/timeline/clipSource";
-import type { StoryEditContext } from "@/core/timeline/storyOwnership";
+import {
+	matchingStoryEditPlan,
+	type StoryEditContext,
+	type StoryEditPlan,
+} from "@/core/timeline/storyOwnership";
 import type { AssetTranscript } from "@/core/timeline/transcriptTypes";
 import type { TimelineProject } from "@/core/timeline/types";
 
-export interface EditPlan {
-	summary: string;
-	steps: string[];
-	estimatedDurationSec?: number;
-	createdAt: string;
-}
+export type EditPlan = StoryEditPlan;
 
 export interface CopilotSidebarProps {
 	editContext?: StoryEditContext;
@@ -105,6 +104,7 @@ export function CopilotSidebar({
 	editContext,
 	onSeekTo,
 }: CopilotSidebarProps) {
+	const currentPlan = matchingStoryEditPlan(editPlan, editContext);
 	const [activeTab, setActiveTab] = useState<"chat" | "mcp">("chat");
 	const [prompt, setPrompt] = useState("");
 	const [selectedAgent, setSelectedAgent] = useState("agy");
@@ -552,17 +552,17 @@ export function CopilotSidebar({
 						</div>
 
 						{/* Proposed Edit Plan Card */}
-						{editPlan && (
+						{currentPlan && (
 							<div className="copilot-plan-card">
 								<div className="flex items-center gap-1.5 font-semibold text-xs text-amber-300 mb-1.5">
 									<GitBranch size={14} weight="bold" />
 									<span>Proposed Edit Plan</span>
 								</div>
 								<p className="text-xs text-zinc-200 mb-2 font-medium">
-									{editPlan.summary}
+									{currentPlan.summary}
 								</p>
 								<ol className="list-decimal list-inside space-y-1 text-[11px] text-zinc-300">
-									{editPlan.steps.map((st, idx) => (
+									{currentPlan.steps.map((st, idx) => (
 										<li key={idx}>{st}</li>
 									))}
 								</ol>

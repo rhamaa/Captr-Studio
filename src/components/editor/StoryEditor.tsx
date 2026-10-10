@@ -92,6 +92,28 @@ export interface StoryEditorProps {
 	onToggleSnapping?: () => void;
 }
 
+/** Terminal settings belong to the project, including when opened from a Story. */
+export function StoryProjectTerminal({
+	rootProject,
+	onProjectCommand,
+	onClose,
+}: {
+	rootProject: TimelineProject;
+	onProjectCommand: (command: ProjectCommand) => void;
+	onClose: () => void;
+}) {
+	return (
+		<ProjectTerminal
+			className="h-[300px] rounded-none border-x-0 border-b-0"
+			terminalConfig={rootProject.terminalConfig}
+			onUpdateTerminalConfig={(config) =>
+				onProjectCommand((p) => updateProjectTerminalConfig(p, config))
+			}
+			onClose={onClose}
+		/>
+	);
+}
+
 export function formatTimecode(timeUs: number, fps = 30): string {
 	const totalSecs = Math.max(0, timeUs / 1_000_000);
 	const mins = Math.floor(totalSecs / 60);
@@ -938,12 +960,9 @@ export function StoryEditor({
 			/>
 			{terminalOpen && (
 				<div className="border-t border-white/10 bg-[#090a0d] shadow-2xl relative z-40">
-					<ProjectTerminal
-						className="h-[300px] rounded-none border-x-0 border-b-0"
-						terminalConfig={storyProject.terminalConfig}
-						onUpdateTerminalConfig={(cfg) =>
-							onCommand((p) => updateProjectTerminalConfig(p, cfg))
-						}
+					<StoryProjectTerminal
+						rootProject={rootProject}
+						onProjectCommand={onProjectCommand ?? onCommand}
 						onClose={() => setTerminalOpen(false)}
 					/>
 				</div>

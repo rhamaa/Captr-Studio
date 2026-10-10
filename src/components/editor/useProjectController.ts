@@ -7,6 +7,7 @@ import {
 	applyStoryCommand,
 	getStoryProject,
 	type StoryEditContext,
+	type StoryEditPlan,
 	sameStoryEditContext,
 } from "@/core/timeline/storyOwnership";
 import type { StoryScope } from "@/core/timeline/types";
@@ -108,6 +109,16 @@ export class ProjectController {
 			scope: structuredClone(scope),
 			revision: this.state.revision,
 		};
+	}
+	currentStoryEditPlan(plan: StoryEditPlan | null, scope: StoryScope): StoryEditPlan | null {
+		if (this.exited) return null;
+		try {
+			return plan && sameStoryEditContext(plan.context, this.storyEditContext(scope))
+				? plan
+				: null;
+		} catch {
+			return null;
+		}
 	}
 	acceptStoryEdit(
 		context: StoryEditContext,

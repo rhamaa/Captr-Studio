@@ -1098,8 +1098,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		ipcRenderer.on("agent:commit-edits", listener);
 		return () => ipcRenderer.removeListener("agent:commit-edits", listener);
 	},
-	onAgentEditPlan: (callback: (plan: any) => void) => {
-		const listener = (_event: Electron.IpcRendererEvent, plan: any) => callback(plan);
+	onAgentEditPlan: (callback: Parameters<NonNullable<Window["electronAPI"]["onAgentEditPlan"]>>[0]) => {
+		const listener = (_event: Electron.IpcRendererEvent, plan: Parameters<typeof callback>[0]) => callback(plan);
 		ipcRenderer.on("agent:edit-plan", listener);
 		return () => ipcRenderer.removeListener("agent:edit-plan", listener);
 	},

@@ -5,10 +5,14 @@ import {
 	clearSpeculativeProject,
 	executeMcpToolCall,
 	getSpeculativeProject,
+	getActiveEditPlan,
 	setMcpProjectContext,
 } from "./mcpServer";
 
-vi.mock("electron", () => ({ BrowserWindow: { getAllWindows: () => [] } }));
+const send = vi.hoisted(() => vi.fn());
+vi.mock("electron", () => ({
+	BrowserWindow: { getAllWindows: () => [{ isDestroyed: () => false, webContents: { send } }] },
+}));
 const scope = { kind: "artboard", artboardId: "A" } as const;
 const context = { scope, projectId: "ownership", generation: 1, revision: 0 };
 const sync = (editContext = context) =>
@@ -22,6 +26,51 @@ const sync = (editContext = context) =>
 	});
 
 describe("MCP Story proposal ownership", () => {
+	it("captures plan context and invalidates plans after scope, revision or generation changes", async () => {
+		for (const changed of [
+			{ ...context, revision: 1 },
+			{ ...context, generation: 2 },
+			{ ...context, scope: { kind: "artboard", artboardId: "B" } as const },
+		]) {
+			sync();
+			expect(
+				(
+					await executeMcpToolCall("propose_edit_plan", {
+						summary: "A plan",
+						steps: ["Trim A"],
+						editContext: context,
+					})
+				).isError,
+			).toBeUndefined();
+			expect(getActiveEditPlan()?.context).toEqual(context);
+			expect(send).toHaveBeenCalledWith(
+				"agent:edit-plan",
+				expect.objectContaining({ context }),
+			);
+			sync(changed);
+			expect(getActiveEditPlan()).toBeNull();
+			expect(send).toHaveBeenLastCalledWith("agent:edit-plan", null);
+		}
+		sync();
+		await executeMcpToolCall("propose_edit_plan", {
+			summary: "A plan",
+			steps: ["Trim A"],
+			editContext: context,
+		});
+		const deleted = ownershipFixture();
+		deleted.repurposeBoard!.artboards = deleted.repurposeBoard!.artboards.filter(
+			(a) => a.id !== "A",
+		);
+		setMcpProjectContext({
+			project: deleted,
+			transcripts: {},
+			playheadUs: 0,
+			selection: [],
+			activeArtboardId: "A",
+			editContext: context,
+		});
+		expect(getActiveEditPlan()).toBeNull();
+	});
 	beforeEach(() => {
 		clearSpeculativeProject();
 		sync();

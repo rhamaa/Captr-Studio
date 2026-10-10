@@ -5,6 +5,37 @@ import { ownershipFixture } from "@/core/timeline/storyOwnership.fixtures";
 import { ProjectController } from "./useProjectController";
 
 describe("captured Story proposals", () => {
+	it("keeps plans bound to their original owner, revision and generation", () => {
+		const controller = new ProjectController(ownershipFixture(), async () => ({
+			success: true,
+		}));
+		const scope = { kind: "artboard", artboardId: "A" } as const;
+		const plan = {
+			context: controller.storyEditContext(scope),
+			summary: "A only",
+			steps: ["Trim A"],
+			createdAt: "",
+		};
+		const before = controller.snapshot;
+		expect(controller.currentStoryEditPlan(plan, scope)).toBe(plan);
+		expect(
+			controller.currentStoryEditPlan(plan, { kind: "artboard", artboardId: "B" }),
+		).toBeNull();
+		expect(
+			controller.currentStoryEditPlan(
+				{ ...plan, context: { ...plan.context, generation: -1 } },
+				scope,
+			),
+		).toBeNull();
+		expect(
+			controller.currentStoryEditPlan(plan, { kind: "artboard", artboardId: "deleted" }),
+		).toBeNull();
+		expect(controller.snapshot).toBe(before);
+		controller.execute((p) => ({ ...p, updatedAt: "2026-10-10T01:00:00.000Z" }));
+		expect(controller.currentStoryEditPlan(plan, scope)).toBeNull();
+		controller.undo();
+		expect(controller.currentStoryEditPlan(plan, scope)).toBeNull();
+	});
 	it("applies only to captured owner and rejects revision, generation, sibling and deleted-owner proposals atomically", () => {
 		const controller = new ProjectController(ownershipFixture(), async () => ({
 			success: true,

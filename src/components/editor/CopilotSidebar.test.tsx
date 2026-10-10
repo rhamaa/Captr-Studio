@@ -155,6 +155,12 @@ describe("CopilotSidebar", () => {
 	it("renders proposed edit plan card with step by step breakdown", () => {
 		const project = buildTestProject();
 		const editPlan: EditPlan = {
+			context: {
+				scope: { kind: "root" },
+				projectId: project.projectId,
+				generation: 1,
+				revision: 0,
+			},
 			summary: "Trim intro pause and generate fast-paced hook",
 			steps: [
 				"Identify dead air from 0.0s to 1.8s",
@@ -174,6 +180,7 @@ describe("CopilotSidebar", () => {
 				activeArtboardId: null,
 				speculativeDraft: null,
 				editPlan,
+				editContext: editPlan.context,
 				onClose: vi.fn(),
 				onApplyDraft: vi.fn(),
 				onDiscardDraft: vi.fn(),
@@ -185,5 +192,28 @@ describe("CopilotSidebar", () => {
 		expect(html).toContain("Identify dead air from 0.0s to 1.8s");
 		expect(html).toContain("Split clip-1 at 1.8s and ripple delete pause");
 		expect(html).toContain("Insert motion graphic title at 1.8s");
+		for (const changed of [
+			{ ...editPlan.context, revision: 1 },
+			{ ...editPlan.context, generation: 2 },
+			{ ...editPlan.context, scope: { kind: "artboard", artboardId: "B" } as const },
+		]) {
+			const staleHtml = renderToStaticMarkup(
+				createElement(CopilotSidebar, {
+					project,
+					transcripts: {},
+					playheadUs: 0,
+					selection: [],
+					activeArtboardId: null,
+					speculativeDraft: null,
+					editPlan,
+					editContext: changed,
+					onClose: vi.fn(),
+					onApplyDraft: vi.fn(),
+					onDiscardDraft: vi.fn(),
+				}),
+			);
+			expect(staleHtml).not.toContain("Proposed Edit Plan");
+			expect(staleHtml).not.toContain(editPlan.summary);
+		}
 	});
 });

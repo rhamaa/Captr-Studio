@@ -11,6 +11,21 @@ export interface StoryEditContext {
 	revision: number;
 }
 
+export interface StoryEditPlan {
+	context: StoryEditContext;
+	summary: string;
+	steps: string[];
+	estimatedDurationSec?: number;
+	createdAt: string;
+}
+
+export function matchingStoryEditPlan(
+	plan: StoryEditPlan | null,
+	context: StoryEditContext | undefined,
+): StoryEditPlan | null {
+	return plan && sameStoryEditContext(plan.context, context) ? plan : null;
+}
+
 export function sameStoryEditContext(
 	a: StoryEditContext | undefined,
 	b: StoryEditContext | undefined,

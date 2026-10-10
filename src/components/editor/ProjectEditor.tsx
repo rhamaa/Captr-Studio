@@ -169,6 +169,10 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	);
 	const editContextRef = useRef(editContext);
 	editContextRef.current = editContext;
+	const currentPlan = controller.currentStoryEditPlan(editPlan, scope);
+	useEffect(() => {
+		if (editPlan !== currentPlan) setEditPlan(currentPlan);
+	}, [editPlan, currentPlan]);
 
 	// Sync project context to local MCP server
 	useEffect(() => {
@@ -220,10 +224,17 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	useEffect(() => {
 		if (!window.electronAPI?.onAgentEditPlan) return;
 		const unsub = window.electronAPI.onAgentEditPlan((plan) => {
-			setEditPlan(plan);
+			if (!plan) setEditPlan(null);
+			else {
+				const accepted = controller.currentStoryEditPlan(
+					plan,
+					editContextRef.current.scope,
+				);
+				if (accepted) setEditPlan(accepted);
+			}
 		});
 		return () => unsub();
-	}, []);
+	}, [controller]);
 
 	const handleApplyDraft = (modifiedProject: TimelineProject) => {
 		if (
@@ -1172,7 +1183,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						copilotOpen={copilotOpen}
 						onCloseCopilot={() => setCopilotOpen(false)}
 						speculativeDraft={speculativeDraft}
-						editPlan={editPlan}
+						editPlan={currentPlan}
 						onApplyDraft={handleApplyDraft}
 						onDiscardDraft={handleDiscardDraft}
 						editContext={editContext}

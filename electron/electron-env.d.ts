@@ -1058,12 +1058,7 @@ interface Window {
 			}) => void,
 		) => () => void;
 		onAgentEditPlan?: (
-			callback: (plan: {
-				summary: string;
-				steps: string[];
-				estimatedDurationSec?: number;
-				createdAt: string;
-			}) => void,
+			callback: (plan: import("../src/core/timeline/storyOwnership").StoryEditPlan | null) => void,
 		) => () => void;
 		runAgentTask?: (params: {
 			editContext: import("../src/core/timeline/storyOwnership").StoryEditContext;
