@@ -14,7 +14,7 @@ import {
 	VideoCamera,
 	X,
 } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
 import { projectFileName, projectTitleFromPath } from "@/core/project/projectNames";
@@ -409,6 +409,15 @@ export function ProjectEditor(props: ProjectEditorProps) {
 			props.onBusyChange?.(false);
 			action();
 		});
+	const navigateStory = useCallback((action: () => void) => {
+		const current = controller.snapshot;
+		if (
+			current.navigationPending || current.fileOperation || controller.isExited ||
+			busy || recordingPending > 0 || exportProgress !== null || props.navigationBlocked ||
+			(current.pendingWork > 0 && !audioAssets.isActive())
+		) return;
+		audioNavigation.request(action);
+	}, [controller, busy, recordingPending, exportProgress, props.navigationBlocked, audioAssets, audioNavigation]);
 	const open = async () => navigate(props.onRequestOpen);
 	const newProject = async () => navigate(props.onRequestNew);
 	const openAudioRecorder = () => {
@@ -420,16 +429,17 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	};
 	const beginAudioCapture = () => {
 		if (!audioTakeToken.current)
-			audioTakeToken.current = audioAssets.begin(audioStartUsRef.current);
+			audioTakeToken.current = audioAssets.begin(audioStartUsRef.current,
+				activeArtboardId ? { kind: "artboard", artboardId: activeArtboardId } : { kind: "root" });
 	};
 	const finalizeAudioTake = async (
 		take: import("@/recording/audioRecorder").RecordedAudioTake,
 	) => {
-		const token = audioTakeToken.current ?? audioAssets.begin(take.startUs);
-		audioTakeToken.current = token;
+		const token = audioTakeToken.current;
+		if (!token) throw new Error("The originating Story capture context is unavailable");
 		const result = await audioAssets.finalize(token, take);
-		if (!result) return;
 		audioTakeToken.current = null;
+		if (!result) return;
 		if (!audioNavigationRequestedRef.current) setAudioRecorderOpen(false);
 	};
 	const discardAudioTake = async () => {
@@ -702,7 +712,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						setActiveHyperframeId(null);
 					} else if (currentActiveArtboardId) {
 						e.preventDefault();
-						setActiveArtboardId(null);
+						navigateStory(() => setActiveArtboardId(null));
 					}
 				} else if (key === "ArrowLeft" || key === "ArrowRight") {
 					e.preventDefault();
@@ -777,7 +787,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 			window.removeEventListener("keydown", keydown);
 			unsub.forEach((u) => u?.());
 		};
-	}, [controller, currentActiveArtboardId, activeHyperframeId, activeProject]);
+	}, [controller, currentActiveArtboardId, activeHyperframeId, activeProject, navigateStory]);
 	useEffect(() => {
 		if (!playing) return;
 		const started = performance.now(),
@@ -824,10 +834,10 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						className="project-back-artboards-button"
 						aria-label="Back to Artboards Hub"
 						title="Back to Multi-Artboard Hub (Esc)"
-						onClick={() => {
+						onClick={() => navigateStory(() => {
 							setPlaying(false);
 							setActiveArtboardId(null);
-						}}
+						})}
 					>
 						<ArrowLeft size={14} weight="bold" />
 						<span>Artboards</span>
@@ -966,11 +976,11 @@ export function ProjectEditor(props: ProjectEditorProps) {
 							exportProgress !== null ||
 							props.navigationBlocked
 						}
-						onClick={() => {
+						onClick={() => navigateStory(() => {
 							setPlaying(false);
 							setEditingClipId(null);
 							setActiveArtboardId(null);
-						}}
+						})}
 					>
 						<SquaresFour size={16} weight="bold" />
 						Artboards
@@ -1138,16 +1148,16 @@ export function ProjectEditor(props: ProjectEditorProps) {
 								}
 							}}
 							onClose={() => navigate(props.onRequestHome)}
-							onOpenArtboardEditor={(artboardId) => {
+							onOpenArtboardEditor={(artboardId) => navigateStory(() => {
 								setPlaying(false);
 								setEditingClipId(null);
 								setActiveArtboardId(artboardId);
 								controller.seek(0);
-							}}
-							onOpenHyperframeEditor={(hyperframeId) => {
+							})}
+							onOpenHyperframeEditor={(hyperframeId) => navigateStory(() => {
 								setPlaying(false);
 								setActiveHyperframeId(hyperframeId);
-							}}
+							})}
 							onImport={(paths) => void importMedia(paths)}
 							onRecord={() => void startRecord()}
 							onRecordAudio={openAudioRecorder}
@@ -1170,7 +1180,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				{activeArtboardId && !activeArtboard ? (
 					<div role="alert" className="project-error">
 						This Story owner no longer exists
-						<button onClick={() => setActiveArtboardId(null)}>All Stories</button>
+						<button onClick={() => navigateStory(() => setActiveArtboardId(null))}>All Stories</button>
 					</div>
 				) : (
 					<StoryEditor
@@ -1205,11 +1215,11 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						}}
 						onBackToBoard={
 							currentActiveArtboardId
-								? () => {
+								? () => navigateStory(() => {
 										setPlaying(false);
 										setEditingClipId(null);
 										setActiveArtboardId(null);
-									}
+									})
 								: undefined
 						}
 						onImportMedia={(paths) => void importMedia(paths)}

@@ -1,13 +1,48 @@
 import { expect, it, vi } from "vitest";
 import { createTimelineProject } from "@/core/timeline/commands";
+import { ownershipFixture } from "@/core/timeline/storyOwnership.fixtures";
+import { requestProjectExit, resolveApplicationBootstrap } from "./projectNavigation";
+import { createAudioRecordingAssetsController } from "./useAudioRecordingAssets";
 import { ProjectController } from "./useProjectController";
-import { resolveApplicationBootstrap, requestProjectExit } from "./projectNavigation";
+
 const api = () => ({
 	consumePendingProjectOpen: vi.fn(async () => null),
 	loadCurrentProjectFile: vi.fn(),
 	getCurrentRecordingSession: vi.fn(async () => ({ success: true, session: null })),
 	getTimelineProjectActivity: vi.fn(async () => ({ recording: false, finalizing: false })),
 	deactivateTimelineProject: vi.fn(async () => ({ success: true })),
+});
+it("blocks Home while a Story take is saving and permits exit after discard", async () => {
+	const controller = new ProjectController(ownershipFixture(), vi.fn());
+	let finishSave!: (result: { success: boolean; filePath: string }) => void;
+	const assets = createAudioRecordingAssetsController({
+		controller,
+		getProject: () => controller.snapshot.project,
+		api: {
+			saveRecordedAudio: () =>
+				new Promise((resolve) => {
+					finishSave = resolve;
+				}),
+			discardRecordedAudio: async () => ({ success: true }),
+		},
+		probeMedia: async () => ({ durationUs: 1_000_000 }),
+	});
+	const token = assets.begin(0, { kind: "artboard", artboardId: "A" });
+	const completion = assets.finalize(token, {
+		blob: new Blob([new Uint8Array([1])]),
+		mimeType: "audio/webm",
+		extension: "webm",
+		durationMs: 1000,
+		startUs: 0,
+	});
+	await vi.waitFor(() => expect(finishSave).toBeDefined());
+	const lifecycle = api();
+	expect(await requestProjectExit(controller, "discard", lifecycle)).toBe(false);
+	expect(lifecycle.deactivateTimelineProject).not.toHaveBeenCalled();
+	await assets.discard(token);
+	finishSave({ success: true, filePath: "C:/recordings/voiceovers/discarded.webm" });
+	expect(await completion).toBeNull();
+	expect(await requestProjectExit(controller, "discard", lifecycle)).toBe(true);
 });
 it("normal launch shows Home without loading or activating a project", async () => {
 	const a = api();

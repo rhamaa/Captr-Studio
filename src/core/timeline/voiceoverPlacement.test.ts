@@ -51,6 +51,21 @@ function addExistingClip(
 }
 
 describe("placeVoiceover", () => {
+	it("uses captured IDs deterministically for a private take when all audio tracks are locked", () => {
+		const project = createTimelineProject("captured-voice", "Story");
+		project.localAssets = [{ ...voiceover, kind: "audio" }];
+		project.tracks.find((track) => track.kind === "audio")!.locked = true;
+		const ids = { clipId: "captured-clip", trackId: "captured-track" };
+		const first = placeVoiceover(project, voiceover.id, 7_000_000, ids);
+		const replay = placeVoiceover(project, voiceover.id, 7_000_000, ids);
+		expect(first.tracks).toEqual(replay.tracks);
+		expect(first.tracks.find((track) => track.id === ids.trackId)?.clips[0]).toMatchObject({
+			id: ids.clipId,
+			startUs: 7_000_000,
+		});
+		expect(first.assets).toHaveLength(0);
+		expect(first.localAssets).toEqual(project.localAssets);
+	});
 	it("places a private source without publishing it and rejects a sibling view", () => {
 		const project = createTimelineProject("private-voice", "Voice");
 		project.localAssets = [{ ...voiceover, kind: "audio" }];
@@ -58,8 +73,13 @@ describe("placeVoiceover", () => {
 		const next = placeVoiceover(project, voiceover.id, 1_000_000, ids);
 		expect(next.assets).toEqual([]);
 		expect(next.localAssets).toEqual(project.localAssets);
-		expect(next.tracks[1].clips[0]).toMatchObject({ assetId: voiceover.id, startUs: 1_000_000 });
-		expect(() => placeVoiceover({ ...project, localAssets: [] }, voiceover.id, 0, ids)).toThrow(/asset/i);
+		expect(next.tracks[1].clips[0]).toMatchObject({
+			assetId: voiceover.id,
+			startUs: 1_000_000,
+		});
+		expect(() => placeVoiceover({ ...project, localAssets: [] }, voiceover.id, 0, ids)).toThrow(
+			/asset/i,
+		);
 	});
 	it("uses the first unlocked audio track with a free interval", () => {
 		const project = projectWithVoiceover();

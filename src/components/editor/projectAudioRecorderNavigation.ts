@@ -32,6 +32,7 @@ export function createProjectAudioRecorderNavigation(options: {
 		});
 	};
 	const resolve = (choice: ProjectAudioNavigationChoice) => {
+		if (choice !== "stay" && options.isActive()) return;
 		options.setChoiceRequested(false);
 		if (choice === "stay") {
 			pendingAction = null;
