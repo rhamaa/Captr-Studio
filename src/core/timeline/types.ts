@@ -129,7 +129,8 @@ export interface TimelineProject {
 	version: 3;
 	projectId: string;
 	title: string;
-	canvas: { width: number; height: number; fps: number };
+	canvas: import("../story/storyTypes").StoryCanvasSettings;
+	storyMetadata?: StoryOwnerMetadata;
 	assets: MediaAsset[];
 	localAssets?: PrivateMediaAsset[];
 	designTemplates?: StoryDesignTemplate[];
@@ -149,6 +150,13 @@ export interface TimelineProject {
 	createdAt: string;
 	updatedAt: string;
 }
+/** Non-sequence Story identity and legacy presentation metadata retained by its owner. */
+export type StoryOwnerMetadata = Partial<
+	Pick<
+		import("../story/storyTypes").StoryComposition,
+		"id" | "name" | "aspectRatio" | "framing" | "createdAt" | "updatedAt"
+	>
+>;
 export interface ProjectTerminalConfig {
 	preferredShell?: "powershell" | "cmd" | "bash" | "default";
 	startupCommand?: string;

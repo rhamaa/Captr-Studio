@@ -11,6 +11,8 @@ export interface RepurposeArtboardFraming {
 
 export interface RepurposeArtboard {
 	id: string;
+	storyMetadata?: import("./types").StoryOwnerMetadata;
+	canvas?: import("../story/storyTypes").StoryCanvasSettings;
 	name: string;
 	aspectRatio: RepurposeAspectRatio;
 	width: number;

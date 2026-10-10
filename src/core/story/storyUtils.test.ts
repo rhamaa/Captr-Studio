@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createTimelineProject, placeAsset, registerMedia } from "../timeline/commands";
 import type { RepurposeArtboard } from "../timeline/repurposeTypes";
+import { ownershipFixture } from "../timeline/storyOwnership.fixtures";
 import {
 	artboardToStory,
 	calculateStoryDurationUs,
@@ -14,6 +15,29 @@ import {
 } from "./storyUtils";
 
 describe("storyUtils", () => {
+	it("projects current canonical owners including empty Artboards", () => {
+		const project = ownershipFixture();
+		project.stories = extractStoriesFromProject(project);
+		project.stories[0].durationUs = 99_000_000;
+		project.tracks = [];
+		project.repurposeBoard!.artboards[1].tracks = [];
+		const stories = extractStoriesFromProject(project);
+		expect(stories).toHaveLength(3);
+		expect(stories[0].tracks).toEqual([]);
+		expect(stories[0].durationUs).toBe(0);
+		expect(stories.find((s) => s.artboardId === "B")!.tracks).toEqual([]);
+	});
+	it("round-trips private media, explicit empty metadata, caption and canvas settings", () => {
+		const story = artboardToStory(ownershipFixture().repurposeBoard!.artboards[0]);
+		story.id = "stable-story-identity";
+		story.canvas = { ...story.canvas, fps: 24, background: "#123456" };
+		story.subtitles = { enabled: false };
+		story.clipTransitions = [];
+		story.durationUs = 5_000_000;
+		expect(artboardToStory(storyToArtboard(story))).toEqual(story);
+		const empty = { ...story, localAssets: [], tracks: [], durationUs: 0 };
+		expect(artboardToStory(storyToArtboard(empty))).toEqual(empty);
+	});
 	it("creates default story from project root tracks and canvas", () => {
 		const project = createTimelineProject("test-p", "My Video Project");
 		const story = createDefaultStory(project);
@@ -120,7 +144,9 @@ describe("storyUtils", () => {
 		expect(() => validateStoryComposition(validStory)).not.toThrow();
 
 		expect(() => validateStoryComposition({ id: "", name: "Story" })).toThrow(/valid id/);
-		expect(() => validateStoryComposition({ id: "s", name: "", canvas: {} })).toThrow(/valid name/);
+		expect(() => validateStoryComposition({ id: "s", name: "", canvas: {} })).toThrow(
+			/valid name/,
+		);
 
 		const validHf = {
 			id: "hf-1",

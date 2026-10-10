@@ -1,4 +1,7 @@
 import type { StoryScope, TimelineProject } from "./types";
+import type { ProjectCommand } from "./history";
+import { extractStoriesFromProject, generateStoryManifest } from "../story/storyUtils";
+import { validateTimelineProject } from "./validation";
 
 export function listStoryScopes(project: TimelineProject): StoryScope[] {
 	return [
@@ -21,12 +24,150 @@ export function getStoryProject(project: TimelineProject, scope: StoryScope): Ti
 		throw new Error(`Story owner has not been materialized: ${scope.artboardId}`);
 	return {
 		...project,
-		canvas: { ...project.canvas, width: owner.width, height: owner.height },
+		canvas: { ...(owner.canvas ?? project.canvas), width: owner.width, height: owner.height },
+		storyMetadata: owner.storyMetadata,
 		tracks: owner.tracks,
 		localAssets: owner.localAssets,
 		clipTransitions: owner.clipTransitions,
 		subtitles: owner.subtitles,
 		repurposeBoard: undefined,
 		stories: undefined,
+		storyManifest: undefined,
 	};
+}
+
+/** Regenerate mirrors only after canonical state changes; stale Record mirrors cannot veto edits. */
+export function refreshStoryProjections(project: TimelineProject): TimelineProject {
+	const stories = extractStoriesFromProject(project);
+	return { ...project, stories, storyManifest: generateStoryManifest(stories) };
+}
+
+/** Execute against an isolated view, then atomically validate the complete canonical project. */
+export function applyStoryCommand(
+	project: TimelineProject,
+	scope: StoryScope,
+	command: ProjectCommand,
+): TimelineProject {
+	const view = structuredClone(getStoryProject(project, scope));
+	view.repurposeBoard = undefined;
+	view.stories = undefined;
+	view.storyManifest = undefined;
+	const ownedCompositions = new Set(
+		view.tracks.flatMap((t) => t.clips.map((c) => c.compositionId).filter(Boolean)),
+	);
+	view.compositions = view.compositions.filter((c) => ownedCompositions.has(c.id));
+	const updated = command(view);
+	if (updated.projectId !== project.projectId)
+		throw new Error("Story command changed project identity");
+	let next: TimelineProject = {
+		...project,
+		assets: updated.assets,
+		packages: updated.packages,
+		compositions: [
+			...project.compositions.filter((c) => !ownedCompositions.has(c.id)),
+			...updated.compositions,
+		],
+		designTemplates: updated.designTemplates,
+		updatedAt: updated.updatedAt,
+	};
+	if (scope.kind === "root") {
+		next = {
+			...next,
+			tracks: updated.tracks,
+			localAssets: updated.localAssets,
+			clipTransitions: updated.clipTransitions,
+			canvas: updated.canvas,
+			subtitles: updated.subtitles,
+			storyMetadata: updated.storyMetadata,
+		};
+	} else {
+		next.repurposeBoard = {
+			...project.repurposeBoard!,
+			artboards: project.repurposeBoard!.artboards.map((owner) =>
+				owner.id === scope.artboardId
+					? {
+							...owner,
+							tracks: updated.tracks,
+							localAssets: updated.localAssets,
+							clipTransitions: updated.clipTransitions,
+							canvas: updated.canvas,
+							width: updated.canvas.width,
+							height: updated.canvas.height,
+							subtitles: updated.subtitles,
+							storyMetadata: updated.storyMetadata,
+						}
+					: owner,
+			),
+		};
+	}
+	return validateTimelineProject(refreshStoryProjections(next));
+}
+
+type StorySequence = Pick<
+	TimelineProject,
+	"tracks" | "clipTransitions" | "localAssets" | "subtitles"
+>;
+
+/** Snapshot placements and owned file identities; shared media/package identities remain untouched. */
+export function createStorySnapshot(
+	project: TimelineProject,
+	source: StorySequence,
+	newId: (kind: string, oldId: string) => string = () => crypto.randomUUID(),
+) {
+	const sourceIds = [
+		...source.tracks.flatMap((track) => [track.id, ...track.clips.map((clip) => clip.id)]),
+		...(source.clipTransitions ?? []).map((transition) => transition.id),
+		...(source.localAssets ?? []).map((asset) => asset.id),
+	];
+	if (
+		new Set(sourceIds).size !== sourceIds.length ||
+		sourceIds.some((id) => !/^[a-zA-Z0-9_-]+$/.test(id))
+	)
+		throw new Error("Duplicate or invalid snapshot source ID");
+	const snapshot = structuredClone({
+		tracks: source.tracks,
+		clipTransitions: source.clipTransitions,
+		localAssets: source.localAssets,
+		subtitles: source.subtitles,
+	});
+	const tracks = new Map<string, string>();
+	const clips = new Map<string, string>();
+	const media = new Map<string, string>();
+	const compositions: TimelineProject["compositions"] = [];
+	for (const asset of snapshot.localAssets ?? []) {
+		const id = newId("media", asset.id);
+		media.set(asset.id, id);
+		asset.id = id;
+	}
+	for (const track of snapshot.tracks) {
+		const id = newId("track", track.id);
+		tracks.set(track.id, id);
+		track.id = id;
+		for (const clip of track.clips) {
+			const id = newId("clip", clip.id);
+			clips.set(clip.id, id);
+			clip.id = id;
+			if (clip.assetId && media.has(clip.assetId)) clip.assetId = media.get(clip.assetId)!;
+			if (clip.compositionId) {
+				const original = project.compositions.find((c) => c.id === clip.compositionId);
+				if (!original) throw new Error(`Missing Record composition: ${clip.compositionId}`);
+				const id = newId("composition", original.id);
+				compositions.push({ ...structuredClone(original), id });
+				clip.compositionId = id;
+			}
+		}
+	}
+	for (const transition of snapshot.clipTransitions ?? []) {
+		transition.id = newId("transition", transition.id);
+		if (
+			!tracks.has(transition.trackId) ||
+			!clips.has(transition.fromClipId) ||
+			!clips.has(transition.toClipId)
+		)
+			throw new Error("Snapshot transition references missing placements");
+		transition.trackId = tracks.get(transition.trackId)!;
+		transition.fromClipId = clips.get(transition.fromClipId)!;
+		transition.toClipId = clips.get(transition.toClipId)!;
+	}
+	return { ...snapshot, compositions };
 }

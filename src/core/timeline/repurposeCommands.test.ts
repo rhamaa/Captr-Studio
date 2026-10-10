@@ -21,8 +21,80 @@ import {
 	updateRepurposeSlice,
 } from "./repurposeCommands";
 import { validateTimelineProject } from "./validation";
+import { ownershipFixture, fixtureClip, fixtureTrack } from "./storyOwnership.fixtures";
+import { extractStoriesFromProject } from "../story/storyUtils";
 
 describe("repurposeCommands", () => {
+	it("removes obsolete Story projections when deleting an owner", () => {
+		const input = ownershipFixture();
+		input.stories = extractStoriesFromProject(input);
+		const result = removeRepurposeArtboard(input, "A");
+		expect(result.stories!.some((s) => s.artboardId === "A")).toBe(false);
+		expect(() => validateTimelineProject(result)).not.toThrow();
+	});
+	it("rejects stale or unmaterialized placement scopes rather than copying root IDs", () => {
+		const input = ownershipFixture();
+		expect(() => placeAssetIntoArtboard(input, "missing", "shared")).toThrow();
+		delete input.repurposeBoard!.artboards[0].tracks;
+		expect(() => placeAssetIntoArtboard(input, "A", "shared")).toThrow(/materialized/);
+	});
+	it("refreshes projection tracks when placing a shared Record source", () => {
+		const input = ownershipFixture();
+		input.stories = extractStoriesFromProject(input);
+		const result = placeAssetIntoArtboard(input, "B", "record");
+		expect(result.stories!.find((s) => s.artboardId === "B")!.tracks[0].clips).toHaveLength(2);
+		expect(result.repurposeBoard!.artboards[0]).toEqual(input.repurposeBoard!.artboards[0]);
+		expect(() => validateTimelineProject(result)).not.toThrow();
+	});
+	it("new and duplicate Artboards snapshot private media, Record edits and transition references independently", () => {
+		const project = ownershipFixture();
+		const owner = project.repurposeBoard!.artboards[0];
+		project.tracks = owner.tracks!;
+		project.localAssets = owner.localAssets;
+		project.repurposeBoard!.artboards = [];
+		const left = fixtureClip("left");
+		left.sourceOutUs = 2_000_000;
+		const right = fixtureClip("right");
+		right.startUs = 2_000_000;
+		right.sourceInUs = 1_000_000;
+		right.sourceOutUs = 3_000_000;
+		project.tracks.push(fixtureTrack("transition-track", [left, right]));
+		project.clipTransitions = [
+			{
+				id: "fade",
+				trackId: "transition-track",
+				fromClipId: "left",
+				toClipId: "right",
+				preset: { kind: "cross-dissolve" },
+				durationUs: 500_000,
+				easing: "linear",
+			},
+		];
+		const added = addRepurposeArtboard(project, {
+			name: "Snapshot",
+			aspectRatio: "9:16",
+			width: 1080,
+			height: 1920,
+		});
+		const a = added.repurposeBoard!.artboards[0];
+		expect(a.tracks).toBeDefined();
+		expect(a.tracks![0].id).not.toBe(project.tracks[0].id);
+		expect(a.localAssets![0].id).not.toBe(project.localAssets![0].id);
+		expect(a.tracks![0].clips[0].compositionId).not.toBe(
+			project.tracks[0].clips[0].compositionId,
+		);
+		const transition = a.clipTransitions![0];
+		expect(transition.id).not.toBe("fade");
+		const track = a.tracks!.find((t) => t.id === transition.trackId)!;
+		expect(track.clips.map((c) => c.id)).toEqual([transition.fromClipId, transition.toClipId]);
+		const duplicated = duplicateRepurposeArtboard(added, a.id);
+		const b = duplicated.repurposeBoard!.artboards[1];
+		expect(b.localAssets![0].id).not.toBe(a.localAssets![0].id);
+		expect(b.tracks![0].clips[0].compositionId).not.toBe(a.tracks![0].clips[0].compositionId);
+		expect(() => validateTimelineProject(duplicated)).not.toThrow();
+		duplicated.tracks[0].clips[0].transform.scale = 2;
+		expect(b.tracks![0].clips[0].transform.scale).toBe(1);
+	});
 	it("initializes default repurpose board with empty artboards by default and full slice", () => {
 		const project = createTimelineProject("p1", "Test Project");
 		expect(project.repurposeBoard).toBeUndefined();
@@ -170,7 +242,7 @@ describe("repurposeCommands", () => {
 		expect(() => validateTimelineProject(project)).not.toThrow();
 	});
 
-	it("creates artboard project view and falls back to project tracks until customized", () => {
+	it("creates an Artboard view with independently identified snapshot tracks", () => {
 		let project = createTimelineProject("p1", "Test Project");
 		project = addRepurposeArtboard(project, {
 			aspectRatio: "9:16",
@@ -186,8 +258,8 @@ describe("repurposeCommands", () => {
 		const view = getArtboardProjectView(project, artboard916.id);
 		expect(view.canvas.width).toBe(1080);
 		expect(view.canvas.height).toBe(1920);
-		// Falls back to root project tracks
-		expect(view.tracks).toEqual(project.tracks);
+		expect(view.tracks.map((t) => t.name)).toEqual(project.tracks.map((t) => t.name));
+		expect(view.tracks[0].id).not.toBe(project.tracks[0].id);
 	});
 
 	it("updates artboard independent sequence and syncs shared assets", () => {
@@ -251,8 +323,7 @@ describe("repurposeCommands", () => {
 		expect(foundAsset).toBeDefined();
 		expect(foundAsset?.name).toBe("Sticker.png");
 
-		// Legacy snapshots retain shared IDs until the scoped-command migration.
-		expect(() => validateTimelineProject(project, { mode: "legacy" })).not.toThrow();
+		expect(() => validateTimelineProject(project)).not.toThrow();
 	});
 
 	it("forks sequence and duplicates artboard with cloned tracks", () => {
@@ -277,11 +348,13 @@ describe("repurposeCommands", () => {
 		const duplicated = project.repurposeBoard!.artboards[1];
 		expect(duplicated.name).toContain("(Copy)");
 		expect(duplicated.tracks).toBeDefined();
-		expect(duplicated.tracks).toEqual(targetArtboard.tracks);
+		expect(duplicated.tracks!.map((t) => t.name)).toEqual(
+			targetArtboard.tracks!.map((t) => t.name),
+		);
+		expect(duplicated.tracks![0].id).not.toBe(targetArtboard.tracks![0].id);
 		expect(duplicated.id).not.toBe(targetArtboard.id);
 
-		// Legacy snapshots retain shared IDs until the scoped-command migration.
-		expect(() => validateTimelineProject(project, { mode: "legacy" })).not.toThrow();
+		expect(() => validateTimelineProject(project)).not.toThrow();
 	});
 
 	it("places asset into artboard timeline and creates tracks if needed", () => {
@@ -356,8 +429,7 @@ describe("repurposeCommands", () => {
 		expect(audioTrack?.clips).toHaveLength(1);
 		expect(audioTrack?.clips[0].assetId).toBe("audio-asset-1");
 
-		// Legacy snapshots retain shared IDs until the scoped-command migration.
-		expect(() => validateTimelineProject(project, { mode: "legacy" })).not.toThrow();
+		expect(() => validateTimelineProject(project)).not.toThrow();
 	});
 
 	it("preserves backward compatibility when validating project without repurposeBoard", () => {

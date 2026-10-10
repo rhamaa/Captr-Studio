@@ -312,6 +312,71 @@ function inlineContent(value: StoryClipContent, width: number, height: number) {
 }
 
 export type TimelineValidationOptions = { mode: "legacy" | "canonical" };
+/** Shared validation for optional canonical presentation metadata, including legacy hydration. */
+export function validateStoryPresentation(owner: {
+	canvas?: unknown;
+	storyMetadata?: unknown;
+	subtitles?: unknown;
+}) {
+	if (owner.canvas !== undefined) {
+		const canvas = owner.canvas;
+		requireValue(
+			object(canvas) &&
+				integer(canvas.width) &&
+				canvas.width > 0 &&
+				integer(canvas.height) &&
+				canvas.height > 0 &&
+				positive(canvas.fps),
+			"Invalid Story canvas",
+		);
+		if (canvas.background !== undefined)
+			requireValue(typeof canvas.background === "string", "Invalid Story canvas background");
+	}
+	if (owner.storyMetadata !== undefined) {
+		const metadata = owner.storyMetadata;
+		requireValue(object(metadata), "Invalid Story metadata");
+		if (metadata.id !== undefined)
+			requireValue(
+				typeof metadata.id === "string" && /^[a-zA-Z0-9_-]+$/.test(metadata.id),
+				"Invalid Story metadata ID",
+			);
+		for (const key of ["name", "createdAt", "updatedAt"])
+			if (metadata[key] !== undefined)
+				requireValue(
+					typeof metadata[key] === "string" && metadata[key].length > 0,
+					`Invalid Story metadata ${key}`,
+				);
+		if (metadata.aspectRatio !== undefined)
+			requireValue(
+				["9:16", "1:1", "16:9", "4:5", "custom"].includes(metadata.aspectRatio as string),
+				"Invalid Story aspect ratio",
+			);
+		if (metadata.framing !== undefined) {
+			const framing = metadata.framing;
+			requireValue(
+				object(framing) &&
+					positive(framing.scale) &&
+					Number.isFinite(framing.offsetX) &&
+					Number.isFinite(framing.offsetY) &&
+					["cover", "contain"].includes(framing.fitMode as string),
+				"Invalid Story framing",
+			);
+		}
+	}
+	if (owner.subtitles !== undefined) {
+		const subtitles = owner.subtitles;
+		requireValue(
+			object(subtitles) && typeof subtitles.enabled === "boolean",
+			"Invalid Story subtitles",
+		);
+		for (const key of ["style", "primaryColor", "secondaryColor"])
+			if (subtitles[key] !== undefined)
+				requireValue(typeof subtitles[key] === "string", `Invalid Story subtitles ${key}`);
+		if (subtitles.fontSize !== undefined)
+			requireValue(positive(subtitles.fontSize), "Invalid Story subtitle font size");
+	}
+}
+
 /** Canonical by default; raw ingress and unmigrated producers must select legacy explicitly. */
 export function validateTimelineProject(
 	value: unknown,
@@ -320,6 +385,7 @@ export function validateTimelineProject(
 	requireValue(value && typeof value === "object", "Invalid timeline project");
 	const p = value as TimelineProject;
 	serializable(p);
+	validateStoryPresentation(p);
 	requireValue(
 		p.version === 3 &&
 			typeof p.projectId === "string" &&
@@ -673,6 +739,7 @@ export function validateTimelineProject(
 		requireValue(Array.isArray(p.repurposeBoard.slices), "Invalid repurpose slices");
 		const artboardIds = new Set<string>();
 		for (const ab of p.repurposeBoard.artboards) {
+			validateStoryPresentation(ab);
 			requireValue(!artboardIds.has(ab.id), "Duplicate artboard ID");
 			artboardIds.add(ab.id);
 			requireValue(typeof ab.id === "string" && ab.id.length > 0, "Invalid artboard ID");
