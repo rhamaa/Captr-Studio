@@ -40,6 +40,12 @@ export class ProjectHistory {
 		this.past = this.past.map(update);
 		this.future = this.future.map(update);
 	}
+	setTitle(title: string): void {
+		const update = (s: Snapshot): Snapshot => ({ ...s, project: { ...s.project, title } });
+		this.current = update(this.current);
+		this.past = this.past.map(update);
+		this.future = this.future.map(update);
+	}
 	select(selection: string[]): void {
 		this.current = { ...this.current, selection: validSelection(this.project, selection) };
 	}

@@ -460,14 +460,29 @@ describe("FrameRenderer webcam export path", () => {
 		expect(createdCanvases).toHaveLength(2);
 	});
 
-	it("repaints the cursor when seeking back to an exact animation checkpoint",()=>{
-  const renderer=createRenderer() as unknown as {prepareProjectAnimation:(ms:number)=>void;cursorOverlay:unknown;layoutCache:unknown;updateAnimationState:(ms:number)=>number};
-  let painted=-1;renderer.layoutCache={maskRect:{x:0,y:0,width:100,height:100}};
-  renderer.cursorOverlay={checkpoint:()=>({}),restore:()=>{},reset:()=>{},update:(_:unknown,ms:number)=>{painted=ms;}};
-  renderer.updateAnimationState=()=>0;
-  renderer.prepareProjectAnimation(1000);renderer.prepareProjectAnimation(2000);renderer.prepareProjectAnimation(1000);
-  expect(painted).toBe(1000);
- });
+	it("repaints the cursor when seeking back to an exact animation checkpoint", () => {
+		const renderer = createRenderer() as unknown as {
+			prepareProjectAnimation: (ms: number) => void;
+			cursorOverlay: unknown;
+			layoutCache: unknown;
+			updateAnimationState: (ms: number) => number;
+		};
+		let painted = -1;
+		renderer.layoutCache = { maskRect: { x: 0, y: 0, width: 100, height: 100 } };
+		renderer.cursorOverlay = {
+			checkpoint: () => ({}),
+			restore: () => {},
+			reset: () => {},
+			update: (_: unknown, ms: number) => {
+				painted = ms;
+			},
+		};
+		renderer.updateAnimationState = () => 0;
+		renderer.prepareProjectAnimation(1000);
+		renderer.prepareProjectAnimation(2000);
+		renderer.prepareProjectAnimation(1000);
+		expect(painted).toBe(1000);
+	});
 	it("prefers decoder-backed sync for video wallpapers during export", async () => {
 		vi.clearAllMocks();
 		const renderer = new FrameRenderer({

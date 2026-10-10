@@ -19,6 +19,7 @@ import {
 	getAvailableWallpapers,
 	isVideoWallpaperSource,
 } from "@/lib/wallpapers";
+import { RecordLayoutSection } from "@/recording/components/RecordLayoutSection";
 import type { AspectRatio } from "@/utils/aspectRatioUtils";
 import { useI18n, useScopedT } from "../../contexts/I18nContext";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
@@ -30,12 +31,10 @@ import {
 import { loadEditorPreferences } from "./editorPreferences";
 import { ExtensionSettingsSection } from "./settings/components/ExtensionSettingsSection";
 import { SectionLabel } from "./settings/components/SettingsSectionLabel";
-import { AudioRecordSection } from "./settings/sections/AudioRecordSection";
 import { AudioTrackSection } from "./settings/sections/AudioTrackSection";
 import { ClipItemSection } from "./settings/sections/ClipItemSection";
 import { CursorSection } from "./settings/sections/CursorSection";
 import { GeneralPreferencesSection } from "./settings/sections/GeneralPreferencesSection";
-import { RecordLayoutSection } from "@/recording/components/RecordLayoutSection";
 import { SceneSection } from "./settings/sections/SceneSection";
 import { TransitionsSection } from "./settings/sections/TransitionsSection";
 import { VideoAdjustSection } from "./settings/sections/VideoAdjustSection";
@@ -94,7 +93,6 @@ interface SettingsPanelProps {
 	panelMode?: "editor" | "background";
 	activeEffectSection?: EditorEffectSection;
 	recordToolsEnabled?: boolean;
-	onAudioAdded?: (span: { start: number; end: number }, audioPath: string) => void;
 	currentTime?: number;
 	selected: string;
 	onWallpaperChange: (path: string) => void;
@@ -252,7 +250,6 @@ export function SettingsPanel({
 	panelMode = "editor",
 	activeEffectSection: activeEffectSectionProp,
 	recordToolsEnabled = true,
-	onAudioAdded,
 	currentTime = 0,
 	selected,
 	onWallpaperChange,
@@ -828,29 +825,7 @@ export function SettingsPanel({
 	const effectSectionContent = (() => {
 		switch (activeEffectSection) {
 			case "media":
-				return (
-					null
-				);
-			case "audio-record":
-				return (
-					<AudioRecordSection
-						currentTime={currentTime}
-						compositionId={selectedClipId}
-						onAudioAdded={onAudioAdded}
-						selectedAudioId={selectedAudioId}
-						selectedAudioVolume={selectedAudioVolume}
-						selectedAudioNormalize={selectedAudioNormalize}
-						selectedAudioDucking={selectedAudioDucking}
-						onAudioVolumeChange={onAudioVolumeChange}
-						onAudioNormalizeChange={onAudioNormalizeChange}
-						onAudioDuckingChange={onAudioDuckingChange}
-						onAudioDelete={onAudioDelete}
-						audioDuckingSettings={audioDuckingSettings}
-						onAudioDuckingSettingsChange={onAudioDuckingSettingsChange}
-						tSettings={tSettings}
-						t={t}
-					/>
-				);
+				return null;
 			case "video-adjust":
 				return (
 					<VideoAdjustSection
@@ -993,7 +968,7 @@ export function SettingsPanel({
 						onLayoutTransitionChange={onLayoutTransitionChange}
 						onLayoutEasingChange={onLayoutEasingChange}
 						webcam={webcam}
-						bubbleWebcamSettings={
+						cameraSettings={
 							<WebcamSection
 								webcam={webcam}
 								webcamPreviewSrc={webcamPreviewSrc}
@@ -1012,7 +987,7 @@ export function SettingsPanel({
 								renderExtensionPanelsForSections={renderExtensionPanelsForSections}
 								tSettings={tSettings}
 								t={t}
-								embeddedInCameraBubble
+								embeddedInLayout
 							/>
 						}
 						tSettings={tSettings}
@@ -1092,9 +1067,7 @@ export function SettingsPanel({
 					}
 				}
 				if (!recordToolsEnabled) {
-					return (
-						null
-					);
+					return null;
 				}
 				return sceneSectionContent;
 			}

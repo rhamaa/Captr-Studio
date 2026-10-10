@@ -1,19 +1,32 @@
 import { useEffect, useRef } from "react";
-import type { TimelineProject } from "@/core/timeline/types";
 import { evaluateProject } from "@/core/timeline/evaluation";
-import { ProjectFrameRenderer } from "@/lib/exporter/projectFrameRenderer";
+import type { ClipTransform, TimelineProject } from "@/core/timeline/types";
 import { renderProjectAudio } from "@/lib/exporter/projectAudioRenderer";
+import { ProjectFrameRenderer } from "@/lib/exporter/projectFrameRenderer";
+import { CanvasTransformGizmo } from "./CanvasTransformGizmo";
 import { PreviewQueue } from "./previewQueue";
+import { SubtitleOverlay } from "./SubtitleOverlay";
+
 export function ProjectPreview({
 	project,
 	timeUs,
 	playing = false,
 	onError,
+	onRenderedCanvas,
+	selectedClipId,
+	onSelectClip,
+	onUpdateClipTransform,
+	onDropAsset,
 }: {
 	project: TimelineProject;
 	timeUs: number;
 	playing?: boolean;
 	onError: (error: string) => void;
+	onRenderedCanvas?: (canvas: HTMLCanvasElement) => void;
+	selectedClipId?: string | null;
+	onSelectClip?: (clipId: string) => void;
+	onUpdateClipTransform?: (clipId: string, transform: ClipTransform) => void;
+	onDropAsset?: (assetId: string, canvasX: number, canvasY: number) => void;
 }) {
 	const canvas = useRef<HTMLCanvasElement>(null),
 		queue =
@@ -21,9 +34,10 @@ export function ProjectPreview({
 				PreviewQueue<
 					{ project: TimelineProject; timeUs: number; playing: boolean },
 					HTMLCanvasElement
-				>>(),
-		latest = useRef({ timeUs, playing, onError });
-	latest.current = { timeUs, playing, onError };
+				>
+			>(),
+		latest = useRef({ timeUs, playing, onError, onRenderedCanvas });
+	latest.current = { timeUs, playing, onError, onRenderedCanvas };
 	const audio = useRef<HTMLAudioElement>();
 	useEffect(() => {
 		const renderer = new ProjectFrameRenderer();
@@ -40,7 +54,9 @@ export function ProjectPreview({
 					canvas.current.width = rendered.width;
 					canvas.current.height = rendered.height;
 					canvas.current.getContext("2d")?.drawImage(rendered, 0, 0);
+					canvas.current.dataset.projectPreviewReady = "true";
 				}
+				latest.current.onRenderedCanvas?.(rendered);
 			},
 			(error) =>
 				latest.current.onError(error instanceof Error ? error.message : String(error)),
@@ -52,10 +68,8 @@ export function ProjectPreview({
 		};
 	}, []);
 	useEffect(() => {
-		queue.current?.request(
-			{ project, timeUs, playing },
-			{ continuousPlayback: playing },
-		);
+		if (canvas.current) canvas.current.dataset.projectPreviewReady = "false";
+		queue.current?.request({ project, timeUs, playing }, { continuousPlayback: playing });
 	}, [project, timeUs, playing]);
 	useEffect(() => {
 		const abort = new AbortController();
@@ -100,10 +114,27 @@ export function ProjectPreview({
 			void element.play().catch((error) => latest.current.onError(String(error)));
 	}, [timeUs, playing]);
 	return (
-		<canvas
-			ref={canvas}
-			aria-label="Project video preview"
-			className="project-rendered-preview"
-		/>
+		<div
+			className="project-preview-viewport"
+			style={{ aspectRatio: `${project.canvas.width} / ${project.canvas.height}` }}
+		>
+			<canvas
+				ref={canvas}
+				aria-label="Project video preview"
+				className="project-rendered-preview"
+				data-project-preview-ready="false"
+			/>
+			<SubtitleOverlay project={project} timeUs={timeUs} />
+			<CanvasTransformGizmo
+				project={project}
+				timeUs={timeUs}
+				selectedClipId={selectedClipId}
+				canvasElement={canvas.current}
+				onSelectClip={onSelectClip}
+				onUpdateClipTransform={onUpdateClipTransform}
+				onDropAsset={onDropAsset}
+				disabled={playing}
+			/>
+		</div>
 	);
 }

@@ -23,17 +23,125 @@ vi.mock("../../utils", () => ({
 }));
 import { registerProjectSessionHandlers } from "./session";
 import * as state from "../../state";
+import {
+	getActiveRecordingProjectId,
+	setActiveRecordingProjectId,
+} from "../../project/recordingContext";
+import { enqueueProjectFileOperation } from "../../project/projectFileQueue";
+it("cannot begin capture preparation while a file operation owns publication", async () => {
+	registerProjectSessionHandlers();
+	setActiveRecordingProjectId("owner");
+	let release!: () => void;
+	const job = enqueueProjectFileOperation(
+		() =>
+			new Promise<void>((resolve) => {
+				release = resolve;
+			}),
+	);
+	await Promise.resolve();
+	try {
+		expect(() =>
+			handlers.get("set-project-recording-finalizing")!(null, {
+				projectId: "owner",
+				captureId: "warmup",
+				finalizing: true,
+			}),
+		).toThrow();
+	} finally {
+		release();
+		await job;
+		await handlers.get("set-project-recording-finalizing")!(null, {
+			projectId: "owner",
+			captureId: "warmup",
+			finalizing: false,
+		});
+	}
+});
+it("capture finalization lease survives idle handler gaps and rejects departed session commits", async () => {
+	registerProjectSessionHandlers();
+	setActiveRecordingProjectId("owner");
+	state.setCurrentProjectPath("Owner.captr");
+	await handlers.get("set-project-recording-finalizing")!(null, {
+		projectId: "owner",
+		captureId: "capture",
+		finalizing: true,
+	});
+	expect(handlers.get("get-timeline-project-activity")!(null, "owner").finalizing).toBe(true);
+	expect((await handlers.get("deactivate-timeline-project")!(null, "owner")).success).toBe(false);
+	await handlers.get("set-project-recording-finalizing")!(null, {
+		projectId: "owner",
+		captureId: "capture",
+		finalizing: false,
+	});
+	expect((await handlers.get("deactivate-timeline-project")!(null, "owner")).success).toBe(true);
+	await expect(
+		handlers.get("set-current-video-path")!(null, "old.mp4", {
+			projectId: "owner",
+			captureId: "capture",
+			preserveProjectPath: true,
+		}),
+	).rejects.toThrow();
+	expect(state.currentProjectPath).toBeNull();
+	expect(state.currentRecordingSession).toBeNull();
+});
+
+it("returning Home clears the project and completed recording context without inventing an identity", async () => {
+	registerProjectSessionHandlers();
+	setActiveRecordingProjectId("home-project");
+	state.setCurrentProjectPath("C:/projects/Home.captr");
+	state.setCurrentRecordingSession({
+		videoPath: "C:/recordings/done.mp4",
+		projectId: "home-project",
+		captureId: "done",
+	});
+	const result = await handlers.get("deactivate-timeline-project")!(null, "home-project");
+	expect(result.success).toBe(true);
+	expect(state.currentProjectPath).toBeNull();
+	expect(state.currentRecordingSession).toBeNull();
+	expect(getActiveRecordingProjectId()).toBeUndefined();
+});
+it("cannot leave an active native recording or another project", async () => {
+	registerProjectSessionHandlers();
+	setActiveRecordingProjectId("home-project");
+	state.setCurrentProjectPath("C:/projects/Home.captr");
+	state.setWindowsNativeCaptureActive(true);
+	try {
+		expect(
+			(await handlers.get("deactivate-timeline-project")!(null, "home-project")).success,
+		).toBe(false);
+		expect(state.currentProjectPath).toBe("C:/projects/Home.captr");
+	} finally {
+		state.setWindowsNativeCaptureActive(false);
+	}
+	expect(
+		(await handlers.get("deactivate-timeline-project")!(null, "wrong-project")).success,
+	).toBe(false);
+});
 
 describe("Record session project destination", () => {
-	it.each(["set-current-video-path", "set-current-recording-session"])("%s retains capture provenance for Assets registration", async name => {
-		const media=name==="set-current-video-path"?"C:/recordings/second.mp4":{videoPath:"C:/recordings/second.mp4"};
-		await handlers.get(name)!(null,media,{preserveProjectPath:true,captureId:"stable-capture",projectId:"active-project"});
-		expect(state.currentRecordingSession).toMatchObject({captureId:"stable-capture",projectId:"active-project"});
+	it.each([
+		"set-current-video-path",
+		"set-current-recording-session",
+	])("%s retains capture provenance for Assets registration", async (name) => {
+		const media =
+			name === "set-current-video-path"
+				? "C:/recordings/second.mp4"
+				: { videoPath: "C:/recordings/second.mp4" };
+		await handlers.get(name)!(null, media, {
+			preserveProjectPath: true,
+			captureId: "stable-capture",
+			projectId: "active-project",
+		});
+		expect(state.currentRecordingSession).toMatchObject({
+			captureId: "stable-capture",
+			projectId: "active-project",
+		});
 		expect(state.currentProjectPath).toBe("C:/projects/Test 2.captr");
 	});
 	beforeEach(() => {
 		handlers.clear();
 		registerProjectSessionHandlers();
+		setActiveRecordingProjectId("active-project");
 		state.setCurrentProjectPath("C:/projects/Test 2.captr");
 		state.setPreserveProjectPathForNextNativeRecording(false);
 	});

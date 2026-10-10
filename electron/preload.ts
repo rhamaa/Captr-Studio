@@ -711,6 +711,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	) => {
 		return ipcRenderer.invoke("set-current-recording-session", session, options);
 	},
+	setProjectRecordingFinalizing: (input:{projectId:string;captureId:string;finalizing:boolean})=>ipcRenderer.invoke("set-project-recording-finalizing",input),
 	getRecordingProjectContext: () => ipcRenderer.invoke("get-recording-project-context"),
 	activateTimelineProject: (projectId:string,resetPath=false) => ipcRenderer.invoke("activate-timeline-project",projectId,resetPath),
 	getPathForFile: (file:File) => webUtils.getPathForFile(file),
@@ -760,6 +761,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 			thumbnailDataUrl,
 		);
 	},
+	operateTimelineProjectFile: (request: import("../src/core/project/fileOperationTypes").ProjectFileRequest) => ipcRenderer.invoke("operate-timeline-project-file", request),
+	deactivateTimelineProject: (expectedProjectId: string) => ipcRenderer.invoke("deactivate-timeline-project", expectedProjectId),
+	getTimelineProjectActivity: (expectedProjectId: string) => ipcRenderer.invoke("get-timeline-project-activity", expectedProjectId),
 	loadProjectFile: () => {
 		return ipcRenderer.invoke("load-project-file");
 	},
@@ -787,11 +791,17 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	pickAndInspectProjectFile: () => {
 		return ipcRenderer.invoke("pick-and-inspect-project-file");
 	},
+	readProjectBundleEntry: (filePath: string, entryPath: string) => {
+		return ipcRenderer.invoke("read-project-bundle-entry", filePath, entryPath);
+	},
 	saveRecordedAudio: (payload: {
 		audioBuffer: ArrayBuffer | Uint8Array | number[];
 		extension?: string;
 	}) => {
 		return ipcRenderer.invoke("save-recorded-audio", payload);
+	},
+	discardRecordedAudio: (filePath: string) => {
+		return ipcRenderer.invoke("discard-recorded-audio", filePath);
 	},
 	installDownloadedUpdate: () => {
 		return ipcRenderer.invoke("install-downloaded-update");
@@ -1017,5 +1027,176 @@ contextBridge.exposeInMainWorld("electronAPI", {
 			callback(isMaximized);
 		ipcRenderer.on("window:maximized-change", listener);
 		return () => ipcRenderer.removeListener("window:maximized-change", listener);
+	},
+
+	// ── Transcription ──────────────────────────────────────────────────
+	transcribeAsset: (params: {
+		assetId: string;
+		assetMediaFilePath: string;
+		assetDir?: string;
+		options?: {
+			engine?: "local" | "groq" | "openai";
+			language?: string;
+			modelPath?: string;
+			cloudApiKey?: string;
+			cloudProvider?: "groq" | "openai";
+		};
+	}) => ipcRenderer.invoke("transcribe-asset", params),
+	loadAssetTranscript: (assetDir: string) =>
+		ipcRenderer.invoke("load-asset-transcript", assetDir),
+	getTranscriptionEngineStatus: () =>
+		ipcRenderer.invoke("get-transcription-engine-status"),
+	downloadWhisperModel: (modelName?: "tiny" | "base" | "small") =>
+		ipcRenderer.invoke("download-whisper-model", modelName),
+	onWhisperModelDownloadProgress: (
+		callback: (progress: {
+			modelName: string;
+			percent: number;
+			downloadedBytes: number;
+			totalBytes: number;
+		}) => void,
+	) => {
+		const listener = (
+			_event: Electron.IpcRendererEvent,
+			progress: {
+				modelName: string;
+				percent: number;
+				downloadedBytes: number;
+				totalBytes: number;
+			},
+		) => callback(progress);
+		ipcRenderer.on("whisper-model-download-progress", listener);
+		return () => ipcRenderer.removeListener("whisper-model-download-progress", listener);
+	},
+
+	// ── AI Assistant / Agent Bridge & Local MCP Server ──────────────────
+	getAvailableAgents: () => ipcRenderer.invoke("agent:get-available"),
+	checkCustomAgent: (command: string) => ipcRenderer.invoke("agent:check-custom", command),
+	getMcpServerInfo: () => ipcRenderer.invoke("agent:get-mcp-info"),
+	startMcpServer: (port?: number) => ipcRenderer.invoke("agent:start-mcp-server", port),
+	stopMcpServer: () => ipcRenderer.invoke("agent:stop-mcp-server"),
+	syncProjectContext: (context: unknown) => ipcRenderer.invoke("agent:sync-project-context", context),
+	clearSpeculativeEdits: () => ipcRenderer.invoke("agent:clear-speculative"),
+	onAgentSpeculativePreview: (callback: (data: any) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+		ipcRenderer.on("agent:speculative-preview", listener);
+		return () => ipcRenderer.removeListener("agent:speculative-preview", listener);
+	},
+	onAgentCommitEdits: (callback: (data: any) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, data: any) => callback(data);
+		ipcRenderer.on("agent:commit-edits", listener);
+		return () => ipcRenderer.removeListener("agent:commit-edits", listener);
+	},
+	onAgentEditPlan: (callback: (plan: any) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, plan: any) => callback(plan);
+		ipcRenderer.on("agent:edit-plan", listener);
+		return () => ipcRenderer.removeListener("agent:edit-plan", listener);
+	},
+	runAgentTask: (params: {
+		agentId: string;
+		customCommand?: string;
+		userPrompt: string;
+		project: unknown;
+		transcripts: Record<string, unknown>;
+	}) => ipcRenderer.invoke("agent:run-task", params),
+	cancelAgentTask: () => ipcRenderer.invoke("agent:cancel-task"),
+	onAgentLogStream: (callback: (chunk: string) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, chunk: string) => callback(chunk);
+		ipcRenderer.on("agent:log-stream", listener);
+		return () => ipcRenderer.removeListener("agent:log-stream", listener);
+	},
+	runHyperframeAgentTask: (params: {
+		agentId: string;
+		customCommand?: string;
+		userPrompt: string;
+		hyperframeId: string;
+		hyperframeName: string;
+		currentHtml: string;
+		width: number;
+		height: number;
+		durationSec: number;
+		projectContext: Record<string, unknown>;
+	}) => ipcRenderer.invoke("agent:run-hyperframe-task", params),
+	cancelHyperframeAgentTask: () => ipcRenderer.invoke("agent:cancel-hyperframe-task"),
+	onHyperframeAgentLogStream: (callback: (chunk: string) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, chunk: string) => callback(chunk);
+		ipcRenderer.on("agent:hyperframe-log-stream", listener);
+		return () => ipcRenderer.removeListener("agent:hyperframe-log-stream", listener);
+	},
+
+	// ── Hyperframe Video Export ─────────────────────────────────────────
+	exportHyperframeVideo: (options: {
+		sessionId?: string;
+		htmlContent: string;
+		width: number;
+		height: number;
+		fps: number;
+		durationSec: number;
+		bitrate?: number;
+		encodingMode?: "fast" | "balanced" | "quality";
+		audioSourcePath?: string | null;
+		outputPath: string;
+	}) =>
+		ipcRenderer.invoke("hyperframe:export-video", options) as Promise<{
+			success: boolean;
+			outputPath?: string;
+			error?: string;
+			totalFrames?: number;
+			durationSec?: number;
+		}>,
+	cancelHyperframeExport: (sessionId: string) =>
+		ipcRenderer.invoke("hyperframe:cancel-export", sessionId) as Promise<{ success: boolean }>,
+	onHyperframeExportProgress: (
+		callback: (progress: {
+			sessionId?: string;
+			currentFrame: number;
+			totalFrames: number;
+			percentage: number;
+			stage?: "preparing" | "rendering" | "muxing" | "completed";
+		}) => void,
+	) => {
+		const listener = (
+			_event: Electron.IpcRendererEvent,
+			progress: {
+				sessionId?: string;
+				currentFrame: number;
+				totalFrames: number;
+				percentage: number;
+				stage?: "preparing" | "rendering" | "muxing" | "completed";
+			},
+		) => callback(progress);
+		ipcRenderer.on("hyperframe:export-progress", listener);
+		return () => ipcRenderer.removeListener("hyperframe:export-progress", listener);
+	},
+
+	// ── Interactive Project Terminal ───────────────────────────────────
+	startTerminal: (options?: { shell?: "powershell" | "cmd" | "bash" | "default" }) =>
+		ipcRenderer.invoke("terminal:start", options) as Promise<{
+			sessionId: string;
+			cwd: string;
+			shell: string;
+			mcpPort: number;
+			mcpUrl: string;
+			projectName: string | null;
+		}>,
+	writeTerminal: (sessionId: string, data: string) =>
+		ipcRenderer.invoke("terminal:write", sessionId, data) as Promise<boolean>,
+	killTerminal: (sessionId: string) =>
+		ipcRenderer.invoke("terminal:kill", sessionId) as Promise<boolean>,
+	openExternalTerminal: (cwd?: string) =>
+		ipcRenderer.invoke("terminal:open-external", cwd) as Promise<{ success: boolean; error?: string }>,
+	openInCodeEditor: (cwd?: string) =>
+		ipcRenderer.invoke("terminal:open-code", cwd) as Promise<{ success: boolean; error?: string }>,
+	onTerminalData: (callback: (payload: { sessionId: string; data: string }) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, payload: { sessionId: string; data: string }) =>
+			callback(payload);
+		ipcRenderer.on("terminal:data", listener);
+		return () => ipcRenderer.removeListener("terminal:data", listener);
+	},
+	onTerminalExit: (callback: (payload: { sessionId: string; code: number }) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, payload: { sessionId: string; code: number }) =>
+			callback(payload);
+		ipcRenderer.on("terminal:exit", listener);
+		return () => ipcRenderer.removeListener("terminal:exit", listener);
 	},
 });

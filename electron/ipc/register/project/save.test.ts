@@ -2,8 +2,9 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { createTimelineProject, registerMedia } from "../../../../src/core/timeline/commands";
-import { packProjectWorkspace, inspectProjectBundle } from "../../project/projectBundle";
+import { createTimelineProject, placeAsset, registerMedia } from "../../../../src/core/timeline/commands";
+import { resolveTimelineProject } from "../../project/timelineBundle";
+import { packProjectWorkspace, inspectProjectBundle, unpackProjectBundle } from "../../project/projectBundle";
 
 const mock = vi.hoisted(() => ({
 	handlers: new Map<string, (...args: any[]) => Promise<any>>(),
@@ -69,6 +70,54 @@ it("serializes an unused asset and failure preserves the previous bundle and act
 	expect((await handler(null, project, "Test", target)).success).toBe(false);
 	expect(await fs.readFile(target)).toEqual(bytes);
 	expect(state.currentProjectPath).toBe(target);
+});
+
+it("saveAndReopenProject_preservesUnplacedAndPlacedVoiceover", async () => {
+	const unplacedPath = path.join(mock.root, "unplaced-voiceover.webm");
+	const placedPath = path.join(mock.root, "placed-voiceover.webm");
+	await fs.writeFile(unplacedPath, "unplaced voice bytes");
+	await fs.writeFile(placedPath, "placed voice bytes");
+	let project = createTimelineProject("voiceover-project", "Narration project");
+	project = registerMedia(project, {
+		id: "voice-unplaced",
+		kind: "audio",
+		name: "Unplaced voiceover",
+		durationUs: 2_500_000,
+		width: 0,
+		height: 0,
+		source: { path: unplacedPath, durationUs: 2_500_000, offsetUs: 0 },
+	});
+	project = registerMedia(project, {
+		id: "voice-placed",
+		kind: "audio",
+		name: "Placed voiceover",
+		durationUs: 3_000_000,
+		width: 0,
+		height: 0,
+		source: { path: placedPath, durationUs: 3_000_000, offsetUs: 0 },
+	});
+	project = placeAsset(project, "voice-placed", "audio-1", 4_000_000, { clipId: "voice-clip" });
+	const target = path.join(mock.root, "voiceover.captr");
+	mock.saveDialog.mockResolvedValueOnce({ filePath: target, canceled: false });
+	const saved = await mock.handlers.get("save-project-file")!(null, project, "Narration project");
+	expect(saved.success).toBe(true);
+
+	const inspection = await inspectProjectBundle(target);
+	expect(inspection.entries.some((entry) => entry.path.startsWith("assets/voice-unplaced/"))).toBe(true);
+	const unpacked = path.join(mock.root, "reopened");
+	await unpackProjectBundle(target, unpacked);
+	const reopened = resolveTimelineProject(
+		JSON.parse(await fs.readFile(path.join(unpacked, "project.json"), "utf8")),
+		unpacked,
+	);
+	const unplaced = reopened.assets.find((asset) => asset.id === "voice-unplaced")!;
+	const placed = reopened.assets.find((asset) => asset.id === "voice-placed")!;
+	expect(unplaced.source?.path.replace(/\\/g, "/")).toContain("assets/voice-unplaced/");
+	expect(reopened.tracks.flatMap((track) => track.clips).map((clip) => clip.assetId)).toEqual([
+		"voice-placed",
+	]);
+	expect(await fs.readFile(unplaced.source!.path, "utf8")).toBe("unplaced voice bytes");
+	expect(await fs.readFile(placed.source!.path, "utf8")).toBe("placed voice bytes");
 });
 
 it("checks project identity even when renderer supplied a trusted overwrite path", async () => {

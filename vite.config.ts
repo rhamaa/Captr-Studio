@@ -54,6 +54,19 @@ function electronMainCjsGuardPlugin(): Plugin {
 	};
 }
 
+function copyTldrawAssetsPlugin(): Plugin {
+	return {
+		name: "recordly-copy-tldraw-assets",
+		buildStart() {
+			const scriptPath = path.resolve(__dirname, "scripts/copy-tldraw-assets.mjs");
+			spawnSync(process.execPath, [scriptPath], {
+				cwd: __dirname,
+				stdio: "ignore",
+			});
+		},
+	};
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
 	server: {
@@ -71,12 +84,18 @@ export default defineConfig({
 		},
 	},
 	plugins: [
+		copyTldrawAssetsPlugin(),
 		react(),
 		electron({
 			main: {
 				// Shortcut of `build.lib.entry`.
 				entry: "electron/main.ts",
 				vite: {
+					resolve: {
+						alias: {
+							"@": path.resolve(__dirname, "src"),
+						},
+					},
 					build: {
 						lib: {
 							entry: "electron/main.ts",
@@ -100,6 +119,13 @@ export default defineConfig({
 				// Shortcut of `build.rollupOptions.input`.
 				// Preload scripts may contain Web assets, so use the `build.rollupOptions.input` instead `build.lib.entry`.
 				input: path.join(__dirname, "electron/preload.ts"),
+				vite: {
+					resolve: {
+						alias: {
+							"@": path.resolve(__dirname, "src"),
+						},
+					},
+				},
 			},
 			// Polyfill the Electron and Node.js API for the renderer process.
 			// If you want to use Node.js in the renderer process, enable `nodeIntegration` in the main process.

@@ -2,13 +2,14 @@ import { useEffect, useRef } from "react";
 import { registerRecording } from "@/core/timeline/commands";
 import { ProjectSession } from "@/core/timeline/projectSession";
 import type { TimelineProject } from "@/core/timeline/types";
-import type { CompletedRecording } from "@/recording/types";
 import { completedRecordingFromSession } from "@/recording/completedRecording";
+import type { CompletedRecording } from "@/recording/types";
 
 interface RecordingAssetOptions {
 	getProject: () => TimelineProject;
 	update: (next: TimelineProject) => void;
 	onError: (error: unknown) => void;
+	onPendingChange?: (count: number) => void;
 	probe?: (input: CompletedRecording) => Promise<void>;
 	ids?: () => { assetId: string; packageId: string };
 }
@@ -69,6 +70,7 @@ export function useRecordingAssets(
 			update: (p) => latest.current.update(p),
 			onError: (e) => latest.current.onError(e),
 		});
+	const pending = useRef(0);
 	const generation = useRef(0),
 		captures = useRef(new Map<string, number>());
 	const acceptSession = (
@@ -79,11 +81,17 @@ export function useRecordingAssets(
 		const ownerGeneration = captures.current.get(session.captureId) ?? expectedGeneration;
 		if (!controller.current!.isCurrent(ownerGeneration, session.projectId)) return;
 		captures.current.set(session.captureId, ownerGeneration);
+		pending.current++;
+		latest.current.onPendingChange?.(pending.current);
 		void completedRecordingFromSession(session)
 			.then((input) => controller.current!.acceptCompleted(ownerGeneration, input))
 			.catch((error) => {
 				if (controller.current!.isCurrent(ownerGeneration, session.projectId))
 					latest.current.onError(error);
+			})
+			.finally(() => {
+				pending.current--;
+				latest.current.onPendingChange?.(pending.current);
 			});
 	};
 	useEffect(() => {

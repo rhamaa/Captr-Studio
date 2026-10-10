@@ -331,7 +331,18 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		});
 	}, []);
 
+	const publishFinalizing = async (value: boolean) => {
+		const { projectId, captureId } = captureProjectContext.current;
+		if (projectId && captureId) {
+			await window.electronAPI.setProjectRecordingFinalizing?.({
+				projectId,
+				captureId,
+				finalizing: value,
+			});
+		}
+	};
 	const notifyRecordingFinalizationFailure = useCallback(async (message: string) => {
+		await publishFinalizing(false);
 		setFinalizing(false);
 		toast.error(message, { duration: 10000 });
 	}, []);
@@ -675,6 +686,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				}
 			}
 
+			await publishFinalizing(false);
 			setFinalizing(false);
 			await window.electronAPI.switchToEditor();
 			console.log(
@@ -1084,6 +1096,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			setFinalizing(true);
 
 			void (async () => {
+				await publishFinalizing(true);
 				const stopStart = performance.now();
 				console.log("[PERF:RENDERER] Total Stop Sequence: STARTED");
 
@@ -1200,16 +1213,22 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					console.warn("Failed to resume recorder before stopping:", error);
 				}
 			}
-			pendingWebcamPathPromise.current = stopWebcamRecorder();
-			try {
-				recorder.requestData();
-			} catch (error) {
-				console.warn("Failed to flush recorder before stopping:", error);
-			}
-			recorder.stop();
-			setRecording(false);
 			setFinalizing(true);
-			window.electronAPI?.setRecordingState(false);
+			void (async () => {
+				await publishFinalizing(true);
+				pendingWebcamPathPromise.current = stopWebcamRecorder();
+				try {
+					recorder.requestData();
+				} catch (error) {
+					console.warn("Failed to flush recorder before stopping:", error);
+				}
+				recorder.stop();
+				setRecording(false);
+				setFinalizing(true);
+				await window.electronAPI?.setRecordingState(false);
+			})().catch((error) => {
+				void notifyRecordingFinalizationFailure(String(error));
+			});
 		}
 	});
 
@@ -1364,6 +1383,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 		try {
 			captureProjectContext.current = await window.electronAPI.getRecordingProjectContext?.() ?? {};
+			await publishFinalizing(true);
 			const platform = cachedPlatform.current ?? (await window.electronAPI.getPlatform());
 			cachedPlatform.current = platform;
 			hideEditorOverlayCursorByDefault.current = false;
@@ -1589,7 +1609,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					}
 
 					setRecording(true);
-					window.electronAPI?.setRecordingState(true);
+					await window.electronAPI?.setRecordingState(true);
+					await publishFinalizing(false);
 
 					return;
 				}
@@ -1823,6 +1844,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			recorder.onstop = async () => {
 				cleanupCapturedMedia();
 				if (chunks.current.length === 0) {
+					await publishFinalizing(false);
 					setFinalizing(false);
 					return;
 				}
@@ -1895,7 +1917,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				webcamStartTime.current === null ? 0 : webcamStartTime.current - mainStartedAt;
 			recorder.start(RECORDER_TIMESLICE_MS);
 			setRecording(true);
-			window.electronAPI?.setRecordingState(true);
+			await window.electronAPI?.setRecordingState(true);
+			await publishFinalizing(false);
 		} catch (error) {
 			console.error("Failed to start recording:", error);
 			alert(
@@ -1913,6 +1936,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				await stopWebcamRecorder();
 			}
 		} finally {
+			await publishFinalizing(false).catch(() => undefined);
 			startInFlight.current = false;
 			setStarting(false);
 		}

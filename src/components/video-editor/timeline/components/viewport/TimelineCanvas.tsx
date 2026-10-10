@@ -5,9 +5,15 @@ import type {
 	SourceAudioTrackWithPeaks,
 } from "@/components/video-editor/audio/audioTypes";
 import type { MediaFileReference } from "@/components/video-editor/types";
+import { TRIM_ROW_ID } from "../../core/constants";
 import { isAnnotationTrackRowId, isAudioTrackRowId } from "../../core/rows";
 import type { RecordingMediaStreams, TimelineRenderItem } from "../../core/timelineTypes";
-import { getTimelineRowsMinHeightPx } from "../../timelineLayout";
+import {
+	getTimelineCanvasContentMinHeightPx,
+	TIMELINE_AXIS_HEIGHT_PX,
+	TIMELINE_CLIP_ROW_MIN_HEIGHT_PX,
+	TIMELINE_DEFAULT_ROW_CONTENT_MIN_HEIGHT_PX,
+} from "../../timelineLayout";
 import TimelineAxis from "../axis/TimelineAxis";
 import PlaybackCursor from "../playhead/PlaybackCursor";
 import { TimelineCanvasRows } from "./TimelineCanvasRows";
@@ -15,12 +21,14 @@ import { useTimelineHover } from "./useTimelineHover";
 
 export interface TimelineCanvasProps {
 	recordToolsEnabled?: boolean;
+	showClipRow?: boolean;
 	items: TimelineRenderItem[];
 	videoDurationMs: number;
 	currentTimeMs: number;
 	onSeek?: (time: number) => void;
 	canPlaceZoomAtMs?: (startMs: number) => boolean;
 	onSelectZoom?: (id: string | null) => void;
+	onTrimDelete?: (id: string) => void;
 	onSelectClip?: (id: string | null) => void;
 	onSelectLayout?: (id: string | null) => void;
 	onSelectAnnotation?: (id: string | null) => void;
@@ -53,6 +61,7 @@ export interface TimelineCanvasProps {
 
 export default function TimelineCanvas({
 	recordToolsEnabled = true,
+	showClipRow = true,
 	items,
 	videoDurationMs,
 	currentTimeMs,
@@ -62,6 +71,7 @@ export default function TimelineCanvas({
 	onAddLayoutAtMs,
 	canPlaceLayoutAtMs,
 	onSelectZoom,
+	onTrimDelete,
 	onSelectClip,
 	onSelectLayout,
 	onSelectAnnotation,
@@ -75,9 +85,9 @@ export default function TimelineCanvas({
 	onClearBlockSelection,
 	onDropMediaAsset,
 	keyframes = [],
-	sourceAudioTracks: _sourceAudioTracks = [],
+	sourceAudioTracks = [],
 	getSourceAudioTrackSettingsForClip: _getSourceAudioTrackSettingsForClip,
-	showSourceAudioTrack: _showSourceAudioTrack = false,
+	showSourceAudioTrack = false,
 	media4in1,
 	liveSpanPreviewById,
 	liveHiddenItemIds,
@@ -238,13 +248,26 @@ export default function TimelineCanvas({
 	const timelineRowCount = useMemo(() => {
 		const annotationRowIds = new Set<string>();
 		const audioRowIds = new Set<string>();
+		let hasTrimRow = false;
 		for (const item of items) {
+			if (item.rowId === TRIM_ROW_ID) hasTrimRow = true;
 			if (isAnnotationTrackRowId(item.rowId)) annotationRowIds.add(item.rowId);
 			if (isAudioTrackRowId(item.rowId)) audioRowIds.add(item.rowId);
 		}
-		return (recordToolsEnabled ? 3 : 1) + annotationRowIds.size + audioRowIds.size;
-	}, [items, recordToolsEnabled]);
-	const timelineRowsMinHeightPx = getTimelineRowsMinHeightPx(timelineRowCount);
+		return (
+			(recordToolsEnabled ? 2 : 0) +
+			Number(showClipRow) +
+			Number(hasTrimRow) +
+			annotationRowIds.size +
+			audioRowIds.size +
+			(showSourceAudioTrack ? sourceAudioTracks.length : 0)
+		);
+	}, [items, recordToolsEnabled, showClipRow, showSourceAudioTrack, sourceAudioTracks]);
+	const timelineContentMinHeightPx = getTimelineCanvasContentMinHeightPx(
+		timelineRowCount,
+		showClipRow ? TIMELINE_CLIP_ROW_MIN_HEIGHT_PX : TIMELINE_DEFAULT_ROW_CONTENT_MIN_HEIGHT_PX,
+	);
+	const timelineRowsMinHeightPx = timelineContentMinHeightPx - TIMELINE_AXIS_HEIGHT_PX;
 	const sideProperty = direction === "rtl" ? "right" : "left";
 	const {
 		canShowGhostPlayhead,
@@ -347,8 +370,9 @@ export default function TimelineCanvas({
 			style={{
 				...style,
 				height: "100%",
+				minHeight: timelineContentMinHeightPx,
 			}}
-			className="select-none bg-editor-bg relative cursor-pointer group flex flex-col overflow-hidden"
+			className="select-none bg-editor-bg relative cursor-pointer group flex flex-col overflow-visible"
 			onMouseDown={handleTimelineMouseDown}
 			onClick={handleTimelineClick}
 			onMouseEnter={handleTimelineMouseEnter}
@@ -404,6 +428,9 @@ export default function TimelineCanvas({
 			>
 				<TimelineCanvasRows
 					recordToolsEnabled={recordToolsEnabled}
+					showClipRow={showClipRow}
+					showSourceAudioTrack={showSourceAudioTrack}
+					sourceAudioTracks={sourceAudioTracks}
 					items={items}
 					videoDurationMs={videoDurationMs}
 					selectAllBlocksActive={selectAllBlocksActive}
@@ -413,6 +440,7 @@ export default function TimelineCanvas({
 					selectedAnnotationId={selectedAnnotationId}
 					selectedAudioId={selectedAudioId}
 					onSelectZoom={onSelectZoom}
+					onTrimDelete={onTrimDelete}
 					onSelectClip={onSelectClip}
 					onSelectLayout={onSelectLayout}
 					onSelectAnnotation={onSelectAnnotation}

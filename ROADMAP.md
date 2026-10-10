@@ -4,33 +4,47 @@ Dokumen ini memetakan visi, arsitektur, dan tahapan pengembangan **Captr Studio*
 
 ---
 
-## Status arsitektur terverifikasi — 18 September 2026
+## Fokus dan timeline pengembangan Story Editor — update 10 Oktober 2026
 
-Target produk: recording polish ala Screen Studio, storyboard/scene ala Tella, serta editing berlapis ala Filmora. Phase 7 masih **parsial**; checklist historis di bawah bukan bukti semua kemampuan tersedia.
+**Target produk:** Record Editor mengolah rekaman; Story Editor milik Artboard menyusun video final dari hasil Record Editor, B-roll, teks, shape, musik, subtitle, dan efek. CapCut Desktop menjadi referensi perilaku dan workflow. Seluruh data tetap dalam satu project `.captr` V3 dengan source media bersama dan edit placement independen.
 
-Fondasi yang diperbaiki:
-- Keyframe anotasi memakai waktu lokal layer; inspector, marker timeline, preview, dan export memakai sampler bersama. Data keyframe rusak disaring saat load.
-- Transisi masuk memakai `transitionIn`; format lama dinormalisasi ke tipe renderer yang didukung. Crossfade/wipe lama belum didukung dan menjadi `none`.
-- Reorder scene mempertahankan setelan audio, speed, dan transisi.
-- Load dan pruning memakai daftar referensi media proyek yang sama, termasuk scene, layer, audio, dan gambar anotasi.
-- Integrasi caption yang telah dihapus dibersihkan dari editor dan preload. Caption belum tersedia kembali.
+**Prioritas aktif:** [Issue #12 — pemisahan Assets global dan elemen/media lokal Story](ISSUE.md#12-pemisahan-assets-global-elemen-story-dan-komposisi-record-10-oktober-2026). Keputusan kepemilikan disepakati; implementasi belum dimulai. TODO dan acceptance authoritative dicatat di issue tersebut.
 
-Status implementasi Phase 7 (19 September 2026):
-- [x] Compositor video berlapis: decoder/source clock per layer, offset, speed, split, z-order, visibility, mute, opacity, dan blend mode.
-- [x] History scene/layer: load, duplicate, undo, redo, dan save layer per scene diuji lewat Electron.
-- [x] Preview/export memakai sampler transform dan envelope fade/slide bersama; GIF mengikuti playhead.
-- [x] MP4 dua video bertumpuk: 120 frame pada 30 fps, warna z-order benar, H.264 dan AAC terbaca.
-- [x] Ekspor dua scene dengan layer berbeda berhasil; pemeriksaan frame detik 1 dan 5 sesuai scene.
-- [x] Custom cubic Bezier dan nilai property keyframe tersedia di inspector.
+| Tanggal | Progres / keputusan | Status |
+| --- | --- | --- |
+| 5–7 Oktober 2026 | Multi-artboard dengan sequence independen, Hyperframe MP4 export, dan whiteboard tldraw. | Implementasi dan hasil verifikasi tercatat di ISSUE.md. |
+| 9 Oktober 2026 | Copilot/MCP/ghost preview, terminal per project, ekstraksi StoryEditor, fitur NLE, zoom/pan dan manipulasi objek di canvas. | Sudah committed; hasil tes fokus tercatat di ISSUE.md. |
+| 9 Oktober 2026 | Perbaikan UI freeze / infinite re-render CanvasTransformGizmo. Commit terakhir saat pencatatan: `92f2cd7`. | Issue #11 mencatat 11/11 tes fokus dan TypeScript lulus; tidak dijalankan ulang pada update ini. |
+| 10 Oktober 2026 | Audit gap Story Editor: subtitle final/export, waveform nyata, filmstrip, workflow clip, audio finishing, compositing, color, keyframe graph, retiming, dan proxy. | Audit berbasis kode; belum QA interaksi native. |
+| 10 Oktober 2026 | Kontrak Artboard → Story → placement Record → Record Editor; Assets global hanya untuk source media reusable, desain lokal dimiliki Story. | Disepakati; issue #12 Open / Planned. |
 
-Gerbang penerimaan penuh sebelum Phase 8:
-- [ ] Perluas matriks paritas visual: semua blend mode, motion blur, GIF disposal, kombinasi trim/speed lintas scene.
-- [ ] Validasi voiceover dengan mikrofon nyata; putaran ini memakai audio sintetis.
-- [ ] Pisahkan orchestration proyek, playback, dan export dari VideoEditor secara bertahap.
+**Urutan TODO pengembangan; tanpa estimasi tanggal selesai:**
 
-Caption tetap di luar lingkup Phase 7 karena fiturnya telah ditarik; pembangunan ulang memerlukan milestone tersendiri.
+1. **Fondasi kepemilikan — issue #12:** spec/schema dan lookup scope, elemen lokal Text/Shape, media privat Story, isolasi komposisi Record, UI library, kompatibilitas bundle, undo/redo, save/reopen, dan QA regresi.
+2. **Finishing dasar:** subtitle lokal yang ikut save/reopen dan export, waveform dari audio nyata, filmstrip thumbnail video. Metadata `StoryComposition.subtitles` sudah ada; integrasi dan render final tetap perlu dikerjakan.
+3. **Workflow editing cepat:** copy/paste clip dan attributes, group/ungroup serta pemindahan grup, link/unlink video–audio, insert/overwrite, ripple trim, audio fades/crossfade dan volume automation.
+4. **Visual polish:** crop/mask/feather/blend per placement, color adjustment/LUT, keyframe drag/value/time dan graph editor, preset yang menghasilkan elemen lokal.
+5. **Advanced:** speed curves/reverse/freeze frame, motion tracking, proxy media/preview quality, serta perluasan library preset dan efek.
 
-Kontrak arsitektur: scene menyimpan `annotationRegions` dan `audioRegions`; `mediaTrackLayers` lama dimigrasikan saat load. Record Editor dan Video Editor memakai model layer yang sama. Phase 7 tetap parsial sampai gerbang penerimaan terpenuhi.
+Tahap 2–5 adalah backlog arah produk, belum fitur selesai atau rencana implementasi rinci. Setiap tahap membutuhkan scope/spec yang jelas dan verifikasi preview/export parity, isolasi Artboard/Story, serta round-trip `.captr`. Recording package tidak diratakan dan alur capture/path project tetap dipertahankan.
+
+**Kondisi saat pencatatan:** versi tetap `1.4.0-beta.1`. Text/Shape masih menjadi Asset global; media privat Story belum ada. Waveform Story masih sintetis dan subtitle preview masih overlay UI terpisah dari frame export. QA native tertunda serta catatan kegagalan suite penuh lama tetap mengikuti ISSUE.md; update dokumentasi ini tidak menyatakan semuanya sudah lulus.
+
+Bagian milestone di bawah mempertahankan histori roadmap, termasuk istilah slide dan rencana Remotion lama. Untuk scope pengembangan berikutnya, gunakan update 10 Oktober dan issue #12; istilah historis tersebut tidak mengubah kontrak V3 atau menghidupkan kembali Video/Motion legacy.
+
+---
+
+## Status arsitektur terverifikasi — 6 Oktober 2026 (v1.4.0-beta.1)
+
+Target produk: recording polish ala Screen Studio, multi-artboard repurpose ala CapCut/Descript, dan kecerdasan editor otonom berbasis AI CLI Bridge.
+
+Fondasi yang terverifikasi dan aktif di v1.4.0-beta.1:
+- **Speech-to-Text & Animated Karaoke Captions**: Engine `whisper.cpp` offline dengan downloader model GGML 1-klik, penandaan waktu per kata, JSON sidecar, dan `SubtitleOverlay` interaktif (4 gaya: Classic, Cinematic Box, Karaoke Word Pop, Neon Glow) tersinkronisasi otomatis dengan pemotongan timeline.
+- **Autonomous AI Video Editor Assistant**: CLI Agent Bridge mendukung Antigravity (`agy`), Claude Code, Cursor, Gemini CLI, Ollama, OpenCode, dan Aider dengan streaming log konsol langsung dan auto-permission bypass.
+- **Context-Aware `@Asset` Tagging**: Penyebutan aset proyek langsung di prompt AI Assistant yang meneruskan durasi, resolusi, path, dan transkrip audio ke context LLM.
+- **Hyperframe B-Roll Motion Graphics Engine**: Kompilasi grafis HTML5/CSS3/Canvas untuk kinetic typography, stat counters, kartu kutipan, dan efek suara audio-reaktif pada track B-Roll mandiri.
+- **Multi-Artboard Repurpose Editor**: Inverted hub yang mendukung pengeditan independen untuk rasio 9:16 (Shorts/Reels), 1:1 (Square), 16:9 (Landscape), dan 4:5 (Portrait) secara simultan.
+- **V3 Non-Destructive Storage**: Format `.captr` dengan indeks authoritative `project.json`, isolasi file di `assets/<assetId>/`, dan transaksi atomic save/rename.
 
 ---
 
@@ -136,7 +150,7 @@ flowchart TD
   - Mekanisme *anti-pumping* cerdas dengan *speech interval merging* dan *hold time* (hysteresis).
   - Paritas 100% antara preview player (`VideoPlayback.tsx`) dan pipeline ekspor Web Audio (`audioEncoder.ts`).
   - Pengaturan fleksibel: toggle ducking per-track audio dan kontrol intensitas ducking (-6 dB s.d. -26 dB) di Settings Panel.
-- [ ] **Animated Karaoke Captions (TikTok / Alex Hormozi Style)**:
+- [x] **Animated Karaoke Captions (TikTok / Alex Hormozi Style)**:
   - Penyorotan kata per kata (*word-by-word active highlight*) dengan transisi halus dan sinkronisasi real-time.
   - 5 pilihan preset gaya: *Karaoke Pop*, *Alex Hormozi*, *Neon Glow*, *Box Pill*, dan *Classic*.
   - Palet warna highlight cepat: Neon Yellow (`#FFE600`), Lime Green (`#22C55E`), Electric Cyan (`#06B6D4`), Hot Pink (`#EC4899`), Flame Orange (`#F97316`), serta pemilih warna kustom (*color picker*).

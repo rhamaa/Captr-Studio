@@ -7,6 +7,7 @@ import {
 	Scissors,
 	Sparkle,
 	SpeakerX,
+	Trash,
 	VideoCamera as VideoCameraIcon,
 	MagnifyingGlassPlus as ZoomIn,
 } from "@phosphor-icons/react";
@@ -33,6 +34,7 @@ export interface StandardTimelineItemProps {
 	isSelected?: boolean;
 	keyframes?: import("../../types").PropertyKeyframe[];
 	locked?: boolean;
+	onDelete?: () => void;
 	children?: React.ReactNode;
 }
 
@@ -58,6 +60,7 @@ export function StandardTimelineItem({
 	isSelected = false,
 	keyframes = [],
 	locked: _locked = false,
+	onDelete,
 	children,
 }: StandardTimelineItemProps) {
 	const isZoom = variant === "zoom";
@@ -111,7 +114,7 @@ export function StandardTimelineItem({
 						<>
 							<Scissors className="w-3.5 h-3.5 shrink-0" />
 							<span className="text-[11px] font-semibold tracking-tight whitespace-nowrap">
-								Trim
+								Cut
 							</span>
 						</>
 					) : isLayout ? (
@@ -165,13 +168,33 @@ export function StandardTimelineItem({
 				) : (
 					<span
 						className={`text-[9px] tabular-nums tracking-tight whitespace-nowrap transition-opacity ${
-							isSelected ? "opacity-60" : "opacity-0 group-hover:opacity-40"
+							isTrim
+								? "opacity-75"
+								: isSelected
+									? "opacity-60"
+									: "opacity-0 group-hover:opacity-40"
 						}`}
 					>
 						{timeLabel}
 					</span>
 				)}
 			</div>
+			{isTrim && onDelete && (
+				<button
+					type="button"
+					aria-label={`Remove cut ${timeLabel}`}
+					title={`Remove cut ${timeLabel}`}
+					className="absolute right-1 top-1/2 z-30 flex h-4 w-4 -translate-y-1/2 items-center justify-center rounded bg-red-950/70 text-red-100 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:bg-red-700"
+					onPointerDown={(event) => event.stopPropagation()}
+					onMouseDown={(event) => event.stopPropagation()}
+					onClick={(event) => {
+						event.stopPropagation();
+						onDelete();
+					}}
+				>
+					<Trash className="h-2.5 w-2.5" />
+				</button>
+			)}
 
 			{/* In-block Keyframe Dots for Annotations */}
 			{isAnnotation && keyframes.length > 0 && (

@@ -1,9 +1,9 @@
 import type {
 	AnnotationRegion,
 	AudioRegion,
-	CropRegion,
 	ClipRegion,
 	ClipTransitionType,
+	CropRegion,
 	CursorStyle,
 	CursorTelemetryPoint,
 	LayoutCameraSettings,
@@ -21,7 +21,6 @@ import type {
 	ZoomRegion,
 	ZoomTransitionEasing,
 } from "@/components/video-editor/types";
-import type { AspectRatio } from "@/utils/aspectRatioUtils";
 import {
 	isArrayOf,
 	isFiniteNumber,
@@ -30,6 +29,7 @@ import {
 	isOptionalNullable,
 	isString,
 } from "@/core/validation";
+import type { AspectRatio } from "@/utils/aspectRatioUtils";
 
 export type {
 	AnnotationRegion,
@@ -81,6 +81,7 @@ export interface RecordingEffectSettings {
 	zoomInDurationMs?: number;
 	zoomOutDurationMs?: number;
 	frame?: string | null;
+	aspectRatio?: AspectRatio;
 }
 
 function isBoolean(value: unknown): value is boolean {
@@ -506,7 +507,8 @@ export function isValidRecordingSettings(value: unknown): value is RecordingEffe
 		isOptional(value.connectZooms, isBoolean) &&
 		isOptional(value.zoomInDurationMs, isFiniteNumber) &&
 		isOptional(value.zoomOutDurationMs, isFiniteNumber) &&
-		isOptionalNullable(value.frame, isString)
+		isOptionalNullable(value.frame, isString) &&
+		isOptional(value.aspectRatio, isString)
 	);
 }
 
@@ -550,5 +552,6 @@ export function createDefaultRecordingSettings(): RecordingEffectSettings {
 		connectZooms: true,
 		zoomInDurationMs: 200,
 		zoomOutDurationMs: 200,
+		aspectRatio: "16:9",
 	};
 }

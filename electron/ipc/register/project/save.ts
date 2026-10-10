@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import { dialog, ipcMain } from "electron";
-import { PROJECT_FILE_EXTENSION } from "../../constants";
+import { LEGACY_PROJECT_FILE_EXTENSIONS, PROJECT_FILE_EXTENSION } from "../../constants";
 import { stageTimelineProject } from "../../project/timelineBundle";
 import { validateTimelineProject } from "../../../../src/core/timeline/validation";
 import {
@@ -14,7 +14,11 @@ import {
 import { inspectProjectBundle, packProjectWorkspace } from "../../project/projectBundle";
 import { setCurrentProjectPath } from "../../state";
 import { ensureProjectDataHasProjectId, normalizeProjectSaveName } from "./shared";
+import { performProjectFileOperation } from "../../project/projectFileService";
+import { enqueueProjectFileOperation } from "../../project/projectFileQueue";
+import type { ProjectFileRequest } from "../../../../src/core/project/fileOperationTypes";
 export function registerProjectSaveHandlers() {
+	ipcMain.handle("operate-timeline-project-file", (_, request: ProjectFileRequest) => performProjectFileOperation(request));
 	async function saveAndBundleProject(
 		targetPath: string,
 		preparedProject: { projectId: string; projectData: Record<string, unknown> },
@@ -42,7 +46,7 @@ export function registerProjectSaveHandlers() {
 		}
 		throw new Error("Legacy project must be converted to an Assets project before saving");
 	}
-	ipcMain.handle("save-converted-project-copy", async (_, value: unknown, token: string) => {
+	ipcMain.handle("save-converted-project-copy", async (_, value: unknown, token: string) => enqueueProjectFileOperation(async () => {
 		try {
 			const origin = getLegacyConversionOrigin(token);
 			if (!origin)
@@ -86,12 +90,25 @@ export function registerProjectSaveHandlers() {
 				throw new Error(
 					"Choose a different destination; the original project cannot be overwritten by conversion",
 				);
+			const convertedTitle = path
+				.basename(result.filePath)
+				.replace(
+					new RegExp(
+						`\\.(${[PROJECT_FILE_EXTENSION, ...LEGACY_PROJECT_FILE_EXTENSIONS].join("|")})$`,
+						"i",
+					),
+					"",
+				)
+				.trim();
+			if (convertedTitle) {
+				project.title = convertedTitle;
+			}
 			await saveAndBundleProject(result.filePath, ensureProjectDataHasProjectId(project));
 			return { success: true, path: result.filePath, projectId: project.projectId };
 		} catch (error) {
 			return { success: false, error: String(error) };
 		}
-	});
+	}));
 
 	ipcMain.handle(
 		"save-project-file",
@@ -101,7 +118,7 @@ export function registerProjectSaveHandlers() {
 			suggestedName?: string,
 			existingProjectPath?: string,
 			thumbnailDataUrl?: string | null,
-		) => {
+		) => enqueueProjectFileOperation(async () => {
 			try {
 				const projectsDir = await getProjectsDir();
 				const preparedProject = ensureProjectDataHasProjectId(projectData);
@@ -130,6 +147,26 @@ export function registerProjectSaveHandlers() {
 							"[save-project-file] Restoring active project path after matching the saved project ID.",
 						);
 					}
+					const existingTitle = path
+						.basename(targetProjectPath)
+						.replace(
+							new RegExp(
+								`\\.(${[PROJECT_FILE_EXTENSION, ...LEGACY_PROJECT_FILE_EXTENSIONS].join("|")})$`,
+								"i",
+							),
+							"",
+						)
+						.trim();
+					if (
+						existingTitle &&
+						preparedProject.projectData &&
+						((preparedProject.projectData as Record<string, unknown>).title ===
+							"New project" ||
+							!(preparedProject.projectData as Record<string, unknown>).title)
+					) {
+						(preparedProject.projectData as Record<string, unknown>).title =
+							existingTitle;
+					}
 					await saveAndBundleProject(
 						targetProjectPath,
 						preparedProject,
@@ -138,6 +175,7 @@ export function registerProjectSaveHandlers() {
 					return {
 						success: true,
 						path: targetProjectPath,
+						title: path.basename(targetProjectPath).replace(/\.captr$/i, ""),
 						projectId: preparedProject.projectId,
 						message: "Project saved successfully",
 					};
@@ -163,11 +201,35 @@ export function registerProjectSaveHandlers() {
 					};
 				}
 
+				const chosenTitle = path
+					.basename(result.filePath)
+					.replace(
+						new RegExp(
+							`\\.(${[PROJECT_FILE_EXTENSION, ...LEGACY_PROJECT_FILE_EXTENSIONS].join("|")})$`,
+							"i",
+						),
+						"",
+					)
+					.trim();
+
+				if (
+					chosenTitle &&
+					preparedProject.projectData &&
+					((preparedProject.projectData as Record<string, unknown>).title ===
+						"New project" ||
+						!(preparedProject.projectData as Record<string, unknown>).title ||
+						(preparedProject.projectData as Record<string, unknown>).title !==
+							chosenTitle)
+				) {
+					(preparedProject.projectData as Record<string, unknown>).title = chosenTitle;
+				}
+
 				await saveAndBundleProject(result.filePath, preparedProject, thumbnailDataUrl);
 
 				return {
 					success: true,
 					path: result.filePath,
+					title: chosenTitle,
 					projectId: preparedProject.projectId,
 					message: "Project saved successfully",
 				};
@@ -179,6 +241,6 @@ export function registerProjectSaveHandlers() {
 					error: String(error),
 				};
 			}
-		},
+		}),
 	);
 }

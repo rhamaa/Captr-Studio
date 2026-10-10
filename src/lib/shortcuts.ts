@@ -26,16 +26,59 @@ export interface FixedShortcut {
 }
 
 export const FIXED_SHORTCUTS: FixedShortcut[] = [
+	{
+		label: "Step 1 Frame",
+		display: "← / →",
+		bindings: [{ key: "arrowleft" }, { key: "arrowright" }],
+	},
+	{
+		label: "Jump 1 Second",
+		display: "Shift + ← / →",
+		bindings: [
+			{ key: "arrowleft", shift: true },
+			{ key: "arrowright", shift: true },
+		],
+	},
+	{
+		label: "Jump to Start / End",
+		display: "Home / End",
+		bindings: [{ key: "home" }, { key: "end" }],
+	},
+	{
+		label: "Duplicate Clip",
+		display: "Ctrl + D",
+		bindings: [{ key: "d", ctrl: true }],
+	},
+	{
+		label: "Delete Selected",
+		display: "Del / ⌫",
+		bindings: [{ key: "delete" }, { key: "backspace" }],
+	},
+	{
+		label: "Select All Clips",
+		display: "Ctrl + A",
+		bindings: [{ key: "a", ctrl: true }],
+	},
+	{
+		label: "Add Text Overlay",
+		display: "T",
+		bindings: [{ key: "t" }],
+	},
+	{
+		label: "Zoom In Timeline",
+		display: "Ctrl + =",
+		bindings: [{ key: "=", ctrl: true }],
+	},
+	{
+		label: "Zoom Out Timeline",
+		display: "Ctrl + -",
+		bindings: [{ key: "-", ctrl: true }],
+	},
 	{ label: "Cycle Annotations Forward", display: "Tab", bindings: [{ key: "tab" }] },
 	{
 		label: "Cycle Annotations Backward",
 		display: "Shift + Tab",
 		bindings: [{ key: "tab", shift: true }],
-	},
-	{
-		label: "Delete Selected (alt)",
-		display: "Del / ⌫",
-		bindings: [{ key: "delete" }, { key: "backspace" }],
 	},
 	{ label: "Pan Timeline", display: "Shift + Ctrl + Scroll", bindings: [] },
 	{ label: "Zoom Timeline", display: "Ctrl + Scroll", bindings: [] },

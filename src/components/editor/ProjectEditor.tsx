@@ -1,74 +1,263 @@
-import { useProjectMessages } from "./useProjectMessages";
-import { useEffect, useMemo, useRef, useState } from "react";
 import {
-	ArrowCounterClockwise,
 	ArrowClockwise,
+	ArrowCounterClockwise,
+	ArrowLeft,
 	CaretDown,
 	FloppyDisk,
-	Folder,
 	FolderOpen,
+	Keyboard,
 	Minus,
 	Plus,
+	Sparkle,
+	Square,
+	SquaresFour,
 	VideoCamera,
 	X,
-	Square,
-	Play,
-	Pause,
 } from "@phosphor-icons/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Toaster } from "@/components/ui/sonner";
+import { useShortcuts } from "@/contexts/ShortcutsContext";
+import { projectFileName, projectTitleFromPath } from "@/core/project/projectNames";
 import {
-	createTimelineProject,
+	addTextOverlay,
 	placeAsset,
 	registerMedia,
 	removeAsset,
+	updateClip,
 	updateComposition,
 } from "@/core/timeline/commands";
-import { clipDurationUs, projectDurationUs, type MediaAsset } from "@/core/timeline/types";
-import { ProjectPreview } from "./ProjectPreview";
-import { TimelineProjectExporter } from "@/lib/exporter/timelineProjectExporter";
-import { validateTimelineProject } from "@/core/timeline/validation";
-import { probeLegacyRecordProject } from "@/recording/legacyProbe";
-import { convertLegacyRecordProject } from "@/core/timeline/legacyConversion";
 import type { ProjectCommand } from "@/core/timeline/history";
+import {
+	ensureRepurposeBoard,
+	getArtboardProjectView,
+	updateArtboardProject,
+} from "@/core/timeline/repurposeCommands";
+import {
+	clipDurationUs,
+	type MediaAsset,
+	projectDurationUs,
+	type TimelineProject,
+} from "@/core/timeline/types";
+import { TimelineProjectExporter } from "@/lib/exporter/timelineProjectExporter";
 import { RecordingCompositionEditor } from "@/recording/editor/RecordingCompositionEditor";
 import { probeMedia } from "@/recording/mediaProbe";
-import { Toaster } from "@/components/ui/sonner";
-import { AssetLibrary } from "./AssetLibrary";
-import { AssetSourcePreview } from "./AssetSourcePreview";
-import { ProjectInspector } from "./ProjectInspector";
+import type { AspectRatio } from "@/utils/aspectRatioUtils";
+import { RepurposeBoardEditor } from "../repurpose/RepurposeBoardEditor";
+import { HyperframeEditor } from "../hyperframe/HyperframeEditor";
+import type { EditPlan } from "./CopilotSidebar";
+import type { AgentDiffSummary } from "@/core/timeline/agentPayload";
+import type { AssetTranscript } from "@/core/timeline/transcriptTypes";
 import { ProjectEditorPanel } from "./ProjectEditorPanel";
-import { ProjectTimeline } from "./ProjectTimeline";
-import { ProjectWelcome } from "./ProjectWelcome";
-import { useProjectController } from "./useProjectController";
+import { ProjectNameDialog } from "./ProjectNameDialog";
+import { StoryEditor } from "./StoryEditor";
+import { captureProjectThumbnail } from "./projectThumbnail";
+import { timelineActionCommand } from "./timelineInteractions";
+import { type ProjectController, useProjectController } from "./useProjectController";
+import { useProjectMessages } from "./useProjectMessages";
 import { useRecordingAssets } from "./useRecordingAssets";
 import "./projectEditor.css";
-import {
-	bindProjectClose,
-	resolveEditorBootstrap,
-	type PendingProjectOpen,
-	type ProjectOpenResult,
-} from "./projectLifecycle";
 import type { RecordingSessionData } from "../../../electron/ipc/types";
-
-export function ProjectEditor() {
+import { AudioRecorderDialog } from "./AudioRecorderDialog";
+import { createProjectAudioRecorderNavigation } from "./projectAudioRecorderNavigation";
+import { bindProjectClose } from "./projectLifecycle";
+import { useAudioRecordingAssets } from "./useAudioRecordingAssets";
+export interface ProjectEditorProps {
+	controller: ProjectController;
+	recordingSession?: RecordingSessionData | null;
+	onRequestHome: () => void;
+	onProjectChanged: () => void;
+	onRequestNew: () => void;
+	onRequestOpen: () => void;
+	onBusyChange?: (busy: boolean) => void;
+	navigationBlocked?: boolean;
+	initialArtboardId?: string;
+}
+export function ProjectEditor(props: ProjectEditorProps) {
 	const m = useProjectMessages();
-	const initial = useMemo(() => createTimelineProject(crypto.randomUUID(), "New project"), []);
-	const { controller, state } = useProjectController(initial);
+	const { openConfig } = useShortcuts();
+	const { controller, state } = useProjectController(props.controller);
 	const [error, setError] = useState<string | null>(null),
 		[busy, setBusy] = useState(false),
 		[playing, setPlaying] = useState(false),
 		[editingClipId, setEditingClipId] = useState<string | null>(null),
-		[legacy, setLegacy] = useState<unknown | null>(null),
-		[pendingNew, setPendingNew] = useState(false);
+		[activeArtboardId, setActiveArtboardId] = useState<string | null>(
+			props.initialArtboardId ?? null,
+		),
+		[activeHyperframeId, setActiveHyperframeId] = useState<string | null>(null);
+
+	const activeArtboard = useMemo(() => {
+		if (!activeArtboardId) return null;
+		const board = ensureRepurposeBoard(state.project).repurposeBoard;
+		return board?.artboards.find((a) => a.id === activeArtboardId) ?? null;
+	}, [state.project, activeArtboardId]);
+
+	const currentActiveArtboardId = activeArtboard ? activeArtboard.id : null;
+
+	const activeHyperframe = useMemo(() => {
+		if (!activeHyperframeId) return null;
+		return (state.project.hyperframes ?? []).find((h) => h.id === activeHyperframeId) ?? null;
+	}, [state.project, activeHyperframeId]);
+
+	const activeProject = useMemo(() => {
+		if (!currentActiveArtboardId) return state.project;
+		return getArtboardProjectView(state.project, currentActiveArtboardId);
+	}, [state.project, currentActiveArtboardId]);
+	const [scale, setScale] = useState(65);
+	const [snappingEnabled, setSnappingEnabled] = useState(true);
+	const playingRef = useRef(playing);
+	playingRef.current = playing;
+	const previewStage = useRef<HTMLDivElement>(null);
 	const [exportProgress, setExportProgress] = useState<number | null>(null);
 	const exportAbort = useRef<AbortController | null>(null);
-	const [pendingOpen, setPendingOpen] = useState(false);
-	const pendingOpenRequest = useRef<PendingProjectOpen | null>(null);
-	const bootstrapTask = useRef<ReturnType<typeof resolveEditorBootstrap>>();
-	const [restoredRecordingSession, setRestoredRecordingSession] =
-		useState<RecordingSessionData | null>(null);
+	const [recordingPending, setRecordingPending] = useState(0);
+	const audioAssets = useAudioRecordingAssets(controller);
+	const audioTakeToken = useRef<ReturnType<typeof audioAssets.begin> | null>(null);
+	const [audioRecorderOpen, setAudioRecorderOpen] = useState(false);
+	const [audioNavigationRequested, setAudioNavigationRequested] = useState(false);
+	const [audioStartUs, setAudioStartUs] = useState(0);
+	const audioStartUsRef = useRef(0);
+	const audioNavigationRequestedRef = useRef(audioNavigationRequested);
+	audioNavigationRequestedRef.current = audioNavigationRequested;
+	const audioCaptureActive = audioAssets.isActive();
+	const audioNavigation = useMemo(
+		() =>
+			createProjectAudioRecorderNavigation({
+				isActive: audioAssets.isActive,
+				setChoiceRequested: setAudioNavigationRequested,
+				closeRecorder: () => setAudioRecorderOpen(false),
+			}),
+		[audioAssets],
+	);
+	const [nameDialog, setNameDialog] = useState(false),
+		[draftName, setDraftName] = useState(""),
+		[nameError, setNameError] = useState<string | null>(null);
+	const [copilotOpen, setCopilotOpen] = useState(false);
+	const [speculativeDraft, setSpeculativeDraft] = useState<{
+		project: TimelineProject;
+		diff: AgentDiffSummary;
+	} | null>(null);
+	const [editPlan, setEditPlan] = useState<EditPlan | null>(null);
+	const [transcripts, setTranscripts] = useState<Record<string, AssetTranscript>>({});
+
+	// Sync project context to local MCP server
+	useEffect(() => {
+		if (!window.electronAPI?.syncProjectContext) return;
+		window.electronAPI.syncProjectContext({
+			project: activeProject,
+			transcripts,
+			playheadUs: state.playheadUs,
+			selection: state.selection,
+			activeArtboardId: currentActiveArtboardId,
+		});
+	}, [activeProject, transcripts, state.playheadUs, state.selection, currentActiveArtboardId]);
+
+	// Listen for live MCP speculative edits preview
+	useEffect(() => {
+		if (!window.electronAPI?.onAgentSpeculativePreview) return;
+		const unsub = window.electronAPI.onAgentSpeculativePreview((preview) => {
+			setSpeculativeDraft(preview);
+		});
+		return () => unsub();
+	}, []);
+
+	// Listen for live MCP committed edits
+	useEffect(() => {
+		if (!window.electronAPI?.onAgentCommitEdits) return;
+		const unsub = window.electronAPI.onAgentCommitEdits(({ project: toCommit }) => {
+			if (currentActiveArtboardId) {
+				controller.execute((rootProject) =>
+					updateArtboardProject(
+						rootProject,
+						currentActiveArtboardId,
+						() => toCommit,
+					),
+				);
+			} else {
+				controller.execute(() => toCommit);
+			}
+			setSpeculativeDraft(null);
+		});
+		return () => unsub();
+	}, [controller, currentActiveArtboardId]);
+
+	// Listen for live MCP edit plan
+	useEffect(() => {
+		if (!window.electronAPI?.onAgentEditPlan) return;
+		const unsub = window.electronAPI.onAgentEditPlan((plan) => {
+			setEditPlan(plan);
+		});
+		return () => unsub();
+	}, []);
+
+	const handleApplyDraft = (modifiedProject: TimelineProject) => {
+		if (currentActiveArtboardId) {
+			controller.execute((rootProject) =>
+				updateArtboardProject(
+					rootProject,
+					currentActiveArtboardId,
+					() => modifiedProject,
+				),
+			);
+		} else {
+			controller.execute(() => modifiedProject);
+		}
+		setSpeculativeDraft(null);
+		void window.electronAPI?.clearSpeculativeEdits?.();
+	};
+
+	const handleDiscardDraft = () => {
+		setSpeculativeDraft(null);
+		void window.electronAPI?.clearSpeculativeEdits?.();
+	};
+
+	useEffect(() => {
+		let isCurrent = true;
+		const loadTranscript = window.electronAPI?.loadAssetTranscript;
+		if (!loadTranscript) return;
+
+		const loadAll = async () => {
+			const map: Record<string, AssetTranscript> = {};
+			for (const asset of state.project.assets) {
+				const pkg = state.project.packages.find((p) => p.id === asset.packageId);
+				const candidatePath = asset.source?.path ?? pkg?.screen.path;
+				if (candidatePath) {
+					try {
+						const t = await loadTranscript(candidatePath);
+						if (t && isCurrent) map[asset.id] = t;
+					} catch {}
+				}
+			}
+			if (isCurrent) setTranscripts(map);
+		};
+
+		void loadAll();
+		return () => {
+			isCurrent = false;
+		};
+	}, [state.project.assets, state.project.packages]);
+
 	const modalOpen = useRef(false);
+	useEffect(() => {
+		controller.setThumbnailProvider(() => {
+			const project = controller.snapshot.project;
+			const visualAsset = project.assets.find(
+				(asset) =>
+					asset.kind === "recording" || asset.kind === "video" || asset.kind === "image",
+			);
+			const fallbackMediaPath = visualAsset
+				? (visualAsset.source?.path ??
+					project.packages.find((pkg) => pkg.id === visualAsset.packageId)?.screen.path)
+				: undefined;
+			return captureProjectThumbnail(previewStage.current, fallbackMediaPath);
+		});
+		return () => controller.setThumbnailProvider(null);
+	}, [controller]);
 	modalOpen.current = Boolean(
-		pendingNew || pendingOpen || legacy || editingClipId || exportProgress !== null,
+		editingClipId ||
+			exportProgress !== null ||
+			nameDialog ||
+			audioRecorderOpen ||
+			props.navigationBlocked,
 	);
 	useEffect(() => {
 		if (!editingClipId) return;
@@ -87,9 +276,12 @@ export function ProjectEditor() {
 		setPlaying(false);
 		setExportProgress(0);
 		try {
-			const result = await new TimelineProjectExporter().export(controller.snapshot.project, {
+			const projectToExport = currentActiveArtboardId
+				? activeProject
+				: controller.snapshot.project;
+			const result = await new TimelineProjectExporter().export(projectToExport, {
 				outputPath: "",
-				fps: controller.snapshot.project.canvas.fps,
+				fps: projectToExport.canvas.fps,
 				signal: abort.signal,
 				onProgress: setExportProgress,
 			});
@@ -102,46 +294,6 @@ export function ProjectEditor() {
 			setExportProgress(null);
 		}
 	};
-	const legacyToken = useRef<string | null>(null);
-	const releaseLegacy = () => {
-		const token = legacyToken.current;
-		legacyToken.current = null;
-		if (token) void window.electronAPI.releaseLegacyProjectCandidate?.(token);
-	};
-	const convertProject = async () => {
-		setBusy(true);
-		const owner = controller.importToken();
-		try {
-			const prepared = await probeLegacyRecordProject(legacy);
-			if (controller.importToken().generation !== owner.generation) return;
-			const converted = convertLegacyRecordProject(prepared, {
-				projectId: crypto.randomUUID(),
-				prefix: crypto.randomUUID(),
-			});
-			if (!legacyToken.current)
-				throw new Error("Open the original project again before converting");
-			const result = await window.electronAPI.saveConvertedProjectCopy(
-				converted,
-				legacyToken.current,
-			);
-			if (!result.success) {
-				if (!result.canceled)
-					throw new Error(result.error ?? "Could not save converted copy");
-				return;
-			}
-			const reopened = await window.electronAPI.loadCurrentProjectFile();
-			if (!reopened.success)
-				throw new Error(
-					reopened.error ?? reopened.message ?? "Could not reopen converted copy",
-				);
-			await install(reopened.project, reopened.path ?? null);
-			releaseLegacy();
-		} catch (e) {
-			errorMessage(e);
-		} finally {
-			setBusy(false);
-		}
-	};
 	const latest = useRef(state);
 	latest.current = state;
 	const errorMessage = (e: unknown) => setError(e instanceof Error ? e.message : String(e));
@@ -151,13 +303,29 @@ export function ProjectEditor() {
 			getProject: () => controller.snapshot.project,
 			update: (next) => controller.execute(() => next),
 			onError: errorMessage,
+			onPendingChange: (count) => {
+				setRecordingPending(count);
+				controller.setPendingWork("recording", count);
+			},
 		},
 		state.openingKey,
-		restoredRecordingSession,
+		props.recordingSession,
 	);
-	const run = (command: ProjectCommand) => {
+	const run = (command: ProjectCommand, selection?: string[]) => {
 		try {
-			controller.execute(command);
+			if (currentActiveArtboardId) {
+				controller.execute(
+					(rootProject) =>
+						updateArtboardProject(
+							rootProject,
+							currentActiveArtboardId,
+							(artboardProject) => command(artboardProject),
+						),
+					selection,
+				);
+			} else {
+				controller.execute(command, selection);
+			}
 			setError(null);
 		} catch (e) {
 			errorMessage(e);
@@ -166,6 +334,7 @@ export function ProjectEditor() {
 	const save = async (saveAs = false) => {
 		try {
 			const result = await controller.save(saveAs);
+			if (result.success) props.onProjectChanged();
 			if (!result.success && !result.canceled)
 				throw new Error(result.error ?? result.message ?? "Could not save project");
 			if (result.success)
@@ -176,60 +345,70 @@ export function ProjectEditor() {
 			errorMessage(e);
 		}
 	};
-	const install = async (value: unknown, path: string | null) => {
-		const project = validateTimelineProject(value);
-		controller.open(project, path);
-		setEditingClipId(null);
-		setPlaying(false);
-		setLegacy(null);
-		setError(null);
-		await window.electronAPI?.activateTimelineProject?.(project.projectId);
-	};
-	const acceptOpened = async (result: ProjectOpenResult) => {
-		if (!result.success) {
-			if (!result.canceled)
-				throw new Error(result.error ?? result.message ?? "Could not open project");
-			return;
-		}
-		if ((result.project as { version?: number })?.version === 3)
-			await install(result.project, result.path ?? null);
-		else {
-			releaseLegacy();
-			legacyToken.current = result.conversionToken ?? null;
-			setLegacy(result.project);
-		}
-	};
-	const open = async (discard = false, request?: PendingProjectOpen) => {
-		if (request) pendingOpenRequest.current = request;
-		if (controller.snapshot.dirty && !discard) {
-			setPendingOpen(true);
-			return;
-		}
-		setPendingOpen(false);
+	const commitName = async (intent: "save" | "save-as" | "rename") => {
 		try {
-			const queued = pendingOpenRequest.current;
-			pendingOpenRequest.current = null;
-			await acceptOpened(
-				queued?.result ??
-					(queued?.path
-						? await window.electronAPI.openProjectFileAtPath(queued.path)
-						: await window.electronAPI.loadProjectFile()),
-			);
+			const result =
+				intent === "rename"
+					? await controller.rename(draftName)
+					: await controller.save(intent === "save-as", draftName);
+			if (result.success) {
+				setNameDialog(false);
+				props.onProjectChanged();
+				if ("warning" in result && result.warning) setError(String(result.warning));
+			} else if (!result.canceled)
+				setNameError(
+					result.error ??
+						"Could not change project name. Choose another name or use Save As.",
+				);
 		} catch (e) {
-			errorMessage(e);
+			setNameError(e instanceof Error ? e.message : String(e));
 		}
 	};
-	const newProject = async () => {
-		if (controller.snapshot.dirty && !pendingNew) {
-			setPendingNew(true);
+	useEffect(() => {
+		document.title = `${projectFileName(state.path)} — Captr Studio`;
+	}, [state.path]);
+	const navigate = (action: () => void) =>
+		audioNavigation.request(() => {
+			props.onBusyChange?.(false);
+			action();
+		});
+	const open = async () => navigate(props.onRequestOpen);
+	const newProject = async () => navigate(props.onRequestNew);
+	const openAudioRecorder = () => {
+		setPlaying(false);
+		controller.preview(null);
+		audioStartUsRef.current = controller.snapshot.playheadUs;
+		setAudioStartUs(audioStartUsRef.current);
+		setAudioRecorderOpen(true);
+	};
+	const beginAudioCapture = () => {
+		if (!audioTakeToken.current)
+			audioTakeToken.current = audioAssets.begin(audioStartUsRef.current);
+	};
+	const finalizeAudioTake = async (
+		take: import("@/recording/audioRecorder").RecordedAudioTake,
+	) => {
+		const token = audioTakeToken.current ?? audioAssets.begin(take.startUs);
+		audioTakeToken.current = token;
+		const result = await audioAssets.finalize(token, take);
+		if (!result) return;
+		audioTakeToken.current = null;
+		if (!audioNavigationRequestedRef.current) setAudioRecorderOpen(false);
+	};
+	const discardAudioTake = async () => {
+		await audioAssets.discard(audioTakeToken.current);
+		audioTakeToken.current = null;
+		if (!audioNavigationRequestedRef.current) setAudioRecorderOpen(false);
+	};
+	const closeAudioRecorder = () => {
+		if (audioAssets.isActive()) {
+			audioNavigation.request(() => setAudioRecorderOpen(false));
 			return;
 		}
-		setPendingNew(false);
-		const next = createTimelineProject(crypto.randomUUID(), "New project");
-		await window.electronAPI?.activateTimelineProject?.(next.projectId, true);
-		await install(next, null);
+		setAudioRecorderOpen(false);
 	};
 	const importMedia = async (paths?: string[]) => {
+		controller.setPendingWork("import", 1);
 		const token = controller.importToken();
 		setBusy(true);
 		try {
@@ -264,6 +443,7 @@ export function ProjectEditor() {
 			if (controller.importToken().generation === token.generation) errorMessage(e);
 		} finally {
 			setBusy(false);
+			controller.setPendingWork("import", 0);
 		}
 	};
 	const startRecord = async () => {
@@ -279,10 +459,10 @@ export function ProjectEditor() {
 		}
 	};
 	const addToTimeline = (id: string) => {
-		const project = controller.snapshot.project,
-			asset = project.assets.find((a) => a.id === id);
+		const targetProject = activeProject,
+			asset = state.project.assets.find((a) => a.id === id);
 		if (!asset) return;
-		const track = project.tracks.find(
+		const track = targetProject.tracks.find(
 			(t) => !t.locked && t.kind === (asset.kind === "audio" ? "audio" : "visual"),
 		);
 		if (!track) {
@@ -295,7 +475,7 @@ export function ProjectEditor() {
 			),
 			clipId = crypto.randomUUID();
 		try {
-			controller.execute(
+			run(
 				(p) =>
 					placeAsset(p, id, track.id, startUs, {
 						clipId,
@@ -309,76 +489,260 @@ export function ProjectEditor() {
 		}
 	};
 	useEffect(() => {
-		let active = true;
-		void window.electronAPI?.setWindowMode?.("editor");
-		if (window.electronAPI) {
-			bootstrapTask.current ??= resolveEditorBootstrap(window.electronAPI);
-			void bootstrapTask.current
-				.then(async ({ result, recordingProjectId, recordingSession, resetPath }) => {
-					if (!active) return;
-					setRestoredRecordingSession(recordingSession ?? null);
-					if (result) await acceptOpened(result);
-					else if (recordingProjectId)
-						await install(
-							createTimelineProject(recordingProjectId, "New project"),
-							null,
-						);
-					else
-						await window.electronAPI.activateTimelineProject?.(
-							initial.projectId,
-							resetPath,
-						);
-				})
-				.catch(errorMessage);
-		}
-		return () => {
-			active = false;
-		};
-	}, []);
-	useEffect(() => bindProjectClose(controller, window.electronAPI, errorMessage), [controller]);
+		props.onBusyChange?.(
+			busy ||
+				recordingPending > 0 ||
+				audioCaptureActive ||
+				exportProgress !== null ||
+				Boolean(state.fileOperation) ||
+				state.navigationPending,
+		);
+	}, [
+		busy,
+		recordingPending,
+		audioCaptureActive,
+		exportProgress,
+		state.fileOperation,
+		state.navigationPending,
+		props.onBusyChange,
+	]);
+	useEffect(
+		() =>
+			bindProjectClose(
+				controller,
+				window.electronAPI,
+				errorMessage,
+				audioNavigation.beforeClose,
+			),
+		[controller, audioNavigation, errorMessage],
+	);
 	useEffect(() => {
 		const keydown = (e: KeyboardEvent) => {
-			if (modalOpen.current) return;
 			if (
-				(e.target as HTMLElement)?.matches?.("input,textarea,select,[contenteditable=true]")
+				editingClipId ||
+				nameDialog ||
+				audioRecorderOpen ||
+				props.navigationBlocked ||
+				document.querySelector("[role=dialog]")
 			)
 				return;
+			// In Multi-Artboard Hub, let RepurposeBoardEditor handle transport & split keys
+			if (!currentActiveArtboardId && !e.ctrlKey && !e.metaKey) return;
+			const target = e.target;
+			if (
+				target instanceof HTMLElement &&
+				(target.matches("input,textarea,select,[contenteditable=true]") ||
+					target.isContentEditable)
+			)
+				return;
+
 			if (e.ctrlKey || e.metaKey) {
-				if (e.key.toLowerCase() === "s") {
+				const key = e.key.toLowerCase();
+				if (key === "s") {
 					e.preventDefault();
 					void save(e.shiftKey);
-				} else if (e.key.toLowerCase() === "z") {
+				} else if (key === "z") {
 					e.preventDefault();
 					if (e.shiftKey) controller.redo();
 					else controller.undo();
-				} else if (e.key.toLowerCase() === "y") {
+				} else if (key === "y") {
 					e.preventDefault();
 					controller.redo();
-				} else if (e.key.toLowerCase() === "o") {
+				} else if (key === "o") {
 					e.preventDefault();
 					void open();
+				} else if (key === "n" && !e.shiftKey) {
+					e.preventDefault();
+					void newProject();
+				} else if (key === "e") {
+					e.preventDefault();
+					const proj = currentActiveArtboardId ? activeProject : controller.snapshot.project;
+					if (
+						projectDurationUs(proj) > 0 &&
+						exportProgress === null
+					) {
+						void exportProject();
+					}
+				} else if (key === "d") {
+					if (controller.snapshot.selection.length > 0) {
+						e.preventDefault();
+						run(
+							timelineActionCommand(
+								"duplicate",
+								controller.snapshot.selection,
+								controller.snapshot.playheadUs,
+							),
+						);
+					}
+				} else if (key === "a") {
+					e.preventDefault();
+					const targetTracks = currentActiveArtboardId
+						? activeProject.tracks
+						: controller.snapshot.project.tracks;
+					const allClipIds = targetTracks.flatMap((t) => t.clips.map((c) => c.id));
+					controller.select(allClipIds);
+				} else if (key === "b" && !e.shiftKey && !e.altKey) {
+					e.preventDefault();
+					run(
+						timelineActionCommand(
+							"split",
+							controller.snapshot.selection,
+							controller.snapshot.playheadUs,
+						),
+					);
+				} else if (key === "=" || key === "+") {
+					e.preventDefault();
+					setScale((s) => Math.min(250, s * 1.25));
+				} else if (key === "-") {
+					e.preventDefault();
+					setScale((s) => Math.max(8, s / 1.25));
+				} else if (key === "0") {
+					e.preventDefault();
+					setScale(65);
+				} else if (key === "/" || key === "?") {
+					e.preventDefault();
+					openConfig();
+				}
+				return;
+			}
+
+			if (!e.altKey && !e.ctrlKey && !e.metaKey) {
+				const key = e.key;
+				if (key === " ") {
+					e.preventDefault();
+					const proj = currentActiveArtboardId
+						? activeProject
+						: controller.snapshot.project;
+					if (projectDurationUs(proj) > 0) {
+						controller.preview(null);
+						if (controller.snapshot.playheadUs >= projectDurationUs(proj)) {
+							controller.seek(0, projectDurationUs(proj));
+						}
+						setPlaying((v) => !v);
+					}
+				} else if (key.toLowerCase() === "n") {
+					e.preventDefault();
+					setSnappingEnabled((v) => !v);
+				} else if (key.toLowerCase() === "s" || key.toLowerCase() === "c") {
+					e.preventDefault();
+					run(
+						timelineActionCommand(
+							"split",
+							controller.snapshot.selection,
+							controller.snapshot.playheadUs,
+						),
+					);
+				} else if (key === "Delete" || key === "Backspace") {
+					if (controller.snapshot.selection.length > 0) {
+						e.preventDefault();
+						if (e.shiftKey) {
+							run(
+								timelineActionCommand(
+									"ripple-delete",
+									controller.snapshot.selection,
+									controller.snapshot.playheadUs,
+								),
+							);
+						} else {
+							run(
+								timelineActionCommand(
+									"delete",
+									controller.snapshot.selection,
+									controller.snapshot.playheadUs,
+								),
+							);
+						}
+						controller.select([]);
+					}
+				} else if (key === "Escape") {
+					if (controller.snapshot.selection.length > 0) {
+						e.preventDefault();
+						controller.select([]);
+					} else if (playingRef.current) {
+						e.preventDefault();
+						setPlaying(false);
+					} else if (activeHyperframeId) {
+						e.preventDefault();
+						setActiveHyperframeId(null);
+					} else if (currentActiveArtboardId) {
+						e.preventDefault();
+						setActiveArtboardId(null);
+					}
+				} else if (key === "ArrowLeft" || key === "ArrowRight") {
+					e.preventDefault();
+					setPlaying(false);
+					controller.preview(null);
+					const proj = currentActiveArtboardId
+						? activeProject
+						: controller.snapshot.project;
+					const fps = proj.canvas.fps || 30;
+					const frameUs = Math.round(1_000_000 / fps);
+					const stepUs = e.shiftKey ? 1_000_000 : frameUs;
+					const dir = key === "ArrowLeft" ? -1 : 1;
+					const maxUs = projectDurationUs(proj);
+					const nextUs = Math.max(
+						0,
+						Math.min(maxUs, controller.snapshot.playheadUs + dir * stepUs),
+					);
+					controller.seek(nextUs, maxUs);
+				} else if (key === "Home") {
+					e.preventDefault();
+					setPlaying(false);
+					controller.preview(null);
+					const proj = currentActiveArtboardId
+						? activeProject
+						: controller.snapshot.project;
+					controller.seek(0, projectDurationUs(proj));
+				} else if (key === "End") {
+					e.preventDefault();
+					setPlaying(false);
+					controller.preview(null);
+					const proj = currentActiveArtboardId
+						? activeProject
+						: controller.snapshot.project;
+					const maxUs = projectDurationUs(proj);
+					controller.seek(maxUs, maxUs);
+				} else if (key.toLowerCase() === "t" && !e.shiftKey) {
+					e.preventDefault();
+					const ids = {
+						assetId: crypto.randomUUID(),
+						trackId: crypto.randomUUID(),
+						clipId: crypto.randomUUID(),
+					};
+					run((p) => addTextOverlay(p, controller.snapshot.playheadUs, ids));
+					controller.select([ids.clipId]);
+				} else if (key === "?") {
+					e.preventDefault();
+					openConfig();
+				} else if (key.toLowerCase() === "z" && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+					e.preventDefault();
+					const totalUs = projectDurationUs(
+						currentActiveArtboardId ? activeProject : controller.snapshot.project,
+					);
+					if (totalUs > 0) {
+						const targetScale = Math.max(
+							8,
+							Math.min(250, (window.innerWidth - 300) / (totalUs / 1_000_000)),
+						);
+						setScale(targetScale);
+					}
 				}
 			}
 		};
 		window.addEventListener("keydown", keydown);
 		const unsub = [
-			window.electronAPI?.onOpenProjectFilePath?.(() => {
-				void window.electronAPI
-					.consumePendingProjectOpen?.()
-					.then((request) => {
-						if (request) void open(false, request);
-					})
-					.catch(errorMessage);
+			window.electronAPI?.onMenuSaveProject?.(() => {
+				if (!modalOpen.current) void save();
 			}),
-			window.electronAPI?.onMenuSaveProject?.(() => void save()),
-			window.electronAPI?.onMenuSaveProjectAs?.(() => void save(true)),
-			window.electronAPI?.onMenuLoadProject?.(() => void open()),
+			window.electronAPI?.onMenuSaveProjectAs?.(() => {
+				if (!modalOpen.current) void save(true);
+			}),
 		];
 		return () => {
 			window.removeEventListener("keydown", keydown);
 			unsub.forEach((u) => u?.());
 		};
-	}, [controller]);
+	}, [controller, currentActiveArtboardId, activeHyperframeId, activeProject]);
 	useEffect(() => {
 		if (!playing) return;
 		const started = performance.now(),
@@ -386,29 +750,80 @@ export function ProjectEditor() {
 		let frame = 0;
 		const tick = (now: number) => {
 			const next = base + Math.round((now - started) * 1000);
-			if (next >= projectDurationUs(controller.snapshot.project)) {
-				controller.seek(projectDurationUs(controller.snapshot.project));
+			const targetProj = currentActiveArtboardId
+				? getArtboardProjectView(controller.snapshot.project, currentActiveArtboardId)
+				: controller.snapshot.project;
+			const totalUs = projectDurationUs(targetProj);
+			if (next >= totalUs) {
+				controller.seek(totalUs, totalUs);
 				setPlaying(false);
 				return;
 			}
-			controller.seek(next);
+			controller.seek(next, totalUs);
 			frame = requestAnimationFrame(tick);
 		};
 		frame = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(frame);
-	}, [playing]);
-	const editedClip = state.project.tracks
-			.flatMap((t) => t.clips)
-			.find((c) => c.id === editingClipId),
-		composition = state.project.compositions.find((c) => c.id === editedClip?.compositionId),
+	}, [playing, currentActiveArtboardId]);
+	const editedClip =
+			(activeProject.tracks ?? state.project.tracks)
+				.flatMap((t) => t.clips)
+				.find((c) => c.id === editingClipId) ??
+			state.project.tracks.flatMap((t) => t.clips).find((c) => c.id === editingClipId),
+		composition =
+			(activeProject.compositions ?? state.project.compositions).find(
+				(c) => c.id === editedClip?.compositionId,
+			) ?? state.project.compositions.find((c) => c.id === editedClip?.compositionId),
 		pkg = state.project.packages.find((p) => p.id === composition?.packageId);
-	const sourceAsset = state.project.assets.find((a) => a.id === state.selectedAssetId),
-		sourcePath =
-			sourceAsset?.source?.path ??
-			state.project.packages.find((p) => p.id === sourceAsset?.packageId)?.screen.path;
 	return (
-		<main className="project-editor dark">
+		<main
+			className="project-editor dark"
+			data-navigation-blocked={
+				state.navigationPending || props.navigationBlocked || undefined
+			}
+		>
 			<header className="project-header">
+				{currentActiveArtboardId ? (
+					<button
+						type="button"
+						className="project-back-artboards-button"
+						aria-label="Back to Artboards Hub"
+						title="Back to Multi-Artboard Hub (Esc)"
+						onClick={() => {
+							setPlaying(false);
+							setActiveArtboardId(null);
+						}}
+					>
+						<ArrowLeft size={14} weight="bold" />
+						<span>Artboards</span>
+						<kbd className="project-kbd">Esc</kbd>
+					</button>
+				) : activeHyperframe ? (
+					<button
+						type="button"
+						className="project-back-artboards-button"
+						aria-label="Back to Stories Hub"
+						title="Back to Stories Hub (Esc)"
+						onClick={() => {
+							setPlaying(false);
+							setActiveHyperframeId(null);
+						}}
+					>
+						<ArrowLeft size={14} weight="bold" />
+						<span>Stories</span>
+						<kbd className="project-kbd">Esc</kbd>
+					</button>
+				) : (
+					<button
+						aria-label="Back to Home"
+						disabled={
+							busy || recordingPending > 0 || exportProgress !== null || state.saving
+						}
+						onClick={() => navigate(props.onRequestHome)}
+					>
+						Home
+					</button>
+				)}
 				<div className="project-brand" aria-label="Captr Studio">
 					<VideoCamera size={22} weight="duotone" />
 				</div>
@@ -451,18 +866,34 @@ export function ProjectEditor() {
 				>
 					<ArrowClockwise size={17} />
 				</button>
-				<input
+				<button
 					className="project-title"
-					aria-label="Project name"
-					value={state.project.title}
-					onChange={(e) =>
-						run((p) => ({
-							...p,
-							title: e.target.value,
-							updatedAt: new Date().toISOString(),
-						}))
+					aria-label={m("projectName")}
+					disabled={
+						state.saving ||
+						busy ||
+						recordingPending > 0 ||
+						exportProgress !== null ||
+						props.navigationBlocked
 					}
-				/>
+					onClick={() => {
+						setDraftName(state.path ? projectTitleFromPath(state.path) : "Untitled");
+						setNameError(null);
+						setNameDialog(true);
+					}}
+				>
+					{projectFileName(state.path)}
+				</button>
+				{activeArtboard && (
+					<span className="project-artboard-tag" title="Active artboard sequence">
+						{activeArtboard.name} ({activeArtboard.aspectRatio})
+					</span>
+				)}
+				{activeHyperframe && (
+					<span className="project-artboard-tag" title="Active Hyperframe Composition">
+						{activeHyperframe.name} ({activeHyperframe.aspectRatio || "16:9"})
+					</span>
+				)}
 				<span className="project-save-status">
 					{state.saving
 						? m("saving")
@@ -474,7 +905,11 @@ export function ProjectEditor() {
 				</span>
 				<button
 					className="project-export-button"
-					disabled={!projectDurationUs(state.project) || exportProgress !== null}
+					disabled={
+						!projectDurationUs(
+							currentActiveArtboardId ? activeProject : state.project,
+						) || exportProgress !== null
+					}
 					onClick={() => void exportProject()}
 				>
 					Export
@@ -484,17 +919,65 @@ export function ProjectEditor() {
 						Cancel {Math.round(exportProgress)}%
 					</button>
 				)}
-				<button className="project-record-button" onClick={() => void startRecord()}>
+				{currentActiveArtboardId && (
+					<button
+						type="button"
+						className="project-repurpose-button"
+						title="Return to Multi-Artboard Hub"
+						disabled={
+							state.saving ||
+							busy ||
+							recordingPending > 0 ||
+							exportProgress !== null ||
+							props.navigationBlocked
+						}
+						onClick={() => {
+							setPlaying(false);
+							setEditingClipId(null);
+							setActiveArtboardId(null);
+						}}
+					>
+						<SquaresFour size={16} weight="bold" />
+						Artboards
+					</button>
+				)}
+				<button
+					className="project-record-button"
+					disabled={
+						state.saving || state.navigationPending || busy || recordingPending > 0
+					}
+					onClick={() => void startRecord()}
+				>
 					<VideoCamera size={17} />
 					{m("record")}
 				</button>
 				<button
+					type="button"
+					className={`project-ai-assist-button ${copilotOpen ? "active" : ""}`}
+					aria-label="AI Editor Copilot"
+					title="Toggle AI Editor Copilot Sidebar (Claude, Antigravity, MCP)"
+					disabled={state.saving || state.navigationPending || busy}
+					onClick={() => {
+						setCopilotOpen((v) => !v);
+					}}
+				>
+					<Sparkle size={15} weight="fill" />
+					<span>AI Editor</span>
+				</button>
+				<button
 					aria-label="Save project"
-					title="Save project"
+					title="Save project (Ctrl+S)"
 					disabled={state.saving}
 					onClick={() => void save()}
 				>
 					<FloppyDisk size={18} />
+				</button>
+				<button
+					aria-label="Keyboard shortcuts"
+					title="Keyboard shortcuts (? / Ctrl+/)"
+					onClick={() => openConfig()}
+				>
+					<Keyboard size={18} />
 				</button>
 				{window.electronAPI && (
 					<div className="project-window-controls">
@@ -534,6 +1017,30 @@ export function ProjectEditor() {
 							key={composition.id}
 							package={pkg}
 							composition={composition}
+							projectTitle={projectFileName(state.path)}
+							canvas={activeProject.canvas}
+							aspectRatio={
+								(activeArtboard?.aspectRatio &&
+								activeArtboard.aspectRatio !== "custom"
+									? (activeArtboard.aspectRatio as AspectRatio)
+									: null) ??
+								(composition.settings?.aspectRatio as AspectRatio) ??
+								(activeProject.canvas.width === 1080 &&
+								activeProject.canvas.height === 1920
+									? "9:16"
+									: activeProject.canvas.width === activeProject.canvas.height
+										? "1:1"
+										: activeProject.canvas.width === 1080 &&
+												activeProject.canvas.height === 1350
+											? "4:5"
+											: "16:9")
+							}
+							clipTransform={editedClip?.transform}
+							onClipTransformChange={(transform) => {
+								if (editingClipId) {
+									run((p) => updateClip(p, editingClipId, { transform }));
+								}
+							}}
 							onChange={(next) =>
 								controller.execute((p) =>
 									updateComposition(p, composition.id, next),
@@ -543,219 +1050,164 @@ export function ProjectEditor() {
 						/>
 					) : null
 				}
-			>
-				<>
-					<div className="project-workspace">
-						<aside className="project-tool-rail">
-							<button aria-label="Assets" aria-current="page">
-								<Folder size={21} />
-							</button>
-						</aside>
-						<AssetLibrary
-							assets={state.project.assets}
-							packages={state.project.packages}
+				hyperframeEditor={
+					activeHyperframe ? (
+						<HyperframeEditor
+							hyperframe={activeHyperframe}
+							project={state.project}
+							projectTitle={projectFileName(state.path)}
+							transcripts={transcripts}
+							onUpdate={(patch) => {
+								controller.execute((prev) => ({
+									...prev,
+									hyperframes: (prev.hyperframes ?? []).map((h) =>
+										h.id === activeHyperframe.id
+											? { ...h, ...patch, updatedAt: new Date().toISOString() }
+											: h,
+									),
+								}));
+							}}
+							onClose={() => {
+								setActiveHyperframeId(null);
+							}}
+						/>
+					) : null
+				}
+				repurposeEditor={
+					!currentActiveArtboardId && !activeHyperframeId ? (
+						<RepurposeBoardEditor
+							project={state.project}
+							projectTitle={projectFileName(state.path)}
 							selectedAssetId={state.selectedAssetId}
+							transcripts={transcripts}
+							onChange={(updater) => {
+								try {
+									if (
+										controller.snapshot.navigationPending ||
+										controller.snapshot.fileOperation ||
+										controller.isExited
+									) {
+										return;
+									}
+									controller.execute(updater);
+								} catch (err) {
+									if (
+										err instanceof Error &&
+										err.message === "Finish the file operation before editing."
+									) {
+										return;
+									}
+									throw err;
+								}
+							}}
+							onClose={() => navigate(props.onRequestHome)}
+							onOpenArtboardEditor={(artboardId) => {
+								setPlaying(false);
+								setEditingClipId(null);
+								setActiveArtboardId(artboardId);
+								controller.seek(0);
+							}}
+							onOpenHyperframeEditor={(hyperframeId) => {
+								setPlaying(false);
+								setActiveHyperframeId(hyperframeId);
+							}}
 							onImport={(paths) => void importMedia(paths)}
 							onRecord={() => void startRecord()}
-							onPreview={(id) => {
+							onRecordAudio={openAudioRecorder}
+							onPreviewAsset={(id) => {
 								setPlaying(false);
 								controller.preview(id);
 							}}
-							onPlace={addToTimeline}
-							onRemove={(id) => run((p) => removeAsset(p, id))}
+							onPlaceAsset={addToTimeline}
+							onRemoveAsset={(id) => run((p) => removeAsset(p, id))}
 						/>
-						<section className="project-preview-panel">
-							<header className="project-panel-header">
-								<h2>{sourceAsset ? m("sourcePreview") : m("preview")}</h2>
-								<span>
-									{state.project.canvas.width} × {state.project.canvas.height}
-								</span>
-								{sourceAsset && (
-									<button onClick={() => controller.preview(null)}>
-										{m("backTimeline")}
-									</button>
-								)}
-							</header>
-							<div className="project-preview-stage">
-								{sourceAsset ? (
-									<AssetSourcePreview
-										key={sourceAsset.id}
-										asset={sourceAsset}
-										path={sourcePath ?? ""}
-										onError={setError}
-									/>
-								) : projectDurationUs(state.project) > 0 ? (
-									<ProjectPreview
-										key={state.openingKey}
-										project={state.project}
-										timeUs={Math.min(
-											state.playheadUs,
-											Math.max(0, projectDurationUs(state.project) - 1),
-										)}
-										playing={playing && !editingClipId}
-										onError={setError}
-									/>
-								) : (
-									<ProjectWelcome
-										hasAssets={Boolean(state.project.assets.length)}
-										onImport={() => void importMedia()}
-										onRecord={() => void startRecord()}
-									/>
-								)}
-							</div>
-							<div className="project-preview-transport">
-								<span>{(state.playheadUs / 1_000_000).toFixed(2)}</span>
-								<button
-									aria-label={playing ? "Pause timeline" : "Play timeline"}
-									disabled={!projectDurationUs(state.project)}
-									onClick={() => {
-										controller.preview(null);
-										if (state.playheadUs >= projectDurationUs(state.project))
-											controller.seek(0);
-										setPlaying((v) => !v);
-									}}
-								>
-									{playing ? (
-										<Pause size={20} weight="fill" />
-									) : (
-										<Play size={20} weight="fill" />
-									)}
-								</button>
-								<span>
-									{(projectDurationUs(state.project) / 1_000_000).toFixed(2)}
-								</span>
-							</div>
-						</section>
-						<ProjectInspector
-							project={state.project}
-							selection={state.selection}
-							onCommand={run}
-							onOpenRecording={setEditingClipId}
-						/>
-					</div>
-					<ProjectTimeline
-						project={state.project}
-						selection={state.selection}
-						playheadUs={state.playheadUs}
-						onCommand={run}
-						onSelect={(ids) => controller.select(ids)}
-						onSeek={(time) => {
-							setPlaying(false);
-							controller.preview(null);
-							controller.seek(time);
-						}}
-						onOpenRecording={(id) => {
-							setPlaying(false);
-							setEditingClipId(id);
-						}}
-					/>
-					<footer className="project-footer">
-						<span>
-							{busy ? "Importing media…" : `${state.project.assets.length} assets`}
-						</span>
-						<span>{state.project.canvas.fps} fps</span>
-					</footer>
-				</>
+					) : null
+				}
+			>
+				<StoryEditor
+					storyProject={activeProject}
+					rootProject={state.project}
+					storyId={currentActiveArtboardId}
+					storyName={activeArtboard?.name}
+					controller={controller}
+					transcripts={transcripts}
+					copilotOpen={copilotOpen}
+					onCloseCopilot={() => setCopilotOpen(false)}
+					speculativeDraft={speculativeDraft}
+					editPlan={editPlan}
+					onApplyDraft={handleApplyDraft}
+					onDiscardDraft={handleDiscardDraft}
+					onDraftReady={(draft) => setSpeculativeDraft(draft)}
+					onBackToBoard={
+						currentActiveArtboardId
+							? () => {
+									setPlaying(false);
+									setEditingClipId(null);
+									setActiveArtboardId(null);
+								}
+							: undefined
+					}
+					onImportMedia={(paths) => void importMedia(paths)}
+					onStartRecord={() => void startRecord()}
+					onOpenAudioRecorder={openAudioRecorder}
+					onOpenRecording={(id) => {
+						setPlaying(false);
+						setEditingClipId(id);
+					}}
+					playing={playing}
+					setPlaying={setPlaying}
+					editingClipId={editingClipId}
+					setEditingClipId={setEditingClipId}
+					onCommand={run}
+					onError={setError}
+					busy={Boolean(busy)}
+					previewStageRef={previewStage}
+					scale={scale}
+					onScaleChange={setScale}
+					snappingEnabled={snappingEnabled}
+					onToggleSnapping={() => setSnappingEnabled((v) => !v)}
+				/>
 			</ProjectEditorPanel>
-			{Boolean(legacy) && (
-				<div className="project-dialog-backdrop">
-					<section
-						role="dialog"
-						aria-modal="true"
-						aria-label="Convert legacy project"
-						className="project-dialog"
-					>
-						<h2>Convert a Record project</h2>
-						<p>
-							This project uses an earlier format. Create an editable copy in the new
-							Assets format.
-						</p>
-						<div>
-							<button
-								onClick={() => {
-									releaseLegacy();
-									setLegacy(null);
-								}}
-							>
-								Cancel
-							</button>
-							<button
-								className="primary"
-								disabled={busy}
-								onClick={() => void convertProject()}
-							>
-								Convert and save a copy
-							</button>
-						</div>
-					</section>
-				</div>
+			{nameDialog && (
+				<ProjectNameDialog
+					fileName={projectFileName(state.path)}
+					draftName={draftName}
+					saved={Boolean(state.path)}
+					busy={state.saving}
+					error={nameError}
+					onDraftChange={(name) => {
+						setDraftName(name.replace(/\.captr$/i, ""));
+						setNameError(null);
+					}}
+					onClose={() => setNameDialog(false)}
+					onRename={() => void commitName("rename")}
+					onSaveAs={() => void commitName("save-as")}
+					onSave={() => void commitName("save")}
+				/>
 			)}
-			{pendingNew && (
-				<div className="project-dialog-backdrop">
-					<section
-						role="dialog"
-						aria-modal="true"
-						aria-label="Unsaved project"
-						className="project-dialog"
-					>
-						<h2>Unsaved changes</h2>
-						<p>Save your project before starting a new one?</p>
-						<div>
-							<button onClick={() => setPendingNew(false)}>Cancel</button>
-							<button onClick={() => void newProject()}>Discard and start new</button>
-							<button
-								className="primary"
-								onClick={() =>
-									void save().then(() => {
-										if (!controller.snapshot.dirty) void newProject();
-									})
-								}
-							>
-								Save and start new
-							</button>
-						</div>
-					</section>
-				</div>
-			)}
-			{pendingOpen && (
-				<div className="project-dialog-backdrop">
-					<section
-						role="dialog"
-						aria-modal="true"
-						aria-label="Unsaved project"
-						className="project-dialog"
-					>
-						<h2>Unsaved changes</h2>
-						<p>Save your project before opening another?</p>
-						<div>
-							<button
-								onClick={() => {
-									const token =
-										pendingOpenRequest.current?.result?.conversionToken;
-									if (token)
-										void window.electronAPI.releaseLegacyProjectCandidate(
-											token,
-										);
-									pendingOpenRequest.current = null;
-									setPendingOpen(false);
-								}}
-							>
-								Cancel
-							</button>
-							<button onClick={() => void open(true)}>Discard and open</button>
-							<button
-								className="primary"
-								onClick={() =>
-									void save().then(() => {
-										if (!controller.snapshot.dirty) void open(true);
-									})
-								}
-							>
-								Save and open
-							</button>
-						</div>
-					</section>
-				</div>
+			{audioRecorderOpen && (
+				<AudioRecorderDialog
+					startUs={audioStartUs}
+					navigationRequested={audioNavigationRequested}
+					onNavigationRequest={() => setAudioNavigationRequested(true)}
+					onPreviewStart={() => {
+						beginAudioCapture();
+						controller.preview(null);
+						controller.seek(
+							audioTakeToken.current?.startUs ?? audioStartUs,
+							projectDurationUs(activeProject),
+						);
+						setPlaying(true);
+					}}
+					onPreviewPause={() => setPlaying(false)}
+					onTakeRecorded={finalizeAudioTake}
+					onDiscard={discardAudioTake}
+					onNavigationChoice={(choice) => audioNavigation.resolve(choice)}
+					onRecordingChange={(recording) => {
+						if (recording) beginAudioCapture();
+					}}
+					onClose={closeAudioRecorder}
+				/>
 			)}
 			<Toaster />
 		</main>

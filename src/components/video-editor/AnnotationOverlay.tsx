@@ -317,7 +317,7 @@ export function AnnotationOverlay({
 			{/* Sub-Phase 7.1: Snapping Visual Guides */}
 			{isSelected && snapGuides.isCenterH && (
 				<div
-					className="pointer-events-none fixed z-[9999] bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"
+					className="pointer-events-none fixed z-[9999] bg-[#6FA8FF] shadow-[0_0_4px_rgba(111,168,255,0.4)]"
 					style={{
 						position: "absolute",
 						left: `${containerWidth / 2 - (interpolatedPos.x / 100) * containerWidth}px`,
@@ -326,14 +326,14 @@ export function AnnotationOverlay({
 						height: `${containerHeight}px`,
 					}}
 				>
-					<span className="absolute top-2 -left-6 bg-cyan-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
+					<span className="absolute top-2 -left-6 bg-[#6FA8FF] text-[#15171C] text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
 						CENTER
 					</span>
 				</div>
 			)}
 			{isSelected && snapGuides.isCenterV && (
 				<div
-					className="pointer-events-none fixed z-[9999] bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"
+					className="pointer-events-none fixed z-[9999] bg-[#6FA8FF] shadow-[0_0_4px_rgba(111,168,255,0.4)]"
 					style={{
 						position: "absolute",
 						top: `${containerHeight / 2 - (interpolatedPos.y / 100) * containerHeight}px`,
@@ -342,7 +342,7 @@ export function AnnotationOverlay({
 						width: `${containerWidth}px`,
 					}}
 				>
-					<span className="absolute left-2 -top-5 bg-cyan-500 text-black text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
+					<span className="absolute left-2 -top-5 bg-[#6FA8FF] text-[#15171C] text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
 						CENTER
 					</span>
 				</div>

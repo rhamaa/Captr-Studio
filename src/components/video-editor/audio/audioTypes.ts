@@ -18,6 +18,8 @@ export type SourceAudioTrackMeta = SourceAudioTrackMetaItem[];
 
 export interface SourceAudioTrackWithPeaks extends SourceAudioTrackMetaItem {
 	peaks: AudioPeaksData;
+	offsetMs?: number;
+	durationMs?: number;
 }
 
 export const SOURCE_AUDIO_FALLBACK_TOAST_ID = "source-audio-fallback-error";

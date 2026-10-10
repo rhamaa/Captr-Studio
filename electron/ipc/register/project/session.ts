@@ -23,23 +23,101 @@ import {
 	normalizeVideoSourcePath,
 } from "../../utils";
 import { normalizeBoolean, normalizeRecordingTimeOffsetMs } from "./shared";
-import { getRecordingProjectContext, setActiveRecordingProjectId } from "../../project/recordingContext";
+import {
+	clearRecordingProjectContext,
+	getActiveRecordingProjectId,
+	getRecordingProjectContext,
+	setActiveRecordingProjectId,
+} from "../../project/recordingContext";
+import {
+	enqueueProjectFileOperation,
+	isProjectFileOperationPending,
+} from "../../project/projectFileQueue";
+import {
+	getTimelineProjectActivity,
+	setProjectRecordingFinalizing,
+} from "../../project/projectActivity";
 
 export function registerProjectSessionHandlers() {
-	ipcMain.handle("activate-timeline-project", (_, projectId:string, resetPath:boolean) => {
-		if (!/^[a-zA-Z0-9_-]+$/.test(projectId)) throw new Error("Invalid project identity");
-		setActiveRecordingProjectId(projectId);
-		if (resetPath) {setCurrentProjectPath(null);setCurrentVideoPath(null);setCurrentRecordingSession(null);}
-		return {success:true};
+	ipcMain.handle("activate-timeline-project", (_, projectId: string, resetPath: boolean) =>
+		enqueueProjectFileOperation(async () => {
+			if (!/^[a-zA-Z0-9_-]+$/.test(projectId)) throw new Error("Invalid project identity");
+			const activity = getTimelineProjectActivity();
+			if (
+				(activity.recording || activity.finalizing) &&
+				(resetPath || projectId !== getActiveRecordingProjectId())
+			)
+				throw new Error("Finish recording before switching projects.");
+			setActiveRecordingProjectId(projectId);
+			if (resetPath) {
+				setCurrentProjectPath(null);
+				setCurrentVideoPath(null);
+				setCurrentRecordingSession(null);
+			}
+			return { success: true };
+		}),
+	);
+	ipcMain.handle("get-timeline-project-activity", (_, projectId: string) => {
+		if (projectId !== getActiveRecordingProjectId()) throw new Error("Active project changed.");
+		return getTimelineProjectActivity();
 	});
-	ipcMain.handle("get-recording-project-context", () => getRecordingProjectContext());
+	ipcMain.handle("deactivate-timeline-project", (_, projectId: string) =>
+		enqueueProjectFileOperation(async () => {
+			if (projectId !== getActiveRecordingProjectId())
+				return { success: false, error: "Active project changed." };
+			const activity = getTimelineProjectActivity();
+			if (activity.recording || activity.finalizing)
+				return { success: false, error: "Finish recording before returning Home." };
+			clearRecordingProjectContext();
+			setCurrentProjectPath(null);
+			setCurrentVideoPath(null);
+			setCurrentRecordingSession(null);
+			return { success: true };
+		}),
+	);
+	ipcMain.handle("get-recording-project-context", () => {
+		if (isProjectFileOperationPending())
+			throw new Error("Finish the project file operation before recording.");
+		return getRecordingProjectContext();
+	});
+	ipcMain.handle(
+		"set-project-recording-finalizing",
+		(event, input: { projectId: string; captureId: string; finalizing: boolean }) => {
+			if (
+				!input ||
+				input.projectId !== getActiveRecordingProjectId() ||
+				!input.captureId ||
+				typeof input.finalizing !== "boolean"
+			)
+				throw new Error("Recording finalization owner changed.");
+			if (
+				input.finalizing &&
+				isProjectFileOperationPending() &&
+				!getTimelineProjectActivity().recording
+			)
+				throw new Error("Finish the project file operation before recording.");
+			setProjectRecordingFinalizing(input.projectId, input.captureId, input.finalizing);
+			if (input.finalizing)
+				event?.sender?.once("destroyed", () =>
+					setProjectRecordingFinalizing(input.projectId, input.captureId, false),
+				);
+			return { success: true };
+		},
+	);
 	ipcMain.handle(
 		"set-current-video-path",
 		async (
 			_,
 			path: string,
-			options?: { preserveProjectPath?: boolean; hideOverlayCursorByDefault?: boolean;captureId?:string;projectId?:string },
+			options?: {
+				preserveProjectPath?: boolean;
+				hideOverlayCursorByDefault?: boolean;
+				captureId?: string;
+				projectId?: string;
+			},
 		) => {
+			if (options?.projectId && options.projectId !== getActiveRecordingProjectId())
+				throw new Error("Recording completion belongs to a departed project.");
 			const pendingProjectPathPreservation =
 				consumePreserveProjectPathForNextNativeRecording();
 			const preserveProjectPath =
@@ -95,8 +173,10 @@ export function registerProjectSessionHandlers() {
 				timeOffsetMs?: number;
 				hideOverlayCursorByDefault?: boolean;
 			},
-			options?: { preserveProjectPath?: boolean;captureId?:string;projectId?:string },
+			options?: { preserveProjectPath?: boolean; captureId?: string; projectId?: string },
 		) => {
+			if (options?.projectId && options.projectId !== getActiveRecordingProjectId())
+				throw new Error("Recording completion belongs to a departed project.");
 			const pendingProjectPathPreservation =
 				consumePreserveProjectPathForNextNativeRecording();
 			const preserveProjectPath =
@@ -105,8 +185,8 @@ export function registerProjectSessionHandlers() {
 				normalizeVideoSourcePath(session.videoPath) ?? session.videoPath;
 			setCurrentVideoPath(normalizedVideoPath);
 			setCurrentRecordingSession({
-				captureId:options?.captureId,
-				projectId:options?.projectId,
+				captureId: options?.captureId,
+				projectId: options?.projectId,
 				videoPath: normalizedVideoPath,
 				webcamPath: normalizeVideoSourcePath(session.webcamPath ?? null),
 				timeOffsetMs: normalizeRecordingTimeOffsetMs(session.timeOffsetMs),

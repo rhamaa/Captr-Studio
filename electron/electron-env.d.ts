@@ -219,7 +219,7 @@ interface ProjectInspectionEntry {
 	compressedSize: number;
 	isDirectory: boolean;
 	slideId?: string;
-	category: "config" | "thumbnail" | "video" | "audio" | "graphic" | "telemetry" | "other";
+	category: "config" | "thumbnail" | "video" | "audio" | "graphic" | "telemetry" | "story" | "hyperframe" | "other";
 }
 
 interface ProjectInspectionResult {
@@ -710,6 +710,7 @@ interface Window {
 			},
 			options?: { preserveProjectPath?: boolean;captureId?:string;projectId?:string },
 		) => Promise<{ success: boolean }>;
+		setProjectRecordingFinalizing: (input:{projectId:string;captureId:string;finalizing:boolean})=>Promise<{success:boolean}>;
 		getRecordingProjectContext: () => Promise<{captureId?:string;projectId?:string}>;
 		activateTimelineProject: (projectId:string,resetPath?:boolean) => Promise<{success:boolean}>;
 		getPathForFile: (file:File) => string;
@@ -741,9 +742,13 @@ interface Window {
 			path?: string;
 			projectId?: string;
 			message?: string;
+			title?: string;
 			canceled?: boolean;
 			error?: string;
 		}>;
+		operateTimelineProjectFile: (request: import("../src/core/project/fileOperationTypes").ProjectFileRequest) => Promise<import("../src/core/project/fileOperationTypes").ProjectFileResult>;
+		deactivateTimelineProject: (expectedProjectId: string) => Promise<{success:boolean;error?:string}>;
+		getTimelineProjectActivity: (expectedProjectId: string) => Promise<{recording:boolean;finalizing:boolean}>;
 		loadProjectFile: () => Promise<{
 			conversionToken?: string;
 			success: boolean;
@@ -793,12 +798,27 @@ interface Window {
 		}>;
 		inspectProjectFile: (filePath: string) => Promise<ProjectInspectionResult>;
 		pickAndInspectProjectFile: () => Promise<ProjectInspectionResult>;
+		readProjectBundleEntry?: (
+			filePath: string,
+			entryPath: string,
+		) => Promise<{
+			success: boolean;
+			content?: string;
+			dataUrl?: string;
+			size?: number;
+			error?: string;
+		}>;
 		saveRecordedAudio?: (payload: {
 			audioBuffer: ArrayBuffer | Uint8Array | number[];
 			extension?: string;
 		}) => Promise<{
 			success: boolean;
 			filePath?: string;
+			error?: string;
+		}>;
+		discardRecordedAudio?: (filePath: string) => Promise<{
+			success: boolean;
+			deleted?: boolean;
 			error?: string;
 		}>;
 		installDownloadedUpdate: () => Promise<{ success: boolean }>;
@@ -949,6 +969,197 @@ interface Window {
 		setWindowMode: (mode: "welcome" | "editor") => Promise<{ success: boolean }>;
 		onWindowMaximizedChange: (callback: (isMaximized: boolean) => void) => () => void;
 		approveLocalMediaPath?: (filePath: string) => Promise<{ success: boolean }>;
+		transcribeAsset?: (params: {
+			assetId: string;
+			assetMediaFilePath: string;
+			assetDir?: string;
+			options?: {
+				engine?: "local" | "groq" | "openai";
+				language?: string;
+				modelPath?: string;
+				cloudApiKey?: string;
+				cloudProvider?: "groq" | "openai";
+			};
+		}) => Promise<{
+			success: boolean;
+			transcript?: import("../src/core/timeline/transcriptTypes").AssetTranscript;
+			vttPath?: string;
+			jsonPath?: string;
+			error?: string;
+		}>;
+		loadAssetTranscript?: (
+			assetDir: string,
+		) => Promise<import("../src/core/timeline/transcriptTypes").AssetTranscript | null>;
+		getTranscriptionEngineStatus?: () => Promise<{
+			hasLocalWhisperCli: boolean;
+			cliPath: string | null;
+			hasLocalModel: boolean;
+			modelPath: string | null;
+			availableModels?: Array<{ name: string; path: string; sizeBytes: number }>;
+		}>;
+		downloadWhisperModel?: (modelName?: "tiny" | "base" | "small") => Promise<{
+			success: boolean;
+			modelPath?: string;
+			error?: string;
+		}>;
+		onWhisperModelDownloadProgress?: (
+			callback: (progress: {
+				modelName: string;
+				percent: number;
+				downloadedBytes: number;
+				totalBytes: number;
+			}) => void,
+		) => () => void;
+		getAvailableAgents?: () => Promise<
+			Array<{
+				id: string;
+				name: string;
+				command: string;
+				description: string;
+				available: boolean;
+				executablePath?: string;
+			}>
+		>;
+		getMcpServerInfo?: () => Promise<{
+			running: boolean;
+			port: number;
+			endpoint: string;
+			sseUrl: string;
+			mcpConfig: Record<string, unknown>;
+			activeClientsCount: number;
+		}>;
+		startMcpServer?: (port?: number) => Promise<{
+			running: boolean;
+			port: number;
+			endpoint: string;
+			sseUrl: string;
+			mcpConfig: Record<string, unknown>;
+			activeClientsCount: number;
+		}>;
+		stopMcpServer?: () => Promise<{ success: boolean }>;
+		syncProjectContext?: (context: unknown) => Promise<{ success: boolean }>;
+		clearSpeculativeEdits?: () => Promise<{ success: boolean }>;
+		onAgentSpeculativePreview?: (
+			callback: (preview: {
+				project: import("../src/core/timeline/types").TimelineProject;
+				diff: import("../src/core/timeline/agentPayload").AgentDiffSummary;
+			} | null) => void,
+		) => () => void;
+		onAgentCommitEdits?: (
+			callback: (commit: {
+				project: import("../src/core/timeline/types").TimelineProject;
+				commitMessage?: string;
+			}) => void,
+		) => () => void;
+		onAgentEditPlan?: (
+			callback: (plan: {
+				summary: string;
+				steps: string[];
+				estimatedDurationSec?: number;
+				createdAt: string;
+			}) => void,
+		) => () => void;
+		runAgentTask?: (params: {
+			agentId: string;
+			customCommand?: string;
+			userPrompt: string;
+			project: import("../src/core/timeline/types").TimelineProject;
+			transcripts: Record<string, import("../src/core/timeline/transcriptTypes").AssetTranscript>;
+		}) => Promise<{
+			success: boolean;
+			project?: import("../src/core/timeline/types").TimelineProject;
+			diff?: import("../src/core/timeline/agentPayload").AgentDiffSummary;
+			logs: string[];
+			error?: string;
+		}>;
+		cancelAgentTask?: () => Promise<boolean>;
+		onAgentLogStream?: (callback: (chunk: string) => void) => () => void;
+		checkCustomAgent?: (command: string) => Promise<{
+			id: string;
+			name: string;
+			command: string;
+			description: string;
+			available: boolean;
+			executablePath?: string;
+		}>;
+		runHyperframeAgentTask?: (params: {
+			agentId: string;
+			customCommand?: string;
+			userPrompt: string;
+			hyperframeId: string;
+			hyperframeName: string;
+			currentHtml: string;
+			width: number;
+			height: number;
+			durationSec: number;
+			taggedAssets?: Array<{
+				id: string;
+				name: string;
+				kind: string;
+				path?: string;
+				mediaUrl?: string;
+				packageId?: string;
+				recordingPackage?: Record<string, unknown>;
+			}>;
+			projectContext: Record<string, unknown>;
+		}) => Promise<{
+			success: boolean;
+			html?: string;
+			logs: string[];
+			error?: string;
+		}>;
+		cancelHyperframeAgentTask?: () => Promise<boolean>;
+		onHyperframeAgentLogStream?: (callback: (chunk: string) => void) => () => void;
+
+		// Hyperframe Video Export
+		exportHyperframeVideo?: (options: {
+			sessionId?: string;
+			htmlContent: string;
+			width: number;
+			height: number;
+			fps: number;
+			durationSec: number;
+			bitrate?: number;
+			encodingMode?: "fast" | "balanced" | "quality";
+			audioSourcePath?: string | null;
+			outputPath: string;
+		}) => Promise<{
+			success: boolean;
+			outputPath?: string;
+			error?: string;
+			totalFrames?: number;
+			durationSec?: number;
+		}>;
+		cancelHyperframeExport?: (sessionId: string) => Promise<{ success: boolean }>;
+		onHyperframeExportProgress?: (
+			callback: (progress: {
+				sessionId?: string;
+				currentFrame: number;
+				totalFrames: number;
+				percentage: number;
+				stage?: "preparing" | "rendering" | "muxing" | "completed";
+			}) => void,
+		) => () => void;
+
+		// ── Interactive Project Terminal ───────────────────────────────────
+		startTerminal?: (options?: { shell?: "powershell" | "cmd" | "bash" | "default" }) => Promise<{
+			sessionId: string;
+			cwd: string;
+			shell: string;
+			mcpPort: number;
+			mcpUrl: string;
+			projectName: string | null;
+		}>;
+		writeTerminal?: (sessionId: string, data: string) => Promise<boolean>;
+		killTerminal?: (sessionId: string) => Promise<boolean>;
+		openExternalTerminal?: (cwd?: string) => Promise<{ success: boolean; error?: string }>;
+		openInCodeEditor?: (cwd?: string) => Promise<{ success: boolean; error?: string }>;
+		onTerminalData?: (
+			callback: (payload: { sessionId: string; data: string }) => void,
+		) => () => void;
+		onTerminalExit?: (
+			callback: (payload: { sessionId: string; code: number }) => void,
+		) => () => void;
 	};
 }
 

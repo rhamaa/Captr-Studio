@@ -36,6 +36,14 @@
     {
       "from": "public/wallpapers",
       "to": "assets/wallpapers"
+    },
+    {
+      "from": "icons/icons/win/icon.ico",
+      "to": "icon.ico"
+    },
+    {
+      "from": "icons/icons/win/captr-project.ico",
+      "to": "captr-project.ico"
     }
   ],
   "publish": [

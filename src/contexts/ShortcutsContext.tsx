@@ -22,10 +22,19 @@ interface ShortcutsContextValue {
 
 const ShortcutsContext = createContext<ShortcutsContextValue | null>(null);
 
+const DEFAULT_SHORTCUTS_VALUE: ShortcutsContextValue = {
+	shortcuts: DEFAULT_SHORTCUTS,
+	isMac: false,
+	setShortcuts: () => {},
+	persistShortcuts: async () => {},
+	isConfigOpen: false,
+	openConfig: () => {},
+	closeConfig: () => {},
+};
+
 export function useShortcuts(): ShortcutsContextValue {
 	const ctx = useContext(ShortcutsContext);
-	if (!ctx) throw new Error("useShortcuts must be used within <ShortcutsProvider>");
-	return ctx;
+	return ctx ?? DEFAULT_SHORTCUTS_VALUE;
 }
 
 export function ShortcutsProvider({ children }: { children: ReactNode }) {

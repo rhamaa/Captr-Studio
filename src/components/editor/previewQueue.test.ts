@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { PreviewQueue } from "./previewQueue";
+
 describe("preview lifecycle", () => {
 	it("ignores disposed renders while a fresh mount renders normally", async () => {
 		let reject!: (error: Error) => void;

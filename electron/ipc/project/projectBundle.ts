@@ -1,7 +1,6 @@
 import { createWriteStream } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { pipeline } from "node:stream/promises";
 import { ZipArchive } from "archiver";
 import yauzl from "yauzl";
 
@@ -102,14 +101,16 @@ export async function unpackProjectBundle(
 					// Directory entry
 					if (rawName.endsWith("/")) {
 						await fs.mkdir(targetPath, { recursive: true });
-						zipfile.readEntry();
+						setImmediate(() => {
+							zipfile.readEntry();
+						});
 						return;
 					}
 
 					// File entry: ensure parent directory exists
 					await fs.mkdir(path.dirname(targetPath), { recursive: true });
 
-					zipfile.openReadStream(entry, async (streamErr, readStream) => {
+					zipfile.openReadStream(entry, (streamErr, readStream) => {
 						if (streamErr) {
 							return reject(streamErr);
 						}
@@ -119,13 +120,18 @@ export async function unpackProjectBundle(
 							);
 						}
 
-						try {
-							const writeStream = createWriteStream(targetPath);
-							await pipeline(readStream, writeStream);
+						const writeStream = createWriteStream(targetPath);
+						readStream.on("data", (chunk) => {
+							writeStream.write(chunk);
+						});
+						readStream.on("end", () => {
+							writeStream.end();
+						});
+						readStream.on("error", reject);
+						writeStream.on("error", reject);
+						writeStream.on("finish", () => {
 							zipfile.readEntry();
-						} catch (writeErr) {
-							reject(writeErr);
-						}
+						});
 					});
 				} catch (processErr) {
 					reject(processErr);
@@ -133,6 +139,11 @@ export async function unpackProjectBundle(
 			});
 
 			zipfile.on("end", () => {
+				try {
+					zipfile.close();
+				} catch {
+					// Ignore if already closed
+				}
 				resolve();
 			});
 		});
@@ -145,7 +156,7 @@ export interface ProjectInspectionEntry {
 	compressedSize: number;
 	isDirectory: boolean;
 	assetId?: string;
-	category: "config" | "thumbnail" | "video" | "audio" | "graphic" | "telemetry" | "other";
+	category: "config" | "thumbnail" | "video" | "audio" | "graphic" | "telemetry" | "story" | "hyperframe" | "other";
 }
 
 export interface ProjectInspectionResult {
@@ -175,6 +186,12 @@ function categorizeEntry(relativePath: string): {
 	}
 	if (norm === "thumbnail.png" || norm.endsWith(".thumb.png")) {
 		return { category: "thumbnail", assetId };
+	}
+	if (norm.startsWith("story/") || norm.startsWith("Story/")) {
+		return { category: "story", assetId };
+	}
+	if (norm.startsWith("hyperframe/") || ext === ".html") {
+		return { category: "hyperframe", assetId };
 	}
 	if ([".mp4", ".webm", ".mov", ".mkv"].includes(ext)) {
 		return { category: "video", assetId };
@@ -352,6 +369,11 @@ export async function inspectProjectBundle(captrPath: string): Promise<ProjectIn
 					});
 
 					zipfile.on("end", () => {
+						try {
+							zipfile.close();
+						} catch {
+							// Ignore if already closed
+						}
 						resolve({
 							success: true,
 							filePath: captrPath,
@@ -394,3 +416,98 @@ export async function inspectProjectBundle(captrPath: string): Promise<ProjectIn
 		};
 	}
 }
+
+/**
+ * Reads a single specific entry (text/json/html or image) from inside a .captr bundle
+ * without extracting the entire archive to disk.
+ */
+export async function readProjectBundleEntry(
+	captrPath: string,
+	entryPath: string,
+): Promise<{
+	success: boolean;
+	content?: string;
+	dataUrl?: string;
+	size?: number;
+	error?: string;
+}> {
+	try {
+		const isBundle = await isProjectBundle(captrPath);
+		if (!isBundle) {
+			return { success: false, error: "Not a valid .captr bundle" };
+		}
+
+		return await new Promise((resolve) => {
+			yauzl.open(captrPath, { lazyEntries: true }, (openErr, zipfile) => {
+				if (openErr || !zipfile) {
+					return resolve({
+						success: false,
+						error: openErr ? String(openErr) : "Failed to open project bundle",
+					});
+				}
+
+				const normalizedTarget = entryPath.replace(/\\/g, "/");
+				let found = false;
+
+				zipfile.on("error", (err) => {
+					resolve({ success: false, error: String(err) });
+				});
+
+				zipfile.on("end", () => {
+					if (!found) {
+						resolve({ success: false, error: `Entry "${entryPath}" not found in bundle` });
+					}
+				});
+
+				zipfile.readEntry();
+
+				zipfile.on("entry", async (entry: yauzl.Entry) => {
+					const rawName = entry.fileName.replace(/\\/g, "/");
+					if (rawName === normalizedTarget && !entry.fileName.endsWith("/")) {
+						found = true;
+						try {
+							const buf = await readEntryToBuffer(zipfile, entry);
+							try {
+								zipfile.close();
+							} catch {}
+
+							const ext = path.extname(rawName).toLowerCase();
+							const isImage = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"].includes(ext);
+
+							if (isImage) {
+								const mime =
+									ext === ".svg"
+										? "image/svg+xml"
+										: ext === ".jpg" || ext === ".jpeg"
+											? "image/jpeg"
+											: ext === ".webp"
+												? "image/webp"
+												: ext === ".gif"
+													? "image/gif"
+													: "image/png";
+								return resolve({
+									success: true,
+									dataUrl: `data:${mime};base64,${buf.toString("base64")}`,
+									size: entry.uncompressedSize,
+								});
+							}
+
+							return resolve({
+								success: true,
+								content: buf.toString("utf-8"),
+								size: entry.uncompressedSize,
+							});
+						} catch (readErr) {
+							return resolve({ success: false, error: String(readErr) });
+						}
+					}
+
+					zipfile.readEntry();
+				});
+			});
+		});
+	} catch (err) {
+		return { success: false, error: String(err) };
+	}
+}
+

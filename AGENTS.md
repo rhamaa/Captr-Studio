@@ -49,3 +49,17 @@ Sebelum mengubah pembuatan slide Record, Recorder HUD, finalisasi rekaman, proje
 3. Pastikan `currentProjectPath` tetap terjaga sepanjang Recorder HUD dan finalisasi native/browser bila rekaman berasal dari project aktif. Jangan mengasumsikan jalur Windows melewati finalizer macOS: handler sesi harus mengonsumsi konteks `preserveProjectPath` tertunda sebelum memutuskan reset path. Jika state Electron dan renderer berbeda, Ctrl+S hanya boleh memulihkan path dari bundle yang `projectId`-nya sama dengan data yang akan disimpan. Alur project baru harus tetap dapat meminta lokasi save baru.
 4. Satu file `.captr` per project V3; `project.json` indeks authoritative, sumber dan sidecar di `assets/<assetId>/`, komposisi terpisah. Semua aset library termasuk yang belum ditempatkan harus tersimpan. Jangan menulis `slides/` atau `slide.json` baru.
 5. Perbarui `ISSUE.md` saat kontrak berubah. Verifikasi Ctrl+S setelah Record berulang, import video/gambar/audio, Assets-only save/reopen, dan placement Record ganda dengan edit independen. Konversi V1/V2 Record harus eksplisit ke salinan dengan identitas/path baru; metadata tidak didukung menolak keseluruhan tanpa mengubah file asli. Video/Motion legacy tetap ditolak.
+
+## V3 visual effects dan shape
+
+- `project.json` authoritative menyimpan relasi `clipTransitions` dan animasi komponen per placement; field transisi opsional harus tetap backward-compatible dengan project V3 yang tidak memilikinya.
+- Shape rectangle, ellipse, line, dan arrow disimpan sebagai asset `shapeDefinition` tanpa file media; styling per placement disimpan pada clip.
+- Transisi menghubungkan clip visual bersebelahan pada track yang sama, menjaga durasi timeline, dan mengambil source handle sesuai playback rate. Jika edit membuat pasangan tidak valid, bersihkan relasi secara undoable; durasi di luar handle ditolak.
+- Preview dan export harus menggunakan evaluasi visual yang sama. Jangan meratakan Recording package atau mengubah jalur simpan/capture saat menambah efek.
+- Catat status QA native dan cakupan tes terbaru di `ISSUE.md`.
+
+## Home dan nama project
+
+Home tidak memiliki projectId aktif atau target save tersembunyi. Startup hanya melewati Home untuk intent Open/capture yang terverifikasi. Filename `.captr` authoritative untuk nama terlihat; title internal tanpa ekstensi. Rename mempertahankan identitas/folder, Save As membuat salinan dengan identitas baru dan mempertahankan asli. Undo/redo mempertahankan nama/identitas committed. Switch Home/New/Open harus menjaga dirty revisions dan menolak capture/finalisasi/export/file operation aktif. Tetap ikuti seluruh kontrak recording V3 di atas.
+
+Listing/recovery library, load dan transaksi file berbagi antrean; jangan menjalankan recovery terhadap Rename aktif. Preparation/finalisasi capture harus memiliki lease proses utama dan menolak completion dari project yang sudah ditinggalkan. Freeze edit selama navigasi asynchronous; Rename/Save As harus menunggu import/probe selesai. Rename yang sudah commit terverifikasi mengembalikan sukses dengan warning bila hanya cleanup gagal.

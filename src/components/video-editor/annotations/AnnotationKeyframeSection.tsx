@@ -54,7 +54,7 @@ export function AnnotationKeyframeSection({
 		<div className="mt-6 pt-4 border-t border-foreground/10 space-y-4">
 			<div className="flex items-center justify-between">
 				<span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-					<Diamond className="w-3.5 h-3.5 text-cyan-400" />
+					<Diamond className="w-3.5 h-3.5 text-[#6FA8FF]" />
 					Keyframe Engine
 				</span>
 				<span className="text-[10px] text-muted-foreground bg-foreground/5 px-2 py-0.5 rounded-md font-mono">
@@ -71,7 +71,7 @@ export function AnnotationKeyframeSection({
 					size="sm"
 					variant="outline"
 					onClick={() => handleAddKeyframe("position")}
-					className="h-8 text-xs font-medium border-foreground/10 bg-foreground/5 hover:bg-cyan-500/10 hover:text-cyan-400 hover:border-cyan-500/30 gap-1.5"
+					className="h-8 text-xs font-medium border-foreground/10 bg-foreground/5 hover:bg-[#6FA8FF]/10 hover:text-[#6FA8FF] hover:border-[#6FA8FF]/30 gap-1.5"
 				>
 					<Plus className="w-3 h-3" />
 					Position
@@ -81,7 +81,7 @@ export function AnnotationKeyframeSection({
 					size="sm"
 					variant="outline"
 					onClick={() => handleAddKeyframe("scale")}
-					className="h-8 text-xs font-medium border-foreground/10 bg-foreground/5 hover:bg-yellow-500/10 hover:text-yellow-400 hover:border-yellow-500/30 gap-1.5"
+					className="h-8 text-xs font-medium border-foreground/10 bg-foreground/5 hover:bg-[#F6C768]/10 hover:text-[#F6C768] hover:border-[#F6C768]/30 gap-1.5"
 				>
 					<Plus className="w-3 h-3" />
 					Scale
@@ -91,7 +91,7 @@ export function AnnotationKeyframeSection({
 					size="sm"
 					variant="outline"
 					onClick={() => handleAddKeyframe("rotation")}
-					className="h-8 text-xs font-medium border-foreground/10 bg-foreground/5 hover:bg-purple-500/10 hover:text-purple-400 hover:border-purple-500/30 gap-1.5"
+					className="h-8 text-xs font-medium border-foreground/10 bg-foreground/5 hover:bg-[#A879F5]/10 hover:text-[#A879F5] hover:border-[#A879F5]/30 gap-1.5"
 				>
 					<Plus className="w-3 h-3" />
 					Rotation
@@ -101,7 +101,7 @@ export function AnnotationKeyframeSection({
 					size="sm"
 					variant="outline"
 					onClick={() => handleAddKeyframe("opacity")}
-					className="h-8 text-xs font-medium border-foreground/10 bg-foreground/5 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30 gap-1.5"
+					className="h-8 text-xs font-medium border-foreground/10 bg-foreground/5 hover:bg-[#8DDB9B]/10 hover:text-[#8DDB9B] hover:border-[#8DDB9B]/30 gap-1.5"
 				>
 					<Plus className="w-3 h-3" />
 					Opacity
@@ -124,14 +124,10 @@ export function AnnotationKeyframeSection({
 									<span
 										className={cn(
 											"w-2 h-2 rotate-45 rounded-[1px] flex-shrink-0",
-											kf.property === "position" &&
-												"bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.5)]",
-											kf.property === "scale" &&
-												"bg-yellow-400 shadow-[0_0_6px_rgba(250,204,21,0.5)]",
-											kf.property === "rotation" &&
-												"bg-purple-400 shadow-[0_0_6px_rgba(192,132,252,0.5)]",
-											kf.property === "opacity" &&
-												"bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]",
+											kf.property === "position" && "bg-[#6FA8FF]",
+											kf.property === "scale" && "bg-[#F6C768]",
+											kf.property === "rotation" && "bg-[#A879F5]",
+											kf.property === "opacity" && "bg-[#8DDB9B]",
 										)}
 									/>
 									<KeyframeValueEditor

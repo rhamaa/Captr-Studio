@@ -1,4 +1,5 @@
 import { BrowserWindow } from "electron";
+import { registerAgentHandlers } from "./register/agent";
 import { registerAssetHandlers } from "./register/assets";
 import { registerExportHandlers } from "./register/export";
 import { registerPermissionHandlers } from "./register/permissions";
@@ -6,6 +7,9 @@ import { registerProjectHandlers } from "./register/project";
 import { registerRecordingHandlers } from "./register/recording";
 import { registerSettingsHandlers } from "./register/settings";
 import { registerSourceHandlers } from "./register/sources";
+import { registerTranscriptionHandlers } from "./register/transcription";
+import { registerHyperframeExportHandlers } from "./register/hyperframeExport";
+import { registerTerminalHandlers } from "./register/terminal";
 import {
 	selectedSource,
 	setNativeScreenRecordingActive,
@@ -67,4 +71,8 @@ export function registerIpcHandlers(
 	registerExportHandlers();
 	registerProjectHandlers();
 	registerSettingsHandlers();
+	registerTranscriptionHandlers();
+	registerAgentHandlers();
+	registerHyperframeExportHandlers();
+	registerTerminalHandlers();
 }

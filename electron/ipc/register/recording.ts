@@ -1,3 +1,4 @@
+import { isProjectFileOperationPending } from "../project/projectFileQueue";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { execFile, spawn } from "node:child_process";
 import fs from "node:fs/promises";
@@ -41,6 +42,7 @@ import {
 	getSystemCursorHelperSourcePath,
 	getWindowsCaptureExePath,
 } from "../paths/binaries";
+import { trackProjectFinalization } from "../project/projectActivity";
 import { isAllowedLocalMediaPath, rememberApprovedLocalReadPath } from "../project/manager";
 import {
 	getBrowserMicSidecarFilters,
@@ -395,9 +397,15 @@ async function resolveExistingPath(...candidates: Array<string | null | undefine
 export function registerRecordingHandlers(
 	onRecordingStateChange?: (recording: boolean, sourceName: string) => void,
 ) {
+	const handleFinalization: typeof ipcMain.handle = (channel, listener) =>
+		ipcMain.handle(channel, (event, ...args) => trackProjectFinalization(async () => listener(event, ...args)));
+
 	ipcMain.handle(
 		"start-native-screen-recording",
 		async (_, source: SelectedSource, options?: NativeMacRecordingOptions) => {
+			if (isProjectFileOperationPending()) {
+				return { success: false, message: "Finish the project file operation before recording." };
+			}
 			// Windows native capture path
 			if (process.platform === "win32") {
 				const windowsCaptureAvailable = await isNativeWindowsCaptureAvailable();
@@ -903,7 +911,7 @@ export function registerRecordingHandlers(
 		},
 	);
 
-	ipcMain.handle("stop-native-screen-recording", async () => {
+	handleFinalization("stop-native-screen-recording", async () => {
 		const start = Date.now();
 		console.log("[PERF:MAIN] Handler: stop-native-screen-recording: STARTED");
 		try {
@@ -1254,7 +1262,7 @@ export function registerRecordingHandlers(
 		}
 	});
 
-	ipcMain.handle("recover-native-screen-recording", async () => {
+	handleFinalization("recover-native-screen-recording", async () => {
 		if (process.platform !== "darwin") {
 			return {
 				success: false,
@@ -1410,7 +1418,7 @@ export function registerRecordingHandlers(
 		}
 	});
 
-	ipcMain.handle("mux-native-windows-recording", async (_event, expectedDurationMs?: number) => {
+	handleFinalization("mux-native-windows-recording", async (_event, expectedDurationMs?: number) => {
 		const start = Date.now();
 		console.log("[PERF:MAIN] Handler: mux-native-windows-recording: STARTED");
 		try {
@@ -1566,7 +1574,7 @@ export function registerRecordingHandlers(
 		}
 	});
 
-	ipcMain.handle("stop-ffmpeg-recording", async () => {
+	handleFinalization("stop-ffmpeg-recording", async () => {
 		if (!ffmpegScreenRecordingActive) {
 			return { success: false, message: "No FFmpeg recording is active." };
 		}
@@ -1604,7 +1612,7 @@ export function registerRecordingHandlers(
 		}
 	});
 
-	ipcMain.handle(
+	handleFinalization(
 		"store-microphone-sidecar",
 		async (
 			_,
@@ -1755,7 +1763,7 @@ export function registerRecordingHandlers(
 		},
 	);
 
-	ipcMain.handle("store-recorded-video", async (_, videoData: ArrayBuffer, fileName: string) => {
+	handleFinalization("store-recorded-video", async (_, videoData: ArrayBuffer, fileName: string) => {
 		try {
 			const recordingsDir = await getRecordingsDir();
 			const videoPath = path.join(recordingsDir, fileName);
@@ -1853,6 +1861,9 @@ export function registerRecordingHandlers(
 
 	ipcMain.handle("set-recording-state", (_, recording: boolean) => {
 		if (recording) {
+			if (isProjectFileOperationPending()) {
+				throw new Error("Finish the project file operation before recording.");
+			}
 			stopCursorCapture();
 			stopInteractionCapture();
 			startWindowBoundsCapture();

@@ -28,10 +28,7 @@ export class PreviewQueue<Request, Frame> {
 				this.pending = undefined;
 				try {
 					const frame = await this.render(pending.request);
-					if (
-						this.active &&
-						(pending.continuousPlayback || this.pending === undefined)
-					)
+					if (this.active && (pending.continuousPlayback || this.pending === undefined))
 						this.paint(frame);
 				} catch (error) {
 					if (this.active && this.pending === undefined) this.report(error);

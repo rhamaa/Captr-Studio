@@ -17,6 +17,7 @@ import {
 	isProjectBundle,
 	packProjectWorkspace,
 	readBundleThumbnailDataUrl,
+	readProjectBundleEntry,
 	unpackProjectBundle,
 } from "./projectBundle";
 import {
@@ -267,5 +268,35 @@ describe("Project Bundle (ZIP) & Asset Isolation", () => {
 		await packProjectWorkspace(workspace, captrFile);
 
 		await expect(readBundleThumbnailDataUrl(captrFile)).resolves.toBeNull();
+	});
+
+	it("reads individual entries directly without extraction via readProjectBundleEntry", async () => {
+		const workspace = path.join(tempRoot, "entry-read-workspace");
+		await fs.mkdir(path.join(workspace, "story"), { recursive: true });
+		await fs.mkdir(path.join(workspace, "hyperframe"), { recursive: true });
+
+		const storyJson = JSON.stringify({ storyName: "Intro Sequence", durationMs: 4000 });
+		await fs.writeFile(path.join(workspace, "story", "story-1.json"), storyJson, "utf-8");
+
+		const hyperHtml = "<html><body><h1>Hyperframe Title</h1></body></html>";
+		await fs.writeFile(path.join(workspace, "hyperframe", "intro.html"), hyperHtml, "utf-8");
+
+		const captrFile = path.join(tempRoot, "entry-read.captr");
+		await packProjectWorkspace(workspace, captrFile);
+
+		// Read text entry (story-1.json)
+		const storyResult = await readProjectBundleEntry(captrFile, "story/story-1.json");
+		expect(storyResult.success).toBe(true);
+		expect(storyResult.content).toBe(storyJson);
+
+		// Read html entry (intro.html)
+		const htmlResult = await readProjectBundleEntry(captrFile, "hyperframe/intro.html");
+		expect(htmlResult.success).toBe(true);
+		expect(htmlResult.content).toBe(hyperHtml);
+
+		// Non-existent entry
+		const missingResult = await readProjectBundleEntry(captrFile, "non-existent.txt");
+		expect(missingResult.success).toBe(false);
+		expect(missingResult.error).toContain("not found");
 	});
 });

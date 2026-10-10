@@ -5,7 +5,7 @@ import { SourceSelector } from "./components/launch/SourceSelector";
 import { UpdateToastWindow } from "./components/launch/UpdateToastWindow";
 import { Toaster } from "./components/ui/sonner";
 import { ShortcutsConfigDialog } from "./components/video-editor/ShortcutsConfigDialog";
-import { ProjectEditor } from "./components/editor/ProjectEditor";
+import { ProjectApplication } from "./components/editor/ProjectApplication";
 import { useI18n } from "./contexts/I18nContext";
 import { ShortcutsProvider } from "./contexts/ShortcutsContext";
 import { loadAllCustomFonts } from "./lib/customFonts";
@@ -73,14 +73,14 @@ export default function App() {
 		case "editor":
 			return (
 				<ShortcutsProvider>
-					<ProjectEditor />
+					<ProjectApplication />
 					<ShortcutsConfigDialog />
 				</ShortcutsProvider>
 			);
 		default:
 			return (
 				<ShortcutsProvider>
-					<ProjectEditor />
+					<ProjectApplication />
 					<ShortcutsConfigDialog />
 				</ShortcutsProvider>
 			);

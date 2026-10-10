@@ -1,7 +1,8 @@
 import { Plus } from "@phosphor-icons/react";
 import { type MouseEventHandler, memo, useMemo } from "react";
+import type { SourceAudioTrackWithPeaks } from "@/components/video-editor/audio/audioTypes";
 import { cn } from "@/lib/utils";
-import { CLIP_ROW_ID, LAYOUT_ROW_ID, ZOOM_ROW_ID } from "../../core/constants";
+import { CLIP_ROW_ID, LAYOUT_ROW_ID, TRIM_ROW_ID, ZOOM_ROW_ID } from "../../core/constants";
 import {
 	getAnnotationTrackIndex,
 	getAnnotationTrackRowId,
@@ -23,6 +24,9 @@ const HINT_AUDIO = "Click music icon to add audio";
 
 export interface TimelineCanvasRowsProps {
 	recordToolsEnabled?: boolean;
+	showClipRow?: boolean;
+	showSourceAudioTrack?: boolean;
+	sourceAudioTracks?: SourceAudioTrackWithPeaks[];
 	items: TimelineRenderItem[];
 	videoDurationMs: number;
 	selectAllBlocksActive: boolean;
@@ -32,6 +36,7 @@ export interface TimelineCanvasRowsProps {
 	selectedAnnotationId?: string | null;
 	selectedAudioId?: string | null;
 	onSelectZoom?: (id: string | null) => void;
+	onTrimDelete?: (id: string) => void;
 	onSelectClip?: (id: string | null) => void;
 	onSelectLayout?: (id: string | null) => void;
 	onSelectAnnotation?: (id: string | null) => void;
@@ -63,6 +68,9 @@ export interface TimelineCanvasRowsProps {
 
 export const TimelineCanvasRows = memo(function TimelineCanvasRows({
 	recordToolsEnabled = true,
+	showClipRow = true,
+	showSourceAudioTrack = false,
+	sourceAudioTracks = [],
 	items,
 	videoDurationMs,
 	selectAllBlocksActive,
@@ -72,6 +80,7 @@ export const TimelineCanvasRows = memo(function TimelineCanvasRows({
 	selectedAnnotationId,
 	selectedAudioId,
 	onSelectZoom,
+	onTrimDelete,
 	onSelectClip,
 	onSelectLayout,
 	onSelectAnnotation,
@@ -101,14 +110,19 @@ export const TimelineCanvasRows = memo(function TimelineCanvasRows({
 	isLoading = false,
 }: TimelineCanvasRowsProps) {
 	const hiddenIds = useMemo(() => new Set(liveHiddenItemIds ?? []), [liveHiddenItemIds]);
-	const { clipItems, zoomItems, layoutItems, annotationRows, audioRows } = useMemo(() => {
+	const groupedItems = useMemo(() => {
 		const nextClipItems: TimelineRenderItem[] = [];
+		const nextTrimItems: TimelineRenderItem[] = [];
 		const nextZoomItems: TimelineRenderItem[] = [];
 		const nextLayoutItems: TimelineRenderItem[] = [];
 		const annotationBuckets = new Map<number, TimelineRenderItem[]>();
 		const audioBuckets = new Map<number, TimelineRenderItem[]>();
 
 		for (const item of items) {
+			if (item.rowId === TRIM_ROW_ID) {
+				nextTrimItems.push(item);
+				continue;
+			}
 			if (item.rowId === CLIP_ROW_ID) {
 				nextClipItems.push(item);
 				continue;
@@ -151,36 +165,108 @@ export const TimelineCanvasRows = memo(function TimelineCanvasRows({
 
 		return {
 			clipItems: nextClipItems,
+			trimItems: nextTrimItems,
 			zoomItems: nextZoomItems,
 			layoutItems: nextLayoutItems,
 			annotationRows: annotationRowsSorted,
 			audioRows: audioRowsSorted,
 		};
 	}, [items]);
+	const { clipItems, trimItems, zoomItems, layoutItems, annotationRows, audioRows } =
+		groupedItems;
 
 	return (
 		<>
-			<Row id={CLIP_ROW_ID} isEmpty={clipItems.length === 0} hint={HINT_CLIP} minHeight={76}>
-				<ClipMarkerOverlay videoDurationMs={videoDurationMs} />
-				{clipItems.map((item) => (
-					<Item
-						id={item.id}
-						key={item.id}
-						rowId={item.rowId}
-						span={item.span}
-						waveformSegmentSpan={item.sourceSpan ?? item.span}
-						isSelected={selectAllBlocksActive || item.id === selectedClipId}
-						onSelectId={onSelectClip}
-						transitionIn={item.transitionIn}
-						media4in1={item.media4in1 ?? media4in1}
-						variant="clip"
-						isLoading={isLoading}
-						loadingLabel="Analyzing..."
-					>
-						{item.label}
-					</Item>
-				))}
-			</Row>
+			{showClipRow && (
+				<Row
+					id={CLIP_ROW_ID}
+					isEmpty={clipItems.length === 0}
+					hint={HINT_CLIP}
+					minHeight={76}
+				>
+					<ClipMarkerOverlay videoDurationMs={videoDurationMs} />
+					{clipItems.map((item) => (
+						<Item
+							id={item.id}
+							key={item.id}
+							rowId={item.rowId}
+							span={item.span}
+							waveformSegmentSpan={item.sourceSpan ?? item.span}
+							isSelected={selectAllBlocksActive || item.id === selectedClipId}
+							onSelectId={onSelectClip}
+							transitionIn={item.transitionIn}
+							media4in1={item.media4in1 ?? media4in1}
+							variant="clip"
+							isLoading={isLoading}
+							loadingLabel="Analyzing..."
+						>
+							{item.label}
+						</Item>
+					))}
+				</Row>
+			)}
+
+			{trimItems.length > 0 && (
+				<Row
+					id={TRIM_ROW_ID}
+					label="Cuts"
+					labelColor="#F87171"
+					isEmpty={false}
+					hint="Red ranges are removed; the gaps are kept"
+				>
+					{trimItems.map((item) => (
+						<Item
+							id={item.id}
+							key={item.id}
+							rowId={item.rowId}
+							span={item.span}
+							variant="trim"
+							onDelete={onTrimDelete ? () => onTrimDelete(item.id) : undefined}
+						>
+							{item.label}
+						</Item>
+					))}
+				</Row>
+			)}
+
+			{showSourceAudioTrack &&
+				sourceAudioTracks.map((track) => {
+					const offsetMs = Number.isFinite(track.offsetMs) ? (track.offsetMs ?? 0) : 0;
+					const sourceDurationMs =
+						Number.isFinite(track.durationMs) && (track.durationMs ?? 0) > 0
+							? (track.durationMs as number)
+							: Math.max(0, videoDurationMs - offsetMs);
+					const startMs = Math.max(0, offsetMs);
+					const endMs = Math.min(videoDurationMs, offsetMs + sourceDurationMs);
+					if (endMs <= startMs) return null;
+
+					const rowId = `row-source-audio-${track.id}`;
+					return (
+						<Row
+							key={track.id}
+							id={rowId}
+							label={track.label}
+							labelColor="#34D399"
+							isEmpty={false}
+						>
+							<Item
+								id={`source-audio-${track.id}`}
+								rowId={rowId}
+								span={{ start: startMs, end: endMs }}
+								waveformPeaks={track.peaks}
+								waveformSegmentSpan={{
+									start: startMs - offsetMs,
+									end: endMs - offsetMs,
+								}}
+								variant="audio"
+								disabled
+								readOnly
+							>
+								{track.label}
+							</Item>
+						</Row>
+					);
+				})}
 
 			{recordToolsEnabled && (
 				<>

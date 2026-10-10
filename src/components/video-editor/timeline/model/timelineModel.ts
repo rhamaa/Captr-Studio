@@ -3,9 +3,10 @@ import type {
 	AudioRegion,
 	ClipRegion,
 	LayoutRegion,
+	TrimRegion,
 	ZoomRegion,
 } from "../../types";
-import { CLIP_ROW_ID, LAYOUT_ROW_ID, ZOOM_ROW_ID } from "../core/constants";
+import { CLIP_ROW_ID, LAYOUT_ROW_ID, TRIM_ROW_ID, ZOOM_ROW_ID } from "../core/constants";
 import {
 	getAnnotationTrackIndex,
 	getAnnotationTrackRowId,
@@ -49,6 +50,7 @@ export function getAudioLabel(region: AudioRegion): string {
 export function buildTimelineItems(params: {
 	zoomRegions: ZoomRegion[];
 	clipRegions: ClipRegion[];
+	trimRegions?: TrimRegion[];
 	layoutRegions?: LayoutRegion[];
 	annotationRegions: AnnotationRegion[];
 	audioRegions: AudioRegion[];
@@ -56,6 +58,7 @@ export function buildTimelineItems(params: {
 	const {
 		zoomRegions,
 		clipRegions,
+		trimRegions = [],
 		layoutRegions = [],
 		annotationRegions,
 		audioRegions,
@@ -87,6 +90,13 @@ export function buildTimelineItems(params: {
 			variant: "clip",
 		};
 	});
+	const trims: TimelineRenderItem[] = trimRegions.map((region) => ({
+		id: region.id,
+		rowId: TRIM_ROW_ID,
+		span: { start: region.startMs, end: region.endMs },
+		label: "Cut",
+		variant: "trim",
+	}));
 
 	const layouts: TimelineRenderItem[] = layoutRegions.map((region) => ({
 		id: region.id,
@@ -121,16 +131,17 @@ export function buildTimelineItems(params: {
 		variant: "audio",
 	}));
 
-	return [...zooms, ...clips, ...layouts, ...annotations, ...audios];
+	return [...zooms, ...clips, ...trims, ...layouts, ...annotations, ...audios];
 }
 
 export function buildAllRegionSpans(params: {
 	zoomRegions: ZoomRegion[];
 	clipRegions: ClipRegion[];
+	trimRegions?: TrimRegion[];
 	layoutRegions?: LayoutRegion[];
 	audioRegions: AudioRegion[];
 }): TimelineRegionSpan[] {
-	const { zoomRegions, clipRegions, layoutRegions = [], audioRegions } = params;
+	const { zoomRegions, clipRegions, trimRegions = [], layoutRegions = [], audioRegions } = params;
 	const zooms = zoomRegions.map((r) => ({
 		id: r.id,
 		start: r.startMs,
@@ -142,6 +153,12 @@ export function buildAllRegionSpans(params: {
 		start: r.startMs,
 		end: r.endMs,
 		rowId: CLIP_ROW_ID,
+	}));
+	const trims = trimRegions.map((r) => ({
+		id: r.id,
+		start: r.startMs,
+		end: r.endMs,
+		rowId: TRIM_ROW_ID,
 	}));
 	const layouts = layoutRegions.map((r) => ({
 		id: r.id,
@@ -155,7 +172,7 @@ export function buildAllRegionSpans(params: {
 		end: r.endMs,
 		rowId: getAudioTrackRowId(r.trackIndex ?? 0),
 	}));
-	return [...zooms, ...clips, ...layouts, ...audios];
+	return [...zooms, ...clips, ...trims, ...layouts, ...audios];
 }
 
 export function resolveDropRowId(

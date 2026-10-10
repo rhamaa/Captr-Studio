@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLocalMediaUrl } from "@/hooks/useLocalMediaUrl";
 import { cn } from "@/lib/utils";
+import { formatTrimTime } from "@/recording/trimRanges";
 import type { AudioPeaksData, RecordingMediaStreams } from "./core/timelineTypes";
 import glassStyles from "./ItemGlass.module.css";
 import { ClipTimelineItem } from "./items/ClipTimelineItem";
@@ -15,6 +16,7 @@ export interface ItemProps {
 	span: Span;
 	rowId: string;
 	disabled?: boolean;
+	readOnly?: boolean;
 	children: React.ReactNode;
 	isSelected?: boolean;
 	onSelect?: () => void;
@@ -31,6 +33,7 @@ export interface ItemProps {
 	media4in1?: RecordingMediaStreams;
 	keyframes?: import("../types").PropertyKeyframe[];
 	locked?: boolean;
+	onDelete?: () => void;
 	variant?: "zoom" | "trim" | "clip" | "annotation" | "speed" | "audio" | "layout";
 	isLoading?: boolean;
 	loadingLabel?: string;
@@ -41,6 +44,7 @@ export default function Item({
 	span,
 	rowId,
 	disabled = false,
+	readOnly = false,
 	isSelected = false,
 	onSelect,
 	onSelectId,
@@ -56,6 +60,7 @@ export default function Item({
 	media4in1,
 	keyframes,
 	locked,
+	onDelete,
 	variant = "zoom",
 	isLoading = false,
 	loadingLabel,
@@ -64,13 +69,14 @@ export default function Item({
 	const { setNodeRef, attributes, listeners, itemStyle, itemContentStyle } = useItem({
 		id,
 		span,
-		disabled: disabled || isLoading,
+		disabled: disabled || readOnly || isLoading,
 		data: { rowId },
 	});
 
 	const timeLabel = useMemo(
-		() => `${formatMs(span.start)} – ${formatMs(span.end)}`,
-		[span.start, span.end],
+		() =>
+			`${variant === "trim" ? formatTrimTime(span.start) : formatMs(span.start)} – ${variant === "trim" ? formatTrimTime(span.end) : formatMs(span.end)}`,
+		[span.start, span.end, variant],
 	);
 
 	const webcamSrc = useLocalMediaUrl(media4in1?.webcamPath);
@@ -126,7 +132,7 @@ export default function Item({
 			{...attributes}
 			data-timeline-item="true"
 			onPointerDownCapture={handleSelect}
-			className="group h-full"
+			className={cn("group h-full", readOnly && "pointer-events-none")}
 		>
 			<div
 				className="h-full"
@@ -184,6 +190,7 @@ export default function Item({
 							isSelected={isSelected}
 							keyframes={keyframes}
 							locked={locked}
+							onDelete={onDelete}
 						>
 							{children}
 						</StandardTimelineItem>

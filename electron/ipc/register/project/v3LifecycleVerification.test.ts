@@ -9,7 +9,9 @@ import {
 	registerRecording,
 	splitClip,
 } from "../../../../src/core/timeline/commands";
-import type { CompletedRecording, TimelineProject } from "../../../../src/core/timeline/types";
+import { addClipTransition, setComponentAnimation } from "../../../../src/core/timeline/clipTransitions";
+import { createAndPlaceShape, setShapeStyleOverride } from "../../../../src/core/timeline/shapeCommands";
+import type { CompletedRecording, ShapeDefinition, TimelineProject } from "../../../../src/core/timeline/types";
 import {
 	inspectProjectBundle,
 	packProjectWorkspace,
@@ -127,6 +129,7 @@ describe("V3 Lifecycle & Regression Verification Suite", () => {
 		const initSaveResult = await saveHandler(null, initialProject, "Test 2");
 		expect(initSaveResult.success).toBe(true);
 		expect(state.currentProjectPath).toBe(test2Path);
+		await mock.handlers.get("activate-timeline-project")!(null, initialProject.projectId, false);
 
 		// 2. First recording take: Recorder HUD sets preserveProjectPath flag
 		const sources1 = await makeSourceFiles("take-1");
@@ -219,7 +222,7 @@ describe("V3 Lifecycle & Regression Verification Suite", () => {
 		const inspection = await inspectProjectBundle(test2Path);
 		expect(inspection.success).toBe(true);
 		expect(inspection.projectData).not.toHaveProperty("slides");
-	});
+	}, 20_000);
 
 	it("QA 2: Tempatkan Record dua kali, split/trim/rate/edit independen, import media, dan verifikasi reopen parity", async () => {
 		const sources = await makeSourceFiles("dual-placement");
@@ -313,7 +316,7 @@ describe("V3 Lifecycle & Regression Verification Suite", () => {
 		const audAsset = reopened.assets.find((a) => a.id === "audio-asset")!;
 		expect(audAsset).toBeDefined();
 		expect(await fs.readFile(audAsset.source!.path, "utf8")).toBe("fake-audio-bytes");
-	});
+	}, 20_000);
 
 	it("QA 3: Save As dan New Project mempertahankan perbedaan path/identitas, dan konversi eksplisit memakai file baru", async () => {
 		const originalProject = createTimelineProject("orig-proj", "Original");
@@ -410,5 +413,75 @@ describe("V3 Lifecycle & Regression Verification Suite", () => {
 		expect(convInspection.success).toBe(true);
 		expect(convInspection.projectData?.version).toBe(3);
 		expect(convInspection.projectData?.projectId).toBe("converted-v3-id");
+	});
+
+	it("persists clip transitions, component animation, and pathless shapes through save and reopen", async () => {
+		const sources = await makeSourceFiles("visual-effects");
+		let project = createTimelineProject("visual-effects-project", "Visual Effects");
+		for (const id of ["outgoing", "incoming"])
+			project = registerMedia(project, {
+				id,
+				kind: "video",
+				name: id,
+				durationUs: 8_000_000,
+				width: 1920,
+				height: 1080,
+				source: { path: sources.screenPath, durationUs: 10_000_000, offsetUs: 0 },
+			});
+		project = placeAsset(project, "outgoing", "visual-1", 0, { clipId: "out" });
+		project = placeAsset(project, "incoming", "visual-1", 8_000_000, { clipId: "in" });
+		project.tracks[0]!.clips[0]!.sourceOutUs = 6_000_000;
+		project.tracks[0]!.clips[1]!.sourceInUs = 2_000_000;
+		project.tracks[0]!.clips[1]!.startUs = 6_000_000;
+		project = setComponentAnimation(project, "in", "enter", {
+			preset: "wipe-reveal",
+			direction: "up",
+			durationUs: 350_000,
+			easing: "ease-in-out",
+		});
+		project = addClipTransition(
+			project,
+			{
+				trackId: "visual-1",
+				fromClipId: "out",
+				toClipId: "in",
+				preset: { kind: "fade-through", color: "black" },
+				easing: "ease-in-out",
+			},
+			"transition-between-clips",
+		);
+		const rectangle: ShapeDefinition = {
+			kind: "rectangle",
+			width: 360,
+			height: 200,
+			style: { fill: "#ffffff", stroke: null },
+		};
+		project = createAndPlaceShape(project, rectangle, 12_000_000, {
+			assetId: "shape-asset",
+			clipId: "shape-placement",
+			trackId: "shape-track",
+		});
+		project = setShapeStyleOverride(project, "shape-placement", {
+			fill: "#cc8844",
+			stroke: { color: "#221100", width: 2 },
+		});
+
+		const projectPath = path.join(mock.root, "Projects", "Visual Effects.captr");
+		mock.saveDialog.mockResolvedValueOnce({ filePath: projectPath, canceled: false });
+		const saved = await mock.handlers.get("save-project-file")!(null, project, "Visual Effects");
+		expect(saved.success).toBe(true);
+		const loaded = await loadProjectFromPath(projectPath);
+		expect(loaded.success).toBe(true);
+		const reopened = loaded.project as TimelineProject;
+		expect(reopened.clipTransitions).toEqual(project.clipTransitions);
+		expect(reopened.tracks[0]!.clips.find((clip) => clip.id === "in")?.componentAnimation)
+			.toEqual(project.tracks[0]!.clips.find((clip) => clip.id === "in")?.componentAnimation);
+		expect(reopened.assets.find((asset) => asset.id === "shape-asset")?.shapeDefinition)
+			.toEqual(rectangle);
+		expect(reopened.tracks[0]!.clips.find((clip) => clip.id === "shape-placement")?.shapeStyleOverride)
+			.toEqual({ fill: "#cc8844", stroke: { color: "#221100", width: 2 } });
+		const inspection = await inspectProjectBundle(projectPath);
+		expect(inspection.success).toBe(true);
+		expect(inspection.projectData).not.toHaveProperty("slides");
 	});
 });

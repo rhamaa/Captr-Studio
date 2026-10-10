@@ -1,10 +1,39 @@
-import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
-import { ArrowLeft, Play, Pause, Scissors, Sparkle, Plus } from "@phosphor-icons/react";
-import { SettingsPanel } from "@/components/video-editor/SettingsPanel";
+import {
+	ArrowLeft,
+	CursorClick,
+	MagnifyingGlassPlus,
+	Palette,
+	Pause,
+	Play,
+	Plus,
+	Scissors,
+	SkipBack,
+	SkipForward,
+	Sparkle,
+	SquaresFour,
+} from "@phosphor-icons/react";
+import { type ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ProjectPreview } from "@/components/editor/ProjectPreview";
-import { recordingPreviewProject, sourceToCompositionTime } from "../evaluation";
-import { mapCompositionTime } from "@/core/timeline/timeMapping";
-import { playbackOutputTimeUs } from "./playbackClock";
+import { SettingsPanel } from "@/components/video-editor/SettingsPanel";
+import { ZOOM_DEPTH_OPTIONS } from "@/components/video-editor/settings/sections/ZoomItemSection";
+import {
+	buildAutoReframeSuggestions,
+	buildInteractionZoomSuggestions,
+} from "@/components/video-editor/timeline/zoomSuggestionUtils";
+import {
+	type AspectRatio,
+	getAspectRatioValue,
+	resolveAspectRatioCanvas,
+} from "@/utils/aspectRatioUtils";
+
+function formatTimecode(seconds: number): string {
+	const totalSecs = Math.max(0, seconds);
+	const mins = Math.floor(totalSecs / 60);
+	const secs = Math.floor(totalSecs % 60);
+	const centis = Math.floor((totalSecs % 1) * 100);
+	return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${String(centis).padStart(2, "0")}`;
+}
+
 import type {
 	AnnotationRegion,
 	EditorEffectSection,
@@ -12,15 +41,23 @@ import type {
 	PlaybackSpeed,
 	ZoomRegion,
 } from "@/components/video-editor/types";
-import { buildInteractionZoomSuggestions } from "@/components/video-editor/timeline/zoomSuggestionUtils";
+import { mapCompositionTime } from "@/core/timeline/timeMapping";
 import { RecordingTimeline, type RecordingTimelineHandle } from "../components/RecordingTimeline";
-import type { RecordComposition, RecordingPackage, RecordingSettings } from "../types";
+import { recordingPreviewProject, sourceToCompositionTime } from "../evaluation";
 import { localMediaUrl } from "../mediaProbe";
+import type { RecordComposition, RecordingPackage, RecordingSettings } from "../types";
 import { changeRecordingSettings, resolveRecordingSettings } from "./compositionAdapter";
+import { playbackOutputTimeUs } from "./playbackClock";
 
 export interface RecordingCompositionEditorProps {
 	package: RecordingPackage;
 	composition: RecordComposition;
+	projectTitle?: string;
+	canvas?: { width: number; height: number; fps?: number };
+	aspectRatio?: AspectRatio;
+	clipTransform?: { x: number; y: number; scale: number; rotation: number; opacity: number };
+	onClipTransformChange?: (transform: { x: number; y: number; scale: number; rotation: number; opacity: number }) => void;
+	onAspectRatioChange?: (ratio: AspectRatio) => void;
 	onChange: (next: RecordComposition) => void;
 	onClose: () => void;
 }
@@ -63,26 +100,92 @@ const settingCallbacks: Partial<Record<keyof RecordingSettings, keyof PanelProps
 	zoomInEasing: "onZoomInEasingChange",
 	zoomOutEasing: "onZoomOutEasingChange",
 	connectedZoomEasing: "onConnectedZoomEasingChange",
-	audioDuckingSettings: "onAudioDuckingSettingsChange",
 };
+
+type RecordingSection = Extract<EditorEffectSection, "scene" | "cursor" | "layout">;
+
+const RECORDING_TABS: {
+	id: RecordingSection;
+	label: string;
+	icon: typeof Palette;
+}[] = [
+	{ id: "scene", label: "Scene", icon: Palette },
+	{ id: "cursor", label: "Cursor", icon: CursorClick },
+	{ id: "layout", label: "Layout", icon: SquaresFour },
+];
 
 /** Controlled effect editor. Project library, recording, persistence and export live outside. */
 export function RecordingCompositionEditor({
 	package: pkg,
 	composition,
+	projectTitle,
+	canvas: propCanvas,
+	aspectRatio: propAspectRatio,
+	clipTransform,
+	onClipTransformChange,
+	onAspectRatioChange,
 	onChange,
 	onClose,
 }: RecordingCompositionEditorProps) {
+	const [currentTransform, setCurrentTransform] = useState(
+		clipTransform ?? { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 },
+	);
+
+	useEffect(() => {
+		if (clipTransform) {
+			setCurrentTransform(clipTransform);
+		}
+	}, [clipTransform]);
+
 	const settings = useMemo(() => resolveRecordingSettings(pkg, composition), [pkg, composition]);
+
+	const initialAspectRatio: AspectRatio = useMemo(() => {
+		if (propAspectRatio) {
+			return propAspectRatio;
+		}
+		if (composition.settings?.aspectRatio) {
+			return composition.settings.aspectRatio as AspectRatio;
+		}
+		if (propCanvas) {
+			const { width, height } = propCanvas;
+			if (width === 1080 && height === 1920) return "9:16";
+			if (width === 1080 && height === 1080) return "1:1";
+			if (width === 1080 && height === 1350) return "4:5";
+			if (width === 1920 && height === 1080) return "16:9";
+			if (width === 1440 && height === 1080) return "4:3";
+			if (width === 1728 && height === 1080) return "16:10";
+			if (width === 1080 && height === 1728) return "10:16";
+		}
+		return "16:9";
+	}, [propAspectRatio, composition.settings?.aspectRatio, propCanvas]);
+
+	const [aspectRatio, setAspectRatio] = useState<AspectRatio>(initialAspectRatio);
+
+	useEffect(() => {
+		if (propAspectRatio) {
+			setAspectRatio(propAspectRatio);
+		}
+	}, [propAspectRatio]);
+
+	const previewCanvas = useMemo(
+		() =>
+			resolveAspectRatioCanvas(aspectRatio, propCanvas, {
+				width: pkg.width,
+				height: pkg.height,
+			}),
+		[aspectRatio, propCanvas, pkg.width, pkg.height],
+	);
+
 	const [sourceUrl, setSourceUrl] = useState(""),
 		[playing, setPlaying] = useState(false),
 		[sourceSeconds, setSourceSeconds] = useState(0),
-		[section, setSection] = useState<EditorEffectSection>("scene"),
+		[section, setSection] = useState<RecordingSection>("scene"),
 		[selectedZoomId, setSelectedZoomId] = useState<string | null>(null),
 		[selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null),
 		[selectedLayoutId, setSelectedLayoutId] = useState<string | null>(null),
-		[selectedAudioId, setSelectedAudioId] = useState<string | null>(null),
 		[error, setError] = useState<string | null>(null);
+	const webcamPath = pkg.webcam?.path;
+	const [webcamPreview, setWebcamPreview] = useState<{ path: string; url: string } | null>(null);
 	const timeline = useRef<RecordingTimelineHandle>(null);
 	useEffect(() => {
 		let active = true;
@@ -97,10 +200,32 @@ export function RecordingCompositionEditor({
 			active = false;
 		};
 	}, [pkg.screen.path]);
+	useEffect(() => {
+		let active = true;
+		setWebcamPreview(null);
+		if (webcamPath) {
+			void localMediaUrl(webcamPath)
+				.then((url) => {
+					if (active) setWebcamPreview({ path: webcamPath, url });
+				})
+				.catch((e) => {
+					if (active) setError(`Webcam preview: ${String(e)}`);
+				});
+		}
+		return () => {
+			active = false;
+		};
+	}, [webcamPath]);
 	const previewProject = useMemo(
-		() => recordingPreviewProject(pkg, composition),
-		[pkg, composition],
+		() => recordingPreviewProject(pkg, composition, previewCanvas, currentTransform),
+		[pkg, composition, previewCanvas, currentTransform],
 	);
+	const clipName = useMemo(() => {
+		const p = pkg.screen.path;
+		if (!p) return "Screen Recording";
+		const parts = p.split(/[/\\]/);
+		return parts[parts.length - 1] || "Screen Recording";
+	}, [pkg.screen.path]);
 	const outputUs = sourceToCompositionTime(composition, sourceSeconds * 1_000_000);
 	useEffect(() => {
 		if (!playing) return;
@@ -108,7 +233,11 @@ export function RecordingCompositionEditor({
 			start = performance.now();
 		let frame = 0;
 		const tick = () => {
-			const output = playbackOutputTimeUs(base, performance.now() - start, composition.durationUs);
+			const output = playbackOutputTimeUs(
+				base,
+				performance.now() - start,
+				composition.durationUs,
+			);
 			if (output === null) {
 				setPlaying(false);
 				return;
@@ -119,14 +248,17 @@ export function RecordingCompositionEditor({
 		frame = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(frame);
 	}, [playing, composition]);
-	const update = (patch: Partial<RecordingSettings>) => {
-		try {
-			onChange(changeRecordingSettings(pkg, composition, patch));
-			setError(null);
-		} catch (e) {
-			setError(e instanceof Error ? e.message : String(e));
-		}
-	};
+	const update = useCallback(
+		(patch: Partial<RecordingSettings>) => {
+			try {
+				onChange(changeRecordingSettings(pkg, composition, patch));
+				setError(null);
+			} catch (e) {
+				setError(e instanceof Error ? e.message : String(e));
+			}
+		},
+		[pkg, composition, onChange],
+	);
 	const callbacks = Object.fromEntries(
 		Object.entries(settingCallbacks).map(([key, callback]) => [
 			callback,
@@ -150,17 +282,35 @@ export function RecordingCompositionEditor({
 			),
 		});
 	const selectedZoom = settings.zoomRegions.find((z) => z.id === selectedZoomId),
-		selectedLayout = settings.layoutRegions.find((l) => l.id === selectedLayoutId),
-		selectedAudio = settings.audioRegions.find((a) => a.id === selectedAudioId);
+		selectedLayout = settings.layoutRegions.find((l) => l.id === selectedLayoutId);
 	const selectedAnnotation = settings.annotationRegions.find(
 		(a) => a.id === selectedAnnotationId,
 	);
+	const handleAspectRatioChange = useCallback(
+		(nextRatio: AspectRatio) => {
+			setAspectRatio(nextRatio);
+			update({ aspectRatio: nextRatio });
+			onAspectRatioChange?.(nextRatio);
+		},
+		[update, onAspectRatioChange],
+	);
+
 	const suggestZooms = () => {
-		const suggestions = buildInteractionZoomSuggestions({
-			cursorTelemetry: settings.cursorTelemetry ?? [],
-			totalMs: pkg.durationUs / 1000,
-			defaultDurationMs: 2500,
-		});
+		const sourceAspectRatio = pkg.height > 0 ? pkg.width / pkg.height : 16 / 9;
+		const targetRatioValue = getAspectRatioValue(aspectRatio, sourceAspectRatio);
+		const suggestions =
+			targetRatioValue < 1.1
+				? buildAutoReframeSuggestions({
+						cursorTelemetry: settings.cursorTelemetry ?? [],
+						totalMs: pkg.durationUs / 1000,
+						targetAspectRatio: aspectRatio,
+						sourceAspectRatio,
+					})
+				: buildInteractionZoomSuggestions({
+						cursorTelemetry: settings.cursorTelemetry ?? [],
+						totalMs: pkg.durationUs / 1000,
+						defaultDurationMs: 2500,
+					});
 		update({
 			zoomRegions: suggestions.suggestions.map((z) => ({
 				id: crypto.randomUUID(),
@@ -205,6 +355,156 @@ export function RecordingCompositionEditor({
 	};
 	const currentMs = Math.round(sourceSeconds * 1000),
 		durationMs = pkg.durationUs / 1000;
+
+	const handleCutAtPlayhead = useCallback(() => {
+		const startMs = Math.max(0, currentMs);
+		const endMs = Math.min(durationMs, startMs + 1000);
+		if (endMs > startMs) {
+			update({
+				trimRegions: [...settings.trimRegions, { id: crypto.randomUUID(), startMs, endMs }],
+			});
+		}
+	}, [currentMs, durationMs, settings.trimRegions, update]);
+
+	const handleAddZoomAtCurrent = useCallback(() => {
+		const id = crypto.randomUUID();
+		const startMs = Math.max(0, currentMs);
+		const endMs = Math.min(durationMs, startMs + 2500);
+		update({
+			zoomRegions: [
+				...settings.zoomRegions,
+				{
+					id,
+					startMs,
+					endMs,
+					depth: 2,
+					focus: { cx: 0.5, cy: 0.5 },
+					mode: "manual",
+				},
+			],
+		});
+		setSelectedZoomId(id);
+	}, [currentMs, durationMs, settings.zoomRegions, update]);
+
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			const target = e.target;
+			if (
+				target instanceof HTMLElement &&
+				(target.matches("input,textarea,select,[contenteditable=true]") ||
+					target.isContentEditable)
+			) {
+				return;
+			}
+
+			if (e.key === " ") {
+				e.preventDefault();
+				setPlaying((v) => !v);
+				return;
+			}
+
+			if (e.key === "Escape") {
+				e.preventDefault();
+				if (selectedZoomId || selectedAnnotationId || selectedLayoutId) {
+					setSelectedZoomId(null);
+					setSelectedAnnotationId(null);
+					setSelectedLayoutId(null);
+				} else {
+					onClose();
+				}
+				return;
+			}
+
+			if (e.key === "Delete" || e.key === "Backspace") {
+				if (selectedZoomId) {
+					e.preventDefault();
+					update({
+						zoomRegions: settings.zoomRegions.filter((z) => z.id !== selectedZoomId),
+					});
+					setSelectedZoomId(null);
+				} else if (selectedAnnotationId) {
+					e.preventDefault();
+					update({
+						annotationRegions: settings.annotationRegions.filter(
+							(a) => a.id !== selectedAnnotationId,
+						),
+					});
+					setSelectedAnnotationId(null);
+				} else if (selectedLayoutId) {
+					e.preventDefault();
+					update({
+						layoutRegions: settings.layoutRegions.filter(
+							(l) => l.id !== selectedLayoutId,
+						),
+					});
+					setSelectedLayoutId(null);
+				}
+				return;
+			}
+
+			if (
+				(e.key.toLowerCase() === "s" || e.key.toLowerCase() === "c") &&
+				!e.ctrlKey &&
+				!e.metaKey &&
+				!e.altKey
+			) {
+				e.preventDefault();
+				handleCutAtPlayhead();
+				return;
+			}
+
+			if (e.key.toLowerCase() === "t" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+				e.preventDefault();
+				timeline.current?.addAnnotation();
+				return;
+			}
+
+			if (e.key.toLowerCase() === "z" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+				e.preventDefault();
+				handleAddZoomAtCurrent();
+				return;
+			}
+
+			if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+				e.preventDefault();
+				setPlaying(false);
+				const stepSeconds = e.shiftKey ? 1 : 1 / 60;
+				const dir = e.key === "ArrowLeft" ? -1 : 1;
+				const durationSec = pkg.durationUs / 1_000_000;
+				setSourceSeconds((curr) =>
+					Math.max(0, Math.min(durationSec, curr + dir * stepSeconds)),
+				);
+				return;
+			}
+
+			if (e.key === "Home") {
+				e.preventDefault();
+				setPlaying(false);
+				setSourceSeconds(0);
+				return;
+			}
+
+			if (e.key === "End") {
+				e.preventDefault();
+				setPlaying(false);
+				setSourceSeconds(pkg.durationUs / 1_000_000);
+				return;
+			}
+		};
+
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [
+		pkg.durationUs,
+		onClose,
+		selectedZoomId,
+		selectedAnnotationId,
+		selectedLayoutId,
+		settings,
+		update,
+		handleAddZoomAtCurrent,
+		handleCutAtPlayhead,
+	]);
 	const addSpeed = (speed: PlaybackSpeed) => {
 		const startMs = Math.max(0, currentMs),
 			endMs = Math.min(durationMs, startMs + 3000);
@@ -221,12 +521,55 @@ export function RecordingCompositionEditor({
 	return (
 		<section className="recording-composition-editor">
 			<header className="recording-editor-header">
-				<button onClick={onClose}>
-					<ArrowLeft size={17} />
-					Back to project
-				</button>
-				<span>Recording effects</span>
-				<span className="project-muted">Edits apply to this clip</span>
+				<div className="recording-header-left">
+					<button
+						type="button"
+						className="recording-back-button"
+						onClick={onClose}
+						title="Return to project timeline (Esc)"
+					>
+						<ArrowLeft size={13} weight="bold" />
+						<span>Timeline</span>
+						<kbd className="recording-kbd">Esc</kbd>
+					</button>
+					<span className="recording-header-sep">/</span>
+					{projectTitle ? (
+						<>
+							<span className="recording-breadcrumb-project" title={projectTitle}>
+								{projectTitle}
+							</span>
+							<span className="recording-header-sep">/</span>
+						</>
+					) : null}
+					<div className="recording-header-title">
+						<span className="recording-header-label">Clip Effects</span>
+						<span className="recording-clip-badge" title={clipName}>
+							{clipName}
+						</span>
+					</div>
+				</div>
+				<div className="recording-header-right">
+					<div className="recording-aspect-select-wrapper">
+						<select
+							className="recording-aspect-select"
+							value={aspectRatio}
+							onChange={(e) => handleAspectRatioChange(e.target.value as AspectRatio)}
+							title="Preview Aspect Ratio"
+							aria-label="Preview aspect ratio"
+						>
+							<option value="16:9">16:9 Landscape</option>
+							<option value="9:16">9:16 Shorts / Reels</option>
+							<option value="1:1">1:1 Square</option>
+							<option value="4:5">4:5 Portrait</option>
+							<option value="4:3">4:3 Standard</option>
+							<option value="16:10">16:10 Widescreen</option>
+							<option value="native">
+								Native ({pkg.width}×{pkg.height})
+							</option>
+						</select>
+					</div>
+					<span className="recording-badge-meta">{(durationMs / 1000).toFixed(1)}s</span>
+				</div>
 			</header>
 			{error && (
 				<div role="alert" className="project-error">
@@ -234,467 +577,537 @@ export function RecordingCompositionEditor({
 				</div>
 			)}
 			<div className="recording-editor-body">
-				<aside className="recording-editor-settings">
-					<nav className="recording-section-tabs">
-						{(
-							[
-								"scene",
-								"cursor",
-								"webcam",
-								"zoom",
-								"layout",
-								"motion",
-								"audio-record",
-							] as const
-						).map((tab) => (
-							<button
-								key={tab}
-								aria-pressed={section === tab}
-								onClick={() => setSection(tab)}
-							>
-								{tab === "audio-record"
-									? "Audio"
-									: tab.charAt(0).toUpperCase() + tab.slice(1)}
-							</button>
-						))}
-					</nav>
-					{section === "motion" && (
-						<label className="recording-motion-control">
-							Zoom motion blur
-							<input
-								type="range"
-								min={0}
-								max={2}
-								step={0.01}
-								value={settings.zoomMotionBlur ?? 0.35}
-								onChange={(event) =>
-									update({ zoomMotionBlur: Number(event.target.value) })
-								}
+				<div className="recording-editor-monitor">
+					<div className="recording-preview-wrapper">
+						<div
+							className="recording-preview-stage"
+							style={{
+								aspectRatio: `${previewCanvas.width} / ${previewCanvas.height}`,
+							}}
+						>
+							<ProjectPreview
+								project={previewProject}
+								timeUs={outputUs}
+								playing={playing}
+								onError={setError}
+								selectedClipId="preview-clip"
+								onSelectClip={() => {}}
+								onUpdateClipTransform={(_, nextTransform) => {
+									setCurrentTransform(nextTransform);
+									onClipTransformChange?.(nextTransform);
+								}}
 							/>
+						</div>
+					</div>
+					<div className="recording-editor-transport">
+						<div className="recording-transport-center">
+							<button
+								type="button"
+								className="recording-step-button"
+								aria-label="Step back 1s (Left Arrow)"
+								title="Step back 1s (←)"
+								onClick={() => {
+									setPlaying(false);
+									setSourceSeconds((curr) => Math.max(0, curr - 1));
+								}}
+							>
+								<SkipBack size={13} weight="bold" />
+							</button>
+							<button
+								type="button"
+								className="recording-play-button"
+								aria-label={
+									playing ? "Pause recording (Space)" : "Play recording (Space)"
+								}
+								title={playing ? "Pause (Space)" : "Play (Space)"}
+								onClick={() => setPlaying((v) => !v)}
+							>
+								{playing ? (
+									<Pause size={15} weight="fill" />
+								) : (
+									<Play size={15} weight="fill" />
+								)}
+							</button>
+							<button
+								type="button"
+								className="recording-step-button"
+								aria-label="Step forward 1s (Right Arrow)"
+								title="Step forward 1s (→)"
+								onClick={() => {
+									setPlaying(false);
+									setSourceSeconds((curr) =>
+										Math.min(pkg.durationUs / 1_000_000, curr + 1),
+									);
+								}}
+							>
+								<SkipForward size={13} weight="bold" />
+							</button>
+							<div className="recording-timecode">
+								<span className="recording-time-current">
+									{formatTimecode(sourceSeconds)}
+								</span>
+								<span className="recording-time-sep">/</span>
+								<span className="recording-time-total">
+									{formatTimecode(durationMs / 1000)}
+								</span>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<aside className="recording-editor-settings">
+					<nav className="recording-section-tabs" aria-label="Recording effect sections">
+						{RECORDING_TABS.map((tab) => {
+							const Icon = tab.icon;
+							const isActive = section === tab.id;
+							return (
+								<button
+									key={tab.id}
+									type="button"
+									className={`recording-section-tab-btn ${isActive ? "active" : ""}`}
+									aria-pressed={isActive}
+									onClick={() => {
+										setSelectedAnnotationId(null);
+										setSection(tab.id);
+									}}
+									title={tab.label}
+								>
+									<Icon size={14} weight={isActive ? "fill" : "regular"} />
+									<span>{tab.label}</span>
+								</button>
+							);
+						})}
+					</nav>
+					<div className="recording-settings-scroll">
+						{selectedAnnotation && (
+							<div className="recording-motion-control">
+								<span>Layer position</span>
+								{(["x", "y"] as const).map((axis) => (
+									<label key={axis}>
+										<span>{axis.toUpperCase()}</span>
+										<input
+											type="range"
+											min={0}
+											max={100}
+											step={1}
+											value={selectedAnnotation.position[axis]}
+											onChange={(event) =>
+												updateAnnotation(selectedAnnotation.id, {
+													position: {
+														...selectedAnnotation.position,
+														[axis]: Number(event.target.value),
+													},
+												})
+											}
+										/>
+									</label>
+								))}
+								{(["width", "height"] as const).map((axis) => (
+									<label key={axis}>
+										<span>{axis}</span>
+										<input
+											type="range"
+											min={1}
+											max={100}
+											step={1}
+											value={selectedAnnotation.size[axis]}
+											onChange={(event) =>
+												updateAnnotation(selectedAnnotation.id, {
+													size: {
+														...selectedAnnotation.size,
+														[axis]: Number(event.target.value),
+													},
+												})
+											}
+										/>
+									</label>
+								))}
+							</div>
+						)}
+						<SettingsPanel
+							{...settings}
+							{...callbacks}
+							selected={settings.wallpaper}
+							onWallpaperChange={(path) => update({ wallpaper: path })}
+							activeEffectSection={section}
+							aspectRatio={aspectRatio}
+							onAspectRatioChange={handleAspectRatioChange}
+							webcamPreviewSrc={
+								webcamPreview && webcamPreview.path === webcamPath
+									? webcamPreview.url
+									: null
+							}
+							webcamPreviewCurrentTime={sourceSeconds}
+							webcamPreviewPlaying={playing}
+							selectedZoomId={selectedZoomId}
+							selectedZoomDepth={selectedZoom?.depth}
+							selectedZoomMode={selectedZoom?.mode}
+							onZoomDepthChange={(depth) => {
+								if (selectedZoomId) updateZoom(selectedZoomId, { depth });
+							}}
+							onZoomModeChange={(mode) => {
+								if (selectedZoomId) updateZoom(selectedZoomId, { mode });
+							}}
+							onZoomDelete={(id) =>
+								update({
+									zoomRegions: settings.zoomRegions.filter((z) => z.id !== id),
+								})
+							}
+							selectedLayoutId={selectedLayoutId}
+							selectedLayoutPreset={selectedLayout?.preset}
+							selectedLayoutTransitionMs={selectedLayout?.transitionMs}
+							selectedLayoutEasing={selectedLayout?.easing}
+							selectedLayoutCameraSettings={
+								selectedLayout
+									? {
+											position: "bottom-right",
+											size: 25,
+											...selectedLayout.cameraSettings,
+										}
+									: undefined
+							}
+							onLayoutPresetChange={(preset) => {
+								if (selectedLayoutId) updateLayout(selectedLayoutId, { preset });
+							}}
+							onLayoutCameraSettingsChange={(patch) => {
+								if (selectedLayoutId)
+									updateLayout(selectedLayoutId, {
+										cameraSettings: {
+											...selectedLayout?.cameraSettings,
+											...patch,
+										},
+									});
+							}}
+							onLayoutTransitionChange={(transitionMs) => {
+								if (selectedLayoutId)
+									updateLayout(selectedLayoutId, { transitionMs });
+							}}
+							onLayoutEasingChange={(easing) => {
+								if (selectedLayoutId) updateLayout(selectedLayoutId, { easing });
+							}}
+							onLayoutDelete={(id) =>
+								update({
+									layoutRegions: settings.layoutRegions.filter(
+										(l) => l.id !== id,
+									),
+								})
+							}
+							selectedAnnotationId={selectedAnnotationId}
+							onAnnotationContentChange={(id, content) =>
+								updateAnnotation(id, { content, textContent: content })
+							}
+							onAnnotationTypeChange={(id, type) => updateAnnotation(id, { type })}
+							onAnnotationStyleChange={(id, style) => {
+								const a = settings.annotationRegions.find((a) => a.id === id);
+								if (a) updateAnnotation(id, { style: { ...a.style, ...style } });
+							}}
+							onAnnotationFigureDataChange={(id, figureData) =>
+								updateAnnotation(id, { figureData })
+							}
+							onAnnotationBlurIntensityChange={(id, blurIntensity) =>
+								updateAnnotation(id, { blurIntensity })
+							}
+							onAnnotationBlurColorChange={(id, blurColor) =>
+								updateAnnotation(id, { blurColor })
+							}
+							onAnnotationAnimationChange={updateAnnotation}
+							onAnnotationLayerChange={updateAnnotation}
+							onAnnotationDelete={(id) =>
+								update({
+									annotationRegions: settings.annotationRegions.filter(
+										(a) => a.id !== id,
+									),
+								})
+							}
+						/>
+					</div>
+				</aside>
+			</div>
+			<div className="recording-timeline-container">
+				<div className="recording-timeline-toolbar">
+					<div className="recording-timeline-tools-left">
+						<button
+							type="button"
+							className="recording-tb-btn recording-tb-btn-cut"
+							title="Cut / trim 1s at playhead (S / C)"
+							onClick={handleCutAtPlayhead}
+						>
+							<Scissors size={13} />
+							<span>Cut</span>
+							<kbd className="recording-tb-kbd">S</kbd>
+						</button>
+						<span className="recording-tb-separator" />
+						<button
+							type="button"
+							className="recording-tb-btn"
+							onClick={suggestZooms}
+							title="Auto-detect zooms based on mouse clicks"
+						>
+							<Sparkle size={13} weight="fill" />
+							<span>Auto zoom</span>
+						</button>
+						<button
+							type="button"
+							className="recording-tb-btn"
+							onClick={handleAddZoomAtCurrent}
+							title="Add zoom region at playhead (Z)"
+						>
+							<MagnifyingGlassPlus size={13} />
+							<span>Zoom</span>
+							<kbd className="recording-tb-kbd">Z</kbd>
+						</button>
+						<button
+							type="button"
+							className="recording-tb-btn"
+							onClick={() => timeline.current?.addAnnotation()}
+							title="Add text overlay (T)"
+						>
+							<Plus size={13} weight="bold" />
+							<span>Text</span>
+							<kbd className="recording-tb-kbd">T</kbd>
+						</button>
+						<button
+							type="button"
+							className="recording-tb-btn"
+							onClick={() => timeline.current?.addLayout()}
+							title="Add camera layout region"
+						>
+							<SquaresFour size={13} />
+							<span>Layout</span>
+						</button>
+						<span className="recording-tb-separator" />
+						<div className="recording-speed-wrapper">
+							<select
+								aria-label="Add internal speed region"
+								value=""
+								onChange={(event) =>
+									addSpeed(Number(event.target.value) as PlaybackSpeed)
+								}
+								className="recording-speed-select"
+							>
+								<option value="" disabled>
+									Speed
+								</option>
+								<option value="0.5">0.5×</option>
+								<option value="2">2×</option>
+							</select>
+						</div>
+					</div>
+					<div className="recording-timeline-tools-right">
+						<span className="recording-tb-hint">
+							<kbd>Space</kbd> Play · <kbd>S</kbd> Cut · <kbd>Z</kbd> Zoom ·{" "}
+							<kbd>T</kbd> Text · <kbd>Esc</kbd> Back
+						</span>
+					</div>
+				</div>
+				{selectedZoom && (
+					<div
+						className="flex flex-wrap items-center gap-3 px-4 py-2 text-xs"
+						aria-label="Selected zoom settings"
+					>
+						<label className="flex items-center gap-2">
+							Depth
+							<select
+								aria-label="Zoom depth"
+								value={selectedZoom.depth}
+								className="rounded border border-foreground/10 bg-editor-surface px-2 py-1"
+								onChange={(event) =>
+									updateZoom(selectedZoom.id, {
+										depth: Number(event.target.value) as ZoomRegion["depth"],
+									})
+								}
+							>
+								{ZOOM_DEPTH_OPTIONS.map(({ depth, label }) => (
+									<option key={depth} value={depth}>
+										{label}
+									</option>
+								))}
+							</select>
 						</label>
-					)}
-					{selectedZoom && selectedZoom.mode === "manual" && (
-						<div className="recording-motion-control">
-							Manual zoom focus
-							{(["cx", "cy"] as const).map((axis) => (
-								<label key={axis}>
-									{axis === "cx" ? "X" : "Y"}
+						<select
+							aria-label="Zoom mode"
+							value={selectedZoom.mode}
+							className="rounded border border-foreground/10 bg-editor-surface px-2 py-1"
+							onChange={(event) =>
+								updateZoom(selectedZoom.id, {
+									mode: event.target.value as ZoomRegion["mode"],
+								})
+							}
+						>
+							<option value="auto">Auto focus</option>
+							<option value="manual">Manual focus</option>
+						</select>
+						{selectedZoom.mode === "manual" &&
+							(["cx", "cy"] as const).map((axis) => (
+								<label key={axis} className="flex items-center gap-2">
+									Focus {axis === "cx" ? "X" : "Y"}
 									<input
-										type="range"
+										type="number"
+										aria-label={`Zoom focus ${axis === "cx" ? "X" : "Y"}`}
 										min={0}
 										max={1}
 										step={0.01}
 										value={selectedZoom.focus[axis]}
-										onChange={(event) =>
-											updateZoom(selectedZoom.id, {
-												focus: {
-													...selectedZoom.focus,
-													[axis]: Number(event.target.value),
-												},
-											})
-										}
+										className="w-16 rounded border border-foreground/10 bg-editor-surface px-2 py-1"
+										onChange={(event) => {
+											const value = Number(event.target.value);
+											if (Number.isFinite(value) && value >= 0 && value <= 1)
+												updateZoom(selectedZoom.id, {
+													focus: { ...selectedZoom.focus, [axis]: value },
+												});
+										}}
 									/>
 								</label>
 							))}
-						</div>
-					)}
-					{selectedAnnotation && (
-						<div className="recording-motion-control">
-							Layer position
-							{(["x", "y"] as const).map((axis) => (
-								<label key={axis}>
-									{axis.toUpperCase()}
-									<input
-										type="range"
-										min={0}
-										max={100}
-										step={1}
-										value={selectedAnnotation.position[axis]}
-										onChange={(event) =>
-											updateAnnotation(selectedAnnotation.id, {
-												position: {
-													...selectedAnnotation.position,
-													[axis]: Number(event.target.value),
-												},
-											})
-										}
-									/>
-								</label>
-							))}
-							{(["width", "height"] as const).map((axis) => (
-								<label key={axis}>
-									{axis}
-									<input
-										type="range"
-										min={1}
-										max={100}
-										step={1}
-										value={selectedAnnotation.size[axis]}
-										onChange={(event) =>
-											updateAnnotation(selectedAnnotation.id, {
-												size: {
-													...selectedAnnotation.size,
-													[axis]: Number(event.target.value),
-												},
-											})
-										}
-									/>
-								</label>
-							))}
-						</div>
-					)}
-					<SettingsPanel
-						{...settings}
-						{...callbacks}
-						selected={settings.wallpaper}
-						onWallpaperChange={(path) => update({ wallpaper: path })}
-						activeEffectSection={section}
-						aspectRatio="16:9"
-						selectedZoomId={selectedZoomId}
-						selectedZoomDepth={selectedZoom?.depth}
-						selectedZoomMode={selectedZoom?.mode}
-						onZoomDepthChange={(depth) => {
-							if (selectedZoomId) updateZoom(selectedZoomId, { depth });
-						}}
-						onZoomModeChange={(mode) => {
-							if (selectedZoomId) updateZoom(selectedZoomId, { mode });
-						}}
-						onZoomDelete={(id) =>
-							update({ zoomRegions: settings.zoomRegions.filter((z) => z.id !== id) })
-						}
-						selectedLayoutId={selectedLayoutId}
-						selectedLayoutPreset={selectedLayout?.preset}
-						selectedLayoutTransitionMs={selectedLayout?.transitionMs}
-						selectedLayoutEasing={selectedLayout?.easing}
-						selectedLayoutCameraSettings={
-							selectedLayout
-								? {
-										position: "bottom-right",
-										size: 25,
-										...selectedLayout.cameraSettings,
-									}
-								: undefined
-						}
-						onLayoutPresetChange={(preset) => {
-							if (selectedLayoutId) updateLayout(selectedLayoutId, { preset });
-						}}
-						onLayoutCameraSettingsChange={(patch) => {
-							if (selectedLayoutId)
-								updateLayout(selectedLayoutId, {
-									cameraSettings: { ...selectedLayout?.cameraSettings, ...patch },
-								});
-						}}
-						onLayoutTransitionChange={(transitionMs) => {
-							if (selectedLayoutId) updateLayout(selectedLayoutId, { transitionMs });
-						}}
-						onLayoutEasingChange={(easing) => {
-							if (selectedLayoutId) updateLayout(selectedLayoutId, { easing });
-						}}
-						onLayoutDelete={(id) =>
-							update({
-								layoutRegions: settings.layoutRegions.filter((l) => l.id !== id),
-							})
-						}
-						selectedAnnotationId={selectedAnnotationId}
-						onAnnotationContentChange={(id, content) =>
-							updateAnnotation(id, { content, textContent: content })
-						}
-						onAnnotationTypeChange={(id, type) => updateAnnotation(id, { type })}
-						onAnnotationStyleChange={(id, style) => {
-							const a = settings.annotationRegions.find((a) => a.id === id);
-							if (a) updateAnnotation(id, { style: { ...a.style, ...style } });
-						}}
-						onAnnotationFigureDataChange={(id, figureData) =>
-							updateAnnotation(id, { figureData })
-						}
-						onAnnotationBlurIntensityChange={(id, blurIntensity) =>
-							updateAnnotation(id, { blurIntensity })
-						}
-						onAnnotationBlurColorChange={(id, blurColor) =>
-							updateAnnotation(id, { blurColor })
-						}
-						onAnnotationAnimationChange={updateAnnotation}
-						onAnnotationLayerChange={updateAnnotation}
-						onAnnotationDelete={(id) =>
-							update({
-								annotationRegions: settings.annotationRegions.filter(
-									(a) => a.id !== id,
-								),
-							})
-						}
-						selectedAudioId={selectedAudioId}
-						selectedAudioVolume={selectedAudio?.volume}
-						selectedAudioNormalize={selectedAudio?.normalize}
-						selectedAudioDucking={selectedAudio?.ducking}
-						onAudioVolumeChange={(volume) =>
-							update({
-								audioRegions: settings.audioRegions.map((a) =>
-									a.id === selectedAudioId ? { ...a, volume } : a,
-								),
-							})
-						}
-						onAudioNormalizeChange={(normalize) =>
-							update({
-								audioRegions: settings.audioRegions.map((a) =>
-									a.id === selectedAudioId ? { ...a, normalize } : a,
-								),
-							})
-						}
-						onAudioDuckingChange={(ducking) =>
-							update({
-								audioRegions: settings.audioRegions.map((a) =>
-									a.id === selectedAudioId ? { ...a, ducking } : a,
-								),
-							})
-						}
-						onAudioAdded={(span, audioPath) =>
-							update({
-								audioRegions: [
-									...settings.audioRegions,
-									{
-										id: crypto.randomUUID(),
-										startMs: span.start,
-										endMs: span.end,
-										audioPath,
-										volume: 1,
-									},
-								],
-							})
-						}
-						onAudioDelete={(id) =>
-							update({
-								audioRegions: settings.audioRegions.filter((a) => a.id !== id),
-							})
-						}
-						sourceAudioTrackMeta={[
-							...(pkg.system ? [{ id: "system", label: "System audio" }] : []),
-							...(pkg.microphone ? [{ id: "microphone", label: "Microphone" }] : []),
-						]}
-						sourceAudioTrackSettings={settings.sourceAudioSettings}
-						onSourceAudioTrackVolumeChange={(id, volume) =>
-							update({
-								sourceAudioSettings: {
-									...settings.sourceAudioSettings,
-									[id]: {
-										volume,
-										normalize:
-											settings.sourceAudioSettings?.[id]?.normalize ?? false,
-									},
-								},
-							})
-						}
-						onSourceAudioTrackNormalizeChange={(id, normalize) =>
-							update({
-								sourceAudioSettings: {
-									...settings.sourceAudioSettings,
-									[id]: {
-										volume: settings.sourceAudioSettings?.[id]?.volume ?? 1,
-										normalize,
-									},
-								},
-							})
-						}
-					/>
-				</aside>
-				<div className="recording-editor-monitor">
-					<ProjectPreview
-						project={previewProject}
-						timeUs={outputUs}
-						playing={playing}
-						onError={setError}
-					/>
-					<div className="recording-editor-transport">
-						<button
-							aria-label={playing ? "Pause recording" : "Play recording"}
-							onClick={() => setPlaying((v) => !v)}
-						>
-							{playing ? <Pause size={20} /> : <Play size={20} />}
-						</button>
-						<span>
-							{sourceSeconds.toFixed(2)}s / {(durationMs / 1000).toFixed(2)}s
-						</span>
-						<button onClick={suggestZooms}>
-							<Sparkle size={16} />
-							Auto zoom
-						</button>
-						<button onClick={() => timeline.current?.addAnnotation()}>
-							<Plus size={16} />
-							Text
-						</button>
-						<button onClick={() => timeline.current?.addLayout()}>
-							<Plus size={16} />
-							Layout
-						</button>
-						<select
-							aria-label="Add internal speed region"
-							value=""
-							onChange={(event) =>
-								addSpeed(Number(event.target.value) as PlaybackSpeed)
-							}
-						>
-							<option value="" disabled>
-								Speed
-							</option>
-							<option value="0.5">0.5×</option>
-							<option value="2">2×</option>
-						</select>
-						<button
-							title="Remove a source range from the recording"
-							onClick={() => {
-								const startMs = Math.max(0, currentMs),
-									endMs = Math.min(durationMs, startMs + 1000);
-								if (endMs > startMs)
-									update({
-										trimRegions: [
-											...settings.trimRegions,
-											{ id: crypto.randomUUID(), startMs, endMs },
-										],
-									});
-							}}
-						>
-							<Scissors size={16} />
-							Cut 1s
-						</button>
 					</div>
-				</div>
+				)}
+				<RecordingTimeline
+					ref={timeline}
+					showClipRow={false}
+					showSourceAudioTrack
+					videoDuration={durationMs / 1000}
+					currentTime={sourceSeconds}
+					onSeek={setSourceSeconds}
+					videoPath={sourceUrl}
+					videoSourcePath={pkg.screen.path}
+					microphoneAudioPath={settings.microphoneAudioPath}
+					microphoneAudioOffsetMs={(pkg.microphone?.offsetUs ?? 0) / 1000}
+					microphoneAudioDurationMs={
+						pkg.microphone?.durationUs === undefined
+							? undefined
+							: pkg.microphone.durationUs / 1000
+					}
+					systemAudioPath={settings.systemAudioPath}
+					systemAudioOffsetMs={(pkg.system?.offsetUs ?? 0) / 1000}
+					systemAudioDurationMs={
+						pkg.system?.durationUs === undefined
+							? undefined
+							: pkg.system.durationUs / 1000
+					}
+					webcamPath={pkg.webcam?.path}
+					webcamEnabled={settings.webcam.enabled}
+					cursorTelemetry={settings.cursorTelemetry ?? []}
+					zoomRegions={settings.zoomRegions}
+					selectedZoomId={selectedZoomId}
+					onSelectZoom={setSelectedZoomId}
+					onZoomAdded={(span) => {
+						const id = crypto.randomUUID();
+						update({
+							zoomRegions: [
+								...settings.zoomRegions,
+								{
+									id,
+									startMs: span.start,
+									endMs: span.end,
+									depth: 2,
+									focus: { cx: 0.5, cy: 0.5 },
+									mode: "manual",
+								},
+							],
+						});
+						setSelectedZoomId(id);
+					}}
+					onZoomSuggested={(span, focus) =>
+						update({
+							zoomRegions: [
+								...settings.zoomRegions,
+								{
+									id: crypto.randomUUID(),
+									startMs: span.start,
+									endMs: span.end,
+									depth: 2,
+									focus,
+									mode: "auto",
+								},
+							],
+						})
+					}
+					onZoomSpanChange={(id, span) =>
+						updateZoom(id, { startMs: span.start, endMs: span.end })
+					}
+					onZoomDelete={(id) =>
+						update({ zoomRegions: settings.zoomRegions.filter((z) => z.id !== id) })
+					}
+					trimRegions={settings.trimRegions}
+					onTrimDelete={(id) =>
+						update({
+							trimRegions: settings.trimRegions.filter((trim) => trim.id !== id),
+						})
+					}
+					onTrimSpanChange={(id, span) =>
+						update({
+							trimRegions: settings.trimRegions.map((t) =>
+								t.id === id ? { ...t, startMs: span.start, endMs: span.end } : t,
+							),
+						})
+					}
+					speedRegions={settings.speedRegions}
+					onSpeedSpanChange={(id, span) =>
+						update({
+							speedRegions: settings.speedRegions.map((t) =>
+								t.id === id ? { ...t, startMs: span.start, endMs: span.end } : t,
+							),
+						})
+					}
+					layoutRegions={settings.layoutRegions}
+					selectedLayoutId={selectedLayoutId}
+					onSelectLayout={(id) => {
+						setSelectedLayoutId(id);
+						if (id) {
+							setSelectedAnnotationId(null);
+							setSection("layout");
+						}
+					}}
+					onLayoutAdded={(span) => {
+						const id = crypto.randomUUID();
+						update({
+							layoutRegions: [
+								...settings.layoutRegions,
+								{
+									id,
+									startMs: span.start,
+									endMs: span.end,
+									preset: "screen-only",
+									transitionMs: 300,
+									easing: "smooth",
+								},
+							],
+						});
+						setSelectedLayoutId(id);
+						setSelectedAnnotationId(null);
+						setSection("layout");
+					}}
+					onLayoutSpanChange={(id, span) =>
+						updateLayout(id, { startMs: span.start, endMs: span.end })
+					}
+					onLayoutDelete={(id) =>
+						update({ layoutRegions: settings.layoutRegions.filter((l) => l.id !== id) })
+					}
+					annotationRegions={settings.annotationRegions}
+					selectedAnnotationId={selectedAnnotationId}
+					onSelectAnnotation={setSelectedAnnotationId}
+					onAnnotationAdded={(span, track) => addAnnotation(span.start, span.end, track)}
+					onAnnotationSpanChange={(id, span, trackIndex) =>
+						updateAnnotation(id, { startMs: span.start, endMs: span.end, trackIndex })
+					}
+					onAnnotationKeyframesChange={(id, keyframes) =>
+						updateAnnotation(id, { keyframes })
+					}
+					onAnnotationDelete={(id) =>
+						update({
+							annotationRegions: settings.annotationRegions.filter(
+								(a) => a.id !== id,
+							),
+						})
+					}
+				/>
 			</div>
-			<RecordingTimeline
-				ref={timeline}
-				videoDuration={durationMs / 1000}
-				currentTime={sourceSeconds}
-				onSeek={setSourceSeconds}
-				videoPath={sourceUrl}
-				videoSourcePath={pkg.screen.path}
-				webcamPath={pkg.webcam?.path}
-				webcamEnabled={settings.webcam.enabled}
-				cursorTelemetry={settings.cursorTelemetry ?? []}
-				zoomRegions={settings.zoomRegions}
-				selectedZoomId={selectedZoomId}
-				onSelectZoom={setSelectedZoomId}
-				onZoomAdded={(span) => {
-					const id = crypto.randomUUID();
-					update({
-						zoomRegions: [
-							...settings.zoomRegions,
-							{
-								id,
-								startMs: span.start,
-								endMs: span.end,
-								depth: 2,
-								focus: { cx: 0.5, cy: 0.5 },
-								mode: "manual",
-							},
-						],
-					});
-					setSelectedZoomId(id);
-				}}
-				onZoomSuggested={(span, focus) =>
-					update({
-						zoomRegions: [
-							...settings.zoomRegions,
-							{
-								id: crypto.randomUUID(),
-								startMs: span.start,
-								endMs: span.end,
-								depth: 2,
-								focus,
-								mode: "auto",
-							},
-						],
-					})
-				}
-				onZoomSpanChange={(id, span) =>
-					updateZoom(id, { startMs: span.start, endMs: span.end })
-				}
-				onZoomDelete={(id) =>
-					update({ zoomRegions: settings.zoomRegions.filter((z) => z.id !== id) })
-				}
-				trimRegions={settings.trimRegions}
-				onTrimSpanChange={(id, span) =>
-					update({
-						trimRegions: settings.trimRegions.map((t) =>
-							t.id === id ? { ...t, startMs: span.start, endMs: span.end } : t,
-						),
-					})
-				}
-				speedRegions={settings.speedRegions}
-				onSpeedSpanChange={(id, span) =>
-					update({
-						speedRegions: settings.speedRegions.map((t) =>
-							t.id === id ? { ...t, startMs: span.start, endMs: span.end } : t,
-						),
-					})
-				}
-				layoutRegions={settings.layoutRegions}
-				selectedLayoutId={selectedLayoutId}
-				onSelectLayout={setSelectedLayoutId}
-				onLayoutAdded={(span) => {
-					const id = crypto.randomUUID();
-					update({
-						layoutRegions: [
-							...settings.layoutRegions,
-							{
-								id,
-								startMs: span.start,
-								endMs: span.end,
-								preset: "screen-only",
-								transitionMs: 300,
-								easing: "smooth",
-							},
-						],
-					});
-					setSelectedLayoutId(id);
-				}}
-				onLayoutSpanChange={(id, span) =>
-					updateLayout(id, { startMs: span.start, endMs: span.end })
-				}
-				onLayoutDelete={(id) =>
-					update({ layoutRegions: settings.layoutRegions.filter((l) => l.id !== id) })
-				}
-				annotationRegions={settings.annotationRegions}
-				selectedAnnotationId={selectedAnnotationId}
-				onSelectAnnotation={setSelectedAnnotationId}
-				onAnnotationAdded={(span, track) => addAnnotation(span.start, span.end, track)}
-				onAnnotationSpanChange={(id, span, trackIndex) =>
-					updateAnnotation(id, { startMs: span.start, endMs: span.end, trackIndex })
-				}
-				onAnnotationKeyframesChange={(id, keyframes) => updateAnnotation(id, { keyframes })}
-				onAnnotationDelete={(id) =>
-					update({
-						annotationRegions: settings.annotationRegions.filter((a) => a.id !== id),
-					})
-				}
-				audioRegions={settings.audioRegions}
-				selectedAudioId={selectedAudioId}
-				onSelectAudio={setSelectedAudioId}
-				onAudioAdded={(span, audioPath, trackIndex) =>
-					update({
-						audioRegions: [
-							...settings.audioRegions,
-							{
-								id: crypto.randomUUID(),
-								startMs: span.start,
-								endMs: span.end,
-								audioPath,
-								volume: 1,
-								trackIndex,
-							},
-						],
-					})
-				}
-				onAudioSpanChange={(id, span, trackIndex) =>
-					update({
-						audioRegions: settings.audioRegions.map((a) =>
-							a.id === id
-								? { ...a, startMs: span.start, endMs: span.end, trackIndex }
-								: a,
-						),
-					})
-				}
-				onAudioDelete={(id) =>
-					update({ audioRegions: settings.audioRegions.filter((a) => a.id !== id) })
-				}
-			/>
+			<footer className="recording-editor-footer">
+				<span>{clipName}</span>
+				<span>{(durationMs / 1000).toFixed(2)}s duration</span>
+				<span>{settings.zoomRegions.length} zoom regions</span>
+				<span>{settings.annotationRegions.length} text overlays</span>
+			</footer>
 		</section>
 	);
 }

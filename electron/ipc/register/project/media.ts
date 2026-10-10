@@ -7,6 +7,7 @@ import {
 	rememberApprovedLocalReadPath,
 	resolveApprovedLocalMediaPath,
 } from "../../project/manager";
+import { discardRecordedAudioFile, writeRecordedAudio } from "../../project/recordedAudioFile";
 import { getRecordingsDir, normalizePath } from "../../utils";
 
 export function registerProjectMediaHandlers() {
@@ -82,52 +83,28 @@ export function registerProjectMediaHandlers() {
 				extension?: string;
 			},
 		) => {
+			let filePath: string | undefined;
 			try {
-				if (!payload || !payload.audioBuffer) {
-					return { success: false, error: "No audio buffer provided" };
-				}
-
-				const ext = payload.extension ? payload.extension.replace(/^\./, "") : "webm";
-				if (!/^(webm|wav|mp3|m4a|ogg)$/i.test(ext)) return {success:false,error:"Unsupported audio extension"};
-                const fileName = `voiceover-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
-
-				const targetDir=path.join(await getRecordingsDir(), "voiceovers");
-
-				await fs.mkdir(targetDir, { recursive: true });
-				const filePath = path.join(targetDir, fileName);
-
-				let buffer: Buffer;
-				if (Buffer.isBuffer(payload.audioBuffer)) {
-					buffer = payload.audioBuffer;
-				} else if (payload.audioBuffer instanceof Uint8Array) {
-					buffer = Buffer.from(
-						payload.audioBuffer.buffer,
-						payload.audioBuffer.byteOffset,
-						payload.audioBuffer.byteLength,
-					);
-				} else if (payload.audioBuffer instanceof ArrayBuffer) {
-					buffer = Buffer.from(payload.audioBuffer);
-				} else if (
-					typeof payload.audioBuffer === "object" &&
-					payload.audioBuffer !== null &&
-					"data" in payload.audioBuffer &&
-					Array.isArray((payload.audioBuffer as { data: number[] }).data)
-				) {
-					buffer = Buffer.from((payload.audioBuffer as { data: number[] }).data);
-				} else if (Array.isArray(payload.audioBuffer)) {
-					buffer = Buffer.from(payload.audioBuffer);
-				} else {
-					buffer = Buffer.from(new Uint8Array(payload.audioBuffer as ArrayBuffer));
-				}
-
-				await fs.writeFile(filePath, buffer);
-				await rememberApprovedLocalReadPath(filePath);
-
-				return { success: true, filePath: normalizePath(filePath) };
+				filePath = await writeRecordedAudio(await getRecordingsDir(), payload);
+				const approvedPath = normalizePath(filePath);
+				await rememberApprovedLocalReadPath(approvedPath);
+				return { success: true, filePath: approvedPath };
 			} catch (error) {
+				if (filePath) {
+					await discardRecordedAudioFile(await getRecordingsDir(), filePath).catch(() => false);
+				}
 				console.error("Failed to save recorded audio:", error);
 				return { success: false, error: String(error) };
 			}
 		},
 	);
+
+	ipcMain.handle("discard-recorded-audio", async (_, filePath: string) => {
+		try {
+			const deleted = await discardRecordedAudioFile(await getRecordingsDir(), filePath);
+			return { success: true, deleted };
+		} catch (error) {
+			return { success: false, deleted: false, error: String(error) };
+		}
+	});
 }

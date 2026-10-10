@@ -1,3 +1,4 @@
+import { isProjectFileOperationPending } from "./ipc/project/projectFileQueue";
 import { existsSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { getActiveRecordingProjectId, setRecordingProjectContext } from "./ipc/project/recordingContext";
@@ -59,6 +60,7 @@ import {
 	isHudOverlayMousePassthroughSupported,
 	showUpdateToastWindow,
 } from "./windows";
+import { setupWindowsIntegration } from "./windowsIntegration";
 
 const electronMainDir = path.dirname(fileURLToPath(import.meta.url));
 const IS_SMOKE_EXPORT = process.env.RECORDLY_SMOKE_EXPORT === "1";
@@ -79,6 +81,7 @@ app.name = "Captr Studio";
 app.commandLine.appendSwitch("ignore-gpu-blocklist");
 app.commandLine.appendSwitch("enable-unsafe-webgpu");
 app.commandLine.appendSwitch("enable-gpu-rasterization");
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 
 function configureGpuAccelerationSwitches() {
 	const { useAngle, useGl, disableFeatures } = getGpuSwitches(process.platform, process.env);
@@ -284,7 +287,8 @@ function createWindow() {
 	isCreatingMainWindow = false;
 }
 
-function openHudRecorder(preserveProjectPath = false, context?: {projectId?:string;captureId?:string}): BrowserWindow {
+function openHudRecorder(preserveProjectPath = false, context?: {projectId?:string;captureId?:string}): BrowserWindow | null {
+	if (isProjectFileOperationPending() || (context?.projectId && context.projectId !== getActiveRecordingProjectId())) return null;
 	setRecordingProjectContext(context??{projectId:getActiveRecordingProjectId(),captureId:randomUUID()});
 	// The editor can open the recorder through more than one UI path. Preserve
 	// the active project whenever main-process state knows one is open, even if
@@ -746,6 +750,7 @@ ipcMain.handle("read-file-as-data-url", async (_event, filePath: string) => {
 });
 
 ipcMain.handle("open-recorder-hud", async (_event, options?: { preserveProjectPath?: boolean; projectId?:string;captureId?:string }) => {
+	if (isProjectFileOperationPending()) return { success: false };
 	console.log("[main] IPC: open-recorder-hud invoked");
 	const hud = openHudRecorder(Boolean(options?.preserveProjectPath),options?.captureId?options:undefined);
 	return { success: Boolean(hud) };
@@ -1088,6 +1093,7 @@ app.on("open-file", async (event, filePath) => {
 app.whenReady().then(async () => {
 	if (process.platform === "win32") {
 		app.setAppUserModelId("studio.captr.app");
+		void setupWindowsIntegration();
 	}
 
 	session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {

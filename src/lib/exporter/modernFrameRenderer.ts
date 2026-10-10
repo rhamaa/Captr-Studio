@@ -1801,12 +1801,7 @@ export class FrameRenderer {
 			return wallpaper;
 		}
 
-		const resolved = await getAssetPath(wallpaper.replace(/^\/+/, ""));
-		if (resolved.startsWith("/") && window.location.protocol.startsWith("http")) {
-			return `${window.location.origin}${resolved}`;
-		}
-
-		return resolved;
+		return getRenderableAssetUrl(wallpaper);
 	}
 
 	private async resolveWallpaperForExport(wallpaper: string): Promise<string> {
@@ -1826,16 +1821,7 @@ export class FrameRenderer {
 			return wallpaper;
 		}
 
-		const looksLikeAbsoluteFilePath =
-			wallpaper.startsWith("/") &&
-			!wallpaper.startsWith("//") &&
-			!wallpaper.startsWith("/wallpapers/") &&
-			!wallpaper.startsWith("/app-icons/");
-
-		const wallpaperAsset = looksLikeAbsoluteFilePath
-			? `file://${encodeURI(wallpaper)}`
-			: wallpaper;
-		return getRenderableAssetUrl(wallpaperAsset);
+		return getRenderableAssetUrl(wallpaper);
 	}
 
 	private async setupFrame(): Promise<void> {

@@ -181,3 +181,45 @@ export function getSocialPresetByAspectRatio(
 ): SocialAspectRatioPreset | null {
 	return SOCIAL_ASPECT_RATIO_PRESETS.find((p) => p.id === aspectRatio) ?? null;
 }
+
+export function resolveAspectRatioCanvas(
+	aspectRatio: AspectRatio,
+	fallbackCanvas?: { width: number; height: number; fps?: number },
+	nativeDimensions?: { width: number; height: number },
+): { width: number; height: number; fps: number } {
+	const fps = fallbackCanvas?.fps ?? 30;
+	switch (aspectRatio) {
+		case "9:16":
+			return { width: 1080, height: 1920, fps };
+		case "1:1":
+			return { width: 1080, height: 1080, fps };
+		case "4:5":
+			return { width: 1080, height: 1350, fps };
+		case "16:9":
+			return { width: 1920, height: 1080, fps };
+		case "4:3":
+			return { width: 1440, height: 1080, fps };
+		case "16:10":
+			return { width: 1728, height: 1080, fps };
+		case "10:16":
+			return { width: 1080, height: 1728, fps };
+		case "native":
+			if (nativeDimensions && nativeDimensions.width > 0 && nativeDimensions.height > 0) {
+				return { width: nativeDimensions.width, height: nativeDimensions.height, fps };
+			}
+			return fallbackCanvas && fallbackCanvas.width > 0 && fallbackCanvas.height > 0
+				? { width: fallbackCanvas.width, height: fallbackCanvas.height, fps }
+				: { width: 1920, height: 1080, fps };
+		default: {
+			const nativeRatio =
+				nativeDimensions && nativeDimensions.height > 0
+					? nativeDimensions.width / nativeDimensions.height
+					: 16 / 9;
+			const ratioVal = getAspectRatioValue(aspectRatio, nativeRatio);
+			if (ratioVal < 1) {
+				return { width: 1080, height: Math.round(1080 / ratioVal), fps };
+			}
+			return { width: Math.round(1080 * ratioVal), height: 1080, fps };
+		}
+	}
+}

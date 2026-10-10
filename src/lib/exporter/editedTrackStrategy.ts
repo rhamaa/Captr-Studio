@@ -1,4 +1,5 @@
 import type { AudioRegion, SpeedRegion, TrimRegion } from "@/components/video-editor/types";
+import { buildTrimRangeSummary } from "@/recording/trimRanges";
 
 const MIN_FILTERGRAPH_SPEED = 0.5;
 const MAX_FILTERGRAPH_SPEED = 2;
@@ -51,35 +52,6 @@ function hasSafeFiltergraphSpeedRegions(
 	);
 }
 
-function buildKeptRanges(
-	sourceDurationMs: number,
-	trimRegions: TrimRegion[],
-): Array<{ startMs: number; endMs: number }> {
-	const sortedTrimRegions = [...trimRegions].sort((left, right) => left.startMs - right.startMs);
-	const keptRanges: Array<{ startMs: number; endMs: number }> = [];
-	let cursorMs = 0;
-
-	for (const trimRegion of sortedTrimRegions) {
-		const startMs = Math.max(0, trimRegion.startMs);
-		const endMs = Math.min(sourceDurationMs, trimRegion.endMs);
-		if (endMs <= startMs) {
-			continue;
-		}
-
-		if (startMs > cursorMs) {
-			keptRanges.push({ startMs: cursorMs, endMs: startMs });
-		}
-
-		cursorMs = Math.max(cursorMs, endMs);
-	}
-
-	if (cursorMs < sourceDurationMs) {
-		keptRanges.push({ startMs: cursorMs, endMs: sourceDurationMs });
-	}
-
-	return keptRanges;
-}
-
 export function buildEditedTrackSourceSegments(
 	sourceDurationMs: number,
 	trimRegions: TrimRegion[],
@@ -100,7 +72,7 @@ export function buildEditedTrackSourceSegments(
 	}
 
 	const segments: EditedTrackSourceSegment[] = [];
-	const keptRanges = buildKeptRanges(sourceDurationMs, trimRegions);
+	const keptRanges = buildTrimRangeSummary(sourceDurationMs, trimRegions).keptRanges;
 
 	for (const keptRange of keptRanges) {
 		const boundaries = new Set<number>([keptRange.startMs, keptRange.endMs]);
