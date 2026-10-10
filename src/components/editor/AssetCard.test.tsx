@@ -40,11 +40,13 @@ describe("AssetCard caption support", () => {
 				onPreview: vi.fn(),
 				onPlace: vi.fn(),
 				onRemove: vi.fn(),
+				onPublish: vi.fn(),
 			}),
 		);
 
 		expect(html).toContain("project-asset-cc-btn");
 		expect(html).toContain("Generate captions for My Video.mp4");
+		expect(html).toContain("Publish to Assets");
 	});
 
 	it("omits caption button for image assets without audio", () => {
@@ -61,5 +63,6 @@ describe("AssetCard caption support", () => {
 
 		expect(html).not.toContain("project-asset-cc-btn");
 		expect(html).not.toContain("project-asset-cc-badge");
+		expect(html).not.toContain("Publish to Assets");
 	});
 });

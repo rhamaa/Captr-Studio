@@ -1,9 +1,11 @@
+import { resolveClipSource } from "@/core/timeline/clipSource";
+import type { StoryEditContext } from "./storyOwnership";
 import type { AssetTranscript } from "./transcriptTypes";
 import {
-	type TimelineClip,
-	type TimelineProject,
 	clipDurationUs,
 	projectDurationUs,
+	type TimelineClip,
+	type TimelineProject,
 } from "./types";
 import { validateTimelineProject } from "./validation";
 
@@ -43,15 +45,20 @@ export function assembleAgentEditingContext(
 	project: TimelineProject,
 	transcripts: Record<string, AssetTranscript>,
 	userPrompt: string,
+	editContext?: StoryEditContext,
 ): AgentEditingContext {
 	const projectJson = JSON.stringify(project, null, 2);
 
 	// Format transcripts
 	const transcriptLines: string[] = [];
+	const visibleAssets = [...project.assets, ...(project.localAssets ?? [])];
 	for (const [assetId, t] of Object.entries(transcripts)) {
-		const asset = project.assets.find((a) => a.id === assetId);
+		const asset = visibleAssets.find((a) => a.id === assetId);
+		if (!asset) continue;
 		const assetName = asset?.name ?? assetId;
-		transcriptLines.push(`### Asset: ${assetName} (ID: ${assetId}, Lang: ${t.language ?? "auto"})`);
+		transcriptLines.push(
+			`### Asset: ${assetName} (ID: ${assetId}, Lang: ${t.language ?? "auto"})`,
+		);
 		for (const seg of t.segments) {
 			const timeRange = `${formatTimestamp(seg.startUs)} - ${formatTimestamp(seg.endUs)}`;
 			transcriptLines.push(`- [${timeRange}] "${seg.text}"`);
@@ -65,13 +72,13 @@ export function assembleAgentEditingContext(
 	for (const track of project.tracks) {
 		clipLines.push(`Track ${track.id} (${track.kind}):`);
 		for (const clip of track.clips) {
-			const asset = project.assets.find((a) => a.id === clip.assetId);
+			const source = resolveClipSource(project, clip);
 			const start = formatTimestamp(clip.startUs);
 			const dur = (clipDurationUs(clip) / 1_000_000).toFixed(2);
 			const srcIn = formatTimestamp(clip.sourceInUs);
 			const srcOut = formatTimestamp(clip.sourceOutUs);
 			clipLines.push(
-				`  • Clip ${clip.id} [${asset?.name ?? clip.assetId}]: timeline ${start} (dur ${dur}s), source range ${srcIn} -> ${srcOut}`,
+				`  • Clip ${clip.id} [${source.name}]: timeline ${start} (dur ${dur}s), source range ${srcIn} -> ${srcOut}`,
 			);
 		}
 	}
@@ -85,10 +92,20 @@ CRITICAL RULES:
 1. Always preserve the JSON schema of TimelineProject. Do not remove required fields.
 2. Maintain positive integer microsecond values (startUs, durationUs, sourceInUs, sourceOutUs).
 3. Do not create overlapping clips on the same visual track.
-4. Keep asset IDs matched to existing assets in the assets list.
+4. Keep asset IDs matched to global assets or this Story's localAssets. Inline Text/Shapes belong at clip.content without assetId. Never alter sibling Stories or shared sources.
 5. Return ONLY the updated JSON of the project.`;
 
 	const fullContextMarkdown = `# Captr Studio Project: ${project.title} (ID: ${project.projectId})
+
+## Captured Story Edit Context
+${editContext ? JSON.stringify(editContext) : "Scoped timeline view"}
+Pass this exact context as editContext for every MCP edit tool, including plans, structured edits, previews and commits.
+
+## Global Assets
+${project.assets.map((asset) => `${asset.id}: ${asset.name}`).join("\n") || "No global Assets"}
+
+## Story Media
+${(project.localAssets ?? []).map((asset) => `${asset.id}: ${asset.name}`).join("\n") || "No private Story media"}
 
 ## Current Timeline Structure
 ${clipsSummary}

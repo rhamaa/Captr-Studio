@@ -1,24 +1,28 @@
 import { summarizeProjectDiff } from "./agentPayload";
-import {
-	addTextOverlay,
-	placeAsset,
-	splitClip,
-	trimClip,
-} from "./commands";
-import { validateTimelineProject } from "./validation";
-import { clipDurationUs, projectDurationUs } from "./types";
+import { resolveClipSource, resolveMediaAsset } from "./clipSource";
+import { addTextOverlay, placeAsset, splitClip, trimClip, updateTextOverlay } from "./commands";
+import { extendInlineClip } from "./designTemplateCommands";
+import { createAndPlaceShape } from "./shapeCommands";
+import { refreshStoryProjections, type StoryEditContext } from "./storyOwnership";
 import type { AssetTranscript } from "./transcriptTypes";
-import type { TimelineClip, TimelineProject } from "./types";
+import type { ShapeDefinition, TimelineClip, TimelineProject } from "./types";
+import { clipDurationUs, projectDurationUs } from "./types";
+import { validateTimelineProject } from "./validation";
 
 function getAllTranscriptWords(transcript: AssetTranscript) {
 	return (transcript.segments ?? []).flatMap((s) => s.words ?? []);
 }
 
 function getTranscriptFullText(transcript: AssetTranscript) {
-	return (transcript.segments ?? []).map((s) => s.text).join(" ").trim();
+	return (transcript.segments ?? [])
+		.map((s) => s.text)
+		.join(" ")
+		.trim();
 }
 
 export interface ProjectContextSummary {
+	editContext?: StoryEditContext;
+	storyMedia: ProjectContextSummary["assets"];
 	projectId: string;
 	title: string;
 	canvas: { width: number; height: number; fps: number };
@@ -31,7 +35,8 @@ export interface ProjectContextSummary {
 		locked: boolean;
 		clips: Array<{
 			id: string;
-			assetId: string;
+			assetId?: string;
+			content?: TimelineClip["content"];
 			name: string;
 			startUs: number;
 			startSec: number;
@@ -103,6 +108,7 @@ export function formatProjectContext(
 		playheadUs?: number;
 		selection?: string[];
 		activeArtboardId?: string | null;
+		editContext?: StoryEditContext;
 	},
 ): ProjectContextSummary {
 	const durationUs = projectDurationUs(project);
@@ -115,12 +121,13 @@ export function formatProjectContext(
 		kind: t.kind,
 		locked: Boolean(t.locked),
 		clips: t.clips.map((c) => {
-			const asset = project.assets.find((a) => a.id === c.assetId);
+			const source = resolveClipSource(project, c);
 			const durUs = clipDurationUs(c);
 			return {
 				id: c.id,
 				assetId: c.assetId,
-				name: asset?.name ?? c.id,
+				content: c.content,
+				name: source.name,
 				startUs: c.startUs,
 				startSec: Number((c.startUs / 1_000_000).toFixed(3)),
 				durationUs: durUs,
@@ -144,7 +151,11 @@ export function formatProjectContext(
 	}));
 
 	const formattedTranscripts: ProjectContextSummary["transcripts"] = {};
+	const visibleIds = new Set(
+		[...project.assets, ...(project.localAssets ?? [])].map((a) => a.id),
+	);
 	for (const [assetId, t] of Object.entries(transcripts)) {
+		if (!visibleIds.has(assetId)) continue;
 		const allWords = getAllTranscriptWords(t);
 		const fullText = getTranscriptFullText(t);
 		formattedTranscripts[assetId] = {
@@ -197,6 +208,16 @@ export function formatProjectContext(
 	});
 
 	return {
+		editContext: meta?.editContext,
+		storyMedia: (project.localAssets ?? []).map((a) => ({
+			id: a.id,
+			name: a.name,
+			kind: a.kind,
+			durationUs: a.durationUs,
+			width: a.width,
+			height: a.height,
+			hasTranscript: Boolean(transcripts[a.id]),
+		})),
 		projectId: project.projectId,
 		title: project.title,
 		canvas: project.canvas,
@@ -305,7 +326,8 @@ export function applyRemoveSilence(
 		if (words.length < 2) continue;
 
 		// Detect pauses between consecutive words
-		const pauses: Array<{ sourceStartUs: number; sourceEndUs: number; durationUs: number }> = [];
+		const pauses: Array<{ sourceStartUs: number; sourceEndUs: number; durationUs: number }> =
+			[];
 		for (let i = 0; i < words.length - 1; i++) {
 			const prevWord = words[i];
 			const nextWord = words[i + 1];
@@ -335,15 +357,15 @@ export function applyRemoveSilence(
 				const relevantPauses = pauses
 					.filter(
 						(p) =>
-							p.sourceStartUs > clip.sourceInUs &&
-							p.sourceEndUs < clip.sourceOutUs,
+							p.sourceStartUs > clip.sourceInUs && p.sourceEndUs < clip.sourceOutUs,
 					)
 					.sort((a, b) => b.sourceStartUs - a.sourceStartUs); // Cut from end to start to preserve indices
 
 				for (const pause of relevantPauses) {
 					try {
 						const timelineCutPointUs =
-							clip.startUs + Math.round((pause.sourceStartUs - clip.sourceInUs) / (clip.rate || 1));
+							clip.startUs +
+							Math.round((pause.sourceStartUs - clip.sourceInUs) / (clip.rate || 1));
 						const splitRes = applySplitClip(current, clip.id, timelineCutPointUs);
 						current = splitRes.project;
 
@@ -395,7 +417,8 @@ export function applyRemoveSilence(
 }
 
 export interface BRollOrOverlaySpec {
-	type: "hyperframe" | "text" | "asset";
+	type: "hyperframe" | "text" | "shape" | "asset";
+	shapeDefinition?: ShapeDefinition;
 	title?: string;
 	subtitle?: string;
 	text?: string;
@@ -427,29 +450,41 @@ export function applyAddBRollOrOverlay(
 	}
 
 	let updated = structuredClone(project);
+	if (spec.type === "shape") {
+		if (!spec.shapeDefinition) throw new Error("A Shape definition is required");
+		updated = createAndPlaceShape(updated, spec.shapeDefinition, spec.startUs, {
+			clipId,
+			trackId: `shape-track-${Date.now().toString(36)}`,
+		});
+		if (spec.durationUs > 5_000_000)
+			updated = extendInlineClip(updated, clipId, spec.durationUs);
+		updated = trimClip(updated, clipId, 0, spec.durationUs);
+		return {
+			project: updated,
+			clipId,
+			trackId: updated.tracks.find((t) => t.clips.some((c) => c.id === clipId))!.id,
+		};
+	}
 
 	if (spec.type === "text" || !spec.assetId) {
-		const overlayAssetId = `asset-txt-${Date.now().toString(36)}`;
 		const textContent = spec.text || spec.title || "Key Point";
 		updated = addTextOverlay(updated, spec.startUs, {
-			assetId: overlayAssetId,
 			trackId: `text-track-${Date.now().toString(36)}`,
 			clipId,
 		});
-		// Update clip text content
-		const textClip = updated.tracks.flatMap((t) => t.clips).find((c) => c.id === clipId);
-		if (textClip && textClip.text) {
-			textClip.text.content = textContent;
-			textClip.sourceOutUs = spec.durationUs;
-		}
-		return { project: validateTimelineProject(updated), clipId, trackId: targetTrackId };
+		updated = updateTextOverlay(updated, clipId, { content: textContent });
+		if (spec.durationUs > 5_000_000)
+			updated = extendInlineClip(updated, clipId, spec.durationUs);
+		updated = trimClip(updated, clipId, 0, spec.durationUs);
+		return {
+			project: updated,
+			clipId,
+			trackId: updated.tracks.find((t) => t.clips.some((c) => c.id === clipId))!.id,
+		};
 	}
 
 	// Place media asset
-	const asset = project.assets.find((a) => a.id === spec.assetId);
-	if (!asset) {
-		throw new Error(`Asset "${spec.assetId}" not found`);
-	}
+	const asset = resolveMediaAsset(project, spec.assetId);
 
 	updated = placeAsset(updated, spec.assetId, targetTrackId, spec.startUs, {
 		clipId,
@@ -463,7 +498,7 @@ export function applyAddBRollOrOverlay(
 	}
 
 	return {
-		project: validateTimelineProject(updated),
+		project: validateTimelineProject(refreshStoryProjections(updated)),
 		clipId,
 		trackId: targetTrackId,
 	};

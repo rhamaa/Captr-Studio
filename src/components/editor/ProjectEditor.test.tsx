@@ -9,6 +9,35 @@ import { createProjectAudioRecorderNavigation } from "./projectAudioRecorderNavi
 import { ProjectController } from "./useProjectController";
 
 describe("ProjectEditor audio recording navigation", () => {
+	it("shows an unavailable owner instead of the root timeline when the selected Story disappeared", () => {
+		vi.stubGlobal("window", {
+			electronAPI: {},
+			localStorage: { getItem: () => null, setItem: () => undefined },
+		});
+		const controller = new ProjectController(
+			createTimelineProject("missing-story", "Project"),
+			async () => ({ success: true, path: "project.captr" }),
+		);
+		const before = controller.snapshot;
+		const html = renderToStaticMarkup(
+			createElement(
+				I18nProvider,
+				null,
+				createElement(ProjectEditor, {
+					controller,
+					initialArtboardId: "deleted-owner",
+					onRequestHome: vi.fn(),
+					onProjectChanged: vi.fn(),
+					onRequestNew: vi.fn(),
+					onRequestOpen: vi.fn(),
+				}),
+			),
+		);
+		expect(html).toContain("This Story owner no longer exists");
+		expect(html).not.toContain('aria-label="Project timeline"');
+		expect(controller.snapshot).toBe(before);
+		vi.unstubAllGlobals();
+	});
 	it.each(["finish", "discard"] as const)("continues navigation after %s", (choice) => {
 		let active = true;
 		const action = vi.fn();

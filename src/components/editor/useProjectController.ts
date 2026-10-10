@@ -1,8 +1,15 @@
+import { useRef, useSyncExternalStore } from "react";
 import type { ProjectPersistencePort } from "@/core/project/fileOperationTypes";
 import { projectTitleFromPath, validateProjectBaseName } from "@/core/project/projectNames";
-import { useRef, useSyncExternalStore } from "react";
 import { type ProjectCommand, ProjectHistory } from "@/core/timeline/history";
 import { ProjectSession } from "@/core/timeline/projectSession";
+import {
+	applyStoryCommand,
+	getStoryProject,
+	type StoryEditContext,
+	sameStoryEditContext,
+} from "@/core/timeline/storyOwnership";
+import type { StoryScope } from "@/core/timeline/types";
 import { projectDurationUs, type TimelineProject } from "@/core/timeline/types";
 import { validateTimelineProject } from "@/core/timeline/validation";
 import { type SaveProject, TimelinePersistence } from "./useTimelinePersistence";
@@ -94,6 +101,28 @@ export class ProjectController {
 		this.state.dirty = this.state.revision !== this.state.savedRevision;
 		for (const listener of this.listeners) listener();
 	}
+	storyEditContext(scope: StoryScope): StoryEditContext {
+		getStoryProject(this.state.project, scope);
+		return {
+			...this.importToken(),
+			scope: structuredClone(scope),
+			revision: this.state.revision,
+		};
+	}
+	acceptStoryEdit(
+		context: StoryEditContext,
+		scope: StoryScope,
+		command: ProjectCommand,
+	): boolean {
+		if (this.exited) return false;
+		try {
+			if (!sameStoryEditContext(context, this.storyEditContext(scope))) return false;
+			this.execute((root) => applyStoryCommand(root, context.scope, command));
+			return true;
+		} catch {
+			return false;
+		}
+	}
 	execute(command: ProjectCommand, selection?: string[]): void {
 		if (
 			this.exited ||
@@ -110,8 +139,10 @@ export class ProjectController {
 		this.history.select(selection);
 		this.publish({ selectedAssetId: null });
 	}
-	preview(assetId: string | null): void {
-		if (assetId && !this.history.project.assets.some((a) => a.id === assetId)) return;
+	preview(assetId: string | null, scope: StoryScope = { kind: "root" }): void {
+		const view = getStoryProject(this.history.project, scope);
+		if (assetId && ![...view.assets, ...(view.localAssets ?? [])].some((a) => a.id === assetId))
+			return;
 		this.publish({ selectedAssetId: assetId });
 	}
 	seek(timeUs: number, maxDurationUs?: number): void {

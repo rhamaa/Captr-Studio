@@ -1037,16 +1037,22 @@ interface Window {
 			activeClientsCount: number;
 		}>;
 		stopMcpServer?: () => Promise<{ success: boolean }>;
-		syncProjectContext?: (context: unknown) => Promise<{ success: boolean }>;
+		syncProjectContext?: (
+			context: import("./ipc/agent/mcpServer").ActiveProjectContext,
+		) => Promise<{ success: boolean }>;
 		clearSpeculativeEdits?: () => Promise<{ success: boolean }>;
 		onAgentSpeculativePreview?: (
-			callback: (preview: {
-				project: import("../src/core/timeline/types").TimelineProject;
-				diff: import("../src/core/timeline/agentPayload").AgentDiffSummary;
-			} | null) => void,
+			callback: (
+				preview: {
+					context: import("../src/core/timeline/storyOwnership").StoryEditContext;
+					project: import("../src/core/timeline/types").TimelineProject;
+					diff: import("../src/core/timeline/agentPayload").AgentDiffSummary;
+				} | null,
+			) => void,
 		) => () => void;
 		onAgentCommitEdits?: (
 			callback: (commit: {
+				context: import("../src/core/timeline/storyOwnership").StoryEditContext;
 				project: import("../src/core/timeline/types").TimelineProject;
 				commitMessage?: string;
 			}) => void,
@@ -1060,14 +1066,19 @@ interface Window {
 			}) => void,
 		) => () => void;
 		runAgentTask?: (params: {
+			editContext: import("../src/core/timeline/storyOwnership").StoryEditContext;
 			agentId: string;
 			customCommand?: string;
 			userPrompt: string;
 			project: import("../src/core/timeline/types").TimelineProject;
-			transcripts: Record<string, import("../src/core/timeline/transcriptTypes").AssetTranscript>;
+			transcripts: Record<
+				string,
+				import("../src/core/timeline/transcriptTypes").AssetTranscript
+			>;
 		}) => Promise<{
 			success: boolean;
 			project?: import("../src/core/timeline/types").TimelineProject;
+			context?: import("../src/core/timeline/storyOwnership").StoryEditContext;
 			diff?: import("../src/core/timeline/agentPayload").AgentDiffSummary;
 			logs: string[];
 			error?: string;

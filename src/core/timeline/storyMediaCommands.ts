@@ -34,11 +34,33 @@ export function removeStoryMedia(
 	const owner = getStoryProject(project, scope);
 	if (!owner.localAssets?.some((asset) => asset.id === assetId))
 		throw new Error("Private media not found in Story owner");
-	if (owner.tracks.some((track) => track.clips.some((clip) => clip.assetId === assetId)))
+	if (
+		listStoryScopes(project).some((scope) =>
+			getStoryProject(project, scope).tracks.some((track) =>
+				track.clips.some((clip) => clip.assetId === assetId),
+			),
+		)
+	)
 		throw new Error("Story media is referenced by timeline clips");
 	return applyStoryCommand(project, scope, (view) => ({
 		...view,
 		localAssets: view.localAssets!.filter((asset) => asset.id !== assetId),
+		updatedAt: new Date().toISOString(),
+	}));
+}
+
+/** Transfer ownership only; immutable media paths and sidecars remain untouched. */
+export function publishStoryMedia(
+	project: TimelineProject,
+	scope: StoryScope,
+	assetId: string,
+): TimelineProject {
+	const asset = getStoryProject(project, scope).localAssets?.find((item) => item.id === assetId);
+	if (!asset) throw new Error("Private media not found in Story owner");
+	return applyStoryCommand(project, scope, (view) => ({
+		...view,
+		assets: [...view.assets, structuredClone(asset)],
+		localAssets: view.localAssets!.filter((item) => item.id !== assetId),
 		updatedAt: new Date().toISOString(),
 	}));
 }

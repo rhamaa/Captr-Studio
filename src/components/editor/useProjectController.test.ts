@@ -1,5 +1,13 @@
 import { expect, it, vi } from "vitest";
-import { createTimelineProject, placeAsset, registerMedia } from "@/core/timeline/commands";
+import {
+	addTextOverlay,
+	createTimelineProject,
+	placeAsset,
+	registerMedia,
+} from "@/core/timeline/commands";
+import { extendInlineClip } from "@/core/timeline/designTemplateCommands";
+import { addRepurposeArtboard } from "@/core/timeline/repurposeCommands";
+import { applyStoryCommand } from "@/core/timeline/storyOwnership";
 import { ProjectController } from "./useProjectController";
 
 it("imports into an empty library, previews independently and retains dirty work after a save races an edit", async () => {
@@ -198,46 +206,24 @@ it("clamps seek playhead against root duration, artboard sequences, and explicit
 	expect(c.snapshot.playheadUs).toBe(0);
 
 	// Add artboard with tracks totaling 10s
-	c.execute((p) => ({
-		...p,
-		repurposeBoard: {
-			artboards: [
-				{
-					id: "ab-1",
-					name: "Square",
-					aspectRatio: "1:1",
-					width: 1080,
-					height: 1080,
-					framing: { scale: 1, offsetX: 0, offsetY: 0 },
-					tracks: [
-						{
-							id: "t-1",
-							kind: "visual",
-							name: "Track 1",
-							muted: false,
-							locked: false,
-							clips: [
-								{
-									id: "c-1",
-									assetId: "a-1",
-									compositionId: "comp-1",
-									startUs: 0,
-									sourceInUs: 0,
-									sourceOutUs: 10_000_000,
-									rate: 1,
-									volume: 1,
-									speed: 1,
-									enabled: true,
-								},
-							],
-						},
-					],
-				},
-			],
-			slices: [],
-			activeSliceId: null,
-		},
-	}));
+	c.execute((p) => {
+		const next = addRepurposeArtboard(p, {
+			aspectRatio: "1:1",
+			name: "Square",
+			width: 1080,
+			height: 1080,
+		});
+		return applyStoryCommand(
+			next,
+			{ kind: "artboard", artboardId: next.repurposeBoard!.artboards[0]!.id },
+			(view) =>
+				extendInlineClip(
+					addTextOverlay(view, 0, { clipId: "c-1", trackId: "t-1" }),
+					"c-1",
+					10_000_000,
+				),
+		);
+	});
 
 	// Without explicit maxDurationUs, seeks up to 10s using artboard fallback
 	c.seek(4_000_000);

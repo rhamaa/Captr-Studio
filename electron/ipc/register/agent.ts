@@ -1,15 +1,15 @@
 import { ipcMain } from "electron";
 import { checkCustomAgent, detectAvailableAgents } from "../agent/agentDetector";
 import {
+	cancelAgentTask,
 	type RunAgentTaskParams,
 	type RunAgentTaskResult,
-	cancelAgentTask,
 	runAgentTask,
 } from "../agent/agentRunner";
 import {
+	cancelActiveHyperframeAgentTask,
 	type RunHyperframeTaskParams,
 	type RunHyperframeTaskResult,
-	cancelActiveHyperframeAgentTask,
 	runHyperframeAgentTask,
 } from "../agent/hyperframeAgentRunner";
 import {
@@ -49,6 +49,14 @@ export function registerAgentHandlers() {
 	});
 
 	ipcMain.handle("agent:sync-project-context", (_, context: ActiveProjectContext) => {
+		if (
+			context.project.projectId !== context.editContext?.projectId ||
+			(context.editContext.scope.kind === "artboard"
+				? context.editContext.scope.artboardId
+				: null) !== context.activeArtboardId
+		) {
+			throw new Error("Invalid Story edit context identity");
+		}
 		setMcpProjectContext(context);
 		return { success: true };
 	});

@@ -14,6 +14,8 @@ import {
 } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import type { AgentDiffSummary } from "@/core/timeline/agentPayload";
+import { resolveClipSource } from "@/core/timeline/clipSource";
+import type { StoryEditContext } from "@/core/timeline/storyOwnership";
 import type { AssetTranscript } from "@/core/timeline/transcriptTypes";
 import type { TimelineProject } from "@/core/timeline/types";
 
@@ -25,6 +27,7 @@ export interface EditPlan {
 }
 
 export interface CopilotSidebarProps {
+	editContext?: StoryEditContext;
 	project: TimelineProject;
 	transcripts: Record<string, AssetTranscript>;
 	playheadUs: number;
@@ -33,12 +36,17 @@ export interface CopilotSidebarProps {
 	speculativeDraft: {
 		project: TimelineProject;
 		diff: AgentDiffSummary;
+		context: StoryEditContext;
 	} | null;
 	editPlan: EditPlan | null;
 	onClose: () => void;
 	onApplyDraft: (draftProject: TimelineProject) => void;
 	onDiscardDraft: () => void;
-	onDraftReady?: (draft: { project: TimelineProject; diff: AgentDiffSummary }) => void;
+	onDraftReady?: (draft: {
+		project: TimelineProject;
+		diff: AgentDiffSummary;
+		context: StoryEditContext;
+	}) => void;
 	onSeekTo?: (timeUs: number) => void;
 }
 
@@ -54,28 +62,23 @@ interface DetectedAgent {
 const PRESET_RECIPES = [
 	{
 		title: "Cut dead air & long pauses",
-		prompt:
-			"Analyze speech transcripts and trim out long silent pauses between sentences to create a fast-paced, engaging cut.",
+		prompt: "Analyze speech transcripts and trim out long silent pauses between sentences to create a fast-paced, engaging cut.",
 	},
 	{
 		title: "Make a 60-second reel",
-		prompt:
-			"Select the most impactful highlights based on the speech transcripts and condense the timeline into an exciting 60-second video.",
+		prompt: "Select the most impactful highlights based on the speech transcripts and condense the timeline into an exciting 60-second video.",
 	},
 	{
 		title: "Remove filler words & hesitations",
-		prompt:
-			"Identify and cut out speech hesitations, filler words, and awkward false starts based on the transcript word timings.",
+		prompt: "Identify and cut out speech hesitations, filler words, and awkward false starts based on the transcript word timings.",
 	},
 	{
 		title: "A-Roll speech + Hyperframe B-Roll",
-		prompt:
-			"Keep the main spoken dialogue as A-Roll, cut out dead air, and generate visual Hyperframe B-Roll motion graphics for the main highlight points.",
+		prompt: "Keep the main spoken dialogue as A-Roll, cut out dead air, and generate visual Hyperframe B-Roll motion graphics for the main highlight points.",
 	},
 	{
 		title: "Trim to key highlights",
-		prompt:
-			"Keep only the sections where the main key points are discussed and remove repetitive or tangential discussion.",
+		prompt: "Keep only the sections where the main key points are discussed and remove repetitive or tangential discussion.",
 	},
 ];
 
@@ -99,6 +102,7 @@ export function CopilotSidebar({
 	onApplyDraft,
 	onDiscardDraft,
 	onDraftReady,
+	editContext,
 	onSeekTo,
 }: CopilotSidebarProps) {
 	const [activeTab, setActiveTab] = useState<"chat" | "mcp">("chat");
@@ -143,7 +147,8 @@ export function CopilotSidebar({
 
 	// Load available agents & MCP info
 	useEffect(() => {
-		window.electronAPI?.getAvailableAgents?.()
+		window.electronAPI
+			?.getAvailableAgents?.()
 			.then((detected) => {
 				if (detected && detected.length > 0) {
 					setAgents(detected);
@@ -154,7 +159,8 @@ export function CopilotSidebar({
 			})
 			.catch(() => undefined);
 
-		window.electronAPI?.getMcpServerInfo?.()
+		window.electronAPI
+			?.getMcpServerInfo?.()
 			.then((info) => {
 				if (info) setMcpInfo(info);
 			})
@@ -177,7 +183,8 @@ export function CopilotSidebar({
 	}, [logs, showConsole]);
 
 	const handleRun = async () => {
-		if (!prompt.trim() || !window.electronAPI?.runAgentTask) return;
+		if (!prompt.trim() || !window.electronAPI?.runAgentTask || !editContext) return;
+		const capturedContext = structuredClone(editContext);
 		setIsRunning(true);
 		setError(null);
 		setLogs([]);
@@ -189,12 +196,17 @@ export function CopilotSidebar({
 				userPrompt: prompt.trim(),
 				project,
 				transcripts,
+				editContext: capturedContext,
 			});
 
 			if (res.success && res.project) {
 				setError(null);
 				if (res.diff) {
-					onDraftReady?.({ project: res.project, diff: res.diff });
+					onDraftReady?.({
+						project: res.project,
+						diff: res.diff,
+						context: res.context ?? capturedContext,
+					});
 				}
 			} else {
 				setError(res.error || "Agent completed without producing valid project edits.");
@@ -294,8 +306,7 @@ export function CopilotSidebar({
 							appendTag(
 								selectedClips
 									.map((c) => {
-										const asset = project.assets.find((a) => a.id === c.assetId);
-										return `@Clip:${asset?.name || c.id}`;
+										return `@Clip:${resolveClipSource(project, c).name || c.id}`;
 									})
 									.join(" "),
 							)
@@ -341,11 +352,15 @@ export function CopilotSidebar({
 								<div className="flex items-center gap-2">
 									<span
 										className={`w-2.5 h-2.5 rounded-full ${
-											mcpInfo?.running ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-rose-400"
+											mcpInfo?.running
+												? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
+												: "bg-rose-400"
 										}`}
 									/>
 									<span className="font-semibold text-xs text-white">
-										{mcpInfo?.running ? "Local MCP Server Online" : "Starting Server..."}
+										{mcpInfo?.running
+											? "Local MCP Server Online"
+											: "Starting Server..."}
 									</span>
 								</div>
 								{mcpInfo && (
@@ -355,8 +370,9 @@ export function CopilotSidebar({
 								)}
 							</div>
 							<p className="text-[11px] text-zinc-300 leading-relaxed mb-3">
-								External agents running in your terminal (Claude Code, Antigravity, Cursor) can
-								connect directly to this live Captr Studio session via MCP.
+								External agents running in your terminal (Claude Code, Antigravity,
+								Cursor) can connect directly to this live Captr Studio session via
+								MCP.
 							</p>
 
 							{mcpInfo && (
@@ -381,11 +397,19 @@ export function CopilotSidebar({
 										onClick={copyMcpConfig}
 									>
 										{copiedConfig ? (
-											<Check size={13} weight="bold" className="text-emerald-400" />
+											<Check
+												size={13}
+												weight="bold"
+												className="text-emerald-400"
+											/>
 										) : (
 											<Copy size={13} />
 										)}
-										<span>{copiedConfig ? "Copied MCP Config JSON!" : "Copy MCP Configuration"}</span>
+										<span>
+											{copiedConfig
+												? "Copied MCP Config JSON!"
+												: "Copy MCP Configuration"}
+										</span>
 									</button>
 								</div>
 							)}
@@ -398,7 +422,8 @@ export function CopilotSidebar({
 							</div>
 							<div className="space-y-1.5 text-[11px]">
 								<div className="copilot-tool-item">
-									<code>get_project_context</code> — Full timeline, transcripts & playhead
+									<code>get_project_context</code> — Full timeline, transcripts &
+									playhead
 								</div>
 								<div className="copilot-tool-item">
 									<code>propose_edit_plan</code> — Structured editing plan
@@ -413,7 +438,8 @@ export function CopilotSidebar({
 									<code>remove_silence</code> — Automated dead-air ripple cuts
 								</div>
 								<div className="copilot-tool-item">
-									<code>add_broll_or_overlay</code> — Insert kinetic B-roll or text
+									<code>add_broll_or_overlay</code> — Insert kinetic B-roll or
+									text
 								</div>
 								<div className="copilot-tool-item">
 									<code>preview_speculative_edits</code> — Ghost timeline diff
@@ -489,7 +515,11 @@ export function CopilotSidebar({
 								value={prompt}
 								onChange={(e) => setPrompt(e.target.value)}
 								onKeyDown={(e) => {
-									if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !isRunning) {
+									if (
+										e.key === "Enter" &&
+										(e.ctrlKey || e.metaKey) &&
+										!isRunning
+									) {
 										e.preventDefault();
 										void handleRun();
 									}
@@ -528,7 +558,9 @@ export function CopilotSidebar({
 									<GitBranch size={14} weight="bold" />
 									<span>Proposed Edit Plan</span>
 								</div>
-								<p className="text-xs text-zinc-200 mb-2 font-medium">{editPlan.summary}</p>
+								<p className="text-xs text-zinc-200 mb-2 font-medium">
+									{editPlan.summary}
+								</p>
 								<ol className="list-decimal list-inside space-y-1 text-[11px] text-zinc-300">
 									{editPlan.steps.map((st, idx) => (
 										<li key={idx}>{st}</li>
@@ -541,19 +573,24 @@ export function CopilotSidebar({
 						{speculativeDraft && (
 							<div className="copilot-speculative-card">
 								<div className="flex items-center gap-1.5 font-semibold text-xs text-emerald-300 mb-1">
-									<CheckCircle size={15} weight="fill" className="text-emerald-400" />
+									<CheckCircle
+										size={15}
+										weight="fill"
+										className="text-emerald-400"
+									/>
 									<span>Speculative Ghost Draft Ready</span>
 								</div>
 								<p className="text-[11px] text-zinc-300 mb-2">
-									Changes are rendered as ghost clips on your timeline. Inspect before
-									committing!
+									Changes are rendered as ghost clips on your timeline. Inspect
+									before committing!
 								</p>
 
 								<div className="grid grid-cols-2 gap-2 text-[11px] bg-black/25 p-2 rounded-lg border border-white/5 mb-3">
 									<div>
 										<span className="text-zinc-400">Clips Count:</span>{" "}
 										<span className="font-semibold text-white">
-											{speculativeDraft.diff.clipsBefore} → {speculativeDraft.diff.clipsAfter}
+											{speculativeDraft.diff.clipsBefore} →{" "}
+											{speculativeDraft.diff.clipsAfter}
 										</span>
 									</div>
 									<div>
@@ -566,7 +603,10 @@ export function CopilotSidebar({
 											}`}
 										>
 											{speculativeDraft.diff.durationDeltaUs >= 0 ? "+" : ""}
-											{(speculativeDraft.diff.durationDeltaUs / 1_000_000).toFixed(1)}s
+											{(
+												speculativeDraft.diff.durationDeltaUs / 1_000_000
+											).toFixed(1)}
+											s
 										</span>
 									</div>
 								</div>
@@ -607,9 +647,14 @@ export function CopilotSidebar({
 								>
 									<div className="flex items-center gap-1.5">
 										<Terminal size={12} />
-										<span className="font-mono text-[11px]">Terminal Stream</span>
+										<span className="font-mono text-[11px]">
+											Terminal Stream
+										</span>
 										{isRunning && (
-											<CircleNotch size={11} className="animate-spin text-amber-400" />
+											<CircleNotch
+												size={11}
+												className="animate-spin text-amber-400"
+											/>
 										)}
 									</div>
 									<span className="text-[10px] text-zinc-400">
@@ -619,7 +664,9 @@ export function CopilotSidebar({
 								{showConsole && (
 									<div className="copilot-console-content">
 										{logs.length === 0 ? (
-											<span className="text-zinc-500 italic">Waiting for agent logs…</span>
+											<span className="text-zinc-500 italic">
+												Waiting for agent logs…
+											</span>
 										) : (
 											logs.map((line, idx) => <div key={idx}>{line}</div>)
 										)}

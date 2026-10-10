@@ -7,7 +7,11 @@ interface Snapshot {
 	selection: string[];
 }
 export function validSelection(project: TimelineProject, selection: string[]): string[] {
-	const ids = new Set(project.tracks.flatMap((t) => t.clips.map((c) => c.id)));
+	const tracks = [
+		...project.tracks,
+		...(project.repurposeBoard?.artboards ?? []).flatMap((owner) => owner.tracks ?? []),
+	];
+	const ids = new Set(tracks.flatMap((t) => t.clips.map((c) => c.id)));
 	return selection.filter((id) => ids.has(id));
 }
 export class ProjectHistory {

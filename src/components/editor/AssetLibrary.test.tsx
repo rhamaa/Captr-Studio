@@ -11,6 +11,9 @@ it("offers Audio Recorder from the asset library with no selected clip", () => {
 			null,
 			createElement(AssetLibrary, {
 				assets: [],
+				storyAssets: [],
+				templates: [],
+				onCreateText: vi.fn(),
 				packages: [],
 				selectedAssetId: null,
 				onImport: vi.fn(),
@@ -25,4 +28,9 @@ it("offers Audio Recorder from the asset library with no selected clip", () => {
 
 	expect(markup).toContain("Record Audio");
 	expect(markup).toContain('aria-label="Asset library"');
+	expect(markup).toContain("Story Media");
+	expect(markup).toContain("No media in this Story");
+	expect(markup).toContain("Text / Shapes");
+	expect(markup).toContain("Templates");
+	expect(markup).toContain("No templates");
 });

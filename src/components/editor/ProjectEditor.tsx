@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
 import { projectFileName, projectTitleFromPath } from "@/core/project/projectNames";
+import type { AgentDiffSummary } from "@/core/timeline/agentPayload";
 import {
 	addTextOverlay,
 	placeAsset,
@@ -27,11 +28,14 @@ import {
 	updateComposition,
 } from "@/core/timeline/commands";
 import type { ProjectCommand } from "@/core/timeline/history";
+import { ensureRepurposeBoard, getArtboardProjectView } from "@/core/timeline/repurposeCommands";
 import {
-	ensureRepurposeBoard,
-	getArtboardProjectView,
-	updateArtboardProject,
-} from "@/core/timeline/repurposeCommands";
+	applyStoryCommand,
+	getStoryEditProject,
+	type StoryEditContext,
+	sameStoryEditContext,
+} from "@/core/timeline/storyOwnership";
+import type { AssetTranscript } from "@/core/timeline/transcriptTypes";
 import {
 	clipDurationUs,
 	type MediaAsset,
@@ -42,15 +46,13 @@ import { TimelineProjectExporter } from "@/lib/exporter/timelineProjectExporter"
 import { RecordingCompositionEditor } from "@/recording/editor/RecordingCompositionEditor";
 import { probeMedia } from "@/recording/mediaProbe";
 import type { AspectRatio } from "@/utils/aspectRatioUtils";
-import { RepurposeBoardEditor } from "../repurpose/RepurposeBoardEditor";
 import { HyperframeEditor } from "../hyperframe/HyperframeEditor";
+import { RepurposeBoardEditor } from "../repurpose/RepurposeBoardEditor";
 import type { EditPlan } from "./CopilotSidebar";
-import type { AgentDiffSummary } from "@/core/timeline/agentPayload";
-import type { AssetTranscript } from "@/core/timeline/transcriptTypes";
 import { ProjectEditorPanel } from "./ProjectEditorPanel";
 import { ProjectNameDialog } from "./ProjectNameDialog";
-import { StoryEditor } from "./StoryEditor";
 import { captureProjectThumbnail } from "./projectThumbnail";
+import { StoryEditor } from "./StoryEditor";
 import { timelineActionCommand } from "./timelineInteractions";
 import { type ProjectController, useProjectController } from "./useProjectController";
 import { useProjectMessages } from "./useProjectMessages";
@@ -99,9 +101,23 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	}, [state.project, activeHyperframeId]);
 
 	const activeProject = useMemo(() => {
-		if (!currentActiveArtboardId) return state.project;
-		return getArtboardProjectView(state.project, currentActiveArtboardId);
-	}, [state.project, currentActiveArtboardId]);
+		if (activeArtboardId && !activeArtboard)
+			return {
+				...state.project,
+				tracks: [],
+				localAssets: [],
+				compositions: [],
+				repurposeBoard: undefined,
+				stories: undefined,
+				storyManifest: undefined,
+			};
+		return getStoryEditProject(
+			state.project,
+			activeArtboardId
+				? { kind: "artboard", artboardId: activeArtboardId }
+				: { kind: "root" },
+		);
+	}, [state.project, activeArtboardId, activeArtboard]);
 	const [scale, setScale] = useState(65);
 	const [snappingEnabled, setSnappingEnabled] = useState(true);
 	const playingRef = useRef(playing);
@@ -135,27 +151,53 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	const [speculativeDraft, setSpeculativeDraft] = useState<{
 		project: TimelineProject;
 		diff: AgentDiffSummary;
+		context: StoryEditContext;
 	} | null>(null);
 	const [editPlan, setEditPlan] = useState<EditPlan | null>(null);
 	const [transcripts, setTranscripts] = useState<Record<string, AssetTranscript>>({});
+	const scope = useMemo(
+		() =>
+			activeArtboardId
+				? { kind: "artboard" as const, artboardId: activeArtboardId }
+				: { kind: "root" as const },
+		[activeArtboardId],
+	);
+	const { projectId, generation } = controller.importToken();
+	const editContext = useMemo(
+		() => ({ projectId, generation, scope, revision: state.revision }),
+		[projectId, generation, scope, state.revision],
+	);
+	const editContextRef = useRef(editContext);
+	editContextRef.current = editContext;
 
 	// Sync project context to local MCP server
 	useEffect(() => {
 		if (!window.electronAPI?.syncProjectContext) return;
 		window.electronAPI.syncProjectContext({
-			project: activeProject,
+			project: state.project,
+			editContext,
 			transcripts,
 			playheadUs: state.playheadUs,
 			selection: state.selection,
-			activeArtboardId: currentActiveArtboardId,
+			activeArtboardId,
 		});
-	}, [activeProject, transcripts, state.playheadUs, state.selection, currentActiveArtboardId]);
+	}, [
+		state.project,
+		editContext,
+		transcripts,
+		state.playheadUs,
+		state.selection,
+		activeArtboardId,
+	]);
 
 	// Listen for live MCP speculative edits preview
 	useEffect(() => {
 		if (!window.electronAPI?.onAgentSpeculativePreview) return;
 		const unsub = window.electronAPI.onAgentSpeculativePreview((preview) => {
-			setSpeculativeDraft(preview);
+			if (!preview) setSpeculativeDraft(null);
+			else if (sameStoryEditContext(preview.context, editContextRef.current))
+				setSpeculativeDraft(preview);
+			else setError("This Story edit proposal is stale. Refresh its context and try again.");
 		});
 		return () => unsub();
 	}, []);
@@ -163,22 +205,16 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	// Listen for live MCP committed edits
 	useEffect(() => {
 		if (!window.electronAPI?.onAgentCommitEdits) return;
-		const unsub = window.electronAPI.onAgentCommitEdits(({ project: toCommit }) => {
-			if (currentActiveArtboardId) {
-				controller.execute((rootProject) =>
-					updateArtboardProject(
-						rootProject,
-						currentActiveArtboardId,
-						() => toCommit,
-					),
+		const unsub = window.electronAPI.onAgentCommitEdits(({ project: toCommit, context }) => {
+			if (controller.acceptStoryEdit(context, editContextRef.current.scope, () => toCommit))
+				setSpeculativeDraft(null);
+			else
+				setError(
+					"This Story edit proposal is stale or invalid. Refresh its context and try again.",
 				);
-			} else {
-				controller.execute(() => toCommit);
-			}
-			setSpeculativeDraft(null);
 		});
 		return () => unsub();
-	}, [controller, currentActiveArtboardId]);
+	}, [controller]);
 
 	// Listen for live MCP edit plan
 	useEffect(() => {
@@ -190,16 +226,14 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	}, []);
 
 	const handleApplyDraft = (modifiedProject: TimelineProject) => {
-		if (currentActiveArtboardId) {
-			controller.execute((rootProject) =>
-				updateArtboardProject(
-					rootProject,
-					currentActiveArtboardId,
-					() => modifiedProject,
-				),
+		if (
+			!speculativeDraft ||
+			!controller.acceptStoryEdit(speculativeDraft.context, scope, () => modifiedProject)
+		) {
+			setError(
+				"This Story edit proposal is stale or invalid. Refresh its context and try again.",
 			);
-		} else {
-			controller.execute(() => modifiedProject);
+			return;
 		}
 		setSpeculativeDraft(null);
 		void window.electronAPI?.clearSpeculativeEdits?.();
@@ -217,7 +251,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 
 		const loadAll = async () => {
 			const map: Record<string, AssetTranscript> = {};
-			for (const asset of state.project.assets) {
+			for (const asset of [...activeProject.assets, ...(activeProject.localAssets ?? [])]) {
 				const pkg = state.project.packages.find((p) => p.id === asset.packageId);
 				const candidatePath = asset.source?.path ?? pkg?.screen.path;
 				if (candidatePath) {
@@ -234,7 +268,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		return () => {
 			isCurrent = false;
 		};
-	}, [state.project.assets, state.project.packages]);
+	}, [activeProject.assets, activeProject.localAssets, state.project.packages]);
 
 	const modalOpen = useRef(false);
 	useEffect(() => {
@@ -271,6 +305,10 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		return () => window.removeEventListener("keydown", closeOnEscape);
 	}, [editingClipId]);
 	const exportProject = async () => {
+		if (activeArtboardId && !activeArtboard) {
+			setError("This Story owner no longer exists");
+			return;
+		}
 		const abort = new AbortController();
 		exportAbort.current = abort;
 		setPlaying(false);
@@ -313,19 +351,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	);
 	const run = (command: ProjectCommand, selection?: string[]) => {
 		try {
-			if (currentActiveArtboardId) {
-				controller.execute(
-					(rootProject) =>
-						updateArtboardProject(
-							rootProject,
-							currentActiveArtboardId,
-							(artboardProject) => command(artboardProject),
-						),
-					selection,
-				);
-			} else {
-				controller.execute(command, selection);
-			}
+			controller.execute((root) => applyStoryCommand(root, scope, command), selection);
 			setError(null);
 		} catch (e) {
 			errorMessage(e);
@@ -556,11 +582,10 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					void newProject();
 				} else if (key === "e") {
 					e.preventDefault();
-					const proj = currentActiveArtboardId ? activeProject : controller.snapshot.project;
-					if (
-						projectDurationUs(proj) > 0 &&
-						exportProgress === null
-					) {
+					const proj = currentActiveArtboardId
+						? activeProject
+						: controller.snapshot.project;
+					if (projectDurationUs(proj) > 0 && exportProgress === null) {
 						void exportProject();
 					}
 				} else if (key === "d") {
@@ -705,7 +730,6 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				} else if (key.toLowerCase() === "t" && !e.shiftKey) {
 					e.preventDefault();
 					const ids = {
-						assetId: crypto.randomUUID(),
 						trackId: crypto.randomUUID(),
 						clipId: crypto.randomUUID(),
 					};
@@ -1042,9 +1066,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 								}
 							}}
 							onChange={(next) =>
-								controller.execute((p) =>
-									updateComposition(p, composition.id, next),
-								)
+								run((p) => updateComposition(p, composition.id, next))
 							}
 							onClose={() => setEditingClipId(null)}
 						/>
@@ -1062,7 +1084,11 @@ export function ProjectEditor(props: ProjectEditorProps) {
 									...prev,
 									hyperframes: (prev.hyperframes ?? []).map((h) =>
 										h.id === activeHyperframe.id
-											? { ...h, ...patch, updatedAt: new Date().toISOString() }
+											? {
+													...h,
+													...patch,
+													updatedAt: new Date().toISOString(),
+												}
 											: h,
 									),
 								}));
@@ -1074,7 +1100,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					) : null
 				}
 				repurposeEditor={
-					!currentActiveArtboardId && !activeHyperframeId ? (
+					!activeArtboardId && !activeHyperframeId ? (
 						<RepurposeBoardEditor
 							project={state.project}
 							projectTitle={projectFileName(state.path)}
@@ -1119,54 +1145,83 @@ export function ProjectEditor(props: ProjectEditorProps) {
 								controller.preview(id);
 							}}
 							onPlaceAsset={addToTimeline}
-							onRemoveAsset={(id) => run((p) => removeAsset(p, id))}
+							onRemoveAsset={(id) => {
+								try {
+									controller.execute((p) => removeAsset(p, id));
+								} catch (error) {
+									errorMessage(error);
+								}
+							}}
 						/>
 					) : null
 				}
 			>
-				<StoryEditor
-					storyProject={activeProject}
-					rootProject={state.project}
-					storyId={currentActiveArtboardId}
-					storyName={activeArtboard?.name}
-					controller={controller}
-					transcripts={transcripts}
-					copilotOpen={copilotOpen}
-					onCloseCopilot={() => setCopilotOpen(false)}
-					speculativeDraft={speculativeDraft}
-					editPlan={editPlan}
-					onApplyDraft={handleApplyDraft}
-					onDiscardDraft={handleDiscardDraft}
-					onDraftReady={(draft) => setSpeculativeDraft(draft)}
-					onBackToBoard={
-						currentActiveArtboardId
-							? () => {
-									setPlaying(false);
-									setEditingClipId(null);
-									setActiveArtboardId(null);
-								}
-							: undefined
-					}
-					onImportMedia={(paths) => void importMedia(paths)}
-					onStartRecord={() => void startRecord()}
-					onOpenAudioRecorder={openAudioRecorder}
-					onOpenRecording={(id) => {
-						setPlaying(false);
-						setEditingClipId(id);
-					}}
-					playing={playing}
-					setPlaying={setPlaying}
-					editingClipId={editingClipId}
-					setEditingClipId={setEditingClipId}
-					onCommand={run}
-					onError={setError}
-					busy={Boolean(busy)}
-					previewStageRef={previewStage}
-					scale={scale}
-					onScaleChange={setScale}
-					snappingEnabled={snappingEnabled}
-					onToggleSnapping={() => setSnappingEnabled((v) => !v)}
-				/>
+				{activeArtboardId && !activeArtboard ? (
+					<div role="alert" className="project-error">
+						This Story owner no longer exists
+						<button onClick={() => setActiveArtboardId(null)}>All Stories</button>
+					</div>
+				) : (
+					<StoryEditor
+						storyProject={activeProject}
+						rootProject={state.project}
+						storyId={activeArtboardId}
+						storyName={activeArtboard?.name}
+						controller={controller}
+						transcripts={transcripts}
+						copilotOpen={copilotOpen}
+						onCloseCopilot={() => setCopilotOpen(false)}
+						speculativeDraft={speculativeDraft}
+						editPlan={editPlan}
+						onApplyDraft={handleApplyDraft}
+						onDiscardDraft={handleDiscardDraft}
+						editContext={editContext}
+						onProjectCommand={(command) => {
+							try {
+								controller.execute(command);
+								setError(null);
+							} catch (error) {
+								errorMessage(error);
+							}
+						}}
+						onDraftReady={(draft) => {
+							if (sameStoryEditContext(draft.context, editContextRef.current))
+								setSpeculativeDraft(draft);
+							else
+								setError(
+									"This Story edit proposal is stale. Refresh its context and try again.",
+								);
+						}}
+						onBackToBoard={
+							currentActiveArtboardId
+								? () => {
+										setPlaying(false);
+										setEditingClipId(null);
+										setActiveArtboardId(null);
+									}
+								: undefined
+						}
+						onImportMedia={(paths) => void importMedia(paths)}
+						onStartRecord={() => void startRecord()}
+						onOpenAudioRecorder={openAudioRecorder}
+						onOpenRecording={(id) => {
+							setPlaying(false);
+							setEditingClipId(id);
+						}}
+						playing={playing}
+						setPlaying={setPlaying}
+						editingClipId={editingClipId}
+						setEditingClipId={setEditingClipId}
+						onCommand={run}
+						onError={setError}
+						busy={Boolean(busy)}
+						previewStageRef={previewStage}
+						scale={scale}
+						onScaleChange={setScale}
+						snappingEnabled={snappingEnabled}
+						onToggleSnapping={() => setSnappingEnabled((v) => !v)}
+					/>
+				)}
 			</ProjectEditorPanel>
 			{nameDialog && (
 				<ProjectNameDialog

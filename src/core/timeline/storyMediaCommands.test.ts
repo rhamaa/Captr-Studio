@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { addTrack, placeAsset, removeAsset, removeClip } from "./commands";
 import { ProjectHistory } from "./history";
+import { removeRepurposeArtboard } from "./repurposeCommands";
 import { applyStoryCommand, getStoryProject } from "./storyOwnership";
 import { ownershipFixture } from "./storyOwnership.fixtures";
 import type { PrivateMediaAsset } from "./types";
@@ -17,6 +18,42 @@ const audio: PrivateMediaAsset = {
 const scope = { kind: "artboard", artboardId: "A" } as const;
 
 describe("Story private media commands", () => {
+	it("removes a Story undoably with its private metadata recoverable and no source operation", () => {
+		const history = new ProjectHistory(ownershipFixture());
+		const before = history.project;
+		history.execute((p) => removeRepurposeArtboard(p, "A"));
+		expect(() => getStoryProject(history.project, scope)).toThrow(/owner/i);
+		expect(history.project.assets).toEqual(before.assets);
+		expect(history.undo()).toEqual(before);
+		expect(getStoryProject(history.project, scope).localAssets![0].source!.path).toBe(
+			"voice.wav",
+		);
+	});
+	it("publishes metadata unchanged and unwinds sibling placement before publication", async () => {
+		const { publishStoryMedia } = await import("./storyMediaCommands");
+		const before = ownershipFixture();
+		const privateAsset = getStoryProject(before, scope).localAssets![0];
+		const history = new ProjectHistory(before);
+		const published = history.execute((p) => publishStoryMedia(p, scope, "voice-A"));
+		expect(published.assets.find((a) => a.id === "voice-A")).toEqual(privateAsset);
+		expect(getStoryProject(published, scope).localAssets).not.toContainEqual(privateAsset);
+		const sibling = { kind: "artboard", artboardId: "B" } as const;
+		const placed = history.execute((p) =>
+			applyStoryCommand(p, sibling, (view) =>
+				placeAsset(addTrack(view, "audio-B", "audio"), "voice-A", "audio-B", 0, {
+					clipId: "voice-B",
+				}),
+			),
+		);
+		expect(getStoryProject(placed, sibling).tracks.at(-1)!.clips[0].assetId).toBe("voice-A");
+		history.undo();
+		const restored = history.undo();
+		expect(getStoryProject(restored, scope).localAssets).toContainEqual(privateAsset);
+		expect(restored.assets.some((a) => a.id === "voice-A")).toBe(false);
+		history.redo();
+		expect(history.redo()).toEqual(placed);
+		expect(() => publishStoryMedia(before, sibling, "voice-A")).toThrow(/owner/i);
+	});
 	it("registers unplaced media only in the captured Story and records placement separately", async () => {
 		const { registerStoryMedia } = await import("./storyMediaCommands");
 		const before = ownershipFixture();

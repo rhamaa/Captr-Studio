@@ -3,6 +3,34 @@ import type { ProjectCommand } from "./history";
 import type { StoryScope, TimelineProject } from "./types";
 import { sameMetadata, validateTimelineProject } from "./validation";
 
+/** Transient proposal identity; never serialized into the project. */
+export interface StoryEditContext {
+	scope: StoryScope;
+	projectId: string;
+	generation: number;
+	revision: number;
+}
+
+export function sameStoryEditContext(
+	a: StoryEditContext | undefined,
+	b: StoryEditContext | undefined,
+): boolean {
+	return Boolean(
+		a?.scope &&
+			b?.scope &&
+			typeof a.projectId === "string" &&
+			Number.isSafeInteger(a.generation) &&
+			Number.isSafeInteger(a.revision) &&
+			a.revision >= 0 &&
+			a.projectId === b.projectId &&
+			a.generation === b.generation &&
+			a.revision === b.revision &&
+			a.scope.kind === b.scope.kind &&
+			(a.scope.kind === "root" ||
+				(b.scope.kind === "artboard" && a.scope.artboardId === b.scope.artboardId)),
+	);
+}
+
 export function listStoryScopes(project: TimelineProject): StoryScope[] {
 	return [
 		{ kind: "root" },
@@ -40,6 +68,21 @@ export function getStoryProject(project: TimelineProject, scope: StoryScope): Ti
 export function refreshStoryProjections(project: TimelineProject): TimelineProject {
 	const stories = extractStoriesFromProject(project);
 	return { ...project, stories, storyManifest: generateStoryManifest(stories) };
+}
+
+/** Agent drafts expose only the captured sequence and its owned Record compositions. */
+export function getStoryEditProject(project: TimelineProject, scope: StoryScope): TimelineProject {
+	const view = getStoryProject(project, scope);
+	const owned = new Set(
+		view.tracks.flatMap((t) => t.clips.map((c) => c.compositionId).filter(Boolean)),
+	);
+	return {
+		...view,
+		compositions: view.compositions.filter((c) => owned.has(c.id)),
+		repurposeBoard: undefined,
+		stories: undefined,
+		storyManifest: undefined,
+	};
 }
 
 /** Keep existing shared catalog entries immutable while admitting new imports. */

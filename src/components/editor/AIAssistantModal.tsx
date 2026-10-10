@@ -10,15 +10,17 @@ import {
 } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import type { AgentDiffSummary } from "@/core/timeline/agentPayload";
+import { type StoryEditContext, sameStoryEditContext } from "@/core/timeline/storyOwnership";
 import type { AssetTranscript } from "@/core/timeline/transcriptTypes";
 import type { TimelineProject } from "@/core/timeline/types";
 
 export interface AIAssistantModalProps {
+	editContext?: StoryEditContext;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	project: TimelineProject;
 	transcripts: Record<string, AssetTranscript>;
-	onApplyChanges: (modifiedProject: TimelineProject) => void;
+	onApplyChanges: (modifiedProject: TimelineProject, context: StoryEditContext) => void;
 }
 
 interface DetectedAgent {
@@ -33,28 +35,23 @@ interface DetectedAgent {
 const PRESET_PROMPTS = [
 	{
 		title: "Cut dead air & long pauses",
-		prompt:
-			"Analyze speech transcripts and trim out long silent pauses between sentences to create a fast-paced, engaging cut.",
+		prompt: "Analyze speech transcripts and trim out long silent pauses between sentences to create a fast-paced, engaging cut.",
 	},
 	{
 		title: "Make a 60-second reel",
-		prompt:
-			"Select the most impactful highlights based on the speech transcripts and condense the timeline into an exciting 60-second video.",
+		prompt: "Select the most impactful highlights based on the speech transcripts and condense the timeline into an exciting 60-second video.",
 	},
 	{
 		title: "Remove filler words & hesitations",
-		prompt:
-			"Identify and cut out speech hesitations, filler words, and awkward false starts based on the transcript word timings.",
+		prompt: "Identify and cut out speech hesitations, filler words, and awkward false starts based on the transcript word timings.",
 	},
 	{
 		title: "A-Roll speech + Hyperframe B-Roll",
-		prompt:
-			"Keep the main spoken dialogue as A-Roll, cut out dead air, and generate visual Hyperframe B-Roll motion graphics for the main highlight points.",
+		prompt: "Keep the main spoken dialogue as A-Roll, cut out dead air, and generate visual Hyperframe B-Roll motion graphics for the main highlight points.",
 	},
 	{
 		title: "Trim to key highlights",
-		prompt:
-			"Keep only the sections where the main key points are discussed and remove repetitive or tangential discussion.",
+		prompt: "Keep only the sections where the main key points are discussed and remove repetitive or tangential discussion.",
 	},
 ];
 
@@ -71,6 +68,7 @@ export function AIAssistantModal({
 	project,
 	transcripts,
 	onApplyChanges,
+	editContext,
 }: AIAssistantModalProps) {
 	const [prompt, setPrompt] = useState("");
 	const [selectedAgent, setSelectedAgent] = useState("agy");
@@ -79,7 +77,8 @@ export function AIAssistantModal({
 			id: "agy",
 			name: "Antigravity (agy)",
 			command: "agy",
-			description: "Google DeepMind Antigravity CLI — zero setup, uses active session directly",
+			description:
+				"Google DeepMind Antigravity CLI — zero setup, uses active session directly",
 			available: true,
 		},
 		{
@@ -111,6 +110,7 @@ export function AIAssistantModal({
 	const [pendingResult, setPendingResult] = useState<{
 		project: TimelineProject;
 		diff: AgentDiffSummary;
+		context: StoryEditContext;
 	} | null>(null);
 
 	const consoleEndRef = useRef<HTMLDivElement>(null);
@@ -118,7 +118,8 @@ export function AIAssistantModal({
 	// Load available agents on open
 	useEffect(() => {
 		if (!open) return;
-		window.electronAPI?.getAvailableAgents?.()
+		window.electronAPI
+			?.getAvailableAgents?.()
 			.then((detected) => {
 				if (detected && detected.length > 0) {
 					setAgents(detected);
@@ -161,7 +162,8 @@ export function AIAssistantModal({
 	}, [open, isRunning, onOpenChange]);
 
 	const handleRun = async () => {
-		if (!prompt.trim() || !window.electronAPI?.runAgentTask) return;
+		if (!prompt.trim() || !window.electronAPI?.runAgentTask || !editContext) return;
+		const capturedContext = structuredClone(editContext);
 		setIsRunning(true);
 		setError(null);
 		setPendingResult(null);
@@ -174,12 +176,14 @@ export function AIAssistantModal({
 				userPrompt: prompt.trim(),
 				project,
 				transcripts,
+				editContext: capturedContext,
 			});
 
 			if (res.success && res.project && res.diff) {
 				setPendingResult({
 					project: res.project,
 					diff: res.diff,
+					context: res.context ?? capturedContext,
 				});
 				setError(null);
 			} else {
@@ -201,7 +205,11 @@ export function AIAssistantModal({
 
 	const handleApply = () => {
 		if (!pendingResult) return;
-		onApplyChanges(pendingResult.project);
+		if (!sameStoryEditContext(pendingResult.context, editContext)) {
+			setError("This Story edit proposal is stale. Refresh its context and try again.");
+			return;
+		}
+		onApplyChanges(pendingResult.project, pendingResult.context);
 		onOpenChange(false);
 	};
 
@@ -264,7 +272,11 @@ export function AIAssistantModal({
 									<span className="font-semibold text-sm">{ag.name}</span>
 									<span
 										className={`ai-assistant-agent-dot ${ag.available ? "online" : "offline"}`}
-										title={ag.available ? "Installed in PATH" : "Not detected in PATH"}
+										title={
+											ag.available
+												? "Installed in PATH"
+												: "Not detected in PATH"
+										}
 									/>
 								</div>
 								<p className="ai-assistant-agent-desc">{ag.description}</p>
@@ -275,8 +287,8 @@ export function AIAssistantModal({
 						<p className="ai-assistant-warning">
 							<WarningCircle size={14} className="shrink-0" />
 							<span>
-								"{currentAgentInfo.command}" is not found in your system PATH. Make sure it is
-								installed or pick an available agent.
+								"{currentAgentInfo.command}" is not found in your system PATH. Make
+								sure it is installed or pick an available agent.
 							</span>
 						</p>
 					)}
@@ -326,7 +338,9 @@ export function AIAssistantModal({
 									>
 										<span>{tag}</span>
 										{hasTranscript && (
-											<span className="ai-assistant-mention-badge-cc">CC</span>
+											<span className="ai-assistant-mention-badge-cc">
+												CC
+											</span>
 										)}
 									</button>
 								);
@@ -357,7 +371,8 @@ export function AIAssistantModal({
 							<div className="ai-assistant-diff-stat">
 								<span className="text-zinc-400 text-xs">Clips Count</span>
 								<span className="font-medium">
-									{pendingResult.diff.clipsBefore} → {pendingResult.diff.clipsAfter}
+									{pendingResult.diff.clipsBefore} →{" "}
+									{pendingResult.diff.clipsAfter}
 								</span>
 							</div>
 							<div className="ai-assistant-diff-stat">
@@ -399,9 +414,14 @@ export function AIAssistantModal({
 							onClick={() => setShowConsole((v) => !v)}
 						>
 							<div className="flex items-center gap-2">
-								<span className="font-mono text-xs text-zinc-300">Terminal Log</span>
+								<span className="font-mono text-xs text-zinc-300">
+									Terminal Log
+								</span>
 								{isRunning && (
-									<CircleNotch size={12} className="animate-spin text-amber-400" />
+									<CircleNotch
+										size={12}
+										className="animate-spin text-amber-400"
+									/>
 								)}
 							</div>
 							<span className="text-xs text-zinc-400">
@@ -411,7 +431,9 @@ export function AIAssistantModal({
 						{showConsole && (
 							<div className="ai-assistant-console-content">
 								{logs.length === 0 ? (
-									<span className="text-zinc-500 italic">Starting CLI process…</span>
+									<span className="text-zinc-500 italic">
+										Starting CLI process…
+									</span>
 								) : (
 									logs.map((line, idx) => <div key={idx}>{line}</div>)
 								)}

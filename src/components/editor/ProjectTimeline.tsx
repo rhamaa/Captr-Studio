@@ -286,7 +286,6 @@ export function ProjectTimeline({
 				onCommand={onCommand}
 				onAddText={() => {
 					const ids = {
-						assetId: crypto.randomUUID(),
 						trackId: crypto.randomUUID(),
 						clipId: crypto.randomUUID(),
 					};
@@ -956,7 +955,7 @@ export function ProjectTimeline({
 export function shapePlacementCommand(
 	kind: ShapeDefinition["kind"],
 	startUs: number,
-	ids: { assetId: string; clipId: string; trackId: string },
+	ids: { assetId?: string; clipId: string; trackId: string },
 ): ProjectCommand {
 	const definitions: Record<ShapeDefinition["kind"], ShapeDefinition> = {
 		rectangle: { kind: "rectangle", width: 360, height: 220, style: { fill: "#6387ff", stroke: null } },

@@ -8,6 +8,8 @@ import {
 	Trash,
 	VideoCamera,
 } from "@phosphor-icons/react";
+import { resolveClipSource } from "@/core/timeline/clipSource";
+import { extendInlineClip } from "@/core/timeline/designTemplateCommands";
 import type { KeyframeEasing, KeyframeProperty } from "@/components/video-editor/types";
 import {
 	addClipKeyframe,
@@ -138,6 +140,19 @@ function TransitionInspector({
 	);
 }
 
+/** The numeric Out control is an explicit extension; trim gestures stay within extent. */
+export function setInspectorClipSourceOut(
+	project: TimelineProject,
+	clipId: string,
+	sourceOutUs: number,
+): TimelineProject {
+	const clip = project.tracks.flatMap((t) => t.clips).find((c) => c.id === clipId);
+	if (!clip) throw new Error("Clip not found in this Story");
+	return clip.content && sourceOutUs > clip.content.durationUs
+		? extendInlineClip(project, clipId, sourceOutUs)
+		: trimClip(project, clipId, clip.sourceInUs, sourceOutUs);
+}
+
 export function ProjectInspector({
 	project,
 	selection,
@@ -156,7 +171,9 @@ export function ProjectInspector({
 	const m = useProjectMessages();
 	const track = project.tracks.find((t) => t.clips.some((c) => selection.includes(c.id))),
 		clip = track?.clips.find((c) => selection.includes(c.id)),
-		asset = project.assets.find((a) => a.id === clip?.assetId);
+		asset = clip ? resolveClipSource(project, clip) : undefined;
+	const shape = clip?.content?.kind === "shape" ? clip.content.shapeDefinition : asset?.media?.shapeDefinition;
+	const text = clip?.content?.kind === "text" ? clip.content.text : (clip?.text ?? asset?.media?.text);
 	const selectedTransition = project.clipTransitions?.find((item) => item.id === selectedTransitionId),
 		transitionTrack = selectedTransition && project.tracks.find((item) => item.id === selectedTransition.trackId),
 		transitionFrom = selectedTransition && project.tracks.flatMap((item) => item.clips).find((item) => item.id === selectedTransition.fromClipId),
@@ -164,8 +181,8 @@ export function ProjectInspector({
 		transitionMaximumUs = selectedTransition
 				? getMaxClipTransitionDurationUs(project, selectedTransition.fromClipId, selectedTransition.toClipId, selectedTransition.id)
 			: 0;
-	const fromAsset = transitionFrom && project.assets.find((item) => item.id === transitionFrom.assetId),
-		toAsset = transitionTo && project.assets.find((item) => item.id === transitionTo.assetId);
+	const fromAsset = transitionFrom && resolveClipSource(project, transitionFrom),
+		toAsset = transitionTo && resolveClipSource(project, transitionTo);
 	const localMs = clip ? Math.round(Math.max(0, (playheadUs - clip.startUs) / 1000)) : 0;
 	const handleAddKeyframe = (property: KeyframeProperty) => {
 		if (!clip) return;
@@ -262,7 +279,7 @@ export function ProjectInspector({
 									aria-label="Overlay text"
 									rows={4}
 									maxLength={20000}
-									value={(clip.text ?? asset.text)?.content ?? ""}
+									value={text?.content ?? ""}
 									onChange={(e) =>
 										onCommand((p) =>
 											updateTextOverlay(p, clip.id, {
@@ -277,7 +294,7 @@ export function ProjectInspector({
 								<input
 									aria-label="Overlay font family"
 									maxLength={120}
-									value={(clip.text ?? asset.text)?.fontFamily ?? "Arial"}
+									value={text?.fontFamily ?? "Arial"}
 									onChange={(e) =>
 										onCommand((p) =>
 											updateTextOverlay(p, clip.id, {
@@ -295,7 +312,7 @@ export function ProjectInspector({
 									min={1}
 									max={1000}
 									step={1}
-									value={(clip.text ?? asset.text)?.fontSizePx ?? 96}
+									value={text?.fontSizePx ?? 96}
 									onChange={(e) =>
 										onCommand((p) =>
 											updateTextOverlay(p, clip.id, {
@@ -311,7 +328,7 @@ export function ProjectInspector({
 								<input
 									aria-label="Overlay text color"
 									type="color"
-									value={(clip.text ?? asset.text)?.color ?? "#ffffff"}
+									value={text?.color ?? "#ffffff"}
 									onChange={(e) =>
 										onCommand((p) =>
 											updateTextOverlay(p, clip.id, {
@@ -325,7 +342,7 @@ export function ProjectInspector({
 								Align
 								<select
 									aria-label="Overlay text alignment"
-									value={(clip.text ?? asset.text)?.align ?? "center"}
+									value={text?.align ?? "center"}
 									onChange={(e) =>
 										onCommand((p) =>
 											updateTextOverlay(p, clip.id, {
@@ -399,10 +416,9 @@ export function ProjectInspector({
 							value={clip.sourceOutUs / 1_000_000}
 							onChange={(e) =>
 								onCommand((p) =>
-									trimClip(
+									setInspectorClipSourceOut(
 										p,
 										clip.id,
-										clip.sourceInUs,
 										Math.round(Number(e.target.value) * 1_000_000),
 									),
 								)
@@ -464,14 +480,14 @@ export function ProjectInspector({
 					</label>
 					{asset.kind !== "audio" && (
 						<>
-							{asset.kind === "shape" && asset.shapeDefinition && (() => {
-								const base = asset.shapeDefinition.style;
+							{asset.kind === "shape" && shape && (() => {
+								const base = shape!.style;
 								const defaultStyle: ShapeStyle = { fill: "fill" in base ? base.fill : null, stroke: base.stroke };
 								const style = clip.shapeStyleOverride ?? defaultStyle;
 								return (
 									<div className="project-shape-style">
 										<h3>{m("shapeStyle")}</h3>
-										{asset.shapeDefinition.kind !== "line" && asset.shapeDefinition.kind !== "arrow" && (
+										{shape!.kind !== "line" && shape!.kind !== "arrow" && (
 											<label>{m("shapeFill")}<input aria-label={m("shapeFill")} type="color" value={style.fill ?? "#6387ff"} onChange={(event) => onCommand((p) => setShapeStyleOverride(p, clip.id, { ...style, fill: event.target.value }))} /></label>
 										)}
 										<label>{m("shapeStroke")}<input aria-label={m("shapeStroke")} type="color" value={style.stroke?.color ?? "#ffffff"} onChange={(event) => onCommand((p) => setShapeStyleOverride(p, clip.id, { ...style, stroke: { color: event.target.value, width: style.stroke?.width ?? 4 } }))} /></label>

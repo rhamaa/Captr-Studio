@@ -8,7 +8,12 @@ import {
 	VideoCamera,
 } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
-import type { MediaAsset, RecordingPackage } from "@/core/timeline/types";
+import type {
+	MediaAsset,
+	RecordingPackage,
+	ShapeDefinition,
+	StoryDesignTemplate,
+} from "@/core/timeline/types";
 import { AssetCard } from "./AssetCard";
 import { useProjectMessages } from "./useProjectMessages";
 export interface AssetLibraryProps {
@@ -22,6 +27,13 @@ export interface AssetLibraryProps {
 	onPlace: (id: string) => void;
 	onRemove: (id: string) => void;
 	onTranscribe?: (id: string) => void;
+	storyAssets?: MediaAsset[];
+	onPublish?: (id: string) => void;
+	onRemoveStoryMedia?: (id: string) => void;
+	onCreateText?: () => void;
+	onCreateShape?: (kind: ShapeDefinition["kind"]) => void;
+	templates?: StoryDesignTemplate[];
+	onApplyTemplate?: (id: string) => void;
 }
 export function AssetLibrary({
 	assets,
@@ -34,6 +46,13 @@ export function AssetLibrary({
 	onPlace,
 	onRemove,
 	onTranscribe,
+	storyAssets,
+	onPublish,
+	onRemoveStoryMedia,
+	onCreateText,
+	onCreateShape,
+	templates,
+	onApplyTemplate,
 }: AssetLibraryProps) {
 	const m = useProjectMessages();
 	const [view, setView] = useState<"grid" | "list">("grid"),
@@ -126,18 +145,15 @@ export function AssetLibrary({
 							<AssetCard
 								key={asset.id}
 								asset={asset}
-								sourcePath={
-									asset.source?.path ??
-									pkg?.screen.path
-								}
-								audioPath={
-									pkg?.microphone?.path ?? pkg?.system?.path
-								}
+								sourcePath={asset.source?.path ?? pkg?.screen.path}
+								audioPath={pkg?.microphone?.path ?? pkg?.system?.path}
 								selected={asset.id === selectedAssetId}
 								onPreview={() => onPreview(asset.id)}
 								onPlace={() => onPlace(asset.id)}
 								onRemove={() => onRemove(asset.id)}
-								onTranscribe={onTranscribe ? () => onTranscribe(asset.id) : undefined}
+								onTranscribe={
+									onTranscribe ? () => onTranscribe(asset.id) : undefined
+								}
 							/>
 						);
 					})
@@ -146,6 +162,65 @@ export function AssetLibrary({
 					<p className="project-muted">{m("noMatches")}</p>
 				)}
 			</div>
+			{storyAssets && (
+				<>
+					<header className="project-panel-header">
+						<h2>
+							Story Media<span>{storyAssets.length || ""}</span>
+						</h2>
+					</header>
+					<div className={`project-asset-grid ${view}`}>
+						{!storyAssets.length && (
+							<p className="project-assets-empty">No media in this Story</p>
+						)}
+						{storyAssets.map((asset) => (
+							<AssetCard
+								key={asset.id}
+								asset={asset}
+								sourcePath={asset.source?.path}
+								selected={asset.id === selectedAssetId}
+								onPreview={() => onPreview(asset.id)}
+								onPlace={() => onPlace(asset.id)}
+								onRemove={() => onRemoveStoryMedia?.(asset.id)}
+								onPublish={onPublish ? () => onPublish(asset.id) : undefined}
+							/>
+						))}
+					</div>
+				</>
+			)}
+			{onCreateText && (
+				<>
+					<header className="project-panel-header">
+						<h2>Text / Shapes</h2>
+					</header>
+					<div className="project-asset-actions">
+						<button onClick={onCreateText}>Add Text</button>
+						{(["rectangle", "ellipse", "line", "arrow"] as const).map((kind) => (
+							<button key={kind} onClick={() => onCreateShape?.(kind)}>
+								{m(kind)}
+							</button>
+						))}
+					</div>
+				</>
+			)}
+			{templates && (
+				<>
+					<header className="project-panel-header">
+						<h2>Templates</h2>
+					</header>
+					<div className="project-asset-grid">
+						{!templates.length && <p className="project-assets-empty">No templates</p>}
+						{templates.map((template) => (
+							<button
+								key={template.id}
+								onClick={() => onApplyTemplate?.(template.id)}
+							>
+								{template.name}
+							</button>
+						))}
+					</div>
+				</>
+			)}
 		</section>
 	);
 }
