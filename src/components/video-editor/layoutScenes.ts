@@ -1,10 +1,10 @@
 import type {
+	LayoutCameraPosition,
 	LayoutCameraSettings,
 	LayoutRegion,
 	LayoutSceneEasing,
 	LayoutScenePreset,
 	WebcamCorner,
-	LayoutCameraPosition,
 	WebcamOverlaySettings,
 } from "./types";
 import {
@@ -454,6 +454,43 @@ export function getLayoutPresetTransform(params: {
 	return { preset, screen: fullScreen, webcam: bubble };
 }
 
+function getDefaultLayoutScene(params: {
+	stageWidth: number;
+	stageHeight: number;
+	webcam: WebcamOverlaySettings;
+	zoomScale?: number;
+	hasWebcam: boolean;
+}): ResolvedLayoutScene {
+	if (!params.hasWebcam) {
+		return {
+			...getLayoutPresetTransform({ ...params, preset: "screen-only" }),
+			isDefault: true,
+		};
+	}
+
+	const screen = getLayoutPresetTransform({ ...params, preset: "screen-center" }).screen;
+	const webcam = bubbleAt({
+		stageWidth: params.stageWidth,
+		stageHeight: params.stageHeight,
+		position: "bottom-right",
+		aspectRatio: 1,
+		size: params.webcam.size,
+		margin: params.webcam.margin,
+		cornerRadius: params.webcam.cornerRadius,
+		cornerRadiusPercent: params.webcam.cornerRadiusPercent,
+		shadow: params.webcam.shadow,
+		zoomScale: params.zoomScale,
+		reactToZoom: params.webcam.reactToZoom,
+	});
+
+	return {
+		preset: DEFAULT_LAYOUT_SCENE_PRESET,
+		screen,
+		webcam,
+		isDefault: false,
+	};
+}
+
 export function resolveActiveLayoutRegion(
 	timeMs: number,
 	layoutRegions: LayoutRegion[],
@@ -479,14 +516,14 @@ export function resolveLayoutSceneAtTime(params: {
 	const active = resolveActiveLayoutRegion(timeMs, params.layoutRegions);
 	const sorted = [...params.layoutRegions].sort((left, right) => left.startMs - right.startMs);
 	const getRegionTransform = (region: LayoutRegion | null) =>
-		getLayoutPresetTransform({
-			...params,
-			preset: region?.preset ?? DEFAULT_LAYOUT_SCENE_PRESET,
-			cameraSettings: region
-				? getLayoutCameraSettings(region, params.webcam)
-				: { position: "bottom-right", size: params.webcam.size },
-		});
-	const defaultScene: ResolvedLayoutScene = { ...getRegionTransform(null), isDefault: true };
+		region
+			? getLayoutPresetTransform({
+					...params,
+					preset: region.preset,
+					cameraSettings: getLayoutCameraSettings(region, params.webcam),
+				})
+			: getDefaultLayoutScene(params);
+	const defaultScene = getRegionTransform(null);
 
 	if (!active) {
 		const previous = [...sorted].reverse().find((region) => timeMs >= region.endMs);
@@ -521,7 +558,9 @@ export function resolveLayoutSceneAtTime(params: {
 
 	if (transitionMs > 0 && timeMs - active.startMs < transitionMs) {
 		const from =
-			previous && previous.endMs >= active.startMs ? getRegionTransform(previous) : defaultScene;
+			previous && previous.endMs >= active.startMs
+				? getRegionTransform(previous)
+				: defaultScene;
 		const progress = ease((timeMs - active.startMs) / transitionMs, active.easing);
 		return {
 			preset: active.preset,

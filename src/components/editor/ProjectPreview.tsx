@@ -16,6 +16,7 @@ export function ProjectPreview({
 	selectedClipId,
 	onSelectClip,
 	onUpdateClipTransform,
+	canTransformClip,
 	onDropAsset,
 }: {
 	project: TimelineProject;
@@ -26,6 +27,7 @@ export function ProjectPreview({
 	selectedClipId?: string | null;
 	onSelectClip?: (clipId: string) => void;
 	onUpdateClipTransform?: (clipId: string, transform: ClipTransform) => void;
+	canTransformClip?: (clipId: string, assetKind: string) => boolean;
 	onDropAsset?: (assetId: string, canvasX: number, canvasY: number) => void;
 }) {
 	const canvas = useRef<HTMLCanvasElement>(null),
@@ -132,6 +134,7 @@ export function ProjectPreview({
 				canvasElement={canvas.current}
 				onSelectClip={onSelectClip}
 				onUpdateClipTransform={onUpdateClipTransform}
+				canTransformClip={canTransformClip}
 				onDropAsset={onDropAsset}
 				disabled={playing}
 			/>

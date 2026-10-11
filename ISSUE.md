@@ -19,6 +19,9 @@
 
 ## 2. Audio record pada "Video Record" sering hilang / tidak ter-record
 
+**Status (11 Oktober 2026):** belum dapat ditutup sebagai bug capture yang terverifikasi. Laporan lama tidak mencatat OS, pilihan mic/system audio, langkah reproduksi, atau apakah file audio tidak dibuat, kosong, atau hanya tidak terdengar. Implementasi saat ini menyimpan audio mic dan system sebagai sidecar; tes V3 memverifikasi penyimpanan dan buka ulang sidecar, tetapi tidak menjalankan capture perangkat native. QA capture native masih pending.
+
+**Data untuk reproduksi:** platform/OS; sumber capture (screen/window); status mic dan system audio; perangkat mic yang dipilih; durasi; apakah sidecar mic/system terbentuk dan ukurannya; serta log diagnostik capture. Jangan menandai isu ini selesai hanya dari tes bundle atau decode video.
 
 ## 3. Menambahkan Record slide meminta project baru
 
@@ -67,6 +70,10 @@
 - [ ] Native QA Audio Recorder: record/discard, rekam sambil preview berjalan, playhead anchor, track audio penuh, undo/redo, save/reopen, dan pilihan Finish/Discard/Stay untuk Home/Open/New/window close.
 
 **QA ulang setelah perubahan ownership (10 Oktober 2026):** native belum dijalankan; checkbox native historis di atas bukan verifikasi branch ini. Pending: Record berulang + Ctrl+S; import video/gambar/audio; Assets-only save/reopen; dua placement Record dan edit independen; voiceover Finish/Discard/Stay; Rename/Save As/New; konversi Record V1/V2 eksplisit serta finalisasi native/browser/Windows. Tes lifecycle/bundle otomatis tetap berbeda dari HUD/mikrofon/UI native.
+
+**Regresi finalisasi Windows (11 Oktober 2026):** WGC menghasilkan MP4 layar 30.790.419 byte dan webcam 994.311 byte; `ffprobe` membaca stream H.264 berdurasi 13,95 s dan 13,89 s, serta FFmpeg sistem berhasil mendekode frame pertama keduanya. Penyebab gagalnya penyimpanan lokal: executable `ffmpeg-static` ada tetapi Windows menolaknya sebagai aplikasi Win32 yang valid. `getFfmpegBinaryPath` kini menguji executable sebelum memilihnya dan memakai FFmpeg sistem yang dapat dijalankan sebagai fallback; tes regresi mencakup bundled binary yang rusak. Retest rekam lewat HUD dan Ctrl+S setelah perubahan ini masih pending.
+
+**Verifikasi otomatis terbaru (11 Oktober 2026):** `tsc --noEmit` lulus; tes FFmpeg binary (1), siklus V3 Record/save/reopen (5), dan diagnostik audio recording (11) lulus. Suite Vitest penuh: 1.490/1.518 lulus; 28 gagal pada 10 file, mencakup migrasi media layer lama, assertion audio export, mock canvas webcam, operasi project file/rename, concurrency, MCP loopback, media-server, dan symlink. Sebagian kegagalan OS jelas terkena batas hardlink/symlink/network pada sandbox; semuanya perlu dipisahkan dari regresi produk sebelum baseline diperbarui. QA HUD/capture native tetap pending.
 
 **Instruksi berikutnya:** pertahankan preservasi path native/browser/Windows dan pemeriksaan identitas. Jangan menentukan project kosong dari source aktif. Aset milik library, penghapusan clip tidak menghapus source; seluruh library harus ikut save meskipun timeline kosong. Perbarui checklist ini dan `AGENTS.md` saat kontrak berubah.
 
@@ -501,5 +508,7 @@ Mentransformasikan integrasi AI Agent CLI (`agy`, `claude`, `opencode`) yang seb
 **Verifikasi 10 Oktober 2026:** Lihat [hasil aktual, perbandingan baseline, acceptance, ruling dan status review](docs/superpowers/plans/2026-10-10-story-asset-ownership-verification.md). Version tetap `1.4.0-beta.1`; native belum dijalankan. Durasi Story berasal dari canonical clip clocks; kontrol trailing blank deferred.
 
 Suite penuh default parallel sebelum perbaikan review akhir: 1.491/1.500 tes lulus; 9 kegagalan di 5 file sama persis dengan baseline, 3 kegagalan baseline manager/lifecycle kini lulus. Perbaikan terakhir di `8c2fe68` mempertahankan override transisi Artboard dan menolak asosiasi Story tanpa owner; 224 tes terkait di 15 suite lulus, TypeScript dan diff check exit 0. Biome konfigurasi existing: 42 error/22 warning tersisa dibanding baseline 106/22 pada path yang sama; seluruh 14 file baru clean. Enam path yang diubah pada perbaikan akhir tidak menambah diagnostic/count. Graft build terbaru: 5.188 node, 12.981 edge, 735 card. Review Task 8 dan whole branch disetujui; dua minor tes ditunda dengan alasan/biaya di catatan verifikasi. QA native dan sembilan kegagalan baseline tetap terbuka; suite penuh tidak diulang setelah perbaikan terarah.
+
+**Update Record/Story preview layout (11 Oktober 2026):** Tanpa clip layout, preview/export memakai layar sebagai card terpusat dan webcam square kanan bawah; layout custom berlaku di rentang clip dan timeline yang bersebelahan tetap kontigu. Kontrol zoom/pan viewport di Story preview dihapus; clip video sumber terkunci pada canvas, sementara overlay text/shape/image tetap dapat diedit. TypeScript lulus dan 46 tes pada lima suite terkait lulus. QA native serta pemeriksaan visual preview/export belum dijalankan.
 
 

@@ -104,6 +104,34 @@ describe("CanvasTransformGizmo", () => {
 		expect(html).toContain("cursor-nwse-resize");
 	});
 
+	it("keeps overlays transformable while excluding the locked source clip", () => {
+		const project = structuredClone(mockProject);
+		project.tracks[0]!.clips.push({
+			...project.tracks[0]!.clips[0]!,
+			id: "clip_source",
+		});
+		const canTransformClip = (clipId: string) => clipId !== "clip_source";
+		const sourceHtml = renderToStaticMarkup(
+			createElement(CanvasTransformGizmo, {
+				project,
+				timeUs: 1_000_000,
+				selectedClipId: "clip_source",
+				canTransformClip,
+			}),
+		);
+		const overlayHtml = renderToStaticMarkup(
+			createElement(CanvasTransformGizmo, {
+				project,
+				timeUs: 1_000_000,
+				selectedClipId: "clip_text",
+				canTransformClip,
+			}),
+		);
+
+		expect(sourceHtml).not.toContain("Drag to reposition overlay");
+		expect(overlayHtml).toContain("Drag to reposition overlay");
+	});
+
 	it("correctly identifies active bounds and hit tests canvas coordinates", () => {
 		const bounds = getActiveVisualClipsBounds(mockProject, 1_000_000);
 		expect(bounds).toHaveLength(1);

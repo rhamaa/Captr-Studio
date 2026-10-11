@@ -18,6 +18,7 @@ export interface CanvasTransformGizmoProps {
 	onSelectClip?: (clipId: string) => void;
 	onUpdateClipTransform?: (clipId: string, transform: ClipTransform) => void;
 	onDropAsset?: (assetId: string, canvasX: number, canvasY: number) => void;
+	canTransformClip?: (clipId: string, assetKind: string) => boolean;
 	disabled?: boolean;
 }
 
@@ -41,14 +42,17 @@ export function CanvasTransformGizmo({
 	onSelectClip,
 	onUpdateClipTransform,
 	onDropAsset,
+	canTransformClip,
 	disabled = false,
 }: CanvasTransformGizmoProps) {
 	const overlayRef = useRef<HTMLDivElement>(null);
 
 	// Compute all visible bounds at current playhead time
 	const visibleBounds = useMemo(() => {
-		return getActiveVisualClipsBounds(project, timeUs);
-	}, [project, timeUs]);
+		return getActiveVisualClipsBounds(project, timeUs).filter(
+			(bounds) => canTransformClip?.(bounds.clipId, bounds.kind) ?? true,
+		);
+	}, [project, timeUs, canTransformClip]);
 
 	// Find bounds for the currently selected clip
 	const selectedBounds = useMemo(() => {

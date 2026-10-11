@@ -10,6 +10,26 @@ import { DEFAULT_WEBCAM_OVERLAY, type LayoutRegion } from "./types";
 const webcam = { ...DEFAULT_WEBCAM_OVERLAY, enabled: true, sourcePath: "webcam.mp4" };
 
 describe("layoutScenes", () => {
+	it("uses the centered screen card and a square bottom-right webcam outside layout clips", () => {
+		const scene = resolveLayoutSceneAtTime({
+			timeMs: 500,
+			layoutRegions: [],
+			stageWidth: 1280,
+			stageHeight: 720,
+			webcam,
+			hasWebcam: true,
+		});
+
+		expect(scene.screen.width).toBeCloseTo(1280 * 0.82);
+		expect(scene.screen.height).toBeCloseTo(720 * 0.78);
+		expect(scene.screen.x).toBeCloseTo((1280 - scene.screen.width) / 2);
+		expect(scene.screen.y).toBeCloseTo((720 - scene.screen.height) / 2);
+		expect(scene.webcam.width).toBeCloseTo(scene.webcam.height);
+		expect(scene.webcam.x + scene.webcam.width).toBeCloseTo(1280 - (webcam.margin ?? 0));
+		expect(scene.webcam.y + scene.webcam.height).toBeCloseTo(720 - (webcam.margin ?? 0));
+		expect(scene.isDefault).toBe(false);
+	});
+
 	it("converts removed side-by-side scenes to camera bubble", () => {
 		const scene = getLayoutPresetTransform({
 			preset: "side-by-side",
@@ -179,5 +199,29 @@ describe("layoutScenes", () => {
 		expect(scene).not.toBeNull();
 		expect(scene!.webcam.width).toBeGreaterThan(1280 * 0.2);
 		expect(scene!.webcam.width).toBeLessThan(1280);
+	});
+
+	it("uses the standard centered-card layout again after a layout clip ends", () => {
+		const scene = resolveLayoutSceneAtTime({
+			timeMs: 5000,
+			layoutRegions: [
+				{
+					id: "custom-layout",
+					startMs: 0,
+					endMs: 1000,
+					preset: "screen-only",
+					transitionMs: 0,
+					easing: "smooth",
+				},
+			],
+			stageWidth: 1280,
+			stageHeight: 720,
+			webcam,
+			hasWebcam: true,
+		});
+
+		expect(scene.isDefault).toBe(false);
+		expect(scene.screen.width).toBeCloseTo(1280 * 0.82);
+		expect(scene.webcam.width).toBeCloseTo(scene.webcam.height);
 	});
 });

@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { app } from "electron";
 
 const nodeRequire = createRequire(import.meta.url);
+let resolvedFfmpegBinaryPath: string | null = null;
 
 export function loadFfmpegStatic(): string | null {
 	try {
@@ -117,6 +118,11 @@ export function resolveSystemFfprobeBinaryPath(): string | null {
 }
 
 export function getFfmpegBinaryPath(): string {
+	if (resolvedFfmpegBinaryPath) {
+		return resolvedFfmpegBinaryPath;
+	}
+
+	const candidates: string[] = [];
 	const ffmpegStatic = loadFfmpegStatic();
 	if (ffmpegStatic && typeof ffmpegStatic === "string") {
 		const bundledPath = app.isPackaged
@@ -124,13 +130,34 @@ export function getFfmpegBinaryPath(): string {
 			: ffmpegStatic;
 
 		if (existsSync(bundledPath)) {
-			return bundledPath;
+			candidates.push(bundledPath);
 		}
 	}
 
 	const systemFfmpeg = resolveSystemFfmpegBinaryPath();
-	if (systemFfmpeg) {
-		return systemFfmpeg;
+	if (systemFfmpeg && !candidates.includes(systemFfmpeg)) {
+		candidates.push(systemFfmpeg);
+	}
+
+	const failures: string[] = [];
+	for (const candidate of candidates) {
+		const result = spawnSync(candidate, ["-version"], {
+			encoding: "utf-8",
+			windowsHide: true,
+			timeout: 5000,
+		});
+		if (result.status === 0 && !result.error) {
+			resolvedFfmpegBinaryPath = candidate;
+			return candidate;
+		}
+
+		failures.push(
+			`${candidate}: ${result.error?.message ?? `exited with status ${result.status ?? "unknown"}`}`,
+		);
+	}
+
+	if (failures.length > 0) {
+		throw new Error(`FFmpeg binaries could not be started. ${failures.join("; ")}`);
 	}
 
 	throw new Error(

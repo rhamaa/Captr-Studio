@@ -80,6 +80,7 @@ describe("Recording composition settings", () => {
 		expect(html).toContain('data-show-source-audio-track="true"');
 		expect(html).toContain('data-microphone-audio-path="microphone.wav"');
 		expect(html).toContain('data-system-audio-path="system.wav"');
+		expect(html).not.toContain("Drag to reposition overlay");
 	});
 
 	it("does not render a separate list of cut and kept ranges", () => {

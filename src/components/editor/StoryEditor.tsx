@@ -3,8 +3,6 @@ import {
 	CaretRight,
 	CornersOut,
 	GridFour,
-	MagnifyingGlassMinus,
-	MagnifyingGlassPlus,
 	Pause,
 	Play,
 	Repeat,
@@ -171,62 +169,6 @@ export function StoryEditor({
 	const [loopPlayback, setLoopPlayback] = useState(false);
 	const [showGridGuide, setShowGridGuide] = useState(false);
 	const [fullscreenPreview, setFullscreenPreview] = useState(false);
-
-	const ZOOM_PRESETS = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0] as const;
-	const [previewZoom, setPreviewZoom] = useState<"fit" | number>("fit");
-	const [previewPan, setPreviewPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-	const [isPanning, setIsPanning] = useState(false);
-	const panDragRef = useRef<{
-		startX: number;
-		startY: number;
-		initialPanX: number;
-		initialPanY: number;
-	} | null>(null);
-
-	const handleStageWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-		if (e.ctrlKey || e.metaKey) {
-			e.preventDefault();
-			const delta = e.deltaY < 0 ? 0.1 : -0.1;
-			setPreviewZoom((current) => {
-				const cur = current === "fit" ? 1.0 : current;
-				const next = Math.max(0.25, Math.min(4.0, Math.round((cur + delta) * 10) / 10));
-				return next;
-			});
-		}
-	};
-
-	const handleStagePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-		if (e.button === 1 || (e.button === 0 && e.shiftKey && previewZoom !== "fit")) {
-			e.preventDefault();
-			panDragRef.current = {
-				startX: e.clientX,
-				startY: e.clientY,
-				initialPanX: previewPan.x,
-				initialPanY: previewPan.y,
-			};
-			setIsPanning(true);
-
-			const onPointerMove = (ev: PointerEvent) => {
-				if (!panDragRef.current) return;
-				const dx = ev.clientX - panDragRef.current.startX;
-				const dy = ev.clientY - panDragRef.current.startY;
-				setPreviewPan({
-					x: panDragRef.current.initialPanX + dx,
-					y: panDragRef.current.initialPanY + dy,
-				});
-			};
-
-			const onPointerUp = () => {
-				window.removeEventListener("pointermove", onPointerMove);
-				window.removeEventListener("pointerup", onPointerUp);
-				panDragRef.current = null;
-				setIsPanning(false);
-			};
-
-			window.addEventListener("pointermove", onPointerMove);
-			window.addEventListener("pointerup", onPointerUp);
-		}
-	};
 
 	const handleDropAssetOnCanvas = (assetId: string, canvasX: number, canvasY: number) => {
 		try {
@@ -573,100 +515,6 @@ export function StoryEditor({
 									Custom
 								</option>
 							</select>
-							<div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px]">
-								<button
-									type="button"
-									title="Zoom Out"
-									aria-label="Zoom Out"
-									className="text-zinc-400 hover:text-white transition-colors cursor-pointer"
-									onClick={() => {
-										setPreviewZoom((current) => {
-											const cur = current === "fit" ? 1.0 : current;
-											const lower = [...ZOOM_PRESETS]
-												.reverse()
-												.find((p) => p < cur);
-											return lower ?? ZOOM_PRESETS[0];
-										});
-									}}
-								>
-									<MagnifyingGlassMinus size={12} />
-								</button>
-								<select
-									aria-label="Preview Zoom"
-									value={
-										typeof previewZoom === "number"
-											? String(previewZoom)
-											: "fit"
-									}
-									onChange={(e) => {
-										const val = e.target.value;
-										if (val === "fit") {
-											setPreviewZoom("fit");
-											setPreviewPan({ x: 0, y: 0 });
-										} else {
-											setPreviewZoom(Number(val));
-										}
-									}}
-									className="bg-transparent text-white/90 font-medium focus:outline-none cursor-pointer text-[10px]"
-								>
-									<option value="fit" className="bg-[#12141a]">
-										Fit
-									</option>
-									<option value="0.25" className="bg-[#12141a]">
-										25%
-									</option>
-									<option value="0.5" className="bg-[#12141a]">
-										50%
-									</option>
-									<option value="0.75" className="bg-[#12141a]">
-										75%
-									</option>
-									<option value="1" className="bg-[#12141a]">
-										100%
-									</option>
-									<option value="1.25" className="bg-[#12141a]">
-										125%
-									</option>
-									<option value="1.5" className="bg-[#12141a]">
-										150%
-									</option>
-									<option value="2" className="bg-[#12141a]">
-										200%
-									</option>
-									<option value="3" className="bg-[#12141a]">
-										300%
-									</option>
-								</select>
-								<button
-									type="button"
-									title="Zoom In"
-									aria-label="Zoom In"
-									className="text-zinc-400 hover:text-white transition-colors cursor-pointer"
-									onClick={() => {
-										setPreviewZoom((current) => {
-											const cur = current === "fit" ? 1.0 : current;
-											const higher = ZOOM_PRESETS.find((p) => p > cur);
-											return higher ?? ZOOM_PRESETS[ZOOM_PRESETS.length - 1];
-										});
-									}}
-								>
-									<MagnifyingGlassPlus size={12} />
-								</button>
-								{previewZoom !== "fit" && (
-									<button
-										type="button"
-										title="Reset Zoom to Fit"
-										aria-label="Reset Zoom to Fit"
-										className="text-primary hover:underline ml-1 font-semibold"
-										onClick={() => {
-											setPreviewZoom("fit");
-											setPreviewPan({ x: 0, y: 0 });
-										}}
-									>
-										Reset
-									</button>
-								)}
-							</div>
 							<span>
 								{storyProject.canvas.width} × {storyProject.canvas.height}
 							</span>
@@ -688,31 +536,15 @@ export function StoryEditor({
 							</button>
 						)}
 					</header>
-					<div
-						className={`project-preview-stage ${isPanning ? "panning" : previewZoom !== "fit" ? "zoomed" : ""}`}
-						ref={previewStage}
-						onWheel={handleStageWheel}
-						onPointerDown={handleStagePointerDown}
-					>
+					<div className="project-preview-stage" ref={previewStage}>
 						<div
 							className="project-preview-zoom-wrapper"
 							style={{
-								transform:
-									previewZoom === "fit"
-										? "none"
-										: `translate3d(${previewPan.x}px, ${previewPan.y}px, 0) scale(${previewZoom})`,
-								transformOrigin: "center center",
 								aspectRatio: `${storyProject.canvas.width} / ${storyProject.canvas.height}`,
-								maxHeight: previewZoom === "fit" ? "100%" : undefined,
-								maxWidth: previewZoom === "fit" ? "100%" : undefined,
-								width:
-									previewZoom === "fit"
-										? "100%"
-										: `${storyProject.canvas.width}px`,
-								height:
-									previewZoom === "fit"
-										? "100%"
-										: `${storyProject.canvas.height}px`,
+								maxHeight: "100%",
+								maxWidth: "100%",
+								width: "100%",
+								height: "100%",
 								display: "flex",
 								alignItems: "center",
 								justifyContent: "center",
@@ -734,6 +566,11 @@ export function StoryEditor({
 									playing={playing && !editingClipId}
 									onError={onError}
 									selectedClipId={selection[0] ?? null}
+									canTransformClip={(_clipId, assetKind) =>
+									assetKind === "text" ||
+									assetKind === "shape" ||
+									assetKind === "image"
+								}
 									onSelectClip={(clipId) => {
 										const currentSelected = selection[0] ?? "";
 										if (currentSelected !== (clipId ?? "")) {

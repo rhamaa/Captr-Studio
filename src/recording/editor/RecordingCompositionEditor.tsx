@@ -591,7 +591,11 @@ export function RecordingCompositionEditor({
 								playing={playing}
 								onError={setError}
 								selectedClipId="preview-clip"
-								onSelectClip={() => {}}
+								canTransformClip={(_clipId, assetKind) =>
+									assetKind === "text" ||
+									assetKind === "shape" ||
+									assetKind === "image"
+								}
 								onUpdateClipTransform={(_, nextTransform) => {
 									setCurrentTransform(nextTransform);
 									onClipTransformChange?.(nextTransform);
