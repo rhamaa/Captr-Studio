@@ -2506,6 +2506,9 @@ export class FrameRenderer {
 			};
 			ctx.save();
 			ctx.globalAlpha *= screen.opacity;
+			// Zoom moves the frame within the layout viewport; decoration must retain its bounds/corners.
+			drawSquircleOnCanvas(ctx, { ...screen, radius: screen.borderRadius });
+			ctx.clip();
 			this.drawAppearanceFrame(ctx, outer, windowAppearance, (inner) => {
 				ctx.drawImage(
 					videoCanvas,

@@ -567,6 +567,8 @@ function appearanceContext(canvas: any) {
 	const ctx: any = {
 		canvas,
 		operations,
+		path: [],
+		clips: [],
 		globalAlpha: 1,
 		filter: "none",
 		fillStyle: "#000",
@@ -579,6 +581,7 @@ function appearanceContext(canvas: any) {
 		save() {
 			stack.push({
 				globalAlpha: this.globalAlpha,
+				clips: this.clips,
 				filter: this.filter,
 				fillStyle: this.fillStyle,
 				strokeStyle: this.strokeStyle,
@@ -596,6 +599,8 @@ function appearanceContext(canvas: any) {
 	for (const name of [
 		"beginPath",
 		"closePath",
+		"moveTo",
+		"lineTo",
 		"roundRect",
 		"ellipse",
 		"rect",
@@ -607,8 +612,13 @@ function appearanceContext(canvas: any) {
 		"translate",
 		"scale",
 	])
-		ctx[name] = (...args: any[]) =>
+		ctx[name] = (...args: any[]) => {
+			if (name === "beginPath") ctx.path = [];
+			if (["moveTo", "lineTo", "roundRect", "rect", "ellipse"].includes(name))
+				ctx.path.push([name, ...args]);
+			if (name === "clip") ctx.clips = [...ctx.clips, [...ctx.path]];
 			operations.push({
+				clips: ctx.clips,
 				name,
 				args,
 				alpha: ctx.globalAlpha,
@@ -621,6 +631,7 @@ function appearanceContext(canvas: any) {
 				shadowOffsetX: ctx.shadowOffsetX,
 				shadowOffsetY: ctx.shadowOffsetY,
 			});
+		};
 	return ctx;
 }
 function bareAppearance(overrides: any = {}) {
@@ -743,6 +754,58 @@ describe("Record frame appearances", () => {
 		);
 		expect(webcamDraw?.args.slice(-4)).toEqual([258, 158, 134, 134]);
 	});
+
+	it("clips zoomed Window decorations and media to the rounded non-fullscreen layout viewport", () => {
+		const { renderer, output, video, background } = appearanceHarness({
+			window: bareAppearance({
+				surfaceColor: "#ffffff",
+				surfaceOpacity: 0.5,
+				borderWidth: 4,
+				borderOpacity: 1,
+				backdropBlur: 8,
+				shadow: { color: "#000000", opacity: 0.4, blur: 12, offsetX: 4, offsetY: 8 },
+			}),
+			webcam: bareAppearance(),
+		});
+		renderer.config.webcam.sourcePath = "webcam.mp4";
+		renderer.config.layoutRegions = [
+			{ id: "center", startMs: 0, endMs: 1000, preset: "screen-center", transitionMs: 0 },
+		];
+		renderer.animationState = { appliedScale: 2, x: -200, y: -150 };
+		renderer.compositeWithShadows();
+		const ops = output.context.operations;
+		const paintedWindow = ops.filter(
+			(op: any) =>
+				["fill", "stroke"].includes(op.name) ||
+				(op.name === "drawImage" && op.args[0] !== background),
+		);
+		expect(paintedWindow.some((op: any) => op.name === "stroke")).toBe(true);
+		expect(paintedWindow.some((op: any) => op.filter === "blur(8px)")).toBe(true);
+		expect(
+			paintedWindow.some((op: any) => op.name === "drawImage" && op.args[0] === video),
+		).toBe(true);
+		// A 400x300 screen-center layout is [36,33,328,234], with 24px rounded corners.
+		// The zoomed frame extends beyond it; every shadow/surface/blur/border/media paint must keep this clip.
+		expect(
+			paintedWindow.every((op: any) =>
+				op.clips.some(
+					(path: any[]) =>
+						path.length > 4 &&
+						path[0][0] === "moveTo" &&
+						Math.abs(path[0][1] - 60) < 1e-8 &&
+						Math.abs(path[0][2] - 33) < 1e-8 &&
+						Math.abs(Math.min(...path.map((point) => point[1])) - 36) < 1e-8 &&
+						Math.abs(Math.max(...path.map((point) => point[1])) - 364) < 1e-8 &&
+						Math.abs(Math.min(...path.map((point) => point[2])) - 33) < 1e-8 &&
+						Math.abs(Math.max(...path.map((point) => point[2])) - 267) < 1e-8,
+				),
+			),
+		).toBe(true);
+		expect(
+			ops.find((op: any) => op.name === "drawImage" && op.args[0] === video)?.args[5],
+		).toBeLessThan(36);
+	});
+
 	it("blurs only a bounded sample behind the layer and reuses its canvas", () => {
 		const { renderer, output, video, canvases } = appearanceHarness({
 			window: bareAppearance({ backdropBlur: 9, surfaceOpacity: 0.2 }),
@@ -827,11 +890,15 @@ describe("Record frame appearances", () => {
 		renderer.config.legacyFrameAppearances = true;
 		renderer.videoSprite = { scale: { set() {} }, position: { set() {} } };
 		renderer.videoContainer = { position: { set() {} } };
-		renderer.maskGraphics = { clear() {}, fill() {}, moveTo: vi.fn(), lineTo() {}, closePath() {} };
+		renderer.maskGraphics = {
+			clear() {},
+			fill() {},
+			moveTo: vi.fn(),
+			lineTo() {},
+			closePath() {},
+		};
 		renderer.updateLayout();
-		expect(renderer.maskGraphics.moveTo.mock.calls.at(-1)?.[0]).toBeCloseTo(
-			(31 * 400) / 1920,
-		);
+		expect(renderer.maskGraphics.moveTo.mock.calls.at(-1)?.[0]).toBeCloseTo((31 * 400) / 1920);
 		renderer.config.legacyFrameAppearances = false;
 		renderer.updateLayout();
 		expect(renderer.maskGraphics.moveTo.mock.calls.at(-1)?.[0]).toBe(0);
