@@ -1,6 +1,6 @@
 # Record Editor Frame Appearance and Presets
 
-**Status:** Approved by user; implementation plan in progress  
+**Status:** Implemented; Windows native QA pending (updated 2026-10-13)
 **Date:** 2026-10-12
 
 ## Problem
@@ -27,7 +27,7 @@ Record Video compositions currently expose only basic screen and webcam presenta
 
 The Record Video Appearance panel has separate **Window** and **Webcam** targets. Selecting one target shows and edits only that target's design. Each target keeps its own values in the composition.
 
-Controls expose the raw design values: frame padding, border width, color and opacity, corner radius, surface color and opacity, backdrop blur, and shadow color, opacity, blur, and offsets. Values are stored in project-coordinate pixels; opacity is stored from `0` to `1`. UI ranges clamp to supported renderer limits. The existing default appearance remains the initial result for compositions without new style data.
+Controls expose the raw design values: frame padding, border width, color and opacity, corner radius, surface color and opacity, backdrop blur, and shadow color, opacity, blur, and horizontal/vertical offsets. Values are stored in project-coordinate pixels; opacity is stored from `0` to `1` and presented in the UI as `0`–`100%`. Shadow offsets set the direction and distance. UI ranges clamp to supported renderer limits. The existing default appearance remains the initial result for compositions without new style data.
 
 Users can save the current target's complete raw design as a named preset. A preset applies only to the currently selected target and copies values into that composition. Later edits to the composition do not change the saved preset, and edits to a preset do not change compositions that already used it.
 

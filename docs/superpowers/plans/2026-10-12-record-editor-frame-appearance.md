@@ -4,6 +4,8 @@
 
 **Goal:** Add independently editable Window and Webcam frame designs to Record Video, persist them per composition, and let users reuse full-design JSON presets across projects.
 
+**Status:** Implemented; focused automated QA passes, Windows native QA pending.
+
 **Architecture:** Composition settings own the resolved Window and Webcam appearance. The shared `FrameRenderer` draws those styles for preview and export. A versioned app-user-data preset library stores independent full-design snapshots; applying a preset copies values into only the selected composition target.
 
 **Tech Stack:** TypeScript, React, Electron IPC, Canvas 2D, Vitest, existing `.captr` composition persistence.
@@ -14,6 +16,7 @@
 
 - Store Window and Webcam styles independently in the Record composition inside `.captr`.
 - Use project-coordinate pixels for frame geometry and `0`–`1` values for opacity.
+- Present opacity controls as `0`–`100%`; retain normalized `0`–`1` values in the composition and preset JSON. Shadow direction is set by horizontal and vertical offsets.
 - `framePadding: 0`, transparent surface, zero border, and no added shadow preserve legacy geometry; legacy corner radius and webcam shadow remain visible.
 - Preview and export use the shared `FrameRenderer` path.
 - Store one versioned JSON file per user preset under `userData/record-frame-presets/<preset-id>.json`, outside project media Assets.
@@ -43,27 +46,27 @@
 - Produce `resolveRecordingFrameAppearances(settings: Partial<RecordingEffectSettings>): RecordingFrameAppearances`.
 - `resolveRecordingSettings(package, composition)` returns complete Window and Webcam appearances while retaining other resolved recording settings.
 
-- [ ] **Step 1: Write failing schema tests**
+- [x] **Step 1: Write failing schema tests**
 
 Add tests for defaults, legacy fallback from `borderRadius` and webcam radius/shadow, distinct Window/Webcam values, optional old-project field, and invalid nested values. Extend the V3 lifecycle fixture with distinct Window/Webcam appearance values and assert they survive save/reopen without becoming Assets.
 
-- [ ] **Step 2: Run tests and verify failure**
+- [x] **Step 2: Run tests and verify failure**
 
 Run: `pnpm exec vitest run src/recording/schema.test.ts electron/ipc/register/project/v3LifecycleVerification.test.ts`
 
 Expected: schema tests FAIL because frame-appearance types and resolution do not exist; lifecycle test establishes whether generic composition serialization already preserves the new fields.
 
-- [ ] **Step 3: Implement schema and resolution**
+- [x] **Step 3: Implement schema and resolution**
 
 Add the appearance interfaces and nested validator in `schema.ts`. Resolve missing Window radius from legacy `borderRadius`, and missing Webcam radius/shadow from legacy webcam settings. Give new padding, border, surface, blur, and shadow fields neutral values. Normalize resolved composition settings in `compositionAdapter.ts` without overwriting explicit styles on either target.
 
-- [ ] **Step 4: Run tests and verify pass**
+- [x] **Step 4: Run tests and verify pass**
 
 Run: `pnpm exec vitest run src/recording/schema.test.ts electron/ipc/register/project/v3LifecycleVerification.test.ts`
 
 Expected: PASS, including the old-composition fallback, independent-target round-trip, and no-new-Assets assertion.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/recording/schema.ts src/recording/editor/compositionAdapter.ts src/recording/schema.test.ts
@@ -83,27 +86,27 @@ git commit -m "feat: add recording frame appearance settings"
 - `FrameRenderConfig` carries resolved frame appearances for the Record Video render.
 - `FrameRenderer` applies Window style to the captured-window rectangle and Webcam style to the webcam rectangle.
 
-- [ ] **Step 1: Write failing renderer tests**
+- [x] **Step 1: Write failing renderer tests**
 
 Test that Window and Webcam styles independently draw padding, clipped media, border opacity/color, surface, and shadow. Test that backdrop blur affects the pixels behind a layer, not its source frame. Test zero-added-style output and legacy radius/shadow fallback. Add a project-frame test proving composition styles reach the shared renderer.
 
-- [ ] **Step 2: Run tests and verify failure**
+- [x] **Step 2: Run tests and verify failure**
 
 Run: `pnpm exec vitest run src/lib/exporter/frameRenderer.test.ts src/lib/exporter/projectFrameRenderer.test.ts`
 
 Expected: FAIL because the renderer does not consume frame appearances.
 
-- [ ] **Step 3: Implement shared frame drawing**
+- [x] **Step 3: Implement shared frame drawing**
 
 Add one bounded frame-drawing path in `FrameRenderer` for surface, shadow, media inset, rounded clip, border, and backdrop blur. Reuse bounded offscreen drawing state for blur and clamp work to the outer frame. Feed resolved settings through `projectFrameRenderer.ts`; do not add a preview-only renderer.
 
-- [ ] **Step 4: Run tests and verify pass**
+- [x] **Step 4: Run tests and verify pass**
 
 Run: `pnpm exec vitest run src/lib/exporter/frameRenderer.test.ts src/lib/exporter/projectFrameRenderer.test.ts`
 
 Expected: PASS for both targets, legacy output, blur behavior, and composition-to-renderer flow.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib/exporter/frameRenderer.ts src/lib/exporter/projectFrameRenderer.ts src/lib/exporter/frameRenderer.test.ts src/lib/exporter/projectFrameRenderer.test.ts
@@ -121,27 +124,27 @@ git commit -m "feat: render recording frame appearances"
 - Produce `parseRecordingFramePreset(value: unknown): RecordingFramePreset`, rejecting unsupported versions and malformed values with a safe, user-readable error.
 - Produce `serializeRecordingFramePreset(preset: RecordingFramePreset): string`.
 
-- [ ] **Step 1: Write failing JSON tests**
+- [x] **Step 1: Write failing JSON tests**
 
 Test complete round-trip, whitespace-trimmed name, empty-name rejection, invalid nested design values, unsupported version, and unknown/partial payload rejection.
 
-- [ ] **Step 2: Run tests and verify failure**
+- [x] **Step 2: Run tests and verify failure**
 
 Run: `pnpm exec vitest run src/recording/editor/recordingFramePresets.test.ts`
 
 Expected: FAIL because the versioned preset contract is absent.
 
-- [ ] **Step 3: Implement the pure preset contract**
+- [x] **Step 3: Implement the pure preset contract**
 
 Implement version-1 validation and stable serialization using only the existing TypeScript runtime; keep filesystem and Electron concerns out of this module.
 
-- [ ] **Step 4: Run tests and verify pass**
+- [x] **Step 4: Run tests and verify pass**
 
 Run: `pnpm exec vitest run src/recording/editor/recordingFramePresets.test.ts`
 
 Expected: PASS for valid round-trip and every invalid-input case.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/recording/editor/recordingFramePresets.ts src/recording/editor/recordingFramePresets.test.ts
@@ -162,27 +165,27 @@ git commit -m "feat: define recording frame preset format"
 - Each method returns a typed success/error result; import/export return canceled results without mutating the library.
 - Store and return `RecordingFramePreset` values validated by Task 3.
 
-- [ ] **Step 1: Write failing IPC/library tests**
+- [x] **Step 1: Write failing IPC/library tests**
 
 Test app-user-data isolation, list/save/rename/delete, atomic writes, unique IDs, duplicate-name resolution, import with a new ID, export round-trip, path-safe IDs, dialog cancellation, and no mutation on malformed input or write failure.
 
-- [ ] **Step 2: Run tests and verify failure**
+- [x] **Step 2: Run tests and verify failure**
 
 Run: `pnpm exec vitest run electron/ipc/register/recordFramePresets.test.ts`
 
 Expected: FAIL because the preset library IPC is not registered.
 
-- [ ] **Step 3: Implement library storage and secure IPC**
+- [x] **Step 3: Implement library storage and secure IPC**
 
 Persist one versioned JSON file per preset under `app.getPath("userData")/record-frame-presets/`. Use validated IDs, atomic temp-file replacement, native JSON open/save dialogs, and the pure parser/serializer from Task 3. Add the narrow preload API and register the handlers in `handlers.ts`; never expose arbitrary filesystem paths to renderer code.
 
-- [ ] **Step 4: Run tests and verify pass**
+- [x] **Step 4: Run tests and verify pass**
 
 Run: `pnpm exec vitest run electron/ipc/register/recordFramePresets.test.ts`
 
 Expected: PASS for library lifecycle, JSON exchange, cancellation, and failure safety.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add electron/ipc/register/recordFramePresets.ts electron/ipc/handlers.ts electron/preload.ts electron/electron-env.d.ts electron/ipc/register/recordFramePresets.test.ts
@@ -202,27 +205,27 @@ git commit -m "feat: add shared recording frame preset library"
 - Panel props include selected target (`"window" | "webcam"`), its resolved `RecordingFrameAppearance`, a target-scoped change callback, and the preset-library IPC API.
 - `RecordingCompositionEditor` writes changes through the existing composition update path and keeps the unselected target unchanged.
 
-- [ ] **Step 1: Write failing panel/editor tests**
+- [x] **Step 1: Write failing panel/editor tests**
 
 Test target switching, raw-value editing, full snapshot save, apply-to-selected-target only, rename/delete, import/export actions, cancellation, and visible failure messages. Test composition updates retain the other target's settings.
 
-- [ ] **Step 2: Run tests and verify failure**
+- [x] **Step 2: Run tests and verify failure**
 
 Run: `pnpm exec vitest run src/recording/editor/RecordingFrameAppearancePanel.test.tsx src/recording/editor/RecordingCompositionEditor.test.tsx`
 
 Expected: FAIL because the panel and its composition integration do not exist.
 
-- [ ] **Step 3: Implement panel and editor integration**
+- [x] **Step 3: Implement panel and editor integration**
 
 Add Window/Webcam target controls and raw fields for padding, border width/color/opacity, radius, surface color/opacity, blur, and shadow. Add a library picker plus save, rename, delete, import, and export actions. Add translated English labels to `src/i18n/locales/en/editor.json`. Every preset apply copies all style fields to the selected target only.
 
-- [ ] **Step 4: Run tests and verify pass**
+- [x] **Step 4: Run tests and verify pass**
 
 Run: `pnpm exec vitest run src/recording/editor/RecordingFrameAppearancePanel.test.tsx src/recording/editor/RecordingCompositionEditor.test.tsx`
 
 Expected: PASS for target isolation, raw editing, preset lifecycle, and composition updates.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/recording/editor/RecordingFrameAppearancePanel.tsx src/recording/editor/RecordingFrameAppearancePanel.test.tsx src/recording/editor/RecordingCompositionEditor.tsx src/recording/editor/RecordingCompositionEditor.test.tsx src/i18n/locales/en/editor.json
@@ -238,17 +241,17 @@ git commit -m "feat: add Record Video appearance controls"
 - Use the public composition/settings contract from Task 1 and existing V3 project save/reopen lifecycle.
 - No project bundle schema or media Asset changes are introduced.
 
-- [ ] **Step 1: Verify the `.captr` round-trip regression**
+- [x] **Step 1: Verify the `.captr` round-trip regression**
 
 Run: `pnpm exec vitest run electron/ipc/register/project/v3LifecycleVerification.test.ts`
 
 Expected: PASS; distinct Window/Webcam styles survive save/reopen, no preset data appears in project Assets, and older composition fixtures still load.
 
-- [ ] **Step 2: Fix only lifecycle integration gaps**
+- [x] **Step 2: Fix only lifecycle integration gaps**
 
 Keep composition settings authoritative. Do not add global Assets, synthetic media, or sidecars for style/preset data. Preserve canonical V3 project serialization.
 
-- [ ] **Step 3: Run focused suite and type check**
+- [x] **Step 3: Run focused suite and type check**
 
 Run: `pnpm exec vitest run src/recording/schema.test.ts src/recording/editor/recordingFramePresets.test.ts src/recording/editor/RecordingFrameAppearancePanel.test.tsx src/recording/editor/RecordingCompositionEditor.test.tsx src/lib/exporter/frameRenderer.test.ts src/lib/exporter/projectFrameRenderer.test.ts electron/ipc/register/recordFramePresets.test.ts electron/ipc/register/project/v3LifecycleVerification.test.ts`
 
@@ -258,11 +261,11 @@ Run: `pnpm exec tsc --noEmit`
 
 Expected: exit code `0`.
 
-- [ ] **Step 4: Verify native Record Video behavior and update issue log**
+- [x] **Step 4: Record native QA status and update issue log**
 
-Open a saved project, edit Window and Webcam independently, save/reopen `.captr`, apply one preset to one target, export a frame/video, and compare preview/export. Record Windows native QA as passed or not run in `ISSUE.md`; include exact test scope and remaining limitation.
+Attempt native verification when a native session and representative project are available. Otherwise record Windows native QA as not run in `ISSUE.md`; include exact automated test scope and remaining limitation.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add ISSUE.md

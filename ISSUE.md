@@ -539,4 +539,16 @@ Suite penuh default parallel sebelum perbaikan review akhir: 1.491/1.500 tes lul
 
 **Verifikasi otomatis (12 Oktober 2026):** 26/26 tes fokus lulus dan `npx tsc --noEmit` lulus. `npm run lint` melaporkan 3.692 error dan 84 warning di 1.315 file repo; file fitur ini bersih dari error. `npm run i18n:check` melaporkan 248 key yang hilang/ekstra di namespace editor/launch/settings; tidak ada key Loop Background Studio yang hilang. QA Electron native belum dilakukan.
 
+## Record Editor frame appearance (13 Oktober 2026)
+
+**Status:** implementasi Record Video selesai; QA native masih pending.
+
+- [x] Window dan Webcam memiliki kontrol appearance independen di sub-editor Record Video. Padding, border width/ketebalan, radius, fill, opacity, backdrop blur, dan shadow disimpan pada composition placement di `.captr`.
+- [x] Opacity shadow ditampilkan sebagai slider 0–100% dan disimpan sebagai nilai 0–1; warna, blur, serta arah/jarak shadow diatur lewat offset X/Y.
+- [x] User dapat menyimpan snapshot desain lengkap sebagai preset bersama di library aplikasi, mengganti nama/menghapusnya, serta mengimpor dan mengekspor JSON.
+- [x] Preset diterapkan hanya ke target yang sedang dipilih; perubahan Window mempertahankan Webcam dan sebaliknya. Preview dan export memakai renderer frame bersama.
+- [x] Shadow memiliki kontrol warna, opacity 0–100%, blur, dan arah melalui offset horizontal/vertikal; border memiliki kontrol ketebalan.
+- [x] Automated QA: 96/96 tes pada 10 suite terkait lulus di implementasi fitur; setelah integrasi ke branch aktif, 83/83 tes di 8 suite fokus lulus dan TypeScript lulus. Biome sebelumnya tidak menemukan error pada file terkait (satu warning dependency hook lama tetap ada). Semua 10 file locale JSON valid dan key fitur tersedia di setiap bahasa.
+- [ ] Native QA: ubah Window dan Webcam secara terpisah, simpan/buka ulang `.captr`, ekspor lalu impor preset JSON antar-project, pastikan penerapan hanya mengubah target terpilih, dan bandingkan preview dengan hasil export untuk desain glass/solid/brutalist.
+
 

@@ -7,6 +7,7 @@ import { I18nProvider } from "@/contexts/I18nContext";
 import { ShortcutsProvider } from "@/contexts/ShortcutsContext";
 import { createTimelineProject, placeAsset, registerRecording } from "@/core/timeline/commands";
 import { createDefaultRecordingSettings } from "../schema";
+import { changeRecordingSettings, resolveRecordingSettings } from "./compositionAdapter";
 import { RecordingCompositionEditor } from "./RecordingCompositionEditor";
 
 // ThemeProvider writes to the browser DOM during initialization; rendering the
@@ -43,6 +44,46 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Recording composition settings", () => {
+	it("exposes Appearance and keeps the other target unchanged on a frame edit", () => {
+		const registered = registerRecording(
+			createTimelineProject("project", "Project"),
+			{
+				captureId: "capture-frame-style",
+				name: "Recording",
+				screen: { path: "screen.mp4", offsetUs: 0, durationUs: 10_000_000 },
+				durationUs: 10_000_000,
+				width: 1920,
+				height: 1080,
+				settings: {},
+			},
+			{ assetId: "asset-frame-style", packageId: "package-frame-style" },
+		);
+		const project = placeAsset(registered, "asset-frame-style", registered.tracks[0].id, 0, {
+			clipId: "clip-frame-style",
+			compositionId: "composition-frame-style",
+		});
+		const pkg = project.packages[0];
+		const composition = project.compositions[0];
+		const resolved = resolveRecordingSettings(pkg, composition);
+		const originalWebcam = resolved.frameAppearances.webcam;
+		const nextWindow = { ...resolved.frameAppearances.window, borderWidth: 9 };
+		const updated = changeRecordingSettings(pkg, composition, {
+			frameAppearances: { ...resolved.frameAppearances, window: nextWindow },
+		});
+		const html = translate(
+			createElement(RecordingCompositionEditor, {
+				package: pkg,
+				composition,
+				onChange: () => {},
+				onClose: () => {},
+			}),
+		);
+
+		expect(html).toContain(">Appearance</span>");
+		expect(updated.settings.frameAppearances.window.borderWidth).toBe(9);
+		expect(updated.settings.frameAppearances.webcam).toEqual(originalWebcam);
+	});
+
 	it("uses a compact timeline and passes packaged audio sources to its waveform tracks", () => {
 		const registered = registerRecording(
 			createTimelineProject("project", "Project"),
@@ -118,7 +159,7 @@ describe("Recording composition settings", () => {
 		expect(html).not.toContain("Red = cut");
 	});
 
-	it("offers only recording-specific Scene, Cursor and Layout tabs", () => {
+	it("offers recording-specific Scene, Cursor, Layout and Appearance tabs", () => {
 		const registered = registerRecording(
 			createTimelineProject("project", "Project"),
 			{
@@ -152,6 +193,7 @@ describe("Recording composition settings", () => {
 			"Scene",
 			"Cursor",
 			"Layout",
+			"Appearance",
 		]);
 	});
 

@@ -605,6 +605,7 @@ describe("ModernFrameRenderer webcam export fallback", () => {
 			ellipse: vi.fn(),
 			moveTo: vi.fn(),
 			lineTo: vi.fn(),
+			roundRect: vi.fn(),
 			closePath: vi.fn(),
 			fill: vi.fn(),
 		};
@@ -649,6 +650,7 @@ describe("ModernFrameRenderer webcam export fallback", () => {
 			ellipse: vi.fn(),
 			moveTo: vi.fn(),
 			lineTo: vi.fn(),
+			roundRect: vi.fn(),
 			closePath: vi.fn(),
 			fill: vi.fn(),
 		};
