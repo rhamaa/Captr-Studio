@@ -1,4 +1,4 @@
-import { ArrowLeft, DownloadSimple, Export, X } from "@phosphor-icons/react";
+import { ArrowLeft, DownloadSimple, Export, Minus, Square, X } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { useScopedT } from "@/contexts/I18nContext";
 import {
@@ -170,6 +170,29 @@ export function LoopBackgroundStudio({ onBack }: { onBack: () => void }) {
 							{text("exportGif", "Export GIF")}
 						</button>
 					)}
+					<div className="loop-bg-window-controls">
+						<button
+							aria-label="Minimize"
+							type="button"
+							onClick={() => void window.electronAPI?.minimizeWindow?.()}
+						>
+							<Minus size={16} />
+						</button>
+						<button
+							aria-label="Maximize"
+							type="button"
+							onClick={() => void window.electronAPI?.maximizeWindow?.()}
+						>
+							<Square size={14} />
+						</button>
+						<button
+							aria-label="Close"
+							type="button"
+							onClick={() => void window.electronAPI?.closeWindow?.()}
+						>
+							<X size={16} />
+						</button>
+					</div>
 				</div>
 			</header>
 

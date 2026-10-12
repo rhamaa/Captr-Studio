@@ -34,7 +34,7 @@
 
 ## Task 3: Connect the mini-app to Home
 
-**Files:** Update `src/components/welcome/WelcomeScreen.tsx`, `src/components/welcome/WelcomeScreen.test.tsx`, `src/components/editor/ProjectApplication.tsx`, and `src/components/editor/ProjectApplication.test.tsx`; update `ISSUE.md` with delivered scope and remaining follow-ups.
+**Files:** Update `src/components/welcome/WelcomeScreen.tsx`, `src/components/welcome/WelcomeScreen.test.tsx`, `src/components/editor/ProjectApplication.tsx`, and `src/components/editor/ProjectApplication.test.tsx`; add `src/components/editor/homeToolNavigation.ts` and `src/components/editor/homeToolNavigation.test.ts`; update `ISSUE.md` with delivered scope and remaining follow-ups.
 
 1. Add a Home card that opens Loop Background Studio without creating or selecting a project. Add a back action that returns to Home and preserves the existing project/open/capture routing behavior.
 2. Test card visibility and navigation in both directions, including that Home remains projectless and existing project bootstrap behavior remains unchanged.

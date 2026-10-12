@@ -1,10 +1,16 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
+
 vi.mock("@/components/editor/useProjectMessages", () => ({
 	useProjectMessages: () => (key: string) => key,
 }));
+vi.mock("@/contexts/I18nContext", () => ({
+	useScopedT: () => (_key: string, fallback?: string) => fallback ?? _key,
+}));
+
 import { WelcomeScreen } from "./WelcomeScreen";
+
 const props = {
 	recentProjects: [],
 	onNewProject: () => {},
@@ -22,3 +28,10 @@ it("Home exposes New Open Refresh but no recorder and distinct states", () => {
 	);
 });
 
+it("Home shows the Loop Background Studio card when its action is available", () => {
+	const html = renderToStaticMarkup(
+		<WelcomeScreen {...props} onOpenLoopBackgroundStudio={() => {}} />,
+	);
+	expect(html).toContain("Loop Background Studio");
+	expect(html).toContain("Create seamless animated GIF backgrounds");
+});

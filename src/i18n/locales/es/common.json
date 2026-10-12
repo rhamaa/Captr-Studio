@@ -54,6 +54,7 @@
 		"resolution": "Tamaño de salida",
 		"durationAria": "Duración en segundos",
 		"exportGif": "Exportar GIF",
-		"pattern": "Patrón"
+		"pattern": "Patrón",
+		"homeHint": "Crea fondos GIF animados sin cortes"
 	}
 }

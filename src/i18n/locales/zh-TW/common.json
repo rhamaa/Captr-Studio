@@ -54,6 +54,7 @@
 		"resolution": "輸出尺寸",
 		"durationAria": "時長（秒）",
 		"exportGif": "匯出 GIF",
-		"pattern": "圖樣"
+		"pattern": "圖樣",
+		"homeHint": "製作無縫循環的動態 GIF 背景"
 	}
 }

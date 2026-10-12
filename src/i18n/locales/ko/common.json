@@ -54,6 +54,7 @@
 		"resolution": "출력 크기",
 		"durationAria": "초 단위 길이",
 		"exportGif": "GIF 내보내기",
-		"pattern": "패턴"
+		"pattern": "패턴",
+		"homeHint": "끊김 없는 애니메이션 GIF 배경을 만드세요"
 	}
 }

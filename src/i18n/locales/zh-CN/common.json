@@ -54,6 +54,7 @@
 		"resolution": "输出尺寸",
 		"durationAria": "时长（秒）",
 		"exportGif": "导出 GIF",
-		"pattern": "图案"
+		"pattern": "图案",
+		"homeHint": "制作无缝循环的动态 GIF 背景"
 	}
 }

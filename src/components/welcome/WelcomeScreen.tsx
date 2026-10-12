@@ -1,8 +1,19 @@
+import {
+	ArrowClockwise,
+	FolderOpen,
+	Gear,
+	Minus,
+	Package,
+	Plus,
+	Sparkle,
+	Square,
+	X,
+} from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
-import { ArrowClockwise, FolderOpen, Plus, Minus, Square, X, Gear, Package } from "@phosphor-icons/react";
 import { CaptrLogo } from "@/components/brand/CaptrLogo";
 import { useProjectMessages } from "@/components/editor/useProjectMessages";
 import type { ProjectLibraryEntry } from "@/components/video-editor/ProjectBrowserDialog";
+import { useScopedT } from "@/contexts/I18nContext";
 import { CaptrInspectorModal } from "./CaptrInspectorModal";
 import { ProjectCard } from "./ProjectCard";
 import "./projectHome.css";
@@ -16,9 +27,11 @@ export interface WelcomeScreenProps {
 	busy?: boolean;
 	onRefreshProjects?: () => Promise<void>;
 	onOpenSettings?: () => void;
+	onOpenLoopBackgroundStudio?: () => void;
 }
 export function WelcomeScreen(props: WelcomeScreenProps) {
 	const m = useProjectMessages();
+	const common = useScopedT("common");
 	const [query, setQuery] = useState("");
 	const [inspectorOpen, setInspectorOpen] = useState(false);
 	const [inspectorFilePath, setInspectorFilePath] = useState<string | null>(null);
@@ -99,6 +112,30 @@ export function WelcomeScreen(props: WelcomeScreenProps) {
 							<small>{m("inspectProjectHint")}</small>
 						</span>
 					</button>
+					{props.onOpenLoopBackgroundStudio && (
+						<button
+							className="home-tool-action"
+							disabled={props.busy}
+							onClick={props.onOpenLoopBackgroundStudio}
+							aria-label={common(
+								"loopBackgroundStudio.title",
+								"Loop Background Studio",
+							)}
+						>
+							<Sparkle size={24} className="text-[#8AB4FF]" />
+							<span>
+								<strong>
+									{common("loopBackgroundStudio.title", "Loop Background Studio")}
+								</strong>
+								<small>
+									{common(
+										"loopBackgroundStudio.homeHint",
+										"Create seamless animated GIF backgrounds",
+									)}
+								</small>
+							</span>
+						</button>
+					)}
 				</section>
 				<section className="home-library">
 					<div className="home-library-toolbar">

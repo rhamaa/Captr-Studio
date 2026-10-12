@@ -54,6 +54,7 @@
 		"resolution": "Uitvoerformaat",
 		"durationAria": "Duur in seconden",
 		"exportGif": "GIF exporteren",
-		"pattern": "Patroon"
+		"pattern": "Patroon",
+		"homeHint": "Maak naadloos herhalende GIF-achtergronden"
 	}
 }

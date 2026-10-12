@@ -1,6 +1,6 @@
 # Issue Log & Regression Checklist
 
-**Fokus berikutnya — 10 Oktober 2026:** [Issue #12: kepemilikan Assets global dan elemen lokal Story](#12-pemisahan-assets-global-elemen-story-dan-komposisi-record-10-oktober-2026). Fondasi kepemilikan selesai dan review akhir disetujui; QA native masih pending. Timeline pengerjaan tercatat di [ROADMAP.md](ROADMAP.md), kondisi pengembangan di [CHANGELOG.md](CHANGELOG.md).
+**Update terbaru — 12 Oktober 2026:** [Issue #13: Loop Background Studio](#13-mini-app-loop-background-studio-gif-background-seamless-12-oktober-2026) sudah memiliki MVP dan tes otomatis; QA native masih pending. QA native regresi Issue #12 juga belum dijalankan. Timeline pengerjaan tercatat di [ROADMAP.md](ROADMAP.md), kondisi pengembangan di [CHANGELOG.md](CHANGELOG.md).
 
 
 ## 1. Keyframing engine pada timeline overlay (Text Overlay & Gambar)
@@ -510,5 +510,31 @@ Mentransformasikan integrasi AI Agent CLI (`agy`, `claude`, `opencode`) yang seb
 Suite penuh default parallel sebelum perbaikan review akhir: 1.491/1.500 tes lulus; 9 kegagalan di 5 file sama persis dengan baseline, 3 kegagalan baseline manager/lifecycle kini lulus. Perbaikan terakhir di `8c2fe68` mempertahankan override transisi Artboard dan menolak asosiasi Story tanpa owner; 224 tes terkait di 15 suite lulus, TypeScript dan diff check exit 0. Biome konfigurasi existing: 42 error/22 warning tersisa dibanding baseline 106/22 pada path yang sama; seluruh 14 file baru clean. Enam path yang diubah pada perbaikan akhir tidak menambah diagnostic/count. Graft build terbaru: 5.188 node, 12.981 edge, 735 card. Review Task 8 dan whole branch disetujui; dua minor tes ditunda dengan alasan/biaya di catatan verifikasi. QA native dan sembilan kegagalan baseline tetap terbuka; suite penuh tidak diulang setelah perbaikan terarah.
 
 **Update Record/Story preview layout (11 Oktober 2026):** Tanpa clip layout, preview/export memakai layar sebagai card terpusat dan webcam square kanan bawah; layout custom berlaku di rentang clip dan timeline yang bersebelahan tetap kontigu. Kontrol zoom/pan viewport di Story preview dihapus; clip video sumber terkunci pada canvas, sementara overlay text/shape/image tetap dapat diedit. TypeScript lulus dan 46 tes pada lima suite terkait lulus. QA native serta pemeriksaan visual preview/export belum dijalankan.
+
+## 13. Mini-app Loop Background Studio: GIF background seamless (12 Oktober 2026)
+
+**Status:** MVP diimplementasikan; renderer, ekspor, UI, dan navigasi memiliki tes otomatis. QA native dan pemeriksaan file GIF hasil ekspor masih pending.
+
+**Tujuan:** Home membuka editor khusus untuk membuat background prosedural yang dapat diputar tanpa batas. Semua pengaturan bersifat sementara di sesi; editor tidak membuat atau mengubah project `.captr` maupun Assets.
+
+**Sudah diimplementasikan:**
+
+- [x] Home card membuka Loop Background Studio; Back kembali ke Home dan project aktif tetap memiliki prioritas pada navigasi aplikasi.
+- [x] Pola Dot Noise, Film Grain, dan Orbit memakai renderer Canvas deterministik yang sama untuk preview dan frame ekspor.
+- [x] Siklus pola periodik; frame GIF mengambil fase `index / totalFrames` tanpa menambahkan frame endpoint duplikat, termasuk infinite-repeat metadata.
+- [x] Pengaturan rasio 16:9, 9:16, 1:1; resolusi 720p/1080p; warna, density, scale, speed; durasi 1–10 detik; dan 15/20/25/30 FPS.
+- [x] Progress ekspor, pembatalan, error, dan download hasil GIF.
+- [x] Teks UI tersedia pada semua resource locale `common.json` yang ada.
+
+**QA native berikutnya:**
+
+- [ ] Buka mini-app dari Home dan kembali tanpa membuat project atau mengubah Assets.
+- [ ] Periksa sambungan akhir-ke-awal ketiga pola, pilihan rasio/resolusi, serta GIF yang berulang tanpa batas.
+- [ ] Uji batal dan error ekspor, lalu pastikan editor tetap dapat dipakai.
+- [ ] Verifikasi worker GIF dalam build Electron terpaket.
+
+**Di luar rilis pertama:** penyimpanan preset, MP4/WebM, timeline editing, impor media, dan integrasi ke Story/Record Editor.
+
+**Verifikasi otomatis (12 Oktober 2026):** 26/26 tes fokus lulus dan `npx tsc --noEmit` lulus. `npm run lint` melaporkan 3.692 error dan 84 warning di 1.315 file repo; file fitur ini bersih dari error. `npm run i18n:check` melaporkan 248 key yang hilang/ekstra di namespace editor/launch/settings; tidak ada key Loop Background Studio yang hilang. QA Electron native belum dilakukan.
 
 

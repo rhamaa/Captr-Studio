@@ -54,6 +54,7 @@
 		"resolution": "Taille de sortie",
 		"durationAria": "Durée en secondes",
 		"exportGif": "Exporter en GIF",
-		"pattern": "Motif"
+		"pattern": "Motif",
+		"homeHint": "Créez des fonds GIF animés sans raccord visible"
 	}
 }

@@ -78,7 +78,42 @@
 
 .loop-bg-header-actions {
 	display: flex;
+	align-items: center;
 	justify-content: flex-end;
+	gap: 8px;
+}
+
+.loop-bg-window-controls {
+	display: flex;
+	align-items: center;
+	border: 1px solid var(--loop-bg-border);
+	border-radius: 10px;
+	overflow: hidden;
+}
+
+.loop-bg-window-controls button {
+	width: 34px;
+	height: 36px;
+	display: grid;
+	place-items: center;
+	border: 0;
+	border-right: 1px solid var(--loop-bg-border);
+	color: #b9bfcb;
+	background: transparent;
+	cursor: pointer;
+}
+
+.loop-bg-window-controls button:last-child {
+	border-right: 0;
+}
+
+.loop-bg-window-controls button:hover {
+	color: #fff;
+	background: #30333d;
+}
+
+.loop-bg-window-controls button:last-child:hover {
+	background: #a53a49;
 }
 
 .loop-bg-export-button {

@@ -54,6 +54,7 @@
 		"resolution": "Dimensione output",
 		"durationAria": "Durata in secondi",
 		"exportGif": "Esporta GIF",
-		"pattern": "Motivo"
+		"pattern": "Motivo",
+		"homeHint": "Crea sfondi GIF animati senza interruzioni"
 	}
 }

@@ -54,6 +54,7 @@
 		"resolution": "Tamanho de saída",
 		"durationAria": "Duração em segundos",
 		"exportGif": "Exportar GIF",
-		"pattern": "Padrão"
+		"pattern": "Padrão",
+		"homeHint": "Crie fundos GIF animados sem emendas"
 	}
 }

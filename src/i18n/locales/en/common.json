@@ -54,6 +54,7 @@
 		"resolution": "Output size",
 		"durationAria": "Duration in seconds",
 		"exportGif": "Export GIF",
-		"pattern": "Pattern"
+		"pattern": "Pattern",
+		"homeHint": "Create seamless animated GIF backgrounds"
 	}
 }
