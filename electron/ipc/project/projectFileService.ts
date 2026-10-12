@@ -114,38 +114,51 @@ export async function performProjectFileOperation(
 			const activeId = ports.getProjectId(),
 				activePath = ports.getCurrentPath();
 			let existingThumbnailDataUrl: string | null = null;
+			let existingPath = request.expectedPath;
+			let existingBundleVerified = false;
 			if (activeId !== request.ownerProjectId)
 				throw new Error("The active project changed; retry from the current project.");
 			if (
 				activePath &&
 				(!request.expectedPath ||
 					!(await sameProjectFile(activePath, request.expectedPath)))
-			)
-				throw new Error("The active project path changed.");
-			if (request.expectedPath) {
-				if (!ports.isTrusted(request.expectedPath) && request.intent === "rename")
-					throw new Error("Open this project before renaming it.");
-				const original = await inspectProjectBundle(request.expectedPath);
+			) {
+				if (request.intent !== "save") throw new Error("The active project path changed.");
+				const activeBundle = await inspectProjectBundle(activePath);
 				if (
-					!original.success ||
-					!original.isBundle ||
-					original.projectData?.projectId !== request.ownerProjectId
+					!activeBundle.success ||
+					!activeBundle.isBundle ||
+					activeBundle.projectData?.projectId !== request.ownerProjectId
 				)
 					throw new Error("The active project file identity could not be verified.");
-				existingThumbnailDataUrl = original.thumbnailDataUrl ?? null;
+				existingPath = activePath;
+				existingThumbnailDataUrl = activeBundle.thumbnailDataUrl ?? null;
+				existingBundleVerified = true;
+			}
+			if (existingPath) {
+				if (!ports.isTrusted(existingPath) && request.intent === "rename")
+					throw new Error("Open this project before renaming it.");
+				if (!existingBundleVerified) {
+					const original = await inspectProjectBundle(existingPath);
+					if (
+						!original.success ||
+						!original.isBundle ||
+						original.projectData?.projectId !== request.ownerProjectId
+					)
+						throw new Error("The active project file identity could not be verified.");
+					existingThumbnailDataUrl = original.thumbnailDataUrl ?? null;
+				}
 			}
 			const draft =
 				request.name === undefined ? project.title : validateProjectBaseName(request.name);
 			let target: string;
 			if (request.intent === "rename") {
-				if (!request.expectedPath)
-					throw new Error("Save the project before renaming its file.");
+				if (!existingPath) throw new Error("Save the project before renaming its file.");
 				target = path.join(
-					path.dirname(request.expectedPath),
+					path.dirname(existingPath),
 					`${validateProjectBaseName(draft)}.captr`,
 				);
-			} else if (request.intent === "save" && request.expectedPath)
-				target = request.expectedPath;
+			} else if (request.intent === "save" && existingPath) target = existingPath;
 			else {
 				const chosen = await ports.chooseSavePath(
 					validateProjectBaseName(draft || "Untitled"),
@@ -153,7 +166,7 @@ export async function performProjectFileOperation(
 				if (!chosen) return { success: false, operationId, canceled: true };
 				target = /\.captr$/i.test(chosen) ? chosen : `${chosen}.captr`;
 				validateProjectBaseName(path.basename(target));
-				if (request.expectedPath && (await sameProjectFile(request.expectedPath, target)))
+				if (existingPath && (await sameProjectFile(existingPath, target)))
 					throw new Error(
 						"Choose a different file for Save As; the original project will be preserved.",
 					);
@@ -192,7 +205,7 @@ export async function performProjectFileOperation(
 					const renamed = await renameProjectBundle(
 						{
 							operationId,
-							originalPath: request.expectedPath!,
+							originalPath: existingPath!,
 							destinationPath: target,
 							projectId: project.projectId,
 							writeCandidate: (candidate) => packProjectWorkspace(staging, candidate),
@@ -211,7 +224,7 @@ export async function performProjectFileOperation(
 			try {
 				await ports.remember(
 					target,
-					request.intent === "rename" ? (request.expectedPath ?? undefined) : undefined,
+					request.intent === "rename" ? (existingPath ?? undefined) : undefined,
 				);
 			} catch (error) {
 				warning = `Project saved, but the Home list needs a refresh: ${String(error)}`;

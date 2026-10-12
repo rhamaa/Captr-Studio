@@ -142,6 +142,54 @@ it("first save returns the actual chosen title rather than stale metadata", asyn
 	});
 	expect((await inspectProjectBundle(f.context.path!)).projectData?.title).toBe("Tutorial");
 });
+it("recovers a stale or missing renderer path only from the matching active bundle", async () => {
+	const f = await setup();
+	expect((await performProjectFileOperation(f.request, f.ports)).success).toBe(true);
+	const savedPath = f.context.path!;
+	f.request.project.canvas.fps = 60;
+	f.choose(null);
+	const stalePathResult = await performProjectFileOperation(
+		{
+			...f.request,
+			operationId: "recover-stale-renderer-path",
+			expectedPath: path.join(f.root, "stale-renderer-path.captr"),
+		},
+		f.ports,
+	);
+	expect(stalePathResult).toMatchObject({
+		success: true,
+		path: savedPath,
+		projectId: "project",
+	});
+	const missingPathResult = await performProjectFileOperation(
+		{ ...f.request, operationId: "recover-missing-renderer-path", expectedPath: null },
+		f.ports,
+	);
+	expect(missingPathResult).toMatchObject({
+		success: true,
+		path: savedPath,
+		projectId: "project",
+	});
+	expect((await inspectProjectBundle(savedPath)).projectData?.canvas).toMatchObject({ fps: 60 });
+});
+it("does not recover or overwrite an active bundle with a different project identity", async () => {
+	const f = await setup();
+	expect((await performProjectFileOperation(f.request, f.ports)).success).toBe(true);
+	const other = await setup();
+	other.request.ownerProjectId = "other";
+	other.request.project.projectId = "other";
+	other.context.id = "other";
+	expect((await performProjectFileOperation(other.request, other.ports)).success).toBe(true);
+	const otherPath = other.context.path!;
+	const originalBytes = await fs.readFile(otherPath);
+	f.context.path = otherPath;
+	const result = await performProjectFileOperation(
+		{ ...f.request, operationId: "reject-other-project", expectedPath: null },
+		f.ports,
+	);
+	expect(result).toMatchObject({ success: false });
+	expect(await fs.readFile(otherPath)).toEqual(originalBytes);
+});
 it("refuses a delayed save from an owner that has returned Home", async () => {
 	const f = await setup();
 	f.ports.getProjectId = () => undefined;

@@ -62,6 +62,11 @@ import type { RecordingSessionData } from "../../../electron/ipc/types";
 import { AudioRecorderDialog } from "./AudioRecorderDialog";
 import { createProjectAudioRecorderNavigation } from "./projectAudioRecorderNavigation";
 import { bindProjectClose } from "./projectLifecycle";
+import {
+	bindProjectSaveShortcut,
+	canAutosaveProject,
+	scheduleProjectAutosave,
+} from "./projectSaveShortcuts";
 import { useAudioRecordingAssets } from "./useAudioRecordingAssets";
 export interface ProjectEditorProps {
 	controller: ProjectController;
@@ -382,6 +387,57 @@ export function ProjectEditor(props: ProjectEditorProps) {
 			errorMessage(e);
 		}
 	};
+	const autosaveEligibility = useMemo(
+		() => ({
+			path: state.path,
+			dirty: state.dirty,
+			saving: state.saving,
+			fileOperation: state.fileOperation,
+			navigationPending: state.navigationPending,
+			pendingWork: state.pendingWork,
+			busy,
+			audioCaptureActive,
+			exportInProgress: exportProgress !== null,
+			navigationBlocked: Boolean(props.navigationBlocked),
+			nameDialogOpen: nameDialog,
+		}),
+		[
+			state.path,
+			state.dirty,
+			state.saving,
+			state.fileOperation,
+			state.navigationPending,
+			state.pendingWork,
+			busy,
+			audioCaptureActive,
+			exportProgress,
+			props.navigationBlocked,
+			nameDialog,
+		],
+	);
+	const autosaveEligibilityRef = useRef(autosaveEligibility);
+	autosaveEligibilityRef.current = autosaveEligibility;
+	const autosaveAttemptedRevision = useRef<number | null>(null);
+	const saveRef = useRef(save);
+	saveRef.current = save;
+	useEffect(() => {
+		if (
+			!canAutosaveProject(autosaveEligibility) ||
+			autosaveAttemptedRevision.current === state.revision
+		)
+			return;
+		const revision = state.revision;
+		return scheduleProjectAutosave(() => {
+			if (
+				autosaveAttemptedRevision.current === revision ||
+				controller.snapshot.revision !== revision ||
+				!canAutosaveProject(autosaveEligibilityRef.current)
+			)
+				return;
+			autosaveAttemptedRevision.current = revision;
+			void saveRef.current();
+		});
+	}, [controller, state.revision, autosaveEligibility]);
 	const commitName = async (intent: "save" | "save-as" | "rename") => {
 		try {
 			const result =
@@ -400,6 +456,29 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		} catch (e) {
 			setNameError(e instanceof Error ? e.message : String(e));
 		}
+	};
+	const saveShortcutOptionsRef = useRef({
+		blocked: false,
+		nameDialogOpen: false,
+		hasSavedPath: false,
+		save,
+		commitName,
+	});
+	saveShortcutOptionsRef.current = {
+		blocked:
+			busy ||
+			recordingPending > 0 ||
+			audioCaptureActive ||
+			exportProgress !== null ||
+			state.saving ||
+			state.fileOperation !== null ||
+			state.navigationPending ||
+			state.pendingWork > 0 ||
+			Boolean(props.navigationBlocked),
+		nameDialogOpen: nameDialog,
+		hasSavedPath: Boolean(state.path),
+		save,
+		commitName,
 	};
 	useEffect(() => {
 		document.title = `${projectFileName(state.path)} — Captr Studio`;
@@ -564,6 +643,10 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		[controller, audioNavigation, errorMessage],
 	);
 	useEffect(() => {
+		const removeSaveShortcut = bindProjectSaveShortcut(
+			window,
+			() => saveShortcutOptionsRef.current,
+		);
 		const keydown = (e: KeyboardEvent) => {
 			if (
 				editingClipId ||
@@ -585,10 +668,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 
 			if (e.ctrlKey || e.metaKey) {
 				const key = e.key.toLowerCase();
-				if (key === "s") {
-					e.preventDefault();
-					void save(e.shiftKey);
-				} else if (key === "z") {
+				if (key === "z") {
 					e.preventDefault();
 					if (e.shiftKey) controller.redo();
 					else controller.undo();
@@ -785,6 +865,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		];
 		return () => {
 			window.removeEventListener("keydown", keydown);
+			removeSaveShortcut();
 			unsub.forEach((u) => u?.());
 		};
 	}, [controller, currentActiveArtboardId, activeHyperframeId, activeProject, navigateStory]);
