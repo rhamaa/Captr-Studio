@@ -511,4 +511,14 @@ Suite penuh default parallel sebelum perbaikan review akhir: 1.491/1.500 tes lul
 
 **Update Record/Story preview layout (11 Oktober 2026):** Tanpa clip layout, preview/export memakai layar sebagai card terpusat dan webcam square kanan bawah; layout custom berlaku di rentang clip dan timeline yang bersebelahan tetap kontigu. Kontrol zoom/pan viewport di Story preview dihapus; clip video sumber terkunci pada canvas, sementara overlay text/shape/image tetap dapat diedit. TypeScript lulus dan 46 tes pada lima suite terkait lulus. QA native serta pemeriksaan visual preview/export belum dijalankan.
 
+## Record Editor frame appearance (12 Oktober 2026)
+
+**Status:** implementasi Record Video selesai; QA native masih pending.
+
+- [x] Window dan Webcam memiliki kontrol appearance independen di sub-editor Record Video. Padding, border, radius, fill, opacity, backdrop blur, dan shadow disimpan pada composition placement di `.captr`.
+- [x] User dapat menyimpan snapshot desain lengkap sebagai preset bersama di library aplikasi, mengganti nama/menghapusnya, serta mengimpor dan mengekspor JSON.
+- [x] Preset diterapkan hanya ke target yang sedang dipilih; perubahan Window mempertahankan Webcam dan sebaliknya. Preview dan export memakai renderer frame bersama.
+- [x] Automated QA: 96/96 tes pada 10 suite terkait lulus, termasuk V3 lifecycle, renderer, preset IPC, dan editor. TypeScript lulus; Biome tidak menemukan error pada file terkait (satu warning dependency hook lama tetap ada). Semua 10 file locale JSON valid dan key fitur tersedia di setiap bahasa.
+- [ ] Native QA: ubah Window dan Webcam secara terpisah, simpan/buka ulang `.captr`, ekspor lalu impor preset JSON antar-project, pastikan penerapan hanya mengubah target terpilih, dan bandingkan preview dengan hasil export untuk desain glass/solid/brutalist.
+
 
