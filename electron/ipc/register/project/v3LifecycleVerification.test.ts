@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { type RecordingFrameAppearances } from "../../../../src/recording/schema";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -282,6 +283,11 @@ describe("V3 Lifecycle & Regression Verification Suite", () => {
 			compositionId: "comp-2",
 		});
 
+		const frameAppearances: RecordingFrameAppearances = {
+			window: { framePadding: 8, borderWidth: 2, borderColor: "#112233", borderOpacity: 1, cornerRadius: 12, surfaceColor: "#ffffff", surfaceOpacity: 0.3, backdropBlur: 20, shadow: { color: "#223344", opacity: 0.4, blur: 12, offsetX: -3, offsetY: 5 } },
+			webcam: { framePadding: 4, borderWidth: 6, borderColor: "#ffeedd", borderOpacity: 0.6, cornerRadius: 30, surfaceColor: "#000000", surfaceOpacity: 0.8, backdropBlur: 0, shadow: { color: "#000000", opacity: 1, blur: 0, offsetX: 8, offsetY: 9 } },
+		};
+		project.compositions.find((c) => c.id === "comp-1")!.settings.frameAppearances = structuredClone(frameAppearances);
 		// Edit clip 1 independently: trim, speed 1.5x
 		const track = project.tracks.find((t) => t.id === "visual-1")!;
 		const clip1 = track.clips.find((c) => c.id === "clip-1")!;
@@ -333,6 +339,10 @@ describe("V3 Lifecycle & Regression Verification Suite", () => {
 		expect(loaded.success).toBe(true);
 		const reopened = loaded.project as TimelineProject;
 
+		expect(reopened.compositions.find((c) => c.id === "comp-1")!.settings.frameAppearances).toEqual(frameAppearances);
+		expect(reopened.compositions.find((c) => c.id === "comp-2")!.settings.frameAppearances).toBeUndefined();
+		expect(reopened.assets.map((asset) => asset.id).sort()).toEqual(["audio-asset", "dual-asset", "img-asset"]);
+		expect(reopened.packages).toHaveLength(1);
 		// Validate independent clips
 		const reopenedTrack = reopened.tracks.find((t) => t.id === "visual-1")!;
 		const reopenedClip1 = reopenedTrack.clips.find((c) => c.id === "clip-1")!;
