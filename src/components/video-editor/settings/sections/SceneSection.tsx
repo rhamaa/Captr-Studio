@@ -3,6 +3,14 @@ import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
+import { DynamicPatternCanvas } from "@/components/video-editor/DynamicPatternCanvas";
+import {
+	DEFAULT_DYNAMIC_BACKGROUND_SETTINGS,
+	type DynamicBackgroundPattern,
+	type DynamicBackgroundSettings,
+	parseDynamicBackgroundSettings,
+	serializeDynamicBackgroundSettings,
+} from "@/lib/dynamicBackground/settings";
 import type { FrameInstance } from "@/lib/extensions";
 import { cn } from "@/lib/utils";
 import { BUILT_IN_WALLPAPERS, isVideoWallpaperSource } from "@/lib/wallpapers";
@@ -12,7 +20,12 @@ import { SliderControl } from "../../SliderControl";
 import type { CropRegion, Padding } from "../../types";
 import { SectionLabel } from "../components/SettingsSectionLabel";
 import { WallpaperVideoPreview } from "../components/WallpaperVideoPreview";
-import { BackgroundTab, GRADIENTS, isHexWallpaper, WallpaperTile } from "../utils/wallpaperUtils";
+import {
+	BackgroundTab,
+	GRADIENTS,
+	getBackgroundTabForWallpaper,
+	WallpaperTile,
+} from "../utils/wallpaperUtils";
 
 const DEFAULT_PADDING: Padding = {
 	top: 50,
@@ -100,11 +113,17 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 	});
 
 	const [backgroundTab, setBackgroundTab] = useState<BackgroundTab>(() => {
-		if (selected.startsWith("#") || isHexWallpaper(selected)) return "color";
-		if (selected.startsWith("linear-gradient")) return "gradient";
-		if (isVideoWallpaperSource(selected)) return "video";
-		return "image";
+		return getBackgroundTabForWallpaper(selected);
 	});
+	const dynamicSettings =
+		parseDynamicBackgroundSettings(selected) ?? DEFAULT_DYNAMIC_BACKGROUND_SETTINGS;
+	const updateDynamicSetting = <K extends keyof DynamicBackgroundSettings>(
+		key: K,
+		value: DynamicBackgroundSettings[K],
+	) =>
+		onWallpaperChange?.(
+			serializeDynamicBackgroundSettings({ ...dynamicSettings, [key]: value }),
+		);
 
 	const removeBackgroundStateRef = useRef<{
 		aspectRatio?: AspectRatio;
@@ -478,7 +497,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 			{/* Tab Switcher */}
 			<div className="w-full">
 				<LayoutGroup id="scene-background-picker-switcher">
-					<div className="grid h-8 w-full grid-cols-4 rounded-full border border-foreground/10 bg-foreground/[0.04] p-1">
+					<div className="grid h-8 w-full grid-cols-5 rounded-full border border-foreground/10 bg-foreground/[0.04] p-1">
 						{(
 							[
 								{ value: "image", label: tSettings("background.image", "Image") },
@@ -487,6 +506,10 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 								{
 									value: "gradient",
 									label: tSettings("background.gradient", "Gradient"),
+								},
+								{
+									value: "dynamic",
+									label: tSettings("background.dynamic", "Dynamic"),
 								},
 							] as const
 						).map((option) => {
@@ -697,6 +720,149 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 											/>
 										);
 									})}
+								</div>
+							)}
+
+							{backgroundTab === "dynamic" && (
+								<div className="space-y-3">
+									<div className="grid grid-cols-3 gap-2">
+										{(
+											[
+												{ id: "dot-noise", label: "Dot Noise" },
+												{ id: "film-grain", label: "Film Grain" },
+												{ id: "orbit", label: "Orbit" },
+											] as const
+										).map((pattern) => {
+											const isSelected =
+												dynamicSettings.pattern === pattern.id;
+											return (
+												<button
+													key={pattern.id}
+													type="button"
+													aria-pressed={isSelected}
+													aria-label="Dynamic background pattern"
+													onClick={() =>
+														updateDynamicSetting(
+															"pattern",
+															pattern.id as DynamicBackgroundPattern,
+														)
+													}
+													className={cn(
+														"overflow-hidden rounded-[10px] border text-left transition-colors",
+														isSelected
+															? "border-[#6FA8FF]"
+															: "border-foreground/10 hover:border-foreground/30",
+													)}
+												>
+													<DynamicPatternCanvas
+														settings={{
+															...dynamicSettings,
+															pattern: pattern.id,
+														}}
+														className="aspect-square w-full object-cover"
+													/>
+													<span className="block px-2 py-1 text-[9px] font-medium text-muted-foreground">
+														{pattern.label}
+													</span>
+												</button>
+											);
+										})}
+									</div>
+									<div className="grid grid-cols-2 gap-2">
+										<label className="flex items-center justify-between gap-2 rounded-lg border border-foreground/10 px-2 py-1.5 text-[10px]">
+											<span>
+												{tSettings("background.baseColor", "Base color")}
+											</span>
+											<input
+												aria-label="Dynamic background base color"
+												type="color"
+												value={dynamicSettings.backgroundColor}
+												onChange={(event) =>
+													updateDynamicSetting(
+														"backgroundColor",
+														event.target.value,
+													)
+												}
+												className="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
+											/>
+										</label>
+										<label className="flex items-center justify-between gap-2 rounded-lg border border-foreground/10 px-2 py-1.5 text-[10px]">
+											<span>
+												{tSettings(
+													"background.accentColor",
+													"Accent color",
+												)}
+											</span>
+											<input
+												aria-label="Dynamic background accent color"
+												type="color"
+												value={dynamicSettings.accentColor}
+												onChange={(event) =>
+													updateDynamicSetting(
+														"accentColor",
+														event.target.value,
+													)
+												}
+												className="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
+											/>
+										</label>
+									</div>
+									{(
+										[
+											{
+												key: "density",
+												label: "Density",
+												min: 0.05,
+												max: 1.5,
+												step: 0.05,
+											},
+											{
+												key: "scale",
+												label: "Scale",
+												min: 0.25,
+												max: 3,
+												step: 0.05,
+											},
+											{
+												key: "speed",
+												label: "Speed",
+												min: 1,
+												max: 4,
+												step: 1,
+											},
+											{
+												key: "durationSeconds",
+												label: "Loop duration",
+												min: 1,
+												max: 10,
+												step: 1,
+											},
+										] as const
+									).map((control) => (
+										<label
+											key={control.key}
+											className="flex flex-col gap-1 text-[10px] text-muted-foreground"
+										>
+											<span className="flex justify-between">
+												<span>{control.label}</span>
+												<span>{dynamicSettings[control.key]}</span>
+											</span>
+											<input
+												aria-label={`Dynamic background ${control.label.toLowerCase()}`}
+												type="range"
+												min={control.min}
+												max={control.max}
+												step={control.step}
+												value={dynamicSettings[control.key]}
+												onChange={(event) =>
+													updateDynamicSetting(
+														control.key,
+														Number(event.target.value),
+													)
+												}
+											/>
+										</label>
+									))}
 								</div>
 							)}
 						</motion.div>

@@ -59,6 +59,14 @@ import {
 	isWebcamCropRegionDefault,
 } from "@/components/video-editor/webcamOverlay";
 import { getAssetPath, getExportableVideoUrl, getRenderableAssetUrl } from "@/lib/assetPath";
+import { drawPatternFrame } from "@/lib/dynamicBackground/patternRenderer";
+import {
+	DEFAULT_DYNAMIC_BACKGROUND_SETTINGS,
+	type DynamicBackgroundSettings,
+	getDynamicBackgroundFrameSettings,
+	isDynamicBackgroundWallpaper,
+	parseDynamicBackgroundSettings,
+} from "@/lib/dynamicBackground/settings";
 import { extensionHost } from "@/lib/extensions";
 import {
 	mapCursorToCanvasNormalized,
@@ -408,6 +416,8 @@ export class FrameRenderer {
 	private annotationScaleFactor = 1;
 	private annotationSprites: AnnotationSpriteEntry[] = [];
 	private backgroundForwardFrameSource: ForwardFrameSource | null = null;
+	private backgroundDynamicSettings: DynamicBackgroundSettings | null = null;
+	private backgroundDynamicCanvas: HTMLCanvasElement | null = null;
 	private backgroundForwardFrameSourceUrl: string | null = null;
 	private backgroundForwardFrameDurationSec: number | null = null;
 	private backgroundDecodedFrame: VideoFrame | null = null;
@@ -1113,6 +1123,8 @@ export class FrameRenderer {
 		this.backgroundForwardFrameSource?.cancel();
 		void this.backgroundForwardFrameSource?.destroy();
 		this.backgroundForwardFrameSource = null;
+		this.backgroundDynamicSettings = null;
+		this.backgroundDynamicCanvas = null;
 		this.backgroundForwardFrameSourceUrl = null;
 		this.backgroundForwardFrameDurationSec = null;
 		this.closeBackgroundDecodedFrame();
@@ -1140,9 +1152,37 @@ export class FrameRenderer {
 	private async setupBackground(): Promise<void> {
 		this.resetBackgroundLayer();
 
-		const wallpaper = await this.resolveWallpaperForExport(this.config.wallpaper);
+		const configuredWallpaper = this.config.wallpaper ?? "";
+		const dynamicSettings = isDynamicBackgroundWallpaper(configuredWallpaper)
+			? (parseDynamicBackgroundSettings(configuredWallpaper) ??
+				DEFAULT_DYNAMIC_BACKGROUND_SETTINGS)
+			: null;
+		const wallpaper = dynamicSettings
+			? configuredWallpaper
+			: await this.resolveWallpaperForExport(configuredWallpaper);
 
 		try {
+			if (dynamicSettings) {
+				const canvas = document.createElement("canvas");
+				canvas.width = this.config.width;
+				canvas.height = this.config.height;
+				const context = configureHighQuality2DContext(canvas.getContext("2d"));
+				if (!context) throw new Error("Failed to get 2D context for dynamic background");
+				this.backgroundDynamicSettings = dynamicSettings;
+				this.backgroundDynamicCanvas = canvas;
+				drawPatternFrame(
+					context,
+					getDynamicBackgroundFrameSettings(
+						dynamicSettings,
+						canvas.width,
+						canvas.height,
+						0,
+					),
+				);
+				await this.ensureBackgroundSprite(canvas, canvas.width, canvas.height);
+				return;
+			}
+
 			if (isVideoWallpaperSource(wallpaper)) {
 				let videoSrc = wallpaper;
 				if (wallpaper.startsWith("/") && !wallpaper.startsWith("//")) {
@@ -1557,6 +1597,24 @@ export class FrameRenderer {
 	}
 
 	private async syncBackgroundFrame(timeSeconds: number): Promise<void> {
+		if (this.backgroundDynamicSettings && this.backgroundDynamicCanvas) {
+			const canvas = this.backgroundDynamicCanvas;
+			const context = configureHighQuality2DContext(canvas.getContext("2d"));
+			if (context) {
+				drawPatternFrame(
+					context,
+					getDynamicBackgroundFrameSettings(
+						this.backgroundDynamicSettings,
+						canvas.width,
+						canvas.height,
+						timeSeconds,
+					),
+				);
+				await this.ensureBackgroundSprite(canvas, canvas.width, canvas.height);
+			}
+			return;
+		}
+
 		if (this.backgroundForwardFrameSource) {
 			const duration = this.backgroundForwardFrameDurationSec;
 			const shouldLoop = Number.isFinite(duration) && (duration ?? 0) > 0;
@@ -2799,7 +2857,11 @@ export class FrameRenderer {
 			await this.syncWebcamFrame(webcamRenderTimeSeconds);
 		}
 
-		if (this.backgroundForwardFrameSource || this.backgroundVideoElement) {
+		if (
+			this.backgroundDynamicSettings ||
+			this.backgroundForwardFrameSource ||
+			this.backgroundVideoElement
+		) {
 			await this.syncBackgroundFrame(Math.max(0, backgroundTimelineTimestamp / 1_000_000));
 		}
 
@@ -3037,7 +3099,11 @@ export class FrameRenderer {
 			await this.syncWebcamFrame(Math.max(0, this.currentVideoTime));
 		}
 
-		if (this.backgroundForwardFrameSource || this.backgroundVideoElement) {
+		if (
+			this.backgroundDynamicSettings ||
+			this.backgroundForwardFrameSource ||
+			this.backgroundVideoElement
+		) {
 			await this.syncBackgroundFrame(Math.max(0, backgroundTimelineTimestamp / 1_000_000));
 		}
 
@@ -3796,6 +3862,8 @@ export class FrameRenderer {
 		this.backgroundForwardFrameSource?.cancel();
 		void this.backgroundForwardFrameSource?.destroy();
 		this.backgroundForwardFrameSource = null;
+		this.backgroundDynamicSettings = null;
+		this.backgroundDynamicCanvas = null;
 		this.backgroundForwardFrameSourceUrl = null;
 		this.backgroundForwardFrameDurationSec = null;
 		this.lastSyncedBackgroundLoopTimeSec = null;

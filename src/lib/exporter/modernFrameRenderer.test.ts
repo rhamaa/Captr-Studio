@@ -27,7 +27,10 @@ vi.mock("pixi.js", () => ({
 		addChildAt = vi.fn();
 		removeChildren = vi.fn();
 	},
-	Graphics: class {},
+	Graphics: class {
+		ellipse = vi.fn();
+		roundRect = vi.fn();
+	},
 	Sprite: class {
 		visible = true;
 		x = 0;
@@ -114,12 +117,18 @@ import { FrameRenderer } from "./modernFrameRenderer";
 function createMockContext() {
 	return {
 		clearRect: vi.fn(),
+		beginPath: vi.fn(),
+		roundRect: vi.fn(),
+		arc: vi.fn(),
+		ellipse: vi.fn(),
+		fill: vi.fn(),
 		drawImage: vi.fn(),
 		fillRect: vi.fn(),
 		save: vi.fn(),
 		restore: vi.fn(),
 		getImageData: vi.fn(() => ({ data: new Uint8ClampedArray(0) })),
 		globalAlpha: 1,
+		fillStyle: "",
 		imageSmoothingEnabled: true,
 		imageSmoothingQuality: "high",
 	} as unknown as CanvasRenderingContext2D;
@@ -262,6 +271,35 @@ describe("ModernFrameRenderer blur export path", () => {
 		expect(resolveMediaElementSourceMock).not.toHaveBeenCalled();
 		expect(renderer.backgroundForwardFrameSource).toBeTruthy();
 		expect(renderer.backgroundVideoElement).toBeNull();
+	});
+
+	it("renders dynamic wallpapers at export timeline time", async () => {
+		const renderer = new FrameRenderer({
+			width: 640,
+			height: 360,
+			nativeReadbackMode: "pixels",
+			wallpaper:
+				"captr-dynamic-bg:v1:%7B%22pattern%22%3A%22dot-noise%22%2C%22durationSeconds%22%3A4%7D",
+			zoomRegions: [],
+			showShadow: false,
+			shadowIntensity: 0,
+			backgroundBlur: 0,
+			cropRegion: { x: 0, y: 0, width: 1, height: 1 },
+			webcam: { ...DEFAULT_WEBCAM_OVERLAY, enabled: false },
+			videoWidth: 640,
+			videoHeight: 360,
+		}) as any;
+		renderer.backgroundContainer = { addChild: vi.fn(), removeChildren: vi.fn() };
+
+		await renderer.setupBackground();
+		const canvas = renderer.backgroundDynamicCanvas;
+		const context = canvas.context;
+		const firstX = context.arc.mock.calls[0][0];
+		await renderer.syncBackgroundFrame(0.5);
+
+		expect(renderer.backgroundDynamicSettings.pattern).toBe("dot-noise");
+		expect(context.arc.mock.calls[1][0]).not.toBe(firstX);
+		expect(renderer.backgroundTextureSource.update).toHaveBeenCalled();
 	});
 
 	it("falls back to media-element sync when video wallpaper packet streaming fails", async () => {
@@ -563,6 +601,8 @@ describe("ModernFrameRenderer webcam export fallback", () => {
 		};
 		renderer.webcamMaskGraphics = {
 			clear: vi.fn(),
+			roundRect: vi.fn(),
+			ellipse: vi.fn(),
 			moveTo: vi.fn(),
 			lineTo: vi.fn(),
 			closePath: vi.fn(),
@@ -605,6 +645,8 @@ describe("ModernFrameRenderer webcam export fallback", () => {
 		};
 		renderer.webcamMaskGraphics = {
 			clear: vi.fn(),
+			roundRect: vi.fn(),
+			ellipse: vi.fn(),
 			moveTo: vi.fn(),
 			lineTo: vi.fn(),
 			closePath: vi.fn(),

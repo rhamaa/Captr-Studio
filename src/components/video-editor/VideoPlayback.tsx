@@ -13,6 +13,12 @@ import {
 } from "react";
 import { getAssetPath, getRenderableAssetUrl, getRenderableVideoUrl } from "@/lib/assetPath";
 import {
+	DEFAULT_DYNAMIC_BACKGROUND_SETTINGS,
+	type DynamicBackgroundSettings,
+	isDynamicBackgroundWallpaper,
+	parseDynamicBackgroundSettings,
+} from "@/lib/dynamicBackground/settings";
+import {
 	clampMediaTimeToDuration,
 	enablePitchPreservingPlayback,
 	getMediaSyncPlaybackRate,
@@ -23,6 +29,7 @@ import {
 	isVideoWallpaperSource,
 } from "@/lib/wallpapers";
 import { computeDuckingGain } from "./audio/audioDucking";
+import { DynamicPatternCanvas } from "./DynamicPatternCanvas";
 import { resolveLayoutSceneAtTime } from "./layoutScenes";
 import { toFileUrl } from "./projectPersistence";
 import { SocialSafeZoneOverlay } from "./SocialSafeZoneOverlay";
@@ -2739,14 +2746,29 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 		const [resolvedWallpaper, setResolvedWallpaper] = useState<string | null>(null);
 		const [resolvedWallpaperKind, setResolvedWallpaperKind] = useState<
-			"image" | "video" | "style"
+			"image" | "video" | "style" | "dynamic"
 		>("image");
+		const [dynamicWallpaperSettings, setDynamicWallpaperSettings] =
+			useState<DynamicBackgroundSettings | null>(null);
 
 		useEffect(() => {
 			let mounted = true;
 			const revokeResolvedWallpaper = () => undefined;
 			(async () => {
 				try {
+					if (isDynamicBackgroundWallpaper(wallpaper ?? "")) {
+						const dynamicSettings =
+							parseDynamicBackgroundSettings(wallpaper ?? "") ??
+							DEFAULT_DYNAMIC_BACKGROUND_SETTINGS;
+						if (mounted) {
+							setResolvedWallpaper(null);
+							setDynamicWallpaperSettings(dynamicSettings);
+							setResolvedWallpaperKind("dynamic");
+						}
+						return;
+					}
+					setDynamicWallpaperSettings(null);
+
 					if (!wallpaper) {
 						const def = await getAssetPath(DEFAULT_WALLPAPER_RELATIVE_PATH);
 						if (mounted) {
@@ -2786,6 +2808,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				} catch (_err) {
 					if (mounted) {
 						setResolvedWallpaper(wallpaper || DEFAULT_WALLPAPER_PATH);
+						setDynamicWallpaperSettings(null);
 						setResolvedWallpaperKind(
 							isVideoWallpaperSource(wallpaper || "") ? "video" : "image",
 						);
@@ -2853,7 +2876,16 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				}}
 			>
 				{/* Background layer */}
-				{resolvedWallpaperKind === "video" && resolvedWallpaper ? (
+				{resolvedWallpaperKind === "dynamic" && dynamicWallpaperSettings ? (
+					<DynamicPatternCanvas
+						settings={dynamicWallpaperSettings}
+						timeSeconds={isPlaying ? currentTime : undefined}
+						className="absolute inset-0 h-full w-full object-cover"
+						style={{
+							filter: backgroundBlur > 0 ? `blur(${backgroundBlur}px)` : "none",
+						}}
+					/>
+				) : resolvedWallpaperKind === "video" && resolvedWallpaper ? (
 					<video
 						crossOrigin="anonymous"
 						key={resolvedWallpaper}

@@ -93,6 +93,7 @@ import { FrameRenderer } from "./frameRenderer";
 type MockFunction = ReturnType<typeof vi.fn>;
 type MockContext = {
 	beginPath: MockFunction;
+	roundRect: MockFunction;
 	moveTo: MockFunction;
 	lineTo: MockFunction;
 	closePath: MockFunction;
@@ -222,12 +223,18 @@ class FakeVideoElement {
 function createMockContext() {
 	return {
 		beginPath: vi.fn(),
+		roundRect: vi.fn(),
 		moveTo: vi.fn(),
 		lineTo: vi.fn(),
 		closePath: vi.fn(),
 		clip: vi.fn(),
 		drawImage: vi.fn(),
 		fillRect: vi.fn(),
+		arc: vi.fn(),
+		ellipse: vi.fn(),
+		fill: vi.fn(),
+		fillStyle: "",
+		globalAlpha: 1,
 		save: vi.fn(),
 		restore: vi.fn(),
 		translate: vi.fn(),
@@ -514,6 +521,35 @@ describe("FrameRenderer webcam export path", () => {
 		expect(renderer.backgroundForwardFrameSource).toBeTruthy();
 		expect(renderer.backgroundVideoElement).toBeNull();
 		expect(renderer.backgroundSprite).toBeTruthy();
+	});
+
+	it("renders dynamic wallpapers from the same timeline phase in fallback export", async () => {
+		const renderer = new FrameRenderer({
+			width: 640,
+			height: 360,
+			wallpaper:
+				"captr-dynamic-bg:v1:%7B%22pattern%22%3A%22dot-noise%22%2C%22durationSeconds%22%3A4%7D",
+			zoomRegions: [],
+			showShadow: false,
+			shadowIntensity: 0,
+			backgroundBlur: 0,
+			cropRegion: { x: 0, y: 0, width: 1, height: 1 },
+			webcam: { ...DEFAULT_WEBCAM_OVERLAY, enabled: false },
+			videoWidth: 640,
+			videoHeight: 360,
+		}) as unknown as {
+			setupBackground: () => Promise<void>;
+			syncBackgroundFrame: (timeSeconds: number) => Promise<void>;
+			backgroundDynamicSettings: { pattern: string };
+			backgroundCtx: ReturnType<typeof createMockContext>;
+		};
+
+		await renderer.setupBackground();
+		const firstX = renderer.backgroundCtx.arc.mock.calls[0][0];
+		await renderer.syncBackgroundFrame(0.5);
+
+		expect(renderer.backgroundDynamicSettings.pattern).toBe("dot-noise");
+		expect(renderer.backgroundCtx.arc.mock.calls[1][0]).not.toBe(firstX);
 	});
 
 	it("falls back to media-element sync when video wallpaper packet streaming fails", async () => {

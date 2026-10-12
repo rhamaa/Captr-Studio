@@ -324,6 +324,14 @@ describe("ModernVideoExporter native static-layout eligibility", () => {
 		).toBe("unsupported-background-video");
 	});
 
+	it("routes generated backgrounds through the animated renderer", () => {
+		const exporter = createExporter({ wallpaper: "captr-dynamic-bg:v1:" });
+
+		expect(exporter.getNativeStaticLayoutSkipReason({ audioMode: "none" }, videoInfo, 60)).toBe(
+			"unsupported-background-dynamic",
+		);
+	});
+
 	it("collects every native static-layout blocker for beta diagnostics", () => {
 		const exporter = createExporter({
 			width: 1921,

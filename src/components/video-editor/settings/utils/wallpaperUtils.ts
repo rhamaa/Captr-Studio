@@ -1,3 +1,4 @@
+import { isDynamicBackgroundWallpaper } from "@/lib/dynamicBackground/settings";
 import { isVideoWallpaperSource } from "@/lib/wallpapers";
 
 export const GRADIENTS = [
@@ -27,7 +28,7 @@ export const GRADIENTS = [
 	"linear-gradient(to right, #0acffe 0%, #495aff 100%)",
 ];
 
-export type BackgroundTab = "image" | "video" | "color" | "gradient";
+export type BackgroundTab = "image" | "video" | "color" | "gradient" | "dynamic";
 
 export type WallpaperTile = {
 	key: string;
@@ -41,6 +42,10 @@ export function isHexWallpaper(value: string): boolean {
 }
 
 export function getBackgroundTabForWallpaper(value: string): BackgroundTab {
+	if (isDynamicBackgroundWallpaper(value)) {
+		return "dynamic";
+	}
+
 	if (GRADIENTS.includes(value)) {
 		return "gradient";
 	}

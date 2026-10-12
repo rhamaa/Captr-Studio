@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { LoopBackgroundStudio } from "@/components/loopBackground/LoopBackgroundStudio";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppSettingsDialog } from "@/components/settings/AppSettingsDialog";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { WelcomeScreen } from "@/components/welcome/WelcomeScreen";
@@ -9,7 +8,6 @@ import { normalizeStoryOwnership } from "@/core/timeline/normalizeStoryOwnership
 import type { TimelineProject } from "@/core/timeline/types";
 import { probeLegacyRecordProject } from "@/recording/legacyProbe";
 import type { RecordingSessionData } from "../../../electron/ipc/types";
-import { getApplicationSurface, homeToolNavigationReducer } from "./homeToolNavigation";
 import { ProjectEditor } from "./ProjectEditor";
 import type { PendingProjectOpen, ProjectOpenResult } from "./projectLifecycle";
 import {
@@ -22,7 +20,6 @@ import { createProjectController, type ProjectController } from "./useProjectCon
 
 export function ProjectApplication() {
 	const [controller, setController] = useState<ProjectController | null>(null);
-	const [homeTool, dispatchHomeTool] = useReducer(homeToolNavigationReducer, null);
 	const [recordingSession, setRecordingSession] = useState<RecordingSessionData | null>(null);
 	const library = useHomeProjects(!controller);
 	const [error, setError] = useState<string | null>(null);
@@ -60,7 +57,6 @@ export function ProjectApplication() {
 		next.open(project, result.path ?? null);
 		active.current?.exit();
 		active.current = next;
-		dispatchHomeTool({ type: "back-to-home" });
 		setRecordingSession(session ?? null);
 		setController(next);
 		setError(null);
@@ -128,7 +124,6 @@ export function ProjectApplication() {
 			if (!(await requestProjectExit(c, "discard", api ?? {})))
 				throw new Error("Could not leave the active project.");
 			active.current = null;
-			dispatchHomeTool({ type: "back-to-home" });
 			rendererBusy.current = false;
 			setController(null);
 			setRecordingSession(null);
@@ -244,7 +239,7 @@ export function ProjectApplication() {
 		});
 	return (
 		<>
-			{getApplicationSurface(Boolean(controller), homeTool) === "project" && controller ? (
+			{controller ? (
 				<ProjectEditor
 					key={controller.snapshot.project.projectId}
 					controller={controller}
@@ -256,8 +251,6 @@ export function ProjectApplication() {
 					onBusyChange={onBusyChange}
 					navigationBlocked={Boolean(pending || legacy || busy)}
 				/>
-			) : homeTool === "loop-background-studio" ? (
-				<LoopBackgroundStudio onBack={() => dispatchHomeTool({ type: "back-to-home" })} />
 			) : (
 				<WelcomeScreen
 					recentProjects={library.entries}
@@ -269,9 +262,6 @@ export function ProjectApplication() {
 					onNewProject={(ratio) => void create(ratio)}
 					onOpenProjectFile={() => void open()}
 					onOpenRecentProject={(path) => void open({ path })}
-					onOpenLoopBackgroundStudio={() =>
-						dispatchHomeTool({ type: "open-loop-background-studio" })
-					}
 				/>
 			)}
 			{error && (

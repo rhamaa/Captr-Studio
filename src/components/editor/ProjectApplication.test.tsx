@@ -8,16 +8,7 @@ vi.mock("./ProjectEditor", () => ({
 	ProjectEditor: () => React.createElement("div", null, "hidden editor"),
 }));
 vi.mock("@/components/welcome/WelcomeScreen", () => ({
-	WelcomeScreen: (props: { onOpenLoopBackgroundStudio?: () => void }) =>
-		React.createElement(
-			"main",
-			{
-				"data-loop-studio-action": props.onOpenLoopBackgroundStudio
-					? "available"
-					: "missing",
-			},
-			"Project Home",
-		),
+	WelcomeScreen: () => React.createElement("main", null, "Project Home"),
 }));
 
 import { ProjectApplication } from "./ProjectApplication";
@@ -27,7 +18,7 @@ it("renders Home without constructing or activating a hidden project", () => {
 	vi.stubGlobal("window", { electronAPI: { activateTimelineProject: activate } });
 	const html = renderToStaticMarkup(<ProjectApplication />);
 	expect(html).toContain("Project Home");
-	expect(html).toContain('data-loop-studio-action="available"');
+	expect(html).not.toContain("Loop Background Studio");
 	expect(html).not.toContain("hidden editor");
 	expect(activate).not.toHaveBeenCalled();
 	vi.unstubAllGlobals();

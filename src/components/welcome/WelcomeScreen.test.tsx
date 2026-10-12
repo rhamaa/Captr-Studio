@@ -28,10 +28,9 @@ it("Home exposes New Open Refresh but no recorder and distinct states", () => {
 	);
 });
 
-it("Home shows the Loop Background Studio card when its action is available", () => {
-	const html = renderToStaticMarkup(
-		<WelcomeScreen {...props} onOpenLoopBackgroundStudio={() => {}} />,
-	);
-	expect(html).toContain("Loop Background Studio");
-	expect(html).toContain("Create seamless animated GIF backgrounds");
+it("Home does not expose the former background generator mini-app", () => {
+	const formerToolAction = { onOpenBackgroundGenerator: () => {} };
+	const html = renderToStaticMarkup(<WelcomeScreen {...props} {...formerToolAction} />);
+	expect(html).not.toContain("Loop Background Studio");
+	expect(html).not.toContain("Create seamless animated GIF backgrounds");
 });
