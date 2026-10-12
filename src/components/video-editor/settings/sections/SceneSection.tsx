@@ -52,6 +52,7 @@ export interface SceneSectionProps {
 	onCropChange?: (crop: CropRegion) => void;
 	aspectRatio?: AspectRatio;
 	onAspectRatioChange?: (ratio: AspectRatio) => void;
+	canvasDimensionsLocked?: boolean;
 	initialEditorPreferences: EditorPreferences;
 	builtInWallpapers: Array<{ id: string; label: string; publicPath: string }>;
 	builtInWallpaperPaths: string[];
@@ -88,6 +89,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 	onCropChange,
 	aspectRatio,
 	onAspectRatioChange,
+	canvasDimensionsLocked = false,
 	initialEditorPreferences,
 	builtInWallpapers,
 	builtInWallpaperPaths,
@@ -135,7 +137,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 			padding.bottom === 0 &&
 			padding.left === 0 &&
 			padding.right === 0 &&
-			(aspectRatio === "native" || !aspectRatio),
+			(aspectRatio === "native" || !aspectRatio || canvasDimensionsLocked),
 	);
 
 	useEffect(() => {

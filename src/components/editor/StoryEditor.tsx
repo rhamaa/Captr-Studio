@@ -20,7 +20,6 @@ import {
 	placeAsset,
 	removeAsset,
 	updateClip,
-	updateProjectCanvas,
 	updateProjectTerminalConfig,
 } from "@/core/timeline/commands";
 import { applyDesignTemplate } from "@/core/timeline/designTemplateCommands";
@@ -163,6 +162,26 @@ export function StoryEditor({
 	const selectedAssetId = controller.snapshot.selectedAssetId;
 	const openingKey = controller.snapshot.openingKey;
 	const durationUs = projectDurationUs(storyProject);
+	const canvasAspectRatioLabel = useMemo(() => {
+		let width = Math.round(storyProject.canvas.width);
+		let height = Math.round(storyProject.canvas.height);
+		let a = width;
+		let b = height;
+		while (b !== 0) [a, b] = [b, a % b];
+		const divisor = Math.max(1, a);
+		const ratio = `${width / divisor}:${height / divisor}`;
+		const presets: Record<string, string> = {
+			"16:9": "16:9 Landscape",
+			"9:16": "9:16 Shorts/Reels",
+			"1:1": "1:1 Square",
+			"4:5": "4:5 Portrait",
+			"4:3": "4:3 Standard",
+			"16:10": "16:10 Widescreen",
+			"10:16": "10:16 Portrait",
+			"21:9": "21:9 Ultrawide",
+		};
+		return presets[ratio] ?? `${ratio} Custom`;
+	}, [storyProject.canvas.height, storyProject.canvas.width]);
 
 	const [selectedTransitionId, setSelectedTransitionId] = useState<string | null>(null);
 	const [terminalOpen, setTerminalOpen] = useState(false);
@@ -466,60 +485,13 @@ export function StoryEditor({
 									: m("preview")}
 						</h2>
 						<div className="flex items-center gap-2">
-							<select
-								aria-label="Canvas Aspect Ratio"
-								value={
-									[
-										{ w: 1920, h: 1080, id: "16:9" },
-										{ w: 1080, h: 1920, id: "9:16" },
-										{ w: 1080, h: 1080, id: "1:1" },
-										{ w: 1080, h: 1350, id: "4:5" },
-										{ w: 2560, h: 1080, id: "21:9" },
-									].find(
-										(p) =>
-											p.w === storyProject.canvas.width &&
-											p.h === storyProject.canvas.height,
-									)?.id ?? "custom"
-								}
-								onChange={(e) => {
-									const map: Record<string, [number, number]> = {
-										"16:9": [1920, 1080],
-										"9:16": [1080, 1920],
-										"1:1": [1080, 1080],
-										"4:5": [1080, 1350],
-										"21:9": [2560, 1080],
-									};
-									const val = map[e.target.value];
-									if (val) {
-										onCommand((p) =>
-											updateProjectCanvas(p, {
-												width: val[0],
-												height: val[1],
-											}),
-										);
-									}
-								}}
-								className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-white/90 font-medium focus:outline-none cursor-pointer"
+							<span
+								aria-label="Canvas aspect ratio, fixed"
+								title="Canvas dimensions are fixed by the current project"
+								className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-white/90 font-medium select-none"
 							>
-								<option value="16:9" className="bg-[#12141a]">
-									16:9 Landscape
-								</option>
-								<option value="9:16" className="bg-[#12141a]">
-									9:16 Shorts/Reels
-								</option>
-								<option value="1:1" className="bg-[#12141a]">
-									1:1 Square
-								</option>
-								<option value="4:5" className="bg-[#12141a]">
-									4:5 Portrait
-								</option>
-								<option value="21:9" className="bg-[#12141a]">
-									21:9 Ultrawide
-								</option>
-								<option value="custom" className="bg-[#12141a]">
-									Custom
-								</option>
-							</select>
+								{canvasAspectRatioLabel}
+							</span>
 							<span>
 								{storyProject.canvas.width} × {storyProject.canvas.height}
 							</span>

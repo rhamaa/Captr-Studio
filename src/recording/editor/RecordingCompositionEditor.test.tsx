@@ -182,7 +182,7 @@ describe("Recording composition settings", () => {
 		expect(html.includes('<video src="http://127.0.0.1:4321/webcam.mp4"')).toBe(cameraVisible);
 	});
 
-	it("adapts preview canvas aspect ratio to passed 9:16 aspect ratio and canvas props", () => {
+	it("keeps preview canvas dimensions fixed to Artboard canvas props", () => {
 		const registered = registerRecording(
 			createTimelineProject("project-shorts", "Project Shorts"),
 			{
@@ -200,19 +200,23 @@ describe("Recording composition settings", () => {
 			clipId: "clip-shorts",
 			compositionId: "comp-shorts",
 		});
+		const compositionWithStaleRatio = {
+			...project.compositions[0],
+			settings: { ...project.compositions[0].settings, aspectRatio: "16:9" },
+		};
 		const html = translate(
 			createElement(RecordingCompositionEditor, {
 				package: project.packages[0],
-				composition: project.compositions[0],
-				aspectRatio: "9:16",
+				composition: compositionWithStaleRatio,
 				canvas: { width: 1080, height: 1920, fps: 30 },
 				onChange: () => {},
 				onClose: () => {},
 			}),
 		);
 
-		expect(html).toContain('class="recording-aspect-select"');
-		expect(html).toContain('value="9:16" selected');
+		expect(html).not.toContain('aria-label="Preview aspect ratio"');
+		expect(html).toContain('aria-label="Canvas dimensions fixed"');
+		expect(html).toContain("1080 × 1920");
 		expect(html).toContain("1080 / 1920");
 	});
 
@@ -238,14 +242,14 @@ describe("Recording composition settings", () => {
 			createElement(RecordingCompositionEditor, {
 				package: project.packages[0],
 				composition: project.compositions[0],
-				aspectRatio: "1:1",
 				canvas: { width: 1080, height: 1080, fps: 30 },
 				onChange: () => {},
 				onClose: () => {},
 			}),
 		);
 
-		expect(html).toContain('value="1:1" selected');
+		expect(html).not.toContain('aria-label="Preview aspect ratio"');
+		expect(html).toContain("1080 × 1080");
 		expect(html).toContain("1080 / 1080");
 	});
 });

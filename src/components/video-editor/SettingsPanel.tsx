@@ -222,6 +222,7 @@ interface SettingsPanelProps {
 	onCropChange?: (region: CropRegion) => void;
 	aspectRatio: AspectRatio;
 	onAspectRatioChange?: (ratio: AspectRatio) => void;
+	canvasDimensionsLocked?: boolean;
 	selectedAnnotationId?: string | null;
 	annotationRegions?: AnnotationRegion[];
 	onAnnotationContentChange?: (id: string, content: string) => void;
@@ -360,6 +361,7 @@ export function SettingsPanel({
 	onCropChange,
 	aspectRatio,
 	onAspectRatioChange,
+	canvasDimensionsLocked = false,
 	selectedAnnotationId,
 	annotationRegions = [],
 	onAnnotationContentChange,
@@ -786,6 +788,7 @@ export function SettingsPanel({
 			onCropChange={onCropChange}
 			aspectRatio={aspectRatio}
 			onAspectRatioChange={onAspectRatioChange}
+			canvasDimensionsLocked={canvasDimensionsLocked}
 			initialEditorPreferences={initialEditorPreferences}
 			builtInWallpapers={builtInWallpapers}
 			builtInWallpaperPaths={builtInWallpaperPaths}
@@ -847,6 +850,7 @@ export function SettingsPanel({
 						onClipTransitionInDurationChange={onClipTransitionInDurationChange}
 						aspectRatio={aspectRatio}
 						onAspectRatioChange={onAspectRatioChange}
+						canvasDimensionsLocked={canvasDimensionsLocked}
 						padding={padding}
 						onPaddingChange={onPaddingChange}
 						borderRadius={borderRadius}

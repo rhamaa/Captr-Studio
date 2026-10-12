@@ -30,7 +30,6 @@ import {
 import {
 	type AspectRatio,
 	getAspectRatioValue,
-	resolveAspectRatioCanvas,
 } from "@/utils/aspectRatioUtils";
 
 function formatTimecode(seconds: number): string {
@@ -64,7 +63,6 @@ export interface RecordingCompositionEditorProps {
 	composition: RecordComposition;
 	projectTitle?: string;
 	canvas?: { width: number; height: number; fps?: number };
-	aspectRatio?: AspectRatio;
 	clipTransform?: { x: number; y: number; scale: number; rotation: number; opacity: number };
 	onClipTransformChange?: (transform: {
 		x: number;
@@ -73,7 +71,6 @@ export interface RecordingCompositionEditorProps {
 		rotation: number;
 		opacity: number;
 	}) => void;
-	onAspectRatioChange?: (ratio: AspectRatio) => void;
 	onChange: (next: RecordComposition) => void;
 	onClose: () => void;
 }
@@ -143,10 +140,8 @@ export function RecordingCompositionEditor({
 	composition,
 	projectTitle,
 	canvas: propCanvas,
-	aspectRatio: propAspectRatio,
 	clipTransform,
 	onClipTransformChange,
-	onAspectRatioChange,
 	onChange,
 	onClose,
 }: RecordingCompositionEditorProps) {
@@ -162,42 +157,15 @@ export function RecordingCompositionEditor({
 
 	const settings = useMemo(() => resolveRecordingSettings(pkg, composition), [pkg, composition]);
 
-	const initialAspectRatio: AspectRatio = useMemo(() => {
-		if (propAspectRatio) {
-			return propAspectRatio;
-		}
-		if (composition.settings?.aspectRatio) {
-			return composition.settings.aspectRatio as AspectRatio;
-		}
-		if (propCanvas) {
-			const { width, height } = propCanvas;
-			if (width === 1080 && height === 1920) return "9:16";
-			if (width === 1080 && height === 1080) return "1:1";
-			if (width === 1080 && height === 1350) return "4:5";
-			if (width === 1920 && height === 1080) return "16:9";
-			if (width === 1440 && height === 1080) return "4:3";
-			if (width === 1728 && height === 1080) return "16:10";
-			if (width === 1080 && height === 1728) return "10:16";
-		}
-		return "16:9";
-	}, [propAspectRatio, composition.settings?.aspectRatio, propCanvas]);
-
-	const [aspectRatio, setAspectRatio] = useState<AspectRatio>(initialAspectRatio);
-
-	useEffect(() => {
-		if (propAspectRatio) {
-			setAspectRatio(propAspectRatio);
-		}
-	}, [propAspectRatio]);
-
 	const previewCanvas = useMemo(
-		() =>
-			resolveAspectRatioCanvas(aspectRatio, propCanvas, {
-				width: pkg.width,
-				height: pkg.height,
-			}),
-		[aspectRatio, propCanvas, pkg.width, pkg.height],
+		() => ({
+			width: propCanvas?.width && propCanvas.width > 0 ? propCanvas.width : pkg.width,
+			height: propCanvas?.height && propCanvas.height > 0 ? propCanvas.height : pkg.height,
+			fps: propCanvas?.fps ?? 30,
+		}),
+		[propCanvas, pkg.width, pkg.height],
 	);
+	const aspectRatio = `${previewCanvas.width}:${previewCanvas.height}` as AspectRatio;
 
 	const [sourceUrl, setSourceUrl] = useState(""),
 		[playing, setPlaying] = useState(false),
@@ -344,15 +312,6 @@ export function RecordingCompositionEditor({
 	const selectedAnnotation = settings.annotationRegions.find(
 		(a) => a.id === selectedAnnotationId,
 	);
-	const handleAspectRatioChange = useCallback(
-		(nextRatio: AspectRatio) => {
-			setAspectRatio(nextRatio);
-			update({ aspectRatio: nextRatio });
-			onAspectRatioChange?.(nextRatio);
-		},
-		[update, onAspectRatioChange],
-	);
-
 	const suggestZooms = () => {
 		const sourceAspectRatio = pkg.height > 0 ? pkg.width / pkg.height : 16 / 9;
 		const targetRatioValue = getAspectRatioValue(aspectRatio, sourceAspectRatio);
@@ -624,25 +583,13 @@ export function RecordingCompositionEditor({
 					</div>
 				</div>
 				<div className="recording-header-right">
-					<div className="recording-aspect-select-wrapper">
-						<select
-							className="recording-aspect-select"
-							value={aspectRatio}
-							onChange={(e) => handleAspectRatioChange(e.target.value as AspectRatio)}
-							title="Preview Aspect Ratio"
-							aria-label="Preview aspect ratio"
-						>
-							<option value="16:9">16:9 Landscape</option>
-							<option value="9:16">9:16 Shorts / Reels</option>
-							<option value="1:1">1:1 Square</option>
-							<option value="4:5">4:5 Portrait</option>
-							<option value="4:3">4:3 Standard</option>
-							<option value="16:10">16:10 Widescreen</option>
-							<option value="native">
-								Native ({pkg.width}×{pkg.height})
-							</option>
-						</select>
-					</div>
+					<span
+						className="recording-badge-meta"
+						aria-label="Canvas dimensions fixed"
+						title="Canvas dimensions are fixed by the current project"
+					>
+						{previewCanvas.width} × {previewCanvas.height}
+					</span>
 					<span className="recording-badge-meta">{(durationMs / 1000).toFixed(1)}s</span>
 				</div>
 			</header>
@@ -832,7 +779,7 @@ export function RecordingCompositionEditor({
 							onWallpaperChange={(path) => update({ wallpaper: path })}
 							activeEffectSection={section}
 							aspectRatio={aspectRatio}
-							onAspectRatioChange={handleAspectRatioChange}
+							canvasDimensionsLocked
 							webcamPreviewSrc={
 								webcamPreview && webcamPreview.path === webcamPath
 									? webcamPreview.url

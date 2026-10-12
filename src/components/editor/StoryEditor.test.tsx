@@ -163,6 +163,8 @@ describe("StoryEditor", () => {
 
 		expect(markup).toContain("TikTok Clip");
 		expect(markup).toContain(`${project.canvas.width} × ${project.canvas.height}`);
+		expect(markup).toContain('aria-label="Canvas aspect ratio, fixed"');
+		expect(markup).not.toContain('aria-label="Canvas Aspect Ratio"');
 		expect(markup).toContain("All Stories");
 		expect(markup).toContain("project-workspace");
 		expect(markup).toContain("Story Media");
@@ -248,7 +250,7 @@ describe("StoryEditor", () => {
 		expect(markup).toContain("Toggle Project Terminal (Ctrl + `)");
 	});
 
-	it("renders pro transport controls and aspect ratio selector", () => {
+	it("renders pro transport controls and fixed Artboard aspect ratio", () => {
 		const project = createTimelineProject("pro-proj", "Pro Project");
 		const controller = new ProjectController(project, async () => ({
 			success: true,
@@ -282,9 +284,10 @@ describe("StoryEditor", () => {
 			),
 		);
 
-		expect(markup).toContain("Canvas Aspect Ratio");
+		expect(markup).toContain('aria-label="Canvas aspect ratio, fixed"');
+		expect(markup).not.toContain('aria-label="Canvas Aspect Ratio"');
 		expect(markup).toContain("16:9 Landscape");
-		expect(markup).toContain("9:16 Shorts/Reels");
+		expect(markup).not.toContain("9:16 Shorts/Reels");
 		expect(markup).toContain("project-transport-timecode");
 		expect(markup).toContain("Jump to Start (Home)");
 		expect(markup).toContain("Step Back 1 Frame (Left Arrow)");

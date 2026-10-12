@@ -9,6 +9,7 @@ import { ClipItemSection, type ClipItemSectionProps } from "./ClipItemSection";
 export interface VideoAdjustSectionProps extends ClipItemSectionProps {
 	aspectRatio?: AspectRatio;
 	onAspectRatioChange?: (ratio: AspectRatio) => void;
+	canvasDimensionsLocked?: boolean;
 	padding?: Padding;
 	onPaddingChange?: (padding: Padding) => void;
 	borderRadius?: number;
@@ -20,6 +21,7 @@ export interface VideoAdjustSectionProps extends ClipItemSectionProps {
 export const VideoAdjustSection: React.FC<VideoAdjustSectionProps> = ({
 	aspectRatio,
 	onAspectRatioChange,
+	canvasDimensionsLocked = false,
 	padding,
 	onPaddingChange,
 	borderRadius = 12,
@@ -47,36 +49,37 @@ export const VideoAdjustSection: React.FC<VideoAdjustSectionProps> = ({
 			{/* Speed controls */}
 			<ClipItemSection tSettings={tSettings} t={t} {...clipProps} />
 
-			{/* Aspect ratio & Framing */}
-			<div className="pt-2 border-t border-foreground/10">
-				<div className="flex items-center justify-between mb-2">
-					<SectionLabel>{tSettings("scene.aspectRatio", "Canvas Ratio")}</SectionLabel>
+			{!canvasDimensionsLocked && (
+				<div className="pt-2 border-t border-foreground/10">
+					<div className="flex items-center justify-between mb-2">
+						<SectionLabel>{tSettings("scene.aspectRatio", "Canvas Ratio")}</SectionLabel>
+					</div>
+					<div className="grid grid-cols-3 gap-1.5">
+						{[
+							{ ratio: "16:9" as const, label: "16:9 (Landscape)" },
+							{ ratio: "9:16" as const, label: "9:16 (Portrait / Reel)" },
+							{ ratio: "1:1" as const, label: "1:1 (Square)" },
+							{ ratio: "4:3" as const, label: "4:3 (Classic)" },
+							{ ratio: "4:5" as const, label: "4:5 (Post)" },
+							{ ratio: "native" as const, label: "Auto (Source)" },
+						].map((opt) => (
+							<button
+								key={opt.ratio}
+								type="button"
+								onClick={() => onAspectRatioChange?.(opt.ratio)}
+								className={cn(
+									"px-2 py-1.5 rounded-lg border text-left text-xs font-semibold transition-all cursor-pointer",
+									aspectRatio === opt.ratio
+										? "border-primary bg-primary/10 text-primary shadow-xs"
+										: "border-foreground/10 bg-foreground/[0.02] text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
+								)}
+							>
+								{opt.label}
+							</button>
+						))}
+					</div>
 				</div>
-				<div className="grid grid-cols-3 gap-1.5">
-					{[
-						{ ratio: "16:9" as const, label: "16:9 (Landscape)" },
-						{ ratio: "9:16" as const, label: "9:16 (Portrait / Reel)" },
-						{ ratio: "1:1" as const, label: "1:1 (Square)" },
-						{ ratio: "4:3" as const, label: "4:3 (Classic)" },
-						{ ratio: "4:5" as const, label: "4:5 (Post)" },
-						{ ratio: "native" as const, label: "Auto (Source)" },
-					].map((opt) => (
-						<button
-							key={opt.ratio}
-							type="button"
-							onClick={() => onAspectRatioChange?.(opt.ratio)}
-							className={cn(
-								"px-2 py-1.5 rounded-lg border text-left text-xs font-semibold transition-all cursor-pointer",
-								aspectRatio === opt.ratio
-									? "border-primary bg-primary/10 text-primary shadow-xs"
-									: "border-foreground/10 bg-foreground/[0.02] text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
-							)}
-						>
-							{opt.label}
-						</button>
-					))}
-				</div>
-			</div>
+			)}
 
 			{/* Padding & Frame Scale */}
 			<div className="pt-2 border-t border-foreground/10">

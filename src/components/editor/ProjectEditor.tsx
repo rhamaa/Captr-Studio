@@ -45,7 +45,6 @@ import {
 import { TimelineProjectExporter } from "@/lib/exporter/timelineProjectExporter";
 import { RecordingCompositionEditor } from "@/recording/editor/RecordingCompositionEditor";
 import { probeMedia } from "@/recording/mediaProbe";
-import type { AspectRatio } from "@/utils/aspectRatioUtils";
 import { HyperframeEditor } from "../hyperframe/HyperframeEditor";
 import { RepurposeBoardEditor } from "../repurpose/RepurposeBoardEditor";
 import type { EditPlan } from "./CopilotSidebar";
@@ -1145,22 +1144,6 @@ export function ProjectEditor(props: ProjectEditorProps) {
 							composition={composition}
 							projectTitle={projectFileName(state.path)}
 							canvas={activeProject.canvas}
-							aspectRatio={
-								(activeArtboard?.aspectRatio &&
-								activeArtboard.aspectRatio !== "custom"
-									? (activeArtboard.aspectRatio as AspectRatio)
-									: null) ??
-								(composition.settings?.aspectRatio as AspectRatio) ??
-								(activeProject.canvas.width === 1080 &&
-								activeProject.canvas.height === 1920
-									? "9:16"
-									: activeProject.canvas.width === activeProject.canvas.height
-										? "1:1"
-										: activeProject.canvas.width === 1080 &&
-												activeProject.canvas.height === 1350
-											? "4:5"
-											: "16:9")
-							}
 							clipTransform={editedClip?.transform}
 							onClipTransformChange={(transform) => {
 								if (editingClipId) {
