@@ -145,6 +145,7 @@ export function AssetLibrary({
 							<AssetCard
 								key={asset.id}
 								asset={asset}
+								recordingPackage={pkg}
 								sourcePath={asset.source?.path ?? pkg?.screen.path}
 								audioPath={pkg?.microphone?.path ?? pkg?.system?.path}
 								selected={asset.id === selectedAssetId}
@@ -173,18 +174,22 @@ export function AssetLibrary({
 						{!storyAssets.length && (
 							<p className="project-assets-empty">No media in this Story</p>
 						)}
-						{storyAssets.map((asset) => (
-							<AssetCard
-								key={asset.id}
-								asset={asset}
-								sourcePath={asset.source?.path}
-								selected={asset.id === selectedAssetId}
-								onPreview={() => onPreview(asset.id)}
-								onPlace={() => onPlace(asset.id)}
-								onRemove={() => onRemoveStoryMedia?.(asset.id)}
-								onPublish={onPublish ? () => onPublish(asset.id) : undefined}
-							/>
-						))}
+						{storyAssets.map((asset) => {
+							const pkg = packages.find((p) => p.id === asset.packageId);
+							return (
+								<AssetCard
+									key={asset.id}
+									asset={asset}
+									recordingPackage={pkg}
+									sourcePath={asset.source?.path ?? pkg?.screen.path}
+									selected={asset.id === selectedAssetId}
+									onPreview={() => onPreview(asset.id)}
+									onPlace={() => onPlace(asset.id)}
+									onRemove={() => onRemoveStoryMedia?.(asset.id)}
+									onPublish={onPublish ? () => onPublish(asset.id) : undefined}
+								/>
+							);
+						})}
 					</div>
 				</>
 			)}

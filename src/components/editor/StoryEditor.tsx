@@ -347,6 +347,11 @@ export function StoryEditor({
 		);
 	}, [rootProject.packages, sourceAsset]);
 
+	const sourcePackage = useMemo(() => {
+		if (!sourceAsset?.packageId) return null;
+		return rootProject.packages.find((pkg) => pkg.id === sourceAsset.packageId) ?? null;
+	}, [rootProject.packages, sourceAsset]);
+
 	const addShape = (kind: ShapeDefinition["kind"]) => {
 		const ids = {
 			clipId: crypto.randomUUID(),
@@ -556,6 +561,7 @@ export function StoryEditor({
 									key={sourceAsset.id}
 									asset={sourceAsset}
 									path={sourcePath ?? ""}
+									recordingPackage={sourcePackage ?? undefined}
 									onError={onError}
 								/>
 							) : durationUs > 0 ? (
