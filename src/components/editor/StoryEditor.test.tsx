@@ -296,9 +296,10 @@ describe("StoryEditor", () => {
 		expect(markup).toContain("Loop Playback: OFF (L)");
 		expect(markup).toContain("Grid &amp; Safe Zones: OFF");
 		expect(markup).toContain("Fullscreen Preview (F)");
-		expect(markup).not.toContain("Preview Zoom");
-		expect(markup).not.toContain("Zoom In");
-		expect(markup).not.toContain("Zoom Out");
+		expect(markup).toContain('aria-label="Zoom in preview"');
+		expect(markup).toContain('aria-label="Zoom out preview"');
+		expect(markup).toContain('aria-label="Reset preview zoom"');
+		expect(markup).toContain('aria-label="Pan preview"');
 		expect(markup).toContain("project-preview-zoom-wrapper");
 	});
 });

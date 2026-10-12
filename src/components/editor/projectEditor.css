@@ -410,6 +410,7 @@
 }
 .project-preview-stage {
 	flex: 1;
+	position: relative;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -5868,8 +5869,7 @@
 
 /* Preview Zoom & Pan Workspace */
 .project-preview-stage.zoomed {
-	cursor: grab;
-	overflow: auto;
+	overflow: hidden;
 }
 
 .project-preview-stage.panning {
@@ -5884,6 +5884,57 @@
 	overflow: hidden;
 	transition: box-shadow 0.2s ease;
 	background: #000;
+}
+
+.story-preview-zoom-controls {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	padding: 2px;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 9px;
+	background: rgba(255, 255, 255, 0.035);
+}
+
+.story-preview-zoom-level {
+	min-width: 38px;
+	font-size: 10px;
+	font-variant-numeric: tabular-nums;
+}
+
+.story-preview-pan-surface {
+	position: absolute;
+	inset: 0;
+	z-index: 30;
+	cursor: grab;
+	touch-action: none;
+	background: transparent;
+}
+
+.story-preview-pan-surface.panning {
+	cursor: grabbing;
+}
+
+.story-preview-fullscreen-stage {
+	position: relative;
+	display: flex;
+	flex: 1;
+	align-items: center;
+	justify-content: center;
+	min-height: 0;
+	padding: 16px;
+	overflow: hidden;
+}
+
+.story-preview-fullscreen-viewport {
+	position: relative;
+	display: flex;
+	width: 100%;
+	height: 100%;
+	max-width: 100%;
+	max-height: 100%;
+	align-items: center;
+	justify-content: center;
 }
 
 .canvas-transform-gizmo-layer {

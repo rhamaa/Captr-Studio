@@ -3,6 +3,9 @@ import {
 	CaretRight,
 	CornersOut,
 	GridFour,
+	Hand,
+	MagnifyingGlassMinus,
+	MagnifyingGlassPlus,
 	Pause,
 	Play,
 	Repeat,
@@ -45,6 +48,24 @@ import { ProjectWelcome } from "./ProjectWelcome";
 import { timelineActionCommand } from "./timelineInteractions";
 import type { ProjectController } from "./useProjectController";
 import { useProjectMessages } from "./useProjectMessages";
+
+const MIN_STORY_PREVIEW_ZOOM = 0.25;
+const MAX_STORY_PREVIEW_ZOOM = 5;
+const STORY_PREVIEW_ZOOM_STEP = 1.2;
+
+interface StoryPreviewViewport {
+	zoom: number;
+	x: number;
+	y: number;
+}
+
+interface StoryPreviewPanStart {
+	pointerId: number;
+	startX: number;
+	startY: number;
+	originX: number;
+	originY: number;
+}
 
 export interface StoryEditorProps {
 	storyProject: TimelineProject;
@@ -188,6 +209,142 @@ export function StoryEditor({
 	const [loopPlayback, setLoopPlayback] = useState(false);
 	const [showGridGuide, setShowGridGuide] = useState(false);
 	const [fullscreenPreview, setFullscreenPreview] = useState(false);
+	const [previewViewport, setPreviewViewport] = useState<StoryPreviewViewport>({
+		zoom: 1,
+		x: 0,
+		y: 0,
+	});
+	const [previewPanMode, setPreviewPanMode] = useState(false);
+	const [previewPanning, setPreviewPanning] = useState(false);
+	const previewPanStartRef = useRef<StoryPreviewPanStart | null>(null);
+	const previewZoomed =
+		Math.abs(previewViewport.zoom - 1) > 0.001 ||
+		Math.abs(previewViewport.x) > 0.5 ||
+		Math.abs(previewViewport.y) > 0.5;
+	const previewTransformStyle: React.CSSProperties = {
+		transform: `translate3d(${previewViewport.x}px, ${previewViewport.y}px, 0) scale(${previewViewport.zoom})`,
+		transformOrigin: "center center",
+		willChange: "transform",
+		transition: previewPanning ? "none" : "transform 120ms ease-out",
+	};
+
+	useEffect(() => {
+		setPreviewViewport({ zoom: 1, x: 0, y: 0 });
+		setPreviewPanMode(false);
+		setPreviewPanning(false);
+		previewPanStartRef.current = null;
+	}, [storyId, storyProject.canvas.height, storyProject.canvas.width, storyProject.projectId]);
+
+	const changePreviewZoom = (
+		factor: number,
+		anchor?: { x: number; y: number },
+	) => {
+		setPreviewViewport((current) => {
+			const zoom = Math.min(
+				MAX_STORY_PREVIEW_ZOOM,
+				Math.max(MIN_STORY_PREVIEW_ZOOM, current.zoom * factor),
+			);
+			const zoomFactor = zoom / current.zoom;
+			const anchorX = anchor?.x ?? 0;
+			const anchorY = anchor?.y ?? 0;
+			return {
+				zoom,
+				x: anchorX - (anchorX - current.x) * zoomFactor,
+				y: anchorY - (anchorY - current.y) * zoomFactor,
+			};
+		});
+	};
+
+	const handlePreviewWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+		event.preventDefault();
+		const rect = event.currentTarget.getBoundingClientRect();
+		changePreviewZoom(Math.exp(-event.deltaY * 0.001), {
+			x: event.clientX - (rect.left + rect.width / 2),
+			y: event.clientY - (rect.top + rect.height / 2),
+		});
+	};
+
+	const handlePreviewPanPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+		if (event.button !== 0) return;
+		event.preventDefault();
+		previewPanStartRef.current = {
+			pointerId: event.pointerId,
+			startX: event.clientX,
+			startY: event.clientY,
+			originX: previewViewport.x,
+			originY: previewViewport.y,
+		};
+		event.currentTarget.setPointerCapture(event.pointerId);
+		setPreviewPanning(true);
+	};
+
+	const handlePreviewPanPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+		const panStart = previewPanStartRef.current;
+		if (!panStart || panStart.pointerId !== event.pointerId) return;
+		setPreviewViewport((current) => ({
+			...current,
+			x: panStart.originX + event.clientX - panStart.startX,
+			y: panStart.originY + event.clientY - panStart.startY,
+		}));
+	};
+
+	const stopPreviewPan = (event: React.PointerEvent<HTMLDivElement>) => {
+		if (previewPanStartRef.current?.pointerId !== event.pointerId) return;
+		previewPanStartRef.current = null;
+		setPreviewPanning(false);
+	};
+
+	const renderPreviewZoomControls = () => (
+		<div
+			className="story-preview-zoom-controls"
+			role="group"
+			aria-label="Preview zoom controls"
+		>
+			<button
+				type="button"
+				className="project-transport-extra-btn"
+				aria-label="Zoom out preview"
+				title="Zoom out preview"
+				disabled={previewViewport.zoom <= MIN_STORY_PREVIEW_ZOOM}
+				onClick={() => changePreviewZoom(1 / STORY_PREVIEW_ZOOM_STEP)}
+			>
+				<MagnifyingGlassMinus size={14} />
+			</button>
+			<button
+				type="button"
+				className="project-transport-extra-btn story-preview-zoom-level"
+				aria-label="Reset preview zoom"
+				title="Reset preview zoom and position"
+				onClick={() => setPreviewViewport({ zoom: 1, x: 0, y: 0 })}
+			>
+				{Math.round(previewViewport.zoom * 100)}%
+			</button>
+			<button
+				type="button"
+				className="project-transport-extra-btn"
+				aria-label="Zoom in preview"
+				title="Zoom in preview"
+				disabled={previewViewport.zoom >= MAX_STORY_PREVIEW_ZOOM}
+				onClick={() => changePreviewZoom(STORY_PREVIEW_ZOOM_STEP)}
+			>
+				<MagnifyingGlassPlus size={14} />
+			</button>
+			<button
+				type="button"
+				className={`project-transport-extra-btn ${previewPanMode ? "active" : ""}`}
+				aria-label="Pan preview"
+				aria-pressed={previewPanMode}
+				title={previewPanMode ? "Pan mode enabled: drag preview to move" : "Pan preview"}
+				onClick={() => {
+					setPreviewPanMode((enabled) => !enabled);
+					setPreviewPanning(false);
+					previewPanStartRef.current = null;
+				}}
+			>
+				<Hand size={14} />
+			</button>
+		</div>
+	);
 
 	const handleDropAssetOnCanvas = (assetId: string, canvasX: number, canvasY: number) => {
 		try {
@@ -513,7 +670,14 @@ export function StoryEditor({
 							</button>
 						)}
 					</header>
-					<div className="project-preview-stage" ref={previewStage}>
+					<div
+						className={`project-preview-stage${previewZoomed ? " zoomed" : ""}${previewPanning ? " panning" : ""}`}
+						ref={previewStage}
+						role="region"
+						aria-label="Story video preview canvas"
+						title="Scroll to zoom; use Pan preview to drag the canvas"
+						onWheel={handlePreviewWheel}
+					>
 						<div
 							className="project-preview-zoom-wrapper"
 							style={{
@@ -526,6 +690,7 @@ export function StoryEditor({
 								alignItems: "center",
 								justifyContent: "center",
 								position: "relative",
+								...previewTransformStyle,
 							}}
 						>
 							{sourceAsset ? (
@@ -586,6 +751,16 @@ export function StoryEditor({
 								</div>
 							)}
 						</div>
+						{previewPanMode && (
+							<div
+								className={`story-preview-pan-surface${previewPanning ? " panning" : ""}`}
+								aria-hidden="true"
+								onPointerDown={handlePreviewPanPointerDown}
+								onPointerMove={handlePreviewPanPointerMove}
+								onPointerUp={stopPreviewPan}
+								onPointerCancel={stopPreviewPan}
+							/>
+						)}
 					</div>
 					<div className="project-preview-transport">
 						<div className="project-transport-timecode">
@@ -677,6 +852,7 @@ export function StoryEditor({
 							</button>
 						</div>
 						<div className="project-transport-extras">
+							{renderPreviewZoomControls()}
 							<button
 								type="button"
 								className={`project-transport-extra-btn ${loopPlayback ? "active" : ""}`}
@@ -808,23 +984,49 @@ export function StoryEditor({
 							{storyName || "Story Preview"} ({storyProject.canvas.width} ×{" "}
 							{storyProject.canvas.height})
 						</span>
-						<button
-							type="button"
-							onClick={() => setFullscreenPreview(false)}
-							className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-							title="Exit Fullscreen (Esc / F)"
+						<div className="flex items-center gap-2">
+							{renderPreviewZoomControls()}
+							<button
+								type="button"
+								onClick={() => setFullscreenPreview(false)}
+								className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+								title="Exit Fullscreen (Esc / F)"
 						>
 							<X size={18} />
 						</button>
+						</div>
 					</div>
-					<div className="flex-1 flex items-center justify-center p-4 min-h-0">
-						<ProjectPreview
-							key={`fullscreen-${openingKey}-${storyId ?? "root"}`}
-							project={storyProject}
-							timeUs={Math.min(playheadUs, Math.max(0, durationUs - 1))}
-							playing={playing && !editingClipId}
-							onError={onError}
-						/>
+					<div
+						className={`story-preview-fullscreen-stage${previewZoomed ? " zoomed" : ""}${previewPanning ? " panning" : ""}`}
+						role="region"
+						aria-label="Fullscreen story video preview canvas"
+						onWheel={handlePreviewWheel}
+					>
+						<div
+							className="story-preview-fullscreen-viewport"
+							style={{
+								aspectRatio: `${storyProject.canvas.width} / ${storyProject.canvas.height}`,
+								...previewTransformStyle,
+							}}
+						>
+							<ProjectPreview
+								key={`fullscreen-${openingKey}-${storyId ?? "root"}`}
+								project={storyProject}
+								timeUs={Math.min(playheadUs, Math.max(0, durationUs - 1))}
+								playing={playing && !editingClipId}
+								onError={onError}
+							/>
+						</div>
+						{previewPanMode && (
+							<div
+								className={`story-preview-pan-surface${previewPanning ? " panning" : ""}`}
+								aria-hidden="true"
+								onPointerDown={handlePreviewPanPointerDown}
+								onPointerMove={handlePreviewPanPointerMove}
+								onPointerUp={stopPreviewPan}
+								onPointerCancel={stopPreviewPan}
+							/>
+						)}
 					</div>
 				</div>
 			)}
