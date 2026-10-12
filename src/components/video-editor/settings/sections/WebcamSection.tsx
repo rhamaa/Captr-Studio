@@ -283,34 +283,36 @@ export const WebcamSection: React.FC<WebcamSectionProps> = ({
 								{webcamFileName ?? tSettings("effects.webcamFootageDescription")}
 							</div>
 						</div>
-						<div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-							<Button
-								type="button"
-								variant="outline"
-								onClick={onUploadWebcam}
-								className="h-7 min-w-0 gap-1.5 border-foreground/10 bg-foreground/5 px-2 text-[10px] text-foreground hover:bg-foreground/10 hover:text-foreground"
-							>
-								<Upload className="h-3 w-3" />
-								<span className="min-w-0 truncate">
-									{webcam?.sourcePath
-										? tSettings("effects.replaceWebcamFootage")
-										: tSettings("effects.uploadWebcamFootage")}
-								</span>
-							</Button>
-							{webcam?.sourcePath ? (
+						{!embeddedInLayout && (
+							<div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
 								<Button
 									type="button"
 									variant="outline"
-									onClick={onClearWebcam}
+									onClick={onUploadWebcam}
 									className="h-7 min-w-0 gap-1.5 border-foreground/10 bg-foreground/5 px-2 text-[10px] text-foreground hover:bg-foreground/10 hover:text-foreground"
 								>
-									<Trash2 className="h-3 w-3" />
+									<Upload className="h-3 w-3" />
 									<span className="min-w-0 truncate">
-										{tSettings("effects.removeWebcamFootage")}
+										{webcam?.sourcePath
+											? tSettings("effects.replaceWebcamFootage")
+											: tSettings("effects.uploadWebcamFootage")}
 									</span>
 								</Button>
-							) : null}
-						</div>
+								{webcam?.sourcePath ? (
+									<Button
+										type="button"
+										variant="outline"
+										onClick={onClearWebcam}
+										className="h-7 min-w-0 gap-1.5 border-foreground/10 bg-foreground/5 px-2 text-[10px] text-foreground hover:bg-foreground/10 hover:text-foreground"
+									>
+										<Trash2 className="h-3 w-3" />
+										<span className="min-w-0 truncate">
+											{tSettings("effects.removeWebcamFootage")}
+										</span>
+									</Button>
+								) : null}
+							</div>
+						)}
 					</div>
 				</div>
 				{renderExtensionPanelsForSections?.("webcam")}
