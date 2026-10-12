@@ -1,6 +1,6 @@
 # Record Editor Frame Appearance and Presets
 
-**Status:** Design approved section by section; awaiting user review of this spec  
+**Status:** Approved by user; implementation plan in progress  
 **Date:** 2026-10-12
 
 ## Problem
