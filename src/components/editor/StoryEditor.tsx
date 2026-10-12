@@ -567,11 +567,10 @@ export function StoryEditor({
 	return (
 		<>
 			<div className={`project-workspace ${copilotOpen ? "with-copilot" : ""}`}>
-				<ProjectToolRail onAddShape={addShape} />
-				<AssetLibrary
-					storyAssets={storyProject.localAssets ?? []}
+				<ProjectToolRail
+					onAddShape={addShape}
 					templates={rootProject.designTemplates ?? []}
-					onCreateText={() => {
+					onAddText={() => {
 						const clipId = crypto.randomUUID();
 						onCommand(
 							(p) =>
@@ -582,7 +581,6 @@ export function StoryEditor({
 							[clipId],
 						);
 					}}
-					onCreateShape={addShape}
 					onApplyTemplate={(id) => {
 						const clipId = crypto.randomUUID();
 						onCommand(
@@ -594,6 +592,9 @@ export function StoryEditor({
 							[clipId],
 						);
 					}}
+				/>
+				<AssetLibrary
+					storyAssets={storyProject.localAssets ?? []}
 					onPublish={(id) =>
 						onProjectCommand?.((root) =>
 							publishStoryMedia(
