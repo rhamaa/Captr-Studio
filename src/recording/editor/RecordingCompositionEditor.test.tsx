@@ -76,6 +76,9 @@ describe("Recording composition settings", () => {
 			}),
 		);
 
+		expect(html).toContain('aria-label="Add overlay"');
+		expect(html).toContain('title="Add overlay · T adds text"');
+		expect(html).not.toContain('title="Add text overlay (T)"');
 		expect(html).toContain('data-show-clip-row="false"');
 		expect(html).toContain('data-show-source-audio-track="true"');
 		expect(html).toContain('data-microphone-audio-path="microphone.wav"');

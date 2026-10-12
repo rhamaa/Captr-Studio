@@ -14,6 +14,13 @@ import {
 } from "@phosphor-icons/react";
 import { type ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ProjectPreview } from "@/components/editor/ProjectPreview";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { setAnnotationPositionKeyframe } from "@/components/video-editor/annotationKeyframes";
 import { SettingsPanel } from "@/components/video-editor/SettingsPanel";
 import { ZOOM_DEPTH_OPTIONS } from "@/components/video-editor/settings/sections/ZoomItemSection";
 import {
@@ -35,7 +42,9 @@ function formatTimecode(seconds: number): string {
 }
 
 import type {
+	AnnotationPosition,
 	AnnotationRegion,
+	AnnotationType,
 	EditorEffectSection,
 	LayoutRegion,
 	PlaybackSpeed,
@@ -48,6 +57,7 @@ import { localMediaUrl } from "../mediaProbe";
 import type { RecordComposition, RecordingPackage, RecordingSettings } from "../types";
 import { changeRecordingSettings, resolveRecordingSettings } from "./compositionAdapter";
 import { playbackOutputTimeUs } from "./playbackClock";
+import { RecordingOverlayHandles } from "./RecordingOverlayHandles";
 
 export interface RecordingCompositionEditorProps {
 	package: RecordingPackage;
@@ -56,12 +66,25 @@ export interface RecordingCompositionEditorProps {
 	canvas?: { width: number; height: number; fps?: number };
 	aspectRatio?: AspectRatio;
 	clipTransform?: { x: number; y: number; scale: number; rotation: number; opacity: number };
-	onClipTransformChange?: (transform: { x: number; y: number; scale: number; rotation: number; opacity: number }) => void;
+	onClipTransformChange?: (transform: {
+		x: number;
+		y: number;
+		scale: number;
+		rotation: number;
+		opacity: number;
+	}) => void;
 	onAspectRatioChange?: (ratio: AspectRatio) => void;
 	onChange: (next: RecordComposition) => void;
 	onClose: () => void;
 }
 type PanelProps = ComponentProps<typeof SettingsPanel>;
+const RECORDING_OVERLAY_TYPES = [
+	{ label: "Text", type: "text" },
+	{ label: "Image", type: "image" },
+	{ label: "Arrow", type: "figure" },
+	{ label: "Blur", type: "blur" },
+] as const satisfies { label: string; type: AnnotationType }[];
+
 const settingCallbacks: Partial<Record<keyof RecordingSettings, keyof PanelProps>> = {
 	wallpaper: "onWallpaperChange",
 	shadowIntensity: "onShadowChange",
@@ -179,6 +202,11 @@ export function RecordingCompositionEditor({
 	const [sourceUrl, setSourceUrl] = useState(""),
 		[playing, setPlaying] = useState(false),
 		[sourceSeconds, setSourceSeconds] = useState(0),
+		[overlayPositionPreview, setOverlayPositionPreview] = useState<{
+			id: string;
+			position: AnnotationPosition;
+			keyframeId: string;
+		} | null>(null),
 		[section, setSection] = useState<RecordingSection>("scene"),
 		[selectedZoomId, setSelectedZoomId] = useState<string | null>(null),
 		[selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null),
@@ -187,6 +215,9 @@ export function RecordingCompositionEditor({
 	const webcamPath = pkg.webcam?.path;
 	const [webcamPreview, setWebcamPreview] = useState<{ path: string; url: string } | null>(null);
 	const timeline = useRef<RecordingTimelineHandle>(null);
+	const pendingOverlayType = useRef<AnnotationType | null>(null);
+	const currentMs = Math.round(sourceSeconds * 1000),
+		durationMs = pkg.durationUs / 1000;
 	useEffect(() => {
 		let active = true;
 		void localMediaUrl(pkg.screen.path)
@@ -216,9 +247,36 @@ export function RecordingCompositionEditor({
 			active = false;
 		};
 	}, [webcamPath]);
+	const previewComposition = useMemo(() => {
+		if (!overlayPositionPreview) return composition;
+		const active = settings.annotationRegions.find(
+			(annotation) => annotation.id === overlayPositionPreview.id,
+		);
+		if (!active) return composition;
+		const keyframes = setAnnotationPositionKeyframe(
+			active,
+			overlayPositionPreview.position,
+			currentMs,
+			overlayPositionPreview.keyframeId,
+		);
+		return changeRecordingSettings(pkg, composition, {
+			annotationRegions: settings.annotationRegions.map((annotation) =>
+				annotation.id === active.id ? { ...annotation, keyframes } : annotation,
+			),
+		});
+	}, [composition, currentMs, overlayPositionPreview, pkg, settings.annotationRegions]);
 	const previewProject = useMemo(
-		() => recordingPreviewProject(pkg, composition, previewCanvas, currentTransform),
-		[pkg, composition, previewCanvas, currentTransform],
+		() => recordingPreviewProject(pkg, previewComposition, previewCanvas, currentTransform),
+		[pkg, previewComposition, previewCanvas, currentTransform],
+	);
+	const timelineAnnotations = useMemo(
+		() =>
+			settings.annotationRegions.map((annotation, index) =>
+				annotation.name?.trim()
+					? annotation
+					: { ...annotation, name: `Overlay ${index + 1}` },
+			),
+		[settings.annotationRegions],
 	);
 	const clipName = useMemo(() => {
 		const p = pkg.screen.path;
@@ -322,19 +380,28 @@ export function RecordingCompositionEditor({
 			})),
 		});
 	};
-	const addAnnotation = (startMs: number, endMs: number, trackIndex = 0) => {
+	const addAnnotation = (
+		startMs: number,
+		endMs: number,
+		trackIndex = 0,
+		type: AnnotationType = "text",
+	) => {
 		const id = crypto.randomUUID();
+		const number = settings.annotationRegions.length + 1;
+		const textContent = type === "text" ? "Text" : "";
 		update({
 			annotationRegions: [
 				...settings.annotationRegions,
 				{
 					id,
+					name: `Overlay ${number}`,
 					startMs,
 					endMs,
-					type: "text",
-					content: "Text",
+					type,
+					content: textContent,
+					textContent: type === "text" ? textContent : undefined,
 					position: { x: 50, y: 50 },
-					size: { width: 40, height: 15 },
+					size: type === "text" ? { width: 40, height: 15 } : { width: 25, height: 25 },
 					style: {
 						fontSize: 48,
 						fontFamily: "Inter",
@@ -346,6 +413,11 @@ export function RecordingCompositionEditor({
 						borderRadius: 0,
 						textAlign: "center",
 					},
+					figureData:
+						type === "figure"
+							? { arrowDirection: "right", color: "#ff4d6d", strokeWidth: 6 }
+							: undefined,
+					blurIntensity: type === "blur" ? 16 : undefined,
 					zIndex: settings.annotationRegions.length + 1,
 					trackIndex,
 				},
@@ -353,8 +425,10 @@ export function RecordingCompositionEditor({
 		});
 		setSelectedAnnotationId(id);
 	};
-	const currentMs = Math.round(sourceSeconds * 1000),
-		durationMs = pkg.durationUs / 1000;
+	const addOverlayAtTimelineSelection = useCallback((type: AnnotationType) => {
+		pendingOverlayType.current = type;
+		timeline.current?.addAnnotation();
+	}, []);
 
 	const handleCutAtPlayhead = useCallback(() => {
 		const startMs = Math.max(0, currentMs);
@@ -455,7 +529,7 @@ export function RecordingCompositionEditor({
 
 			if (e.key.toLowerCase() === "t" && !e.ctrlKey && !e.metaKey && !e.altKey) {
 				e.preventDefault();
-				timeline.current?.addAnnotation();
+				addOverlayAtTimelineSelection("text");
 				return;
 			}
 
@@ -504,6 +578,7 @@ export function RecordingCompositionEditor({
 		update,
 		handleAddZoomAtCurrent,
 		handleCutAtPlayhead,
+		addOverlayAtTimelineSelection,
 	]);
 	const addSpeed = (speed: PlaybackSpeed) => {
 		const startMs = Math.max(0, currentMs),
@@ -599,6 +674,28 @@ export function RecordingCompositionEditor({
 								onUpdateClipTransform={(_, nextTransform) => {
 									setCurrentTransform(nextTransform);
 									onClipTransformChange?.(nextTransform);
+								}}
+							/>
+							<RecordingOverlayHandles
+								annotations={settings.annotationRegions}
+								currentMs={currentMs}
+								playing={playing}
+								selectedAnnotationId={selectedAnnotationId}
+								onSelect={setSelectedAnnotationId}
+								onPreviewPosition={setOverlayPositionPreview}
+								onCommitPosition={(id, position, keyframeId) => {
+									const annotation = settings.annotationRegions.find(
+										(candidate) => candidate.id === id,
+									);
+									if (!annotation) return;
+									updateAnnotation(id, {
+										keyframes: setAnnotationPositionKeyframe(
+											annotation,
+											position,
+											currentMs,
+											keyframeId,
+										),
+									});
 								}}
 							/>
 						</div>
@@ -860,16 +957,30 @@ export function RecordingCompositionEditor({
 							<span>Zoom</span>
 							<kbd className="recording-tb-kbd">Z</kbd>
 						</button>
-						<button
-							type="button"
-							className="recording-tb-btn"
-							onClick={() => timeline.current?.addAnnotation()}
-							title="Add text overlay (T)"
-						>
-							<Plus size={13} weight="bold" />
-							<span>Text</span>
-							<kbd className="recording-tb-kbd">T</kbd>
-						</button>
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<button
+									type="button"
+									className="recording-tb-btn"
+									aria-label="Add overlay"
+									title="Add overlay · T adds text"
+								>
+									<Plus size={13} weight="bold" />
+									<span>Overlay</span>
+									<kbd className="recording-tb-kbd">T</kbd>
+								</button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="start" aria-label="Overlay types">
+								{RECORDING_OVERLAY_TYPES.map(({ label, type }) => (
+									<DropdownMenuItem
+										key={type}
+										onSelect={() => addOverlayAtTimelineSelection(type)}
+									>
+										{label}
+									</DropdownMenuItem>
+								))}
+							</DropdownMenuContent>
+						</DropdownMenu>
 						<button
 							type="button"
 							className="recording-tb-btn"
@@ -900,7 +1011,7 @@ export function RecordingCompositionEditor({
 					<div className="recording-timeline-tools-right">
 						<span className="recording-tb-hint">
 							<kbd>Space</kbd> Play · <kbd>S</kbd> Cut · <kbd>Z</kbd> Zoom ·{" "}
-							<kbd>T</kbd> Text · <kbd>Esc</kbd> Back
+							<kbd>T</kbd> Text overlay · <kbd>Esc</kbd> Back
 						</span>
 					</div>
 				</div>
@@ -1087,10 +1198,14 @@ export function RecordingCompositionEditor({
 					onLayoutDelete={(id) =>
 						update({ layoutRegions: settings.layoutRegions.filter((l) => l.id !== id) })
 					}
-					annotationRegions={settings.annotationRegions}
+					annotationRegions={timelineAnnotations}
 					selectedAnnotationId={selectedAnnotationId}
 					onSelectAnnotation={setSelectedAnnotationId}
-					onAnnotationAdded={(span, track) => addAnnotation(span.start, span.end, track)}
+					onAnnotationAdded={(span, track) => {
+						const type = pendingOverlayType.current ?? "text";
+						pendingOverlayType.current = null;
+						addAnnotation(span.start, span.end, track, type);
+					}}
 					onAnnotationSpanChange={(id, span, trackIndex) =>
 						updateAnnotation(id, { startMs: span.start, endMs: span.end, trackIndex })
 					}
@@ -1110,7 +1225,7 @@ export function RecordingCompositionEditor({
 				<span>{clipName}</span>
 				<span>{(durationMs / 1000).toFixed(2)}s duration</span>
 				<span>{settings.zoomRegions.length} zoom regions</span>
-				<span>{settings.annotationRegions.length} text overlays</span>
+				<span>{settings.annotationRegions.length} overlays</span>
 			</footer>
 		</section>
 	);
