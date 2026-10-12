@@ -787,6 +787,9 @@ export function RecordingCompositionEditor({
 							}
 							webcamPreviewCurrentTime={sourceSeconds}
 							webcamPreviewPlaying={playing}
+							scenePreviewSrc={sourceUrl || null}
+							scenePreviewCurrentTime={sourceSeconds}
+							scenePreviewPlaying={playing}
 							selectedZoomId={selectedZoomId}
 							selectedZoomDepth={selectedZoom?.depth}
 							selectedZoomMode={selectedZoom?.mode}

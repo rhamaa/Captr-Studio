@@ -211,6 +211,9 @@ interface SettingsPanelProps {
 	webcamPreviewSrc?: string | null;
 	webcamPreviewCurrentTime?: number;
 	webcamPreviewPlaying?: boolean;
+	scenePreviewSrc?: string | null;
+	scenePreviewCurrentTime?: number;
+	scenePreviewPlaying?: boolean;
 	onWebcamChange?: (webcam: WebcamOverlaySettings) => void;
 	onUploadWebcam?: () => void;
 	onClearWebcam?: () => void;
@@ -350,6 +353,9 @@ export function SettingsPanel({
 	webcamPreviewSrc = null,
 	webcamPreviewCurrentTime = 0,
 	webcamPreviewPlaying = false,
+	scenePreviewSrc = null,
+	scenePreviewCurrentTime = 0,
+	scenePreviewPlaying = false,
 	onWebcamChange,
 	onUploadWebcam,
 	onClearWebcam,
@@ -786,6 +792,9 @@ export function SettingsPanel({
 			onFrameChange={onFrameChange}
 			cropRegion={cropRegion}
 			onCropChange={onCropChange}
+			previewSrc={scenePreviewSrc}
+			previewCurrentTime={scenePreviewCurrentTime}
+			previewPlaying={scenePreviewPlaying}
 			aspectRatio={aspectRatio}
 			onAspectRatioChange={onAspectRatioChange}
 			canvasDimensionsLocked={canvasDimensionsLocked}

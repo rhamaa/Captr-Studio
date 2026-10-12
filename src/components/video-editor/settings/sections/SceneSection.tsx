@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { DynamicPatternCanvas } from "@/components/video-editor/DynamicPatternCanvas";
+import { WebcamCropControl } from "@/components/video-editor/WebcamCropControl";
 import {
 	DEFAULT_DYNAMIC_BACKGROUND_SETTINGS,
 	type DynamicBackgroundPattern,
@@ -50,6 +51,9 @@ export interface SceneSectionProps {
 	onFrameChange?: (frame: string | null) => void;
 	cropRegion?: CropRegion;
 	onCropChange?: (crop: CropRegion) => void;
+	previewSrc?: string | null;
+	previewCurrentTime?: number;
+	previewPlaying?: boolean;
 	aspectRatio?: AspectRatio;
 	onAspectRatioChange?: (ratio: AspectRatio) => void;
 	canvasDimensionsLocked?: boolean;
@@ -87,6 +91,9 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 	onFrameChange,
 	cropRegion,
 	onCropChange,
+	previewSrc = null,
+	previewCurrentTime = 0,
+	previewPlaying = false,
 	aspectRatio,
 	onAspectRatioChange,
 	canvasDimensionsLocked = false,
@@ -361,25 +368,6 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 	const cropBottom = Math.round((1 - crop.y - crop.height) * 100);
 	const cropRight = Math.round((1 - crop.x - crop.width) * 100);
 	const isCropped = cropTop > 0 || cropBottom > 0 || cropLeft > 0 || cropRight > 0;
-
-	const setCropInset = (side: "top" | "bottom" | "left" | "right", pct: number) => {
-		const val = Math.max(0, Math.min(50, pct)) / 100;
-		let { x, y, width, height } = crop;
-		if (side === "top") {
-			const bottomInset = 1 - y - height;
-			y = val;
-			height = Math.max(0.1, 1 - y - bottomInset);
-		} else if (side === "bottom") {
-			height = Math.max(0.1, 1 - y - val);
-		} else if (side === "left") {
-			const rightInset = 1 - x - width;
-			x = val;
-			width = Math.max(0.1, 1 - x - rightInset);
-		} else if (side === "right") {
-			width = Math.max(0.1, 1 - x - val);
-		}
-		onCropChange?.({ x, y, width, height });
-	};
 
 	const resetBackgroundSection = () => {
 		onWallpaperChange?.(initialEditorPreferences.wallpaper);
@@ -1062,7 +1050,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 			{/* Crop Section */}
 			<section className="flex flex-col gap-2 pt-2 border-t border-foreground/[0.06]">
 				<div className="flex items-center justify-between gap-3">
-					<SectionLabel>{tSettings("sections.crop", "Crop Inset")}</SectionLabel>
+					<SectionLabel>{tSettings("sections.crop", "Crop")}</SectionLabel>
 					{isCropped && (
 						<button
 							type="button"
@@ -1073,52 +1061,14 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 						</button>
 					)}
 				</div>
-				<div className="flex flex-col gap-1.5">
-					<SliderControl
-						label={tSettings("crop.top", "Top")}
-						value={cropTop}
-						defaultValue={0}
-						min={0}
-						max={50}
-						step={1}
-						onChange={(v: number) => setCropInset("top", v)}
-						formatValue={(v: number) => `${Math.round(v)}%`}
-						parseInput={(text: string) => parseFloat(text.replace(/%$/, "")) || 0}
-					/>
-					<SliderControl
-						label={tSettings("crop.bottom", "Bottom")}
-						value={cropBottom}
-						defaultValue={0}
-						min={0}
-						max={50}
-						step={1}
-						onChange={(v: number) => setCropInset("bottom", v)}
-						formatValue={(v: number) => `${Math.round(v)}%`}
-						parseInput={(text: string) => parseFloat(text.replace(/%$/, "")) || 0}
-					/>
-					<SliderControl
-						label={tSettings("crop.left", "Left")}
-						value={cropLeft}
-						defaultValue={0}
-						min={0}
-						max={50}
-						step={1}
-						onChange={(v: number) => setCropInset("left", v)}
-						formatValue={(v: number) => `${Math.round(v)}%`}
-						parseInput={(text: string) => parseFloat(text.replace(/%$/, "")) || 0}
-					/>
-					<SliderControl
-						label={tSettings("crop.right", "Right")}
-						value={cropRight}
-						defaultValue={0}
-						min={0}
-						max={50}
-						step={1}
-						onChange={(v: number) => setCropInset("right", v)}
-						formatValue={(v: number) => `${Math.round(v)}%`}
-						parseInput={(text: string) => parseFloat(text.replace(/%$/, "")) || 0}
-					/>
-				</div>
+				<WebcamCropControl
+					cropRegion={crop}
+					previewSrc={previewSrc}
+					previewCurrentTime={previewCurrentTime}
+					previewPlaying={previewPlaying}
+					syncAspectRatio={false}
+					onCropChange={(nextCrop) => onCropChange?.(nextCrop)}
+				/>
 			</section>
 
 			{/* Extension Panels (if any) */}

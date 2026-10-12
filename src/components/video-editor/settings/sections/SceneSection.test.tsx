@@ -60,4 +60,31 @@ describe("SceneSection dynamic background", () => {
 		expect(html).toContain("Orbit");
 		expect(html).toContain('aria-label="Dynamic background pattern"');
 	});
+
+	it("shows a draggable crop frame over the scene preview", () => {
+		const html = renderToStaticMarkup(
+			<SceneSection
+				selected=""
+				backgroundBlur={0}
+				cropRegion={{ x: 0.1, y: 0.1, width: 0.8, height: 0.8 }}
+				onCropChange={vi.fn()}
+				previewSrc="screen-preview.mp4"
+				initialEditorPreferences={{} as EditorPreferences}
+				builtInWallpapers={[]}
+				builtInWallpaperPaths={[]}
+				wallpaperPreviewPaths={[]}
+				extensionWallpapers={[]}
+				extensionWallpaperPaths={[]}
+				extensionWallpaperPreviewUrls={{}}
+				colorPalette={[]}
+				availableFrames={[]}
+				tSettings={(_key, fallback) => fallback ?? ""}
+				t={(_key, fallback) => fallback ?? ""}
+			/>,
+		);
+
+		expect(html).toContain('src="screen-preview.mp4"');
+		expect(html).toContain('aria-label="Move crop selection"');
+		expect(html).toContain('aria-label="Resize crop selection from bottom right"');
+	});
 });
