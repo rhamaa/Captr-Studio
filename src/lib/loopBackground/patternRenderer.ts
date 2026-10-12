@@ -108,7 +108,7 @@ function buildFilmGrain(settings: PatternRenderSettings, phase: number): Pattern
 			y: baseY + Math.sin(angle) * jitter,
 			radius: Math.max(0.4, (0.45 + random() * 0.8) * scale),
 			color: settings.accentColor,
-			opacity: 0.12 + (Math.sin(angle * 1.7 + offset) + 1) * 0.28,
+			opacity: 0.12 + (Math.sin(angle * 2 + offset) + 1) * 0.28,
 		});
 	}
 	return primitives;
