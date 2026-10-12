@@ -14,19 +14,31 @@ import { fixtureClip, fixtureText, fixtureTrack } from "@/core/timeline/storyOwn
 import type { ClipTransitionPreset, ShapeDefinition, TimelineProject } from "@/core/timeline/types";
 import { TimelineProjectExporter } from "./timelineProjectExporter";
 
+const compositorFactory = vi.hoisted(() => ({ make: null as ((config: any) => any) | null }));
 const configs = vi.hoisted(() => [] as any[]);
 const videoFrames = vi.hoisted(() => [] as any[]);
 const renderedCanvases = vi.hoisted(() => [] as any[]);
 const recordFrames = vi.hoisted(() => [] as any[][]);
 vi.mock("./frameRenderer", () => ({
 	FrameRenderer: class {
+		compositor: any;
 		constructor(config: any) {
 			configs.push(config);
+			this.compositor = compositorFactory.make?.(config);
 		}
 		async initialize() {}
-		async renderFrame(...args: any[]) { recordFrames.push(args); }
+		async renderFrame(...args: any[]) {
+			recordFrames.push(args);
+			this.compositor?.renderFrame(...args);
+		}
 		getCanvas() {
-			return { width: 100, height: 100, marker: "record-effect-frame" };
+			return (
+				this.compositor?.getCanvas() ?? {
+					width: 100,
+					height: 100,
+					marker: "record-effect-frame",
+				}
+			);
 		}
 		setProjectWebcamFrame() {}
 		destroy() {}
@@ -35,7 +47,9 @@ vi.mock("./frameRenderer", () => ({
 vi.mock("./layerVideoSource", () => ({
 	LayerVideoSource: class {
 		path = "";
-		async load(path: string) { this.path = path; }
+		async load(path: string) {
+			this.path = path;
+		}
 		async frame(timeSec: number, options?: unknown) {
 			videoFrames.push({ timeSec, options });
 			return { width: 2, height: 2, marker: `video:${this.path}:${timeSec}` };
@@ -48,6 +62,7 @@ import { ProjectFrameRenderer } from "./projectFrameRenderer";
 
 afterEach(() => {
 	vi.unstubAllGlobals();
+	compositorFactory.make = null;
 	configs.length = 0;
 	videoFrames.length = 0;
 	renderedCanvases.length = 0;
@@ -59,6 +74,12 @@ function installCanvas() {
 		const canvas: any = { width: 0, height: 0, marker: "canvas" };
 		const context: any = {
 			operations: [],
+			canvas,
+			filter: "none",
+			shadowColor: "transparent",
+			shadowBlur: 0,
+			shadowOffsetX: 0,
+			shadowOffsetY: 0,
 			globalAlpha: 1,
 			globalCompositeOperation: "source-over",
 			fillStyle: "#000",
@@ -67,33 +88,88 @@ function installCanvas() {
 			font: "",
 			textAlign: "center",
 			textBaseline: "middle",
-				record(name: string, ...args: unknown[]) {
-				this.operations.push({ name, args, alpha: this.globalAlpha, composite: this.globalCompositeOperation, fill: this.fillStyle, stroke: this.strokeStyle, lineWidth: this.lineWidth,
-					...(name === "fillText" ? { font: this.font, align: this.textAlign } : {}) });
+			record(name: string, ...args: unknown[]) {
+				this.operations.push({
+					name,
+					args,
+					alpha: this.globalAlpha,
+					composite: this.globalCompositeOperation,
+					fill: this.fillStyle,
+					stroke: this.strokeStyle,
+					lineWidth: this.lineWidth,
+					filter: this.filter,
+					shadowColor: this.shadowColor,
+					shadowBlur: this.shadowBlur,
+					shadowOffsetX: this.shadowOffsetX,
+					shadowOffsetY: this.shadowOffsetY,
+					...(name === "fillText" ? { font: this.font, align: this.textAlign } : {}),
+				});
 			},
-			fillRect(...args: unknown[]) { this.record("fillRect", ...args); },
-			strokeRect(...args: unknown[]) { this.record("strokeRect", ...args); },
-			beginPath() { this.record("beginPath"); },
-			closePath() { this.record("closePath"); },
-			ellipse(...args: unknown[]) { this.record("ellipse", ...args); },
-			moveTo(...args: unknown[]) { this.record("moveTo", ...args); },
-			lineTo(...args: unknown[]) { this.record("lineTo", ...args); },
-			fill() { this.record("fill"); },
-			stroke() { this.record("stroke"); },
-			save() { this.record("save"); },
-			restore() { this.record("restore"); },
-			translate(...args: unknown[]) { this.record("translate", ...args); },
-			rotate(...args: unknown[]) { this.record("rotate", ...args); },
-			scale(...args: unknown[]) { this.record("scale", ...args); },
-			drawImage(source: any, ...args: unknown[]) { this.record("drawImage", source?.marker ?? source, ...args); },
-			clearRect(...args: unknown[]) { this.record("clearRect", ...args); },
-			fillText(...args: unknown[]) { this.record("fillText", ...args); },
-			rect(...args: unknown[]) { this.record("rect", ...args); },
-			clip() { this.record("clip"); },
+			fillRect(...args: unknown[]) {
+				this.record("fillRect", ...args);
+			},
+			strokeRect(...args: unknown[]) {
+				this.record("strokeRect", ...args);
+			},
+			beginPath() {
+				this.record("beginPath");
+			},
+			roundRect(...args: unknown[]) {
+				this.record("roundRect", ...args);
+			},
+			closePath() {
+				this.record("closePath");
+			},
+			ellipse(...args: unknown[]) {
+				this.record("ellipse", ...args);
+			},
+			moveTo(...args: unknown[]) {
+				this.record("moveTo", ...args);
+			},
+			lineTo(...args: unknown[]) {
+				this.record("lineTo", ...args);
+			},
+			fill() {
+				this.record("fill");
+			},
+			stroke() {
+				this.record("stroke");
+			},
+			save() {
+				this.record("save");
+			},
+			restore() {
+				this.record("restore");
+			},
+			translate(...args: unknown[]) {
+				this.record("translate", ...args);
+			},
+			rotate(...args: unknown[]) {
+				this.record("rotate", ...args);
+			},
+			scale(...args: unknown[]) {
+				this.record("scale", ...args);
+			},
+			drawImage(source: any, ...args: unknown[]) {
+				this.record("drawImage", source?.marker ?? source, ...args);
+			},
+			clearRect(...args: unknown[]) {
+				this.record("clearRect", ...args);
+			},
+			fillText(...args: unknown[]) {
+				this.record("fillText", ...args);
+			},
+			rect(...args: unknown[]) {
+				this.record("rect", ...args);
+			},
+			clip() {
+				this.record("clip");
+			},
 			getImageData() {
 				const marker = JSON.stringify(this.operations.slice(this.lastFrameStart ?? 0));
 				const data = new Uint8ClampedArray(16);
-				for (let i = 0; i < Math.min(marker.length, data.length); i++) data[i] = marker.charCodeAt(i);
+				for (let i = 0; i < Math.min(marker.length, data.length); i++)
+					data[i] = marker.charCodeAt(i);
 				return { data };
 			},
 		};
@@ -103,7 +179,12 @@ function installCanvas() {
 		return canvas;
 	};
 	vi.stubGlobal("document", { createElement: () => makeCanvas() });
-	vi.stubGlobal("VideoFrame", class { close() {} });
+	vi.stubGlobal(
+		"VideoFrame",
+		class {
+			close() {}
+		},
+	);
 	vi.stubGlobal("HTMLVideoElement", class {});
 	vi.stubGlobal("HTMLImageElement", class {});
 	return () => renderedCanvases;
@@ -396,4 +477,176 @@ it.each([0.5, 2])("renders mapped Record and cursor clocks before Story effects 
 	}
 	expect(evaluateProject(project, 8_000_000 / rate).visuals).toEqual([]);
 	renderer.destroy();
+});
+
+it("preserves the legacy marker despite resolved default appearances", async () => {
+	installCanvas();
+	const project = placeAsset(
+		registerRecording(
+			createTimelineProject("legacy-record", "Legacy"),
+			{
+				captureId: "r",
+				name: "R",
+				durationUs: 1_000_000,
+				width: 100,
+				height: 100,
+				screen: { path: "screen.mp4", durationUs: 1_000_000, offsetUs: 0 },
+				settings: { borderRadius: 31 },
+			},
+			{ assetId: "r", packageId: "pkg" },
+		),
+		"r",
+		"visual-1",
+		0,
+		{ clipId: "c", compositionId: "comp" },
+	);
+	const evaluation = evaluateProject(project, 0);
+	expect(evaluation.visuals[0].recording?.settings.frameAppearances.window.cornerRadius).toBe(31);
+	const renderer = new ProjectFrameRenderer();
+	await renderer.render(evaluation);
+	expect(configs[0].legacyFrameAppearances).toBe(true);
+	expect(configs[0].borderRadius).toBe(31);
+	renderer.destroy();
+});
+it("same Record composition and time carry identical appearances through preview and encoder export", async () => {
+	installCanvas();
+	const { FrameRenderer: RealFrameRenderer } =
+		await vi.importActual<typeof import("./frameRenderer")>("./frameRenderer");
+	const compositorFrames: any[][] = [];
+	vi.stubGlobal("HTMLMediaElement", { HAVE_CURRENT_DATA: 2 });
+	compositorFactory.make = (config) => {
+		const renderer: any = new RealFrameRenderer(config);
+		const canvas: any = document.createElement("canvas");
+		canvas.width = config.width;
+		canvas.height = config.height;
+		// Accurate Canvas save/restore is necessary to test independent opacity/filter state.
+		const stack: any[] = [];
+		const ctx = canvas.context;
+		const stateKeys = [
+			"globalAlpha",
+			"filter",
+			"fillStyle",
+			"strokeStyle",
+			"lineWidth",
+			"shadowColor",
+			"shadowBlur",
+			"shadowOffsetX",
+			"shadowOffsetY",
+		];
+		ctx.save = () => stack.push(Object.fromEntries(stateKeys.map((key) => [key, ctx[key]])));
+		ctx.restore = () => Object.assign(ctx, stack.pop());
+		const source: any = document.createElement("canvas");
+		source.width = config.width;
+		source.height = config.height;
+		source.marker = "screen-pixels";
+		const background: any = document.createElement("canvas");
+		background.marker = "background-pixels";
+		renderer.compositeCanvas = canvas;
+		renderer.compositeCtx = ctx;
+		renderer.backgroundSprite = background;
+		renderer.app = { canvas: source };
+		renderer.layoutCache = {
+			maskRect: { x: 100, y: 100, width: config.width - 200, height: config.height - 200 },
+		};
+		renderer.animationState = { appliedScale: 1, x: 0, y: 0 };
+		renderer.webcamVideoElement = {
+			readyState: 2,
+			videoWidth: 640,
+			videoHeight: 480,
+			currentTime: 0,
+			seeking: false,
+			marker: "webcam-pixels",
+		};
+		return {
+			renderFrame(_frame: unknown, timeUs: number) {
+				renderer.currentVideoTime = timeUs / 1_000_000;
+				const start = ctx.operations.length;
+				renderer.compositeWithShadows();
+				compositorFrames.push(ctx.operations.slice(start));
+			},
+			getCanvas: () => renderer.getCanvas(),
+		};
+	};
+	const appearance = {
+		framePadding: 12,
+		borderWidth: 4,
+		borderColor: "#123456",
+		borderOpacity: 0.6,
+		cornerRadius: 20,
+		surfaceColor: "#ffffff",
+		surfaceOpacity: 0.2,
+		backdropBlur: 8,
+		shadow: { color: "#101010", opacity: 0.5, blur: 14, offsetX: 3, offsetY: 5 },
+	};
+	let project = placeAsset(
+		registerRecording(
+			createTimelineProject("record-parity", "Record parity"),
+			{
+				captureId: "r",
+				name: "R",
+				durationUs: 1_000_000,
+				width: 100,
+				height: 100,
+				screen: { path: "screen.mp4", durationUs: 1_000_000, offsetUs: 0 },
+				settings: {},
+			},
+			{ assetId: "r", packageId: "pkg" },
+		),
+		"r",
+		"visual-1",
+		0,
+		{ clipId: "c", compositionId: "comp" },
+	);
+	project = updateComposition(project, "comp", {
+		...project.compositions[0],
+		settings: {
+			webcam: { enabled: true },
+			frameAppearances: {
+				window: appearance,
+				webcam: { ...appearance, framePadding: 5, borderColor: "#abcdef" },
+			},
+		},
+	});
+	const preview = new ProjectFrameRenderer();
+	await preview.render(evaluateProject(project, 500_000), { continuousPlayback: true });
+	const previewConfig = structuredClone(configs[0]);
+	preview.destroy();
+	const previewOperations = compositorFrames[0];
+	let exportedOperations: any[] = [];
+	const exporter = new TimelineProjectExporter({
+		renderer: () => {
+			const renderer = new ProjectFrameRenderer();
+			return {
+				render: async (evaluation) => {
+					const canvas: any = await renderer.render(evaluation);
+					if (evaluation.timeUs === 500_000)
+						exportedOperations = compositorFrames.at(-1)!;
+					return canvas;
+				},
+				destroy: () => renderer.destroy(),
+			};
+		},
+		audio: async () => null,
+		api: {
+			nativeVideoExportStart: async () => ({ success: true, sessionId: "parity" }),
+			nativeVideoExportWriteFrame: async () => ({ success: true }),
+			nativeVideoExportFinish: async () => ({ success: true, tempPath: "temp.mp4" }),
+			finalizeExportedVideo: async () => ({ success: true, path: "out.mp4" }),
+		} as any,
+	});
+	expect(
+		(await exporter.export(refreshStoryProjections(project), { outputPath: "out.mp4", fps: 2 }))
+			.success,
+	).toBe(true);
+	expect(configs[1].frameAppearances).toEqual(previewConfig.frameAppearances);
+	expect(configs[1].legacyFrameAppearances).toBe(false);
+	expect(configs[1].frameAppearances.window.borderColor).toBe("#123456");
+	expect(configs[1].frameAppearances.webcam.borderColor).toBe("#abcdef");
+	expect(exportedOperations).toEqual(previewOperations);
+	expect(
+		exportedOperations.some(
+			(op: any) => op.name === "fill" && op.fill === "#ffffff" && op.alpha === 0.2,
+		),
+	).toBe(true);
+	expect(recordFrames.at(-1)?.slice(1, 3)).toEqual([500_000, 500_000]);
 });

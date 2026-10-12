@@ -109,6 +109,9 @@ export class ProjectFrameRenderer {
 		if (!renderer) {
 			renderer = new FrameRenderer({
 				...settings,
+				legacyFrameAppearances: !(
+					composition.settings.frameAppearances ?? pkg.settings.frameAppearances
+				),
 				cursorTelemetry: settings.cursorTelemetry ?? undefined,
 				width,
 				height,
