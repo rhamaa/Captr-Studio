@@ -8,9 +8,15 @@ import {
 	Trash,
 	VideoCamera,
 } from "@phosphor-icons/react";
-import { resolveClipSource } from "@/core/timeline/clipSource";
-import { extendInlineClip } from "@/core/timeline/designTemplateCommands";
+import { ColorPicker } from "@/components/ui/color-picker";
 import type { KeyframeEasing, KeyframeProperty } from "@/components/video-editor/types";
+import { resolveClipSource } from "@/core/timeline/clipSource";
+import {
+	getMaxClipTransitionDurationUs,
+	removeClipTransition,
+	setComponentAnimation,
+	updateClipTransition,
+} from "@/core/timeline/clipTransitions";
 import {
 	addClipKeyframe,
 	moveClip,
@@ -22,14 +28,9 @@ import {
 	updateClipKeyframe,
 	updateTextOverlay,
 } from "@/core/timeline/commands";
-import {
-	getMaxClipTransitionDurationUs,
-	removeClipTransition,
-	setComponentAnimation,
-	updateClipTransition,
-} from "@/core/timeline/clipTransitions";
-import { setShapeStyleOverride } from "@/core/timeline/shapeCommands";
+import { extendInlineClip } from "@/core/timeline/designTemplateCommands";
 import type { ProjectCommand } from "@/core/timeline/history";
+import { setShapeStyleOverride } from "@/core/timeline/shapeCommands";
 import { clipDurationUs, type ClipTransition, type ClipTransitionPreset, type ComponentAnimation, type ShapeStyle, type TimelineProject } from "@/core/timeline/types";
 import { CanvasProjectInspector } from "./CanvasProjectInspector";
 import { useProjectMessages } from "./useProjectMessages";
@@ -323,21 +324,19 @@ export function ProjectInspector({
 								/>
 								<span>px</span>
 							</label>
-							<label>
-								Color
-								<input
-									aria-label="Overlay text color"
-									type="color"
+							<div className="project-inspector-color-control">
+								<span>Color</span>
+								<ColorPicker
+									label="Overlay text color"
 									value={text?.color ?? "#ffffff"}
-									onChange={(e) =>
+									compact
+									onChange={(color) =>
 										onCommand((p) =>
-											updateTextOverlay(p, clip.id, {
-												color: e.target.value,
-											}),
+											updateTextOverlay(p, clip.id, { color }),
 										)
 									}
 								/>
-							</label>
+							</div>
 							<label>
 								Align
 								<select
@@ -488,9 +487,42 @@ export function ProjectInspector({
 									<div className="project-shape-style">
 										<h3>{m("shapeStyle")}</h3>
 										{shape!.kind !== "line" && shape!.kind !== "arrow" && (
-											<label>{m("shapeFill")}<input aria-label={m("shapeFill")} type="color" value={style.fill ?? "#6387ff"} onChange={(event) => onCommand((p) => setShapeStyleOverride(p, clip.id, { ...style, fill: event.target.value }))} /></label>
+										<div className="project-color-control">
+											<span>{m("shapeFill")}</span>
+											<ColorPicker
+												label={m("shapeFill")}
+												value={style.fill ?? "#6387ff"}
+												compact
+												onChange={(color) =>
+													onCommand((p) =>
+														setShapeStyleOverride(p, clip.id, {
+															...style,
+															fill: color,
+														}),
+													)
+												}
+											/>
+										</div>
 										)}
-										<label>{m("shapeStroke")}<input aria-label={m("shapeStroke")} type="color" value={style.stroke?.color ?? "#ffffff"} onChange={(event) => onCommand((p) => setShapeStyleOverride(p, clip.id, { ...style, stroke: { color: event.target.value, width: style.stroke?.width ?? 4 } }))} /></label>
+										<div className="project-color-control">
+											<span>{m("shapeStroke")}</span>
+											<ColorPicker
+												label={m("shapeStroke")}
+												value={style.stroke?.color ?? "#ffffff"}
+												compact
+												onChange={(color) =>
+													onCommand((p) =>
+														setShapeStyleOverride(p, clip.id, {
+															...style,
+															stroke: {
+																color,
+																width: style.stroke?.width ?? 4,
+															},
+														}),
+													)
+												}
+											/>
+										</div>
 										<label>{m("shapeStrokeWidth")}<input aria-label={m("shapeStrokeWidth")} type="number" min={0} max={64} step={1} value={style.stroke?.width ?? 0} onChange={(event) => onCommand((p) => setShapeStyleOverride(p, clip.id, { ...style, stroke: Number(event.target.value) > 0 ? { color: style.stroke?.color ?? "#ffffff", width: Number(event.target.value) } : null }))} /></label>
 									</div>
 								);

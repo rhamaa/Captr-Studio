@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ColorPicker } from "@/components/ui/color-picker";
 import {
 	Select,
 	SelectContent,
@@ -137,18 +138,14 @@ export function ExtensionSettingsSection({
 							<span className="text-[11px] text-muted-foreground flex-shrink-0">
 								{field.label}
 							</span>
-							<input
-								type="color"
+							<ColorPicker
+								label={field.label}
 								value={String(value)}
-								onChange={(e) => {
-									extensionHost.setExtensionSetting(
-										extensionId,
-										field.id,
-										e.target.value,
-									);
+								compact
+								onChange={(color) => {
+									extensionHost.setExtensionSetting(extensionId, field.id, color);
 									forceUpdate((n) => n + 1);
 								}}
-								className="w-7 h-5 rounded border border-foreground/10 cursor-pointer bg-transparent"
 							/>
 						</div>
 					);

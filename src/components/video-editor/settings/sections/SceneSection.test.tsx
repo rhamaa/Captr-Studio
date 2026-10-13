@@ -66,6 +66,9 @@ describe("SceneSection dynamic background", () => {
 		expect(html).toContain('aria-label="Dynamic background loop duration"');
 		expect(html).toContain('data-slider-thumb="true"');
 		expect(html).toContain('data-slider-fill="flush"');
+		expect(html).not.toContain('type="color"');
+		expect(html).toContain("#8AB4FF");
+		expect(html).toContain('aria-label="Edit Base color"');
 	});
 
 	it("shows a draggable crop frame over the scene preview", () => {

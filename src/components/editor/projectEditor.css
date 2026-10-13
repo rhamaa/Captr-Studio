@@ -578,6 +578,22 @@
 	color: var(--project-muted);
 	font-size: 10px;
 }
+.project-inspector-color-control,
+.project-shape-style .project-color-control {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	min-width: 0;
+	min-height: 30px;
+	font-size: 11px;
+}
+.project-inspector-color-control {
+	margin-bottom: 13px;
+}
+.project-shape-style .project-color-control {
+	margin: 8px 0;
+}
 .project-inspector h3 {
 	font-size: 11px;
 	color: #a9a9b4;
@@ -1976,12 +1992,6 @@
 	padding: 7px 8px;
 	font: inherit;
 	line-height: 1.4;
-}
-.project-inspector label > input[type="color"] {
-	width: 42px;
-	min-width: 42px;
-	height: 28px;
-	padding: 2px;
 }
 .project-keyframe-section {
 	margin-top: 16px;
@@ -5944,6 +5954,3 @@
 	pointer-events: auto;
 	user-select: none;
 }
-
-
-

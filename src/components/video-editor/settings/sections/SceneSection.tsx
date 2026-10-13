@@ -2,6 +2,7 @@ import { UploadSimple as Upload, X } from "@phosphor-icons/react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ColorPicker } from "@/components/ui/color-picker";
 import { Switch } from "@/components/ui/switch";
 import { DynamicPatternCanvas } from "@/components/video-editor/DynamicPatternCanvas";
 import { WebcamCropControl } from "@/components/video-editor/WebcamCropControl";
@@ -655,17 +656,14 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 
 							{backgroundTab === "color" && (
 								<div className="flex flex-col gap-2">
-									<div className="flex items-center gap-2">
-										<input
-											type="color"
-											value={selected.startsWith("#") ? selected : "#000000"}
-											onChange={(e) => onWallpaperChange?.(e.target.value)}
-											className="h-7 w-10 cursor-pointer rounded-lg border border-foreground/10 bg-transparent p-0.5"
-										/>
-										<span className="text-[11px] font-mono text-muted-foreground uppercase">
-											{selected.startsWith("#") ? selected : "#000000"}
-										</span>
-									</div>
+									<ColorPicker
+										label={tSettings(
+											"background.colorValue",
+											"Background color",
+										)}
+										value={selected.startsWith("#") ? selected : "#000000"}
+										onChange={(color) => onWallpaperChange?.(color)}
+									/>
 									<div className="grid grid-cols-4 gap-2">
 										{visibleColorPalette.map((color) => {
 											const isSelected =
@@ -759,43 +757,41 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 										})}
 									</div>
 									<div className="grid grid-cols-2 gap-2">
-										<label className="flex items-center justify-between gap-2 rounded-lg border border-foreground/10 px-2 py-1.5 text-[10px]">
-											<span>
+										<div className="flex items-center justify-between gap-1.5 rounded-lg border border-foreground/10 px-2 py-1.5 text-[10px]">
+											<span className="truncate">
 												{tSettings("background.baseColor", "Base color")}
 											</span>
-											<input
-												aria-label="Dynamic background base color"
-												type="color"
+											<ColorPicker
+												label={tSettings(
+													"background.baseColor",
+													"Base color",
+												)}
 												value={dynamicSettings.backgroundColor}
-												onChange={(event) =>
-													updateDynamicSetting(
-														"backgroundColor",
-														event.target.value,
-													)
+												onChange={(color) =>
+													updateDynamicSetting("backgroundColor", color)
 												}
-												className="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
+												compact
 											/>
-										</label>
-										<label className="flex items-center justify-between gap-2 rounded-lg border border-foreground/10 px-2 py-1.5 text-[10px]">
-											<span>
+										</div>
+										<div className="flex items-center justify-between gap-1.5 rounded-lg border border-foreground/10 px-2 py-1.5 text-[10px]">
+											<span className="truncate">
 												{tSettings(
 													"background.accentColor",
 													"Accent color",
 												)}
 											</span>
-											<input
-												aria-label="Dynamic background accent color"
-												type="color"
+											<ColorPicker
+												label={tSettings(
+													"background.accentColor",
+													"Accent color",
+												)}
 												value={dynamicSettings.accentColor}
-												onChange={(event) =>
-													updateDynamicSetting(
-														"accentColor",
-														event.target.value,
-													)
+												onChange={(color) =>
+													updateDynamicSetting("accentColor", color)
 												}
-												className="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
+												compact
 											/>
-										</label>
+										</div>
 									</div>
 									{(
 										[
