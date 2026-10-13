@@ -44,7 +44,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Recording composition settings", () => {
-	it("exposes Appearance and keeps the other target unchanged on a frame edit", () => {
+	it("keeps the other frame target unchanged on an edit without a dedicated Appearance tab", () => {
 		const registered = registerRecording(
 			createTimelineProject("project", "Project"),
 			{
@@ -79,7 +79,7 @@ describe("Recording composition settings", () => {
 			}),
 		);
 
-		expect(html).toContain(">Appearance</span>");
+		expect(html).not.toContain(">Appearance</span>");
 		expect(updated.settings.frameAppearances.window.borderWidth).toBe(9);
 		expect(updated.settings.frameAppearances.webcam).toEqual(originalWebcam);
 	});
@@ -159,7 +159,7 @@ describe("Recording composition settings", () => {
 		expect(html).not.toContain("Red = cut");
 	});
 
-	it("offers recording-specific Scene, Cursor, Layout and Appearance tabs", () => {
+	it("offers recording-specific Scene, Cursor, and Layout tabs without a separate Appearance tab", () => {
 		const registered = registerRecording(
 			createTimelineProject("project", "Project"),
 			{
@@ -193,7 +193,6 @@ describe("Recording composition settings", () => {
 			"Scene",
 			"Cursor",
 			"Layout",
-			"Appearance",
 		]);
 	});
 
@@ -222,6 +221,52 @@ describe("Recording composition settings", () => {
 		expect(html.includes("Mirror webcam")).toBe(cameraVisible);
 		expect(html.includes('aria-label="bottom-right"')).toBe(bubbleVisible);
 		expect(html.includes('<video src="http://127.0.0.1:4321/webcam.mp4"')).toBe(cameraVisible);
+	});
+
+	it.each([
+		"scene",
+		"layout",
+	] as const)("renders Record appearance controls inside the %s settings section", (section) => {
+		const settings = createDefaultRecordingSettings();
+		const appearanceContent = createElement(
+			"div",
+			{ "data-recording-appearance": true },
+			"Frame styling",
+		);
+		const html = translate(
+			createElement(SettingsPanel, {
+				...settings,
+				selected: settings.wallpaper,
+				onWallpaperChange: () => {},
+				activeEffectSection: section,
+				recordToolsEnabled: true,
+				selectedLayoutId: "layout",
+				selectedLayoutPreset: "screen-only",
+				recordingAppearanceContent: appearanceContent,
+			}),
+		);
+
+		expect(html).toContain('data-recording-appearance="true"');
+	});
+
+	it("does not render Record appearance controls in unrelated sections", () => {
+		const settings = createDefaultRecordingSettings();
+		const html = translate(
+			createElement(SettingsPanel, {
+				...settings,
+				selected: settings.wallpaper,
+				onWallpaperChange: () => {},
+				activeEffectSection: "cursor",
+				recordToolsEnabled: true,
+				recordingAppearanceContent: createElement(
+					"div",
+					{ "data-recording-appearance": true },
+					"Frame styling",
+				),
+			}),
+		);
+
+		expect(html).not.toContain("data-recording-appearance");
 	});
 
 	it("keeps preview canvas dimensions fixed to Artboard canvas props", () => {

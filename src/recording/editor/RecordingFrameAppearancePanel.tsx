@@ -9,7 +9,6 @@ type PresetLibraryApi = Window["electronAPI"]["recordFramePresets"];
 export interface RecordingFrameAppearancePanelProps {
 	target: RecordingFrameTarget;
 	appearance: RecordingFrameAppearance;
-	onTargetChange: (target: RecordingFrameTarget) => void;
 	onChange: (target: RecordingFrameTarget, appearance: RecordingFrameAppearance) => void;
 	presetLibrary: PresetLibraryApi;
 }
@@ -72,11 +71,15 @@ export async function runRecordingFramePresetAction<T>(
 export function RecordingFrameAppearancePanel({
 	target,
 	appearance,
-	onTargetChange,
 	onChange,
 	presetLibrary,
 }: RecordingFrameAppearancePanelProps) {
 	const t = useScopedT("editor");
+	const targetLabel = t(
+		`recordingFrameAppearance.${target}`,
+		target === "window" ? "Window" : "Webcam",
+	);
+	const title = `${t("recordingFrameAppearance.title", "Frame appearance")} · ${targetLabel}`;
 	const [presets, setPresets] = useState<RecordingFramePreset[]>([]);
 	const [selectedPresetId, setSelectedPresetId] = useState("");
 	const [presetName, setPresetName] = useState("");
@@ -255,36 +258,8 @@ export function RecordingFrameAppearancePanel({
 	};
 
 	return (
-		<section
-			aria-label={t("recordingFrameAppearance.title", "Frame appearance")}
-			className="recording-frame-appearance flex flex-col gap-4 p-3"
-		>
-			<h3 className="text-sm font-semibold">
-				{t("recordingFrameAppearance.title", "Frame appearance")}
-			</h3>
-			<div
-				aria-label={t("recordingFrameAppearance.target", "Appearance target")}
-				className="grid grid-cols-2 gap-2 rounded-lg bg-foreground/[0.04] p-1"
-				role="group"
-			>
-				{(["window", "webcam"] as const).map((value) => {
-					const label = t(
-						`recordingFrameAppearance.${value}`,
-						value === "window" ? "Window" : "Webcam",
-					);
-					return (
-						<button
-							aria-pressed={target === value}
-							className={`rounded-md px-2 py-1.5 text-xs ${target === value ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
-							key={value}
-							type="button"
-							onClick={() => onTargetChange(value)}
-						>
-							{label}
-						</button>
-					);
-				})}
-			</div>
+		<section aria-label={title} className="recording-frame-appearance flex flex-col gap-4 p-3">
+			<h3 className="text-sm font-semibold">{title}</h3>
 
 			<div className="grid grid-cols-2 gap-3">
 				{numberField(

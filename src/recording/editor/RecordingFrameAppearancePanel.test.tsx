@@ -42,19 +42,18 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("RecordingFrameAppearancePanel", () => {
-	it("renders Window/Webcam targets, raw style controls, and preset actions", () => {
+	it("renders only the contextual target with raw style controls and preset actions", () => {
 		const props = {
 			target: "window" as const,
 			appearance,
-			onTargetChange: vi.fn(),
 			onChange: vi.fn(),
 			presetLibrary: {} as RecordingFrameAppearancePanelProps["presetLibrary"],
 		};
 		const html = translate(createElement(RecordingFrameAppearancePanel, props));
 
-		expect(html).toContain('aria-label="Appearance target"');
-		expect(html).toMatch(/aria-pressed="true"[^>]*>Window<\/button>/);
-		expect(html).toMatch(/aria-pressed="false"[^>]*>Webcam<\/button>/);
+		expect(html).not.toContain('aria-label="Appearance target"');
+		expect(html).not.toContain("Webcam</button>");
+		expect(html).toContain("Window");
 		for (const label of [
 			"Frame padding",
 			"Border width",
@@ -95,7 +94,6 @@ describe("RecordingFrameAppearancePanel", () => {
 		const props = {
 			target: "window" as const,
 			appearance,
-			onTargetChange: vi.fn(),
 			onChange: vi.fn(),
 			presetLibrary: {} as RecordingFrameAppearancePanelProps["presetLibrary"],
 		};

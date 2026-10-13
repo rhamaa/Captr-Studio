@@ -25,7 +25,7 @@ Record Video compositions currently expose only basic screen and webcam presenta
 
 ## User model
 
-The Record Video Appearance panel has separate **Window** and **Webcam** targets. Selecting one target shows and edits only that target's design. Each target keeps its own values in the composition.
+Styling controls are embedded in the existing Record Video tabs; there is no dedicated Appearance tab or target switch. With a selected **Screen only** layout, Window styling appears in **Scene** and **Layout**. With **Bubble** or **Webcam only**, Webcam styling appears in **Layout**. Each target keeps its own values in the composition.
 
 Controls expose the raw design values: frame padding, border width, color and opacity, corner radius, surface color and opacity, backdrop blur, and shadow color, opacity, blur, and horizontal/vertical offsets. Values are stored in project-coordinate pixels; opacity is stored from `0` to `1` and presented in the UI as `0`–`100%`. Shadow offsets set the direction and distance. UI ranges clamp to supported renderer limits. The existing default appearance remains the initial result for compositions without new style data.
 
@@ -76,7 +76,7 @@ Presets live in an app-wide **Record Presets** library, separate from project `.
 
 Each preset file contains a format version, stable ID, name, timestamps, and a complete `RecordingFrameAppearance` snapshot. It has no window/webcam target; applying the same design to both targets requires selecting and applying it to each one independently.
 
-The Appearance panel provides:
+Each contextual styling section provides:
 
 - A library picker for applying a saved preset to the selected target.
 - **Save as preset** for capturing the selected target's current full design.

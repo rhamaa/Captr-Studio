@@ -90,6 +90,7 @@ import {
 interface SettingsPanelProps {
 	className?: string;
 	style?: React.CSSProperties;
+	recordingAppearanceContent?: React.ReactNode;
 	panelMode?: "editor" | "background";
 	activeEffectSection?: EditorEffectSection;
 	recordToolsEnabled?: boolean;
@@ -251,6 +252,7 @@ interface SettingsPanelProps {
 export function SettingsPanel({
 	className,
 	style,
+	recordingAppearanceContent,
 	panelMode = "editor",
 	activeEffectSection: activeEffectSectionProp,
 	recordToolsEnabled = true,
@@ -926,7 +928,12 @@ export function SettingsPanel({
 					/>
 				);
 			case "scene":
-				return sceneSectionContent;
+				return (
+					<>
+						{sceneSectionContent}
+						{recordingAppearanceContent}
+					</>
+				);
 			case "zoom":
 				return (
 					<ZoomItemSection
@@ -970,42 +977,47 @@ export function SettingsPanel({
 				);
 			case "layout":
 				return (
-					<RecordLayoutSection
-						selectedLayoutId={selectedLayoutId}
-						selectedLayoutPreset={selectedLayoutPreset}
-						selectedLayoutTransitionMs={selectedLayoutTransitionMs}
-						selectedLayoutEasing={selectedLayoutEasing}
-						selectedLayoutCameraSettings={selectedLayoutCameraSettings}
-						onLayoutPresetChange={onLayoutPresetChange}
-						onLayoutCameraSettingsChange={onLayoutCameraSettingsChange}
-						onLayoutTransitionChange={onLayoutTransitionChange}
-						onLayoutEasingChange={onLayoutEasingChange}
-						webcam={webcam}
-						cameraSettings={
-							<WebcamSection
-								webcam={webcam}
-								webcamPreviewSrc={webcamPreviewSrc}
-								webcamPreviewCurrentTime={webcamPreviewCurrentTime}
-								webcamPreviewPlaying={webcamPreviewPlaying}
-								onUploadWebcam={onUploadWebcam}
-								onClearWebcam={onClearWebcam}
-								resetWebcamSection={resetWebcamSection}
-								updateWebcam={updateWebcam}
-								applyWebcamPositionPreset={applyWebcamPositionPreset}
-								webcamCrop={webcamCrop}
-								webcamPositionPreset={webcamPositionPreset}
-								webcamPositionX={webcamPositionX}
-								webcamPositionY={webcamPositionY}
-								webcamFileName={webcamFileName}
-								renderExtensionPanelsForSections={renderExtensionPanelsForSections}
-								tSettings={tSettings}
-								t={t}
-								embeddedInLayout
-							/>
-						}
-						tSettings={tSettings}
-						t={t}
-					/>
+					<>
+						<RecordLayoutSection
+							selectedLayoutId={selectedLayoutId}
+							selectedLayoutPreset={selectedLayoutPreset}
+							selectedLayoutTransitionMs={selectedLayoutTransitionMs}
+							selectedLayoutEasing={selectedLayoutEasing}
+							selectedLayoutCameraSettings={selectedLayoutCameraSettings}
+							onLayoutPresetChange={onLayoutPresetChange}
+							onLayoutCameraSettingsChange={onLayoutCameraSettingsChange}
+							onLayoutTransitionChange={onLayoutTransitionChange}
+							onLayoutEasingChange={onLayoutEasingChange}
+							webcam={webcam}
+							cameraSettings={
+								<WebcamSection
+									webcam={webcam}
+									webcamPreviewSrc={webcamPreviewSrc}
+									webcamPreviewCurrentTime={webcamPreviewCurrentTime}
+									webcamPreviewPlaying={webcamPreviewPlaying}
+									onUploadWebcam={onUploadWebcam}
+									onClearWebcam={onClearWebcam}
+									resetWebcamSection={resetWebcamSection}
+									updateWebcam={updateWebcam}
+									applyWebcamPositionPreset={applyWebcamPositionPreset}
+									webcamCrop={webcamCrop}
+									webcamPositionPreset={webcamPositionPreset}
+									webcamPositionX={webcamPositionX}
+									webcamPositionY={webcamPositionY}
+									webcamFileName={webcamFileName}
+									renderExtensionPanelsForSections={
+										renderExtensionPanelsForSections
+									}
+									tSettings={tSettings}
+									t={t}
+									embeddedInLayout
+								/>
+							}
+							tSettings={tSettings}
+							t={t}
+						/>
+						{recordingAppearanceContent}
+					</>
 				);
 			case "audio":
 				return (

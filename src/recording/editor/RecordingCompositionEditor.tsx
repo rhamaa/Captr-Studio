@@ -27,10 +27,7 @@ import {
 	buildAutoReframeSuggestions,
 	buildInteractionZoomSuggestions,
 } from "@/components/video-editor/timeline/zoomSuggestionUtils";
-import {
-	type AspectRatio,
-	getAspectRatioValue,
-} from "@/utils/aspectRatioUtils";
+import { type AspectRatio, getAspectRatioValue } from "@/utils/aspectRatioUtils";
 import { RecordingFrameAppearancePanel } from "./RecordingFrameAppearancePanel";
 
 function formatTimecode(seconds: number): string {
@@ -58,6 +55,7 @@ import type { RecordComposition, RecordingPackage, RecordingSettings } from "../
 import { changeRecordingSettings, resolveRecordingSettings } from "./compositionAdapter";
 import { playbackOutputTimeUs } from "./playbackClock";
 import { RecordingOverlayHandles } from "./RecordingOverlayHandles";
+import { resolveRecordingFrameAppearanceTarget } from "./recordingFrameAppearanceRouting";
 
 export interface RecordingCompositionEditorProps {
 	package: RecordingPackage;
@@ -123,7 +121,7 @@ const settingCallbacks: Partial<Record<keyof RecordingSettings, keyof PanelProps
 	connectedZoomEasing: "onConnectedZoomEasingChange",
 };
 
-type RecordingSection = Extract<EditorEffectSection, "scene" | "cursor" | "layout"> | "appearance";
+type RecordingSection = Extract<EditorEffectSection, "scene" | "cursor" | "layout">;
 
 const RECORDING_TABS: {
 	id: RecordingSection;
@@ -133,7 +131,6 @@ const RECORDING_TABS: {
 	{ id: "scene", label: "Scene", icon: Palette },
 	{ id: "cursor", label: "Cursor", icon: CursorClick },
 	{ id: "layout", label: "Layout", icon: SquaresFour },
-	{ id: "appearance", label: "Appearance", icon: Palette },
 ];
 
 /** Controlled effect editor. Project library, recording, persistence and export live outside. */
@@ -182,7 +179,6 @@ export function RecordingCompositionEditor({
 		[selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null),
 		[selectedLayoutId, setSelectedLayoutId] = useState<string | null>(null),
 		[error, setError] = useState<string | null>(null);
-	const [appearanceTarget, setAppearanceTarget] = useState<"window" | "webcam">("window");
 	const webcamPath = pkg.webcam?.path;
 	const [webcamPreview, setWebcamPreview] = useState<{ path: string; url: string } | null>(null);
 	const timeline = useRef<RecordingTimelineHandle>(null);
@@ -312,6 +308,25 @@ export function RecordingCompositionEditor({
 		});
 	const selectedZoom = settings.zoomRegions.find((z) => z.id === selectedZoomId),
 		selectedLayout = settings.layoutRegions.find((l) => l.id === selectedLayoutId);
+	const appearanceTarget = resolveRecordingFrameAppearanceTarget(
+		section,
+		selectedLayout ? (selectedLayout.preset ?? "bubble") : null,
+	);
+	const recordingAppearanceContent = appearanceTarget ? (
+		<RecordingFrameAppearancePanel
+			target={appearanceTarget}
+			appearance={settings.frameAppearances[appearanceTarget]}
+			onChange={(target, appearance) =>
+				update({
+					frameAppearances: {
+						...settings.frameAppearances,
+						[target]: appearance,
+					},
+				})
+			}
+			presetLibrary={window.electronAPI.recordFramePresets}
+		/>
+	) : null;
 	const selectedAnnotation = settings.annotationRegions.find(
 		(a) => a.id === selectedAnnotationId,
 	);
@@ -730,7 +745,7 @@ export function RecordingCompositionEditor({
 						})}
 					</nav>
 					<div className="recording-settings-scroll">
-						{section !== "appearance" && selectedAnnotation && (
+						{selectedAnnotation && (
 							<div className="recording-motion-control">
 								<span>Layer position</span>
 								{(["x", "y"] as const).map((axis) => (
@@ -775,29 +790,13 @@ export function RecordingCompositionEditor({
 								))}
 							</div>
 						)}
-						{section === "appearance" && (
-							<RecordingFrameAppearancePanel
-								target={appearanceTarget}
-								appearance={settings.frameAppearances[appearanceTarget]}
-								onTargetChange={setAppearanceTarget}
-								onChange={(target, appearance) =>
-									update({
-										frameAppearances: {
-											...settings.frameAppearances,
-											[target]: appearance,
-										},
-									})
-								}
-								presetLibrary={window.electronAPI.recordFramePresets}
-							/>
-						)}
 						<SettingsPanel
-							className={section === "appearance" ? "hidden" : undefined}
 							{...settings}
 							{...callbacks}
 							selected={settings.wallpaper}
 							onWallpaperChange={(path) => update({ wallpaper: path })}
-							activeEffectSection={section === "appearance" ? "scene" : section}
+							activeEffectSection={section}
+							recordingAppearanceContent={recordingAppearanceContent}
 							aspectRatio={aspectRatio}
 							canvasDimensionsLocked
 							webcamPreviewSrc={

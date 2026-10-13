@@ -207,7 +207,7 @@ git commit -m "feat: add shared recording frame preset library"
 
 - [x] **Step 1: Write failing panel/editor tests**
 
-Test target switching, raw-value editing, full snapshot save, apply-to-selected-target only, rename/delete, import/export actions, cancellation, and visible failure messages. Test composition updates retain the other target's settings.
+Test contextual target routing by tab/layout mode, raw-value editing, full snapshot save, apply-to-contextual-target only, rename/delete, import/export actions, cancellation, and visible failure messages. Test composition updates retain the other target's settings.
 
 - [x] **Step 2: Run tests and verify failure**
 
@@ -217,7 +217,7 @@ Expected: FAIL because the panel and its composition integration do not exist.
 
 - [x] **Step 3: Implement panel and editor integration**
 
-Add Window/Webcam target controls and raw fields for padding, border width/color/opacity, radius, surface color/opacity, blur, and shadow. Add a library picker plus save, rename, delete, import, and export actions. Add translated English labels to `src/i18n/locales/en/editor.json`. Every preset apply copies all style fields to the selected target only.
+Embed raw fields for padding, border width/color/opacity, radius, surface color/opacity, blur, and shadow in Scene/Layout according to selected layout mode; do not add a dedicated Appearance tab or target switch. Add a library picker plus save, rename, delete, import, and export actions. Every preset apply copies all style fields to the contextual target only.
 
 - [x] **Step 4: Run tests and verify pass**
 
