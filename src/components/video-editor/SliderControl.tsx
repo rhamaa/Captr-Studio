@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 
 interface SliderControlProps {
 	label: string;
+	ariaLabel?: string;
 	value: number;
 	defaultValue: number;
 	min: number;
@@ -29,6 +30,7 @@ function quantizeToStep(value: number, min: number, step: number) {
 
 export const SliderControl = memo(function SliderControl({
 	label,
+	ariaLabel,
 	value,
 	defaultValue: _defaultValue,
 	min,
@@ -46,10 +48,10 @@ export const SliderControl = memo(function SliderControl({
 
 	const pct = Math.min(100, Math.max(0, ((value - min) / (max - min || 1)) * 100));
 
-	const dividerClass =
+	const thumbClass =
 		accentColor === "purple"
-			? "bg-foreground/95 shadow-[0_0_10px_rgba(139,92,246,0.28)]"
-			: "bg-foreground/95 shadow-[0_0_10px_rgba(37,99,235,0.28)]";
+			? "ring-purple-400/50 shadow-[0_0_10px_rgba(139,92,246,0.38)]"
+			: "ring-[#6FA8FF]/60 shadow-[0_0_10px_rgba(37,99,235,0.38)]";
 
 	// Sync initial and prop-driven changes to CSS variable
 	useEffect(() => {
@@ -61,11 +63,11 @@ export const SliderControl = memo(function SliderControl({
 	const updateValue = useCallback(
 		(clientX: number) => {
 			const bounds = boundsRef.current;
-			if (!bounds || bounds.width <= 6) {
+			if (!bounds || bounds.width <= 18) {
 				return;
 			}
 
-			const normalized = clamp((clientX - (bounds.left + 3)) / (bounds.width - 6), 0, 1);
+			const normalized = clamp((clientX - (bounds.left + 9)) / (bounds.width - 18), 0, 1);
 			const rawValue = min + normalized * (max - min);
 			const nextValue = clamp(quantizeToStep(rawValue, min, step), min, max);
 			const finalValue = Number(nextValue.toFixed(6));
@@ -146,7 +148,7 @@ export const SliderControl = memo(function SliderControl({
 			ref={rootRef}
 			role="slider"
 			tabIndex={0}
-			aria-label={label}
+			aria-label={ariaLabel ?? label}
 			aria-valuemin={min}
 			aria-valuemax={max}
 			aria-valuenow={value}
@@ -163,7 +165,7 @@ export const SliderControl = memo(function SliderControl({
 					onChange(clamp(quantizeToStep(value + step, min, step), min, max));
 				}
 			}}
-			className="relative flex h-10 w-full select-none items-center overflow-hidden rounded-xl bg-editor-bg/80 px-1.5 outline-none focus-visible:ring-1 focus-visible:ring-[#6FA8FF]/40"
+			className="relative flex h-10 w-full select-none items-center overflow-hidden rounded-full bg-editor-bg/80 px-1.5 outline-none focus-visible:ring-1 focus-visible:ring-[#6FA8FF]/40"
 			style={
 				{
 					"--slider-pct": String(pct / 100),
@@ -171,19 +173,20 @@ export const SliderControl = memo(function SliderControl({
 			}
 		>
 			<div
-				className="pointer-events-none absolute inset-y-[3px] left-[3px] right-auto rounded-[10px] bg-foreground/[0.08] shadow-[0_4px_10px_0_rgba(0,0,0,0.18)] transition-none"
+				className="pointer-events-none absolute inset-y-[3px] left-[3px] right-auto rounded-full bg-foreground/[0.08] shadow-[0_4px_10px_0_rgba(0,0,0,0.18)] transition-none"
 				style={{
-					width: "calc(var(--slider-pct) * (100% - 6px))",
+					width: "calc(6px + var(--slider-pct) * (100% - 18px))",
 				}}
 			/>
 			<div
 				className={cn(
-					"pointer-events-none absolute bottom-[18%] top-[18%] z-10 w-[2px] rounded-full transition-none",
-					dividerClass,
+					"pointer-events-none absolute top-1/2 z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-editor-bg bg-foreground ring-1 transition-none",
+					thumbClass,
 				)}
 				style={{
-					left: "calc(2px + var(--slider-pct) * (100% - 6px))",
+					left: "calc(9px + var(--slider-pct) * (100% - 18px))",
 				}}
+				data-slider-thumb="true"
 			/>
 			<span className="pointer-events-none relative z-10 flex-1 pl-3 text-[12px] font-medium text-muted-foreground">
 				{label}

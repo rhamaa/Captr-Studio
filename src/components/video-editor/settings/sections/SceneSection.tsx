@@ -829,29 +829,26 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 											},
 										] as const
 									).map((control) => (
-										<label
+										<SliderControl
 											key={control.key}
-											className="flex flex-col gap-1 text-[10px] text-muted-foreground"
-										>
-											<span className="flex justify-between">
-												<span>{control.label}</span>
-												<span>{dynamicSettings[control.key]}</span>
-											</span>
-											<input
-												aria-label={`Dynamic background ${control.label.toLowerCase()}`}
-												type="range"
-												min={control.min}
-												max={control.max}
-												step={control.step}
-												value={dynamicSettings[control.key]}
-												onChange={(event) =>
-													updateDynamicSetting(
-														control.key,
-														Number(event.target.value),
-													)
-												}
-											/>
-										</label>
+											label={control.label}
+											ariaLabel={`Dynamic background ${control.label.toLowerCase()}`}
+											value={dynamicSettings[control.key]}
+											defaultValue={
+												DEFAULT_DYNAMIC_BACKGROUND_SETTINGS[control.key]
+											}
+											min={control.min}
+											max={control.max}
+											step={control.step}
+											onChange={(value) =>
+												updateDynamicSetting(control.key, value)
+											}
+											formatValue={(value) => String(value)}
+											parseInput={(text) => {
+												const value = Number.parseFloat(text);
+												return Number.isFinite(value) ? value : null;
+											}}
+										/>
 									))}
 								</div>
 							)}

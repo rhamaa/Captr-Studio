@@ -59,6 +59,12 @@ describe("SceneSection dynamic background", () => {
 		expect(html).toContain("Film Grain");
 		expect(html).toContain("Orbit");
 		expect(html).toContain('aria-label="Dynamic background pattern"');
+		expect(html).not.toContain('type="range"');
+		expect(html).toContain('aria-label="Dynamic background density"');
+		expect(html).toContain('aria-label="Dynamic background scale"');
+		expect(html).toContain('aria-label="Dynamic background speed"');
+		expect(html).toContain('aria-label="Dynamic background loop duration"');
+		expect(html).toContain('data-slider-thumb="true"');
 	});
 
 	it("shows a draggable crop frame over the scene preview", () => {
