@@ -44,6 +44,16 @@ describe("Electron main CJS normalizer", () => {
 		]);
 	});
 
+	it("does not flag a CommonJS object property named export", () => {
+		const source = [
+			"const channels = {",
+			'\texport: "record-frame-presets:export",',
+			"};",
+		].join("\n");
+
+		expect(findElectronMainCjsEsmSyntax(source)).toEqual([]);
+	});
+
 	it("preserves an unsupported export block exactly while normalizing other syntax", () => {
 		const source = [
 			'import fs from "node:fs";',

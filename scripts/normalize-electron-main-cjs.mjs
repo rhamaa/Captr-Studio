@@ -416,7 +416,7 @@ export function findElectronMainCjsEsmSyntax(source) {
 				});
 				continue;
 			}
-			if (/^[ \t]*export\b/.test(line)) {
+			if (/^[ \t]*export(?=$|\s|[{*])/.test(line)) {
 				matches.push({
 					line: index + 1,
 					text: line.trim(),
