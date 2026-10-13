@@ -45,6 +45,10 @@ import { ProjectPreview } from "./ProjectPreview";
 import { ProjectTimeline, shapePlacementCommand } from "./ProjectTimeline";
 import { ProjectToolRail } from "./ProjectToolRail";
 import { ProjectWelcome } from "./ProjectWelcome";
+import {
+	fitPreviewCanvasToBounds,
+	type PreviewCanvasBounds,
+} from "./previewCanvasSizing";
 import { timelineActionCommand } from "./timelineInteractions";
 import type { ProjectController } from "./useProjectController";
 import { useProjectMessages } from "./useProjectMessages";
@@ -65,6 +69,42 @@ interface StoryPreviewPanStart {
 	startY: number;
 	originX: number;
 	originY: number;
+}
+
+function observePreviewFrameSize(
+	stage: HTMLDivElement,
+	canvas: PreviewCanvasBounds,
+	onResize: (size: PreviewCanvasBounds) => void,
+): () => void {
+	const measure = (contentBounds?: PreviewCanvasBounds) => {
+		const style = window.getComputedStyle(stage);
+		const bounds = contentBounds ?? {
+			width:
+				stage.clientWidth -
+				Number.parseFloat(style.paddingLeft || "0") -
+				Number.parseFloat(style.paddingRight || "0"),
+			height:
+				stage.clientHeight -
+				Number.parseFloat(style.paddingTop || "0") -
+				Number.parseFloat(style.paddingBottom || "0"),
+		};
+		onResize(fitPreviewCanvasToBounds(bounds, canvas));
+	};
+
+	measure();
+	if (typeof ResizeObserver !== "undefined") {
+		const observer = new ResizeObserver(([entry]) => {
+			if (entry) {
+				measure({ width: entry.contentRect.width, height: entry.contentRect.height });
+			}
+		});
+		observer.observe(stage);
+		return () => observer.disconnect();
+	}
+
+	const handleWindowResize = () => measure();
+	window.addEventListener("resize", handleWindowResize);
+	return () => window.removeEventListener("resize", handleWindowResize);
 }
 
 export interface StoryEditorProps {
@@ -176,6 +216,7 @@ export function StoryEditor({
 }: StoryEditorProps) {
 	const m = useProjectMessages();
 	const internalPreviewStage = useRef<HTMLDivElement>(null);
+	const fullscreenPreviewStage = useRef<HTMLDivElement>(null);
 	const previewStage = previewStageRef ?? internalPreviewStage;
 
 	const selection = controller.snapshot.selection;
@@ -209,6 +250,14 @@ export function StoryEditor({
 	const [loopPlayback, setLoopPlayback] = useState(false);
 	const [showGridGuide, setShowGridGuide] = useState(false);
 	const [fullscreenPreview, setFullscreenPreview] = useState(false);
+	const [previewFrameSize, setPreviewFrameSize] = useState<PreviewCanvasBounds>({
+		width: 0,
+		height: 0,
+	});
+	const [fullscreenFrameSize, setFullscreenFrameSize] = useState<PreviewCanvasBounds>({
+		width: 0,
+		height: 0,
+	});
 	const [previewViewport, setPreviewViewport] = useState<StoryPreviewViewport>({
 		zoom: 1,
 		x: 0,
@@ -227,6 +276,39 @@ export function StoryEditor({
 		willChange: "transform",
 		transition: previewPanning ? "none" : "transform 120ms ease-out",
 	};
+	const canvasWidth = storyProject.canvas.width;
+	const canvasHeight = storyProject.canvas.height;
+
+	useEffect(() => {
+		const stage = previewStage.current;
+		if (!stage) return;
+		return observePreviewFrameSize(
+			stage,
+			{ width: canvasWidth, height: canvasHeight },
+			(size) =>
+				setPreviewFrameSize((current) =>
+					current.width === size.width && current.height === size.height
+						? current
+						: size,
+				),
+		);
+	}, [canvasHeight, canvasWidth, previewStage]);
+
+	useEffect(() => {
+		if (!fullscreenPreview) return;
+		const stage = fullscreenPreviewStage.current;
+		if (!stage) return;
+		return observePreviewFrameSize(
+			stage,
+			{ width: canvasWidth, height: canvasHeight },
+			(size) =>
+				setFullscreenFrameSize((current) =>
+					current.width === size.width && current.height === size.height
+						? current
+						: size,
+				),
+		);
+	}, [canvasHeight, canvasWidth, fullscreenPreview]);
 
 	useEffect(() => {
 		setPreviewViewport({ zoom: 1, x: 0, y: 0 });
@@ -685,8 +767,14 @@ export function StoryEditor({
 								aspectRatio: `${storyProject.canvas.width} / ${storyProject.canvas.height}`,
 								maxHeight: "100%",
 								maxWidth: "100%",
-								width: "100%",
-								height: "100%",
+								width:
+									previewFrameSize.width > 0
+										? `${previewFrameSize.width}px`
+										: "100%",
+								height:
+									previewFrameSize.height > 0
+										? `${previewFrameSize.height}px`
+										: "100%",
 								display: "flex",
 								alignItems: "center",
 								justifyContent: "center",
@@ -999,6 +1087,7 @@ export function StoryEditor({
 					</div>
 					<div
 						className={`story-preview-fullscreen-stage${previewZoomed ? " zoomed" : ""}${previewPanning ? " panning" : ""}`}
+						ref={fullscreenPreviewStage}
 						role="region"
 						aria-label="Fullscreen story video preview canvas"
 						onWheel={handlePreviewWheel}
@@ -1007,6 +1096,14 @@ export function StoryEditor({
 							className="story-preview-fullscreen-viewport"
 							style={{
 								aspectRatio: `${storyProject.canvas.width} / ${storyProject.canvas.height}`,
+								width:
+									fullscreenFrameSize.width > 0
+										? `${fullscreenFrameSize.width}px`
+										: "100%",
+								height:
+									fullscreenFrameSize.height > 0
+										? `${fullscreenFrameSize.height}px`
+										: "100%",
 								...previewTransformStyle,
 							}}
 						>
