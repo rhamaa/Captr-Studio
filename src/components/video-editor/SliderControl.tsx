@@ -173,10 +173,11 @@ export const SliderControl = memo(function SliderControl({
 			}
 		>
 			<div
-				className="pointer-events-none absolute inset-y-[3px] left-[3px] right-auto rounded-full bg-foreground/[0.08] shadow-[0_4px_10px_0_rgba(0,0,0,0.18)] transition-none"
+				className="pointer-events-none absolute inset-y-0 left-0 bg-foreground/[0.08] transition-none"
 				style={{
-					width: "calc(6px + var(--slider-pct) * (100% - 18px))",
+					width: "calc(9px + var(--slider-pct) * (100% - 18px))",
 				}}
+				data-slider-fill="flush"
 			/>
 			<div
 				className={cn(
