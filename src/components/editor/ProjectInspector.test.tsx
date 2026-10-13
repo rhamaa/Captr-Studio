@@ -110,6 +110,25 @@ it("projectInspector exposes transition preset, duration, direction, and easing 
 		expect(html).toContain(label);
 });
 
+it("projectInspector renders animated visual transition preset cards and selects the active preset", () => {
+	const html = markup(projectWithShapesAndTransition(), { selectedTransitionId: "transition" });
+	expect(html).not.toContain('<select aria-label="Transition preset"');
+	expect((html.match(/data-transition-preset=/g) ?? []).length).toBe(5);
+	for (const preset of [
+		"cross-dissolve",
+		"fade-through-black",
+		"fade-through-white",
+		"wipe",
+		"push",
+	]) {
+		expect(html).toContain(`data-transition-preset="${preset}"`);
+		expect(html).toContain(`data-transition-preview="${preset}"`);
+	}
+	expect(html).toMatch(/<button[^>]*data-transition-preset="wipe"[^>]*aria-pressed="true"/);
+	for (const direction of ["left", "right", "up", "down"])
+		expect(html).toContain(`data-transition-direction="${direction}"`);
+});
+
 it("projectInspector defaults directional presets to the left edge", () => {
 	expect(transitionPresetFromControl("wipe")).toEqual({ kind: "wipe", direction: "left" });
 	expect(transitionPresetFromControl("push")).toEqual({ kind: "push", direction: "left" });

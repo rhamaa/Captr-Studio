@@ -77,37 +77,92 @@ function TransitionInspector({
 	onCommand: (command: ProjectCommand) => void;
 }) {
 	const m = useProjectMessages();
-	const maxDurationMs = maximumDurationUs === Number.MAX_SAFE_INTEGER ? undefined : maximumDurationUs / 1000;
+	const maxDurationMs = maximumDurationUs === Number.MAX_SAFE_INTEGER ? undefined : maximumDurationUs / 1000,
+		selectedPreset = transitionPresetControlValue(transition.preset),
+		direction = transition.preset.kind === "wipe" || transition.preset.kind === "push"
+			? transition.preset.direction
+			: "left";
+	const presets = [
+		{ value: "cross-dissolve", label: m("transitionCrossDissolve") },
+		{ value: "fade-through-black", label: m("transitionFadeThroughBlack") },
+		{ value: "fade-through-white", label: m("transitionFadeThroughWhite") },
+		{ value: "wipe", label: m("transitionWipe") },
+		{ value: "push", label: m("transitionPush") },
+	] as const;
+	const directions: { value: Direction; glyph: string }[] = [
+		{ value: "left", glyph: "←" },
+		{ value: "right", glyph: "→" },
+		{ value: "up", glyph: "↑" },
+		{ value: "down", glyph: "↓" },
+	];
 	return (
 		<fieldset disabled={locked} className="project-transition-inspector">
 			<div className="project-inspector-title">
 				<strong>{fromName} → {toName}</strong>
 				<span>{m("transition")}</span>
 			</div>
-			<label>
-				{m("transitionPreset")}
-				<select aria-label={m("transitionPreset")} value={transitionPresetControlValue(transition.preset)} onChange={(event) => {
-					const direction = transition.preset.kind === "wipe" || transition.preset.kind === "push" ? transition.preset.direction : "left";
-					onCommand((p) => updateClipTransition(p, transition.id, { preset: transitionPresetFromControl(event.target.value, direction) }));
-				}}>
-					<option value="cross-dissolve">{m("transitionCrossDissolve")}</option>
-					<option value="fade-through-black">{m("transitionFadeThroughBlack")}</option>
-					<option value="fade-through-white">{m("transitionFadeThroughWhite")}</option>
-					<option value="wipe">{m("transitionWipe")}</option>
-					<option value="push">{m("transitionPush")}</option>
-				</select>
-			</label>
+			<div className="project-transition-preset-section">
+				<span className="project-transition-control-label">{m("transitionPreset")}</span>
+				<div className="project-transition-presets" role="group" aria-label={m("transitionPreset")}>
+					{presets.map(({ value, label }) => (
+						<button
+							key={value}
+							type="button"
+							data-transition-preset={value}
+							aria-pressed={selectedPreset === value}
+							aria-label={label}
+							className={`project-transition-preset${selectedPreset === value ? " is-selected" : ""}`}
+							onClick={() =>
+								onCommand((p) =>
+									updateClipTransition(p, transition.id, {
+										preset: transitionPresetFromControl(value, direction),
+									}),
+								)
+							}
+						>
+							<span
+								className={`project-transition-preview project-transition-preview--${value}`}
+								data-transition-preview={value}
+								data-direction={direction}
+								aria-hidden="true"
+							>
+								<span className="project-transition-preview__scene project-transition-preview__scene--from">
+									<span className="project-transition-preview__bar" />
+									<span className="project-transition-preview__card" />
+								</span>
+								<span className="project-transition-preview__scene project-transition-preview__scene--to">
+									<span className="project-transition-preview__bar" />
+									<span className="project-transition-preview__card" />
+								</span>
+								<span className="project-transition-preview__veil" />
+							</span>
+							<span className="project-transition-preset-label">{label}</span>
+						</button>
+					))}
+				</div>
+			</div>
 			{(transition.preset.kind === "wipe" || transition.preset.kind === "push") && (
-				<label>
-					{m("transitionDirection")}
-					<select aria-label={m("transitionDirection")} value={transition.preset.direction} onChange={(event) => {
-						const direction = event.target.value as Direction;
-						const kind = transition.preset.kind as "wipe" | "push";
-						onCommand((p) => updateClipTransition(p, transition.id, { preset: { kind, direction } }));
-					}}>
-						{(["left", "right", "up", "down"] as const).map((direction) => <option key={direction} value={direction}>{m(direction)}</option>)}
-					</select>
-				</label>
+				<div className="project-transition-direction">
+					<span className="project-transition-control-label">{m("transitionDirection")}</span>
+					<div className="project-transition-directions" role="group" aria-label={m("transitionDirection")}>
+						{directions.map(({ value, glyph }) => (
+							<button
+								key={value}
+								type="button"
+								data-transition-direction={value}
+								aria-label={m(value)}
+							aria-pressed={direction === value}
+								className="project-transition-direction-button"
+								onClick={() => {
+									const kind = transition.preset.kind as "wipe" | "push";
+									onCommand((p) => updateClipTransition(p, transition.id, { preset: { kind, direction: value } }));
+								}}
+							>
+								{glyph}
+							</button>
+						))}
+					</div>
+				</div>
 			)}
 			{transition.preset.kind === "fade-through" && (
 				<label>

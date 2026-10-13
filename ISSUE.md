@@ -555,14 +555,16 @@ Suite penuh default parallel sebelum perbaikan review akhir: 1.491/1.500 tes lul
 
 ## Edge-hold Clip Transitions pada media penuh / tanpa handle (13 Oktober 2026)
 
-**Status:** Implementasi selesai; tes fokus lulus; verifikasi reopen `.captr` dan QA native masih pending.
+**Status:** Implementasi dan QA otomatis lulus; QA native masih pending.
 
 - [x] Klip video utuh (full-source) yang ditempatkan berdampingan pada visual track tanpa source handle kini dapat menerima transisi default (500 ms) dengan menahan frame tepi (*edge frame holding*).
 - [x] `getMaxClipTransitionDurationUs` di `clipTransitions.ts` dan validator sequence di `validation.ts` mengizinkan transisi hingga batas timeline clip saat available handle adalah 0.
 - [x] `sampleClipTransition` dan `visualSample` di `visualAnimation.ts` menahan frame valid pertama (`0`) dan terakhir (`durationUs - 1`) dari sumber video/rekaman saat evaluasi transisi melampaui batas media.
 - [x] Tombol aksi "Add transition" di `ProjectTimeline` langsung muncul di perbatasan media penuh tanpa perlu pemotongan trim manual terlebih dahulu.
-- [x] Automated QA: 148/148 tes pada 9 suite terkait (`clipTransitions`, `validation`, `visualAnimation`, `ProjectTimeline`, `commands`, `history`, `storyOwnership`, `projectFrameRenderer`, `timelineProjectExporter`) lulus; `pnpm exec tsc --noEmit` lolos.
-- [ ] Verifikasi reopen `.captr`: belum tuntas karena test Windows mengembalikan `EPERM` saat rename folder staging workspace, sebelum validasi project selesai.
+- [x] Inspector transisi memakai 5 kartu preset dengan preview animasi; arah Wipe/Push dipilih lewat tombol panah.
+- [x] Automated QA terarah: 156/156 tes pada 10 suite transisi/editor/export lulus; `pnpm exec tsc --noEmit` lolos.
+- [x] Lifecycle `.captr`: 5/5 tes lulus, termasuk penyimpanan dan pembukaan ulang transisi.
+- [ ] Full suite: 1.596 tes lulus, 24 gagal di 9 file (`mcpServer`, `projectFileConcurrency`, `projectFileService`, `projectRenameTransaction`, `recordedAudioFile`, `StoryEditor`, `mediaLayerTiming`, `audioEncoder`, `streamingDecoder`); tes inspector transisi lulus.
 - [ ] Native QA: Tempatkan dua file video penuh di timeline, klik tombol "Add transition", putar preview di area transisi, dan pastikan transisi cross-dissolve berjalan mulus dengan freeze frame di akhir/awal klip tanpa crash playback.
 
 
