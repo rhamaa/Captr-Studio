@@ -292,11 +292,10 @@ describe("transition and component animation command cleanup", () => {
 		expect(removed.clipTransitions).toEqual([]);
 	});
 
-	it("rejects a trim that preserves the cut but removes a required source handle", () => {
+	it("keeps a transition when trimming removes a source handle because preview holds the edge frame", () => {
 		const project = transitionReadyProjectWithTransition();
-		const before = structuredClone(project);
-		expect(() => trimClip(project, "in", 100_000, 10_000_000)).toThrow(/handle/i);
-		expect(project).toEqual(before);
+		const trimmed = trimClip(project, "in", 100_000, 10_000_000);
+		expect(trimmed.clipTransitions).toEqual(project.clipTransitions);
 	});
 
 	it("undo restores a transition removed by a clip gesture", () => {

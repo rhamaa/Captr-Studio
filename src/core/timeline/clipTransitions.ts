@@ -37,40 +37,27 @@ function eligiblePair(project: TimelineProject, fromClipId: string, toClipId: st
 		throw new Error("Outgoing recording composition is missing");
 	if (toAsset.kind === "recording" && !toComposition)
 		throw new Error("Incoming recording composition is missing");
-	return { from, to, fromAsset, toAsset, fromComposition };
+	return { from, to };
 }
 
-/** Returns the largest centered transition duration that fits source handles and project bounds. */
+/** Returns the largest centered transition duration that fits both clips and project bounds. */
 export function getMaxClipTransitionDurationUs(
 	project: TimelineProject,
 	fromClipId: string,
 	toClipId: string,
 	excludeTransitionId?: string,
 ): number {
-	const { from, to, fromAsset, toAsset, fromComposition } = eligiblePair(
-		project,
-		fromClipId,
-		toClipId,
-	);
-	const outgoingSourceDuration =
-		fromAsset.kind === "image"
-			? Number.POSITIVE_INFINITY
-			: (fromComposition?.durationUs ?? fromAsset.durationUs);
-	const incomingSourceStart =
-		toAsset.kind === "image" ? Number.POSITIVE_INFINITY : to.clip.sourceInUs;
-	const outgoingTailUs =
-		fromAsset.kind === "image"
-			? Number.POSITIVE_INFINITY
-			: Math.max(0, (outgoingSourceDuration - from.clip.sourceOutUs) / from.clip.rate);
-	const incomingHeadUs =
-		toAsset.kind === "image"
-			? Number.POSITIVE_INFINITY
-			: incomingSourceStart / to.clip.rate;
+	const { from, to } = eligiblePair(project, fromClipId, toClipId);
 	const boundaryUs = to.clip.startUs,
 		projectEndUs = projectDurationUs(project),
 		projectHeadUs = boundaryUs,
 		projectTailUs = Math.max(0, projectEndUs - boundaryUs),
-	maxHalfDurationUs = Math.min(outgoingTailUs, incomingHeadUs, projectHeadUs, projectTailUs);
+		maxHalfDurationUs = Math.min(
+			clipDurationUs(from.clip),
+			clipDurationUs(to.clip),
+			projectHeadUs,
+			projectTailUs,
+		);
 	let maximumUs = Number.isFinite(maxHalfDurationUs)
 		? Math.max(0, Math.floor(maxHalfDurationUs * 2))
 		: Number.MAX_SAFE_INTEGER;
@@ -96,10 +83,10 @@ export function addClipTransition(
 	if (project.clipTransitions?.some((transition) => transition.id === transitionId))
 		throw new Error("Duplicate transition ID");
 	const maximumUs = getMaxClipTransitionDurationUs(project, input.fromClipId, input.toClipId);
-	if (maximumUs <= 0) throw new Error("No transition handle is available");
+	if (maximumUs <= 0) throw new Error("No timeline duration is available for this transition");
 	const durationUs = input.durationUs ?? Math.min(500_000, maximumUs);
 	if (!Number.isSafeInteger(durationUs) || durationUs <= 0 || durationUs > maximumUs)
-		throw new Error(`Transition exceeds maximum available handle duration of ${maximumUs} µs`);
+		throw new Error(`Transition exceeds maximum duration of ${maximumUs} µs`);
 	const next = structuredClone(project);
 	next.clipTransitions ??= [];
 	next.clipTransitions.push({ ...structuredClone(input), id: transitionId, durationUs });
@@ -118,7 +105,7 @@ export function updateClipTransition(
 	const maximumUs = getMaxClipTransitionDurationUs(next, transition.fromClipId, transition.toClipId, transition.id);
 	Object.assign(transition, structuredClone(patch));
 	if (!Number.isSafeInteger(transition.durationUs) || transition.durationUs <= 0 || transition.durationUs > maximumUs)
-		throw new Error(`Transition exceeds maximum available handle duration of ${maximumUs} µs`);
+		throw new Error(`Transition exceeds maximum duration of ${maximumUs} µs`);
 	next.updatedAt = new Date().toISOString();
 	return validateTimelineProject(refreshStoryProjections(next));
 }
@@ -146,7 +133,7 @@ export function reconcileClipTransitions(project: TimelineProject): void {
 	for (const transition of project.clipTransitions) {
 		const maximumUs = getMaxClipTransitionDurationUs(project, transition.fromClipId, transition.toClipId, transition.id);
 		if (transition.durationUs > maximumUs)
-			throw new Error(`Trim would remove required transition handle; maximum is ${maximumUs} µs`);
+			throw new Error(`Edit would exceed the transition duration limit; maximum is ${maximumUs} µs`);
 	}
 }
 

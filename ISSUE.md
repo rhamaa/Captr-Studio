@@ -553,4 +553,16 @@ Suite penuh default parallel sebelum perbaikan review akhir: 1.491/1.500 tes lul
 - [x] Automated QA flow tab/mode: 29/29 tes pada 3 suite fokus lulus dan TypeScript lulus.
 - [ ] Native QA: ubah Window dan Webcam secara terpisah, simpan/buka ulang `.captr`, ekspor lalu impor preset JSON antar-project, pastikan penerapan hanya mengubah target terpilih, dan bandingkan preview dengan hasil export untuk desain glass/solid/brutalist.
 
+## Edge-hold Clip Transitions pada media penuh / tanpa handle (13 Oktober 2026)
+
+**Status:** Implementasi selesai; tes fokus lulus; verifikasi reopen `.captr` dan QA native masih pending.
+
+- [x] Klip video utuh (full-source) yang ditempatkan berdampingan pada visual track tanpa source handle kini dapat menerima transisi default (500 ms) dengan menahan frame tepi (*edge frame holding*).
+- [x] `getMaxClipTransitionDurationUs` di `clipTransitions.ts` dan validator sequence di `validation.ts` mengizinkan transisi hingga batas timeline clip saat available handle adalah 0.
+- [x] `sampleClipTransition` dan `visualSample` di `visualAnimation.ts` menahan frame valid pertama (`0`) dan terakhir (`durationUs - 1`) dari sumber video/rekaman saat evaluasi transisi melampaui batas media.
+- [x] Tombol aksi "Add transition" di `ProjectTimeline` langsung muncul di perbatasan media penuh tanpa perlu pemotongan trim manual terlebih dahulu.
+- [x] Automated QA: 148/148 tes pada 9 suite terkait (`clipTransitions`, `validation`, `visualAnimation`, `ProjectTimeline`, `commands`, `history`, `storyOwnership`, `projectFrameRenderer`, `timelineProjectExporter`) lulus; `pnpm exec tsc --noEmit` lolos.
+- [ ] Verifikasi reopen `.captr`: belum tuntas karena test Windows mengembalikan `EPERM` saat rename folder staging workspace, sebelum validasi project selesai.
+- [ ] Native QA: Tempatkan dua file video penuh di timeline, klik tombol "Add transition", putar preview di area transisi, dan pastikan transisi cross-dissolve berjalan mulus dengan freeze frame di akhir/awal klip tanpa crash playback.
+
 

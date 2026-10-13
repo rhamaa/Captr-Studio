@@ -17,7 +17,7 @@ import {
 import { fixtureClip, fixtureText, fixtureTrack } from "./storyOwnership.fixtures";
 import { type ComponentAnimation, clipDurationUs } from "./types";
 
-it.each([0.5, 2])("uses finite inline shape and text handles at rate %s", (rate) => {
+it.each([0.5, 2])("bounds inline transitions by adjacent clip lengths at rate %s", (rate) => {
 	const project = createTimelineProject("inline-handles", "Inline");
 	const from = fixtureClip("out", { content: { kind: "shape", durationUs: 5_000_000,
 		shapeDefinition: { kind: "rectangle", width: 100, height: 50, style: { fill: "#ffffff", stroke: null } } } });
@@ -25,9 +25,10 @@ it.each([0.5, 2])("uses finite inline shape and text handles at rate %s", (rate)
 	from.sourceOutUs = 4_000_000; from.rate = rate;
 	to.sourceInUs = 1_000_000; to.rate = rate; to.startUs = clipDurationUs(from);
 	project.tracks = [fixtureTrack("visual-1", [from, to])];
-	expect(getMaxClipTransitionDurationUs(project, "out", "in")).toBe(2_000_000 / rate);
+	const maximumUs = 8_000_000 / rate;
+	expect(getMaxClipTransitionDurationUs(project, "out", "in")).toBe(maximumUs);
 	const withTransition = addClipTransition(project, { ...transitionInput, durationUs: 500_000 }, "inline-transition");
-	expect(() => updateClipTransition(withTransition, "inline-transition", { durationUs: 2_000_000 / rate + 1 })).toThrow(/handle/);
+	expect(() => updateClipTransition(withTransition, "inline-transition", { durationUs: maximumUs + 1 })).toThrow(/maximum/);
 	expect(moveClip(withTransition, "in", "visual-1", to.startUs + 1_000_000).clipTransitions).toEqual([]);
 	expect(removeClipTransition(withTransition, "inline-transition").clipTransitions).toEqual([]);
 });
@@ -109,13 +110,13 @@ describe("clip transition commands", () => {
 		expect(() => getMaxClipTransitionDurationUs(splitTrack, "out", "in")).toThrow(/same track/i);
 	});
 
-	it("maps playback rate and Record composition handles to project time", () => {
+	it("bounds transitions by clip timeline length after playback-rate mapping", () => {
 		expect(getMaxClipTransitionDurationUs(videoPair({ fromRate: 2, toRate: 0.5 }), "out", "in"))
-			.toBe(2_000_000);
-		expect(getMaxClipTransitionDurationUs(recordingPair(), "out", "in")).toBe(2_000_000);
+			.toBe(6_000_000);
+		expect(getMaxClipTransitionDurationUs(recordingPair(), "out", "in")).toBe(6_000_000);
 	});
 
-	it("defaults to 500 ms or the smaller available maximum", () => {
+	it("defaults to 500 ms when the transition extends beyond short source handles", () => {
 		const ordinary = addClipTransition(videoPair(), transitionInput, "transition-default");
 		expect(ordinary.clipTransitions?.[0]?.durationUs).toBe(500_000);
 
@@ -124,7 +125,14 @@ describe("clip transition commands", () => {
 			transitionInput,
 			"transition-constrained",
 		);
-		expect(constrained.clipTransitions?.[0]?.durationUs).toBe(100_000);
+		expect(constrained.clipTransitions?.[0]?.durationUs).toBe(500_000);
+	});
+
+	it("allows a default transition between full-source clips by holding their edge frames", () => {
+		const project = videoPair({ tailUs: 0, headUs: 0 });
+		expect(getMaxClipTransitionDurationUs(project, "out", "in")).toBeGreaterThanOrEqual(500_000);
+		const transitioned = addClipTransition(project, transitionInput, "edge-hold-transition");
+		expect(transitioned.clipTransitions?.[0]?.durationUs).toBe(500_000);
 	});
 
 	it("limits neighboring transitions so their project-time intervals never overlap", () => {
@@ -150,22 +158,22 @@ describe("clip transition commands", () => {
 			toClipId: "third-clip",
 		}, "second");
 		expect(second.clipTransitions?.map((transition) => transition.durationUs)).toEqual([600_000, 200_000]);
-		expect(() => updateClipTransition(second, "first", { durationUs: 700_000 })).toThrow(/maximum|overlap|handle/i);
+		expect(() => updateClipTransition(second, "first", { durationUs: 700_000 })).toThrow(/maximum|overlap/i);
 	});
 
-	it("rejects a requested duration above the handle maximum without mutation", () => {
+	it("rejects a requested duration that exceeds the neighboring clip interval", () => {
 		const project = videoPair({ tailUs: 100_000, headUs: 50_000 });
 		const before = structuredClone(project);
 		expect(() =>
-			addClipTransition(project, { ...transitionInput, durationUs: 100_001 }, "too-long"),
-		).toThrow(/maximum|handle/i);
+			addClipTransition(project, { ...transitionInput, durationUs: 15_800_001 }, "too-long"),
+		).toThrow(/maximum/i);
 		expect(project).toEqual(before);
 	});
 
 	it("updates or removes a transition immutably and rejects an invalid duration", () => {
 		const withTransition = addClipTransition(videoPair(), transitionInput, "transition-edit");
-		expect(() => updateClipTransition(withTransition, "transition-edit", { durationUs: 9_000_000 }))
-			.toThrow(/maximum|handle/i);
+		expect(() => updateClipTransition(withTransition, "transition-edit", { durationUs: 12_000_001 }))
+			.toThrow(/maximum/i);
 		const updated = updateClipTransition(withTransition, "transition-edit", {
 			preset: { kind: "fade-through", color: "white" },
 			easing: "ease-out",

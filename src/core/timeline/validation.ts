@@ -687,34 +687,13 @@ export function validateTimelineProject(
 				const track = view.tracks.find((candidate) => candidate.id === transition.trackId)!;
 				const from = track.clips.find((clip) => clip.id === transition.fromClipId)!;
 				const to = track.clips.find((clip) => clip.id === transition.toClipId)!;
-				const fromAsset = resolveClipSource(view, from);
-				const toAsset = resolveClipSource(view, to);
-				const fromComposition = from.compositionId
-					? view.compositions.find((composition) => composition.id === from.compositionId)
-					: undefined;
-				const outgoingTailUs =
-					!fromAsset.content && (fromAsset.kind === "shape" || fromAsset.kind === "image")
-						? Number.POSITIVE_INFINITY
-						: Math.max(
-								0,
-								((fromComposition?.durationUs ?? fromAsset.durationUs) -
-									from.sourceOutUs) /
-									from.rate,
-							);
-				const incomingHeadUs =
-					!toAsset.content && (toAsset.kind === "shape" || toAsset.kind === "image")
-						? Number.POSITIVE_INFINITY
-						: to.sourceInUs / to.rate;
 				const boundaryUs = to.startUs;
-				let maximumUs = Math.min(
-					outgoingTailUs,
-					incomingHeadUs,
+				let maximumUs = Math.floor(2 * Math.min(
+					clipDurationUs(from),
+					clipDurationUs(to),
 					boundaryUs,
 					Math.max(0, projectEndUs - boundaryUs),
-				);
-				maximumUs = Number.isFinite(maximumUs)
-					? Math.max(0, Math.floor(maximumUs * 2))
-					: Number.MAX_SAFE_INTEGER;
+				));
 				for (const other of view.clipTransitions) {
 					if (other.id === transition.id || other.trackId !== transition.trackId)
 						continue;
@@ -728,7 +707,7 @@ export function validateTimelineProject(
 				}
 				requireValue(
 					transition.durationUs <= maximumUs,
-					"Transition exceeds available source handles or overlaps an adjacent transition",
+					"Transition exceeds adjacent clip bounds or overlaps an adjacent transition",
 				);
 			}
 		}

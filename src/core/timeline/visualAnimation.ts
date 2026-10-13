@@ -132,13 +132,20 @@ function visualSample(
 			);
 		if (!pkg?.screen.path || !composition)
 			throw new Error(`Missing screen source for ${clip.id}`);
-		recording = evaluateRecording(pkg, composition, compositionUs);
+		const clampedCompositionUs = Math.max(
+			0,
+			Math.min(Math.max(0, composition.durationUs - 1), compositionUs),
+		);
+		recording = evaluateRecording(pkg, composition, clampedCompositionUs);
 		if (recording.screenUs === null) throw new Error(`Missing screen frame for ${clip.id}`);
 		path = pkg.screen.path;
 		sourceUs = recording.screenUs;
 	} else if (asset.kind === "video" || asset.kind === "image") {
 		if (!asset.source?.path) throw new Error(`Missing media source for ${clip.id}`);
 		path = asset.source.path;
+		if (asset.kind === "video") {
+			sourceUs = Math.max(0, Math.min(Math.max(0, asset.durationUs - 1), compositionUs));
+		}
 	} else if (asset.kind === "audio") {
 		throw new Error(`Audio asset cannot render on visual track for ${clip.id}`);
 	}

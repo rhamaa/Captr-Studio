@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 import { I18nProvider } from "@/contexts/I18nContext";
 import { addClipTransition } from "@/core/timeline/clipTransitions";
-import { addTrack, createTimelineProject, moveClip, trimClip } from "@/core/timeline/commands";
+import { addTrack, createTimelineProject, moveClip, placeAsset, registerMedia, trimClip } from "@/core/timeline/commands";
 import { extendInlineClip } from "@/core/timeline/designTemplateCommands";
 import { ProjectHistory } from "@/core/timeline/history";
 import { createAndPlaceShape } from "@/core/timeline/shapeCommands";
@@ -114,6 +114,30 @@ it("offers an add-transition action on eligible boundaries and removes it after 
 	});
 	expect(markup).toContain("project-transition-item");
 	expect(markup).not.toContain('aria-label="Add transition"');
+});
+
+it("offers direct transition insertion for joined full-length media", () => {
+	let project = createTimelineProject("full-length-transition", "Full-length transition");
+	for (const id of ["left-media", "right-media"])
+		project = registerMedia(project, {
+			id,
+			kind: "video",
+			name: id,
+			durationUs: 8_000_000,
+			width: 1920,
+			height: 1080,
+			source: { path: `${id}.mp4`, durationUs: 8_000_000, offsetUs: 0 },
+		});
+	project = placeAsset(project, "left-media", "visual-1", 0, { clipId: "left-clip" });
+	project = placeAsset(project, "right-media", "visual-1", 8_000_000, { clipId: "right-clip" });
+	expect(renderTimeline(project)).toContain('aria-label="Add transition"');
+	const transitioned = transitionPlacementCommand("left-clip", "right-clip", "edge-hold")(project);
+	expect(transitioned.clipTransitions?.[0]).toMatchObject({
+		id: "edge-hold",
+		fromClipId: "left-clip",
+		toClipId: "right-clip",
+		durationUs: 500_000,
+	});
 });
 
 it("keeps the shape picker out of the timeline toolbar and places shapes at the playhead", () => {
