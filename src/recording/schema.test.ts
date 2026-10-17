@@ -6,13 +6,14 @@ import type { RecordComposition, RecordingPackage } from "./types";
 const appearance = (cornerRadius = 18): RecordingFrameAppearance => ({
  framePadding: 8, borderWidth: 2, borderColor: "#123456", borderOpacity: 0.8,
  cornerRadius, surfaceColor: "#abcdef", surfaceOpacity: 0.2, backdropBlur: 12,
+ headerStyle: "none",
  shadow: { color: "#000000", opacity: 0.3, blur: 14, offsetX: -2, offsetY: 4 },
 });
 
 describe("recording frame appearances", () => {
  it("resolves neutral new fields and legacy default radius/shadow", () => {
   const resolved = resolveRecordingFrameAppearances({});
-  expect(resolved.window).toEqual({ framePadding: 0, borderWidth: 0, borderColor: "#000000", borderOpacity: 0, cornerRadius: 12.5, surfaceColor: "#000000", surfaceOpacity: 0, backdropBlur: 0, shadow: { color: "#000000", opacity: 0, blur: 0, offsetX: 0, offsetY: 0 } });
+  expect(resolved.window).toEqual({ framePadding: 0, borderWidth: 0, borderColor: "#000000", borderOpacity: 0, cornerRadius: 12.5, surfaceColor: "#000000", surfaceOpacity: 0, backdropBlur: 0, headerStyle: "none", shadow: { color: "#000000", opacity: 0, blur: 0, offsetX: 0, offsetY: 0 } });
   expect(resolved.webcam).toEqual({ ...resolved.window, cornerRadius: 50, shadow: { ...resolved.window.shadow, opacity: 0.5 } });
  });
  it("falls back to the current legacy settings without materializing defaults", () => {

@@ -928,12 +928,9 @@ export function SettingsPanel({
 					/>
 				);
 			case "scene":
-				return (
-					<>
-						{sceneSectionContent}
-						{recordingAppearanceContent}
-					</>
-				);
+				return sceneSectionContent;
+			case "appearance":
+				return recordingAppearanceContent ?? null;
 			case "zoom":
 				return (
 					<ZoomItemSection
@@ -977,8 +974,7 @@ export function SettingsPanel({
 				);
 			case "layout":
 				return (
-					<>
-						<RecordLayoutSection
+					<RecordLayoutSection
 							selectedLayoutId={selectedLayoutId}
 							selectedLayoutPreset={selectedLayoutPreset}
 							selectedLayoutTransitionMs={selectedLayoutTransitionMs}
@@ -1016,9 +1012,7 @@ export function SettingsPanel({
 							tSettings={tSettings}
 							t={t}
 						/>
-						{recordingAppearanceContent}
-					</>
-				);
+					);
 			case "audio":
 				return (
 					<AudioTrackSection

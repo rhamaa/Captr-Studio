@@ -1824,6 +1824,36 @@
 }
 .recording-frame-appearance input[type="range"] {
 	accent-color: var(--captr-blue);
+	cursor: pointer;
+}
+.recording-frame-appearance input[type="number"]::-webkit-outer-spin-button,
+.recording-frame-appearance input[type="number"]::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+.recording-frame-appearance input[type="number"] {
+	-moz-appearance: textfield;
+}
+.recording-frame-appearance input[type="color"] {
+	-webkit-appearance: none;
+	appearance: none;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	padding: 2px;
+	background: hsl(var(--editor-surface));
+	cursor: pointer;
+	transition: all 0.15s ease;
+}
+.recording-frame-appearance input[type="color"]::-webkit-color-swatch-wrapper {
+	padding: 0;
+}
+.recording-frame-appearance input[type="color"]::-webkit-color-swatch {
+	border: none;
+	border-radius: 4px;
+}
+.recording-frame-appearance input[type="color"]:hover {
+	border-color: rgba(111, 168, 255, 0.4);
+	box-shadow: 0 0 8px rgba(111, 168, 255, 0.2);
 }
 @media (max-width: 1150px) {
 	.project-workspace {

@@ -3,16 +3,19 @@ import { resolveRecordingFrameAppearanceTarget } from "./recordingFrameAppearanc
 
 describe("resolveRecordingFrameAppearanceTarget", () => {
 	it.each([
-		["scene", "screen-only", "window"],
-		["layout", "screen-only", "window"],
-		["layout", "bubble", "webcam"],
-		["layout", "webcam-only", "webcam"],
+		["appearance", "screen-only", "window"],
+		["appearance", "bubble", "window"],
+		["appearance", "webcam-only", "webcam"],
+		["appearance", null, "window"],
+		["scene", "screen-only", null],
 		["scene", "bubble", null],
-		["scene", "webcam-only", null],
-		["cursor", "screen-only", null],
-		["layout", "screen-center", null],
-		["layout", "camera-circle", null],
+		["scene", null, null],
+		["layout", "screen-only", null],
+		["layout", "bubble", null],
+		["layout", "webcam-only", null],
 		["layout", null, null],
+		["cursor", "screen-only", null],
+		["cursor", null, null],
 	] as const)("routes %s/%s to %s", (section, preset, expected) => {
 		expect(resolveRecordingFrameAppearanceTarget(section, preset)).toBe(expected);
 	});

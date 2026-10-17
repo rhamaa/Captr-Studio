@@ -142,4 +142,56 @@ describe("RecordingFrameAppearancePanel", () => {
 			),
 		).resolves.toEqual({ status: "success", value: preset });
 	});
+
+	it("renders target switcher when onTargetChange is provided", () => {
+		const onTargetChange = vi.fn();
+		const props = {
+			target: "window" as const,
+			appearance,
+			onChange: vi.fn(),
+			onTargetChange,
+			presetLibrary: {} as RecordingFrameAppearancePanelProps["presetLibrary"],
+		};
+		const html = translate(createElement(RecordingFrameAppearancePanel, props));
+		expect(html).toContain("Window");
+		expect(html).toContain("Webcam");
+	});
+
+	it("renders starter presets and window header styles for window target", () => {
+		const props = {
+			target: "window" as const,
+			appearance,
+			onChange: vi.fn(),
+			presetLibrary: {} as RecordingFrameAppearancePanelProps["presetLibrary"],
+		};
+		const html = translate(createElement(RecordingFrameAppearancePanel, props));
+		expect(html).toContain("Starter Presets");
+		expect(html).toContain("macOS Dark");
+		expect(html).toContain("Windows 11");
+		expect(html).toContain("Linux Modern");
+		expect(html).toContain("Glass Glow");
+		expect(html).toContain("Floating Card");
+		expect(html).toContain("Neo-Brutalist");
+		expect(html).toContain("Claymorphism");
+		expect(html).toContain("Cyberpunk Neon");
+
+		expect(html).toContain("Window Header Style");
+		expect(html).toContain("None");
+		expect(html).toContain("macOS");
+		expect(html).toContain("Win 11");
+		expect(html).toContain("Linux");
+	});
+
+	it("renders color swatch pickers for border, surface, and shadow", () => {
+		const props = {
+			target: "window" as const,
+			appearance,
+			onChange: vi.fn(),
+			presetLibrary: {} as RecordingFrameAppearancePanelProps["presetLibrary"],
+		};
+		const html = translate(createElement(RecordingFrameAppearancePanel, props));
+		expect(html).toContain('aria-label="Border color color picker"');
+		expect(html).toContain('aria-label="Surface color color picker"');
+		expect(html).toContain('aria-label="Shadow color color picker"');
+	});
 });

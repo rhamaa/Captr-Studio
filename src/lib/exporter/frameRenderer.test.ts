@@ -784,6 +784,13 @@ describe("Record frame appearances", () => {
 					JSON.stringify(o.args) === JSON.stringify([52, 42, 296, 216, 6]),
 			),
 		).toBe(true);
+		expect(
+			ops.some(
+				(o: any) =>
+					o.name === "roundRect" &&
+					JSON.stringify(o.args) === JSON.stringify([38, 28, 324, 244, 20]),
+			),
+		).toBe(true);
 		const webcamDraw = ops.find(
 			(o: any) => o.name === "drawImage" && o.args[0] instanceof FakeVideoElement,
 		);
@@ -975,5 +982,22 @@ describe("Record frame appearances", () => {
 				),
 		).toBe(true);
 		expect(canvases.every((c: any) => c.width <= 400 && c.height <= 300)).toBe(true);
+	});
+
+	it("renders window headers with traffic lights or window controls and insets media", () => {
+		const macosWindow = bareAppearance({
+			headerStyle: "macos",
+		});
+		const { renderer, output } = appearanceHarness({
+			window: macosWindow,
+			webcam: bareAppearance(),
+		});
+		renderer.config.webcam.enabled = false;
+		renderer.compositeWithShadows();
+		const ops = output.context.operations;
+		const ellipses = ops.filter((o: any) => o.name === "ellipse");
+		expect(ellipses.length).toBe(3);
+		const roundRects = ops.filter((o: any) => o.name === "roundRect");
+		expect(roundRects.length).toBeGreaterThanOrEqual(1);
 	});
 });

@@ -79,7 +79,7 @@ describe("Recording composition settings", () => {
 			}),
 		);
 
-		expect(html).not.toContain(">Appearance</span>");
+		expect(html).toContain(">Appearance</span>");
 		expect(updated.settings.frameAppearances.window.borderWidth).toBe(9);
 		expect(updated.settings.frameAppearances.webcam).toEqual(originalWebcam);
 	});
@@ -159,7 +159,7 @@ describe("Recording composition settings", () => {
 		expect(html).not.toContain("Red = cut");
 	});
 
-	it("offers recording-specific Scene, Cursor, and Layout tabs without a separate Appearance tab", () => {
+	it("offers recording-specific Scene, Cursor, Layout, and Appearance tabs", () => {
 		const registered = registerRecording(
 			createTimelineProject("project", "Project"),
 			{
@@ -193,6 +193,7 @@ describe("Recording composition settings", () => {
 			"Scene",
 			"Cursor",
 			"Layout",
+			"Appearance",
 		]);
 	});
 
@@ -223,10 +224,7 @@ describe("Recording composition settings", () => {
 		expect(html.includes('<video src="http://127.0.0.1:4321/webcam.mp4"')).toBe(cameraVisible);
 	});
 
-	it.each([
-		"scene",
-		"layout",
-	] as const)("renders Record appearance controls inside the %s settings section", (section) => {
+	it("renders Record appearance controls inside the appearance settings section", () => {
 		const settings = createDefaultRecordingSettings();
 		const appearanceContent = createElement(
 			"div",
@@ -238,10 +236,8 @@ describe("Recording composition settings", () => {
 				...settings,
 				selected: settings.wallpaper,
 				onWallpaperChange: () => {},
-				activeEffectSection: section,
+				activeEffectSection: "appearance",
 				recordToolsEnabled: true,
-				selectedLayoutId: "layout",
-				selectedLayoutPreset: "screen-only",
 				recordingAppearanceContent: appearanceContent,
 			}),
 		);
@@ -249,25 +245,28 @@ describe("Recording composition settings", () => {
 		expect(html).toContain('data-recording-appearance="true"');
 	});
 
-	it("does not render Record appearance controls in unrelated sections", () => {
-		const settings = createDefaultRecordingSettings();
-		const html = translate(
-			createElement(SettingsPanel, {
-				...settings,
-				selected: settings.wallpaper,
-				onWallpaperChange: () => {},
-				activeEffectSection: "cursor",
-				recordToolsEnabled: true,
-				recordingAppearanceContent: createElement(
-					"div",
-					{ "data-recording-appearance": true },
-					"Frame styling",
-				),
-			}),
-		);
+	it.each(["scene", "cursor", "layout"] as const)(
+		"does not render Record appearance controls in %s section",
+		(section) => {
+			const settings = createDefaultRecordingSettings();
+			const html = translate(
+				createElement(SettingsPanel, {
+					...settings,
+					selected: settings.wallpaper,
+					onWallpaperChange: () => {},
+					activeEffectSection: section,
+					recordToolsEnabled: true,
+					recordingAppearanceContent: createElement(
+						"div",
+						{ "data-recording-appearance": true },
+						"Frame styling",
+					),
+				}),
+			);
 
-		expect(html).not.toContain("data-recording-appearance");
-	});
+			expect(html).not.toContain("data-recording-appearance");
+		},
+	);
 
 	it("keeps preview canvas dimensions fixed to Artboard canvas props", () => {
 		const registered = registerRecording(

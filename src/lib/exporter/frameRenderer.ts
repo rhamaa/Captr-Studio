@@ -2398,12 +2398,24 @@ export class FrameRenderer {
 		}
 		const shadow = appearance.shadow;
 		const shadowOpacity = bounded(shadow?.opacity, 0, 1);
+		const borderOpacity = bounded(appearance.borderOpacity, 0, 1);
+		const hasBorder = border > 0 && borderOpacity > 0;
+		const frameRect = hasBorder
+			? {
+					x: x - border,
+					y: y - border,
+					width: width + border * 2,
+					height: height + border * 2,
+				}
+			: outer;
+		const frameRadius = hasBorder ? (radius > 0 ? radius + border : 0) : radius;
+
 		if (shadowOpacity > 0) {
 			ctx.save();
 			// Exclude the silhouette itself: transparent padding must not receive a solid shadow fill.
 			ctx.beginPath();
 			ctx.rect(0, 0, ctx.canvas.width, ctx.canvas.height);
-			ctx.roundRect(x, y, width, height, radius);
+			ctx.roundRect(frameRect.x, frameRect.y, frameRect.width, frameRect.height, frameRadius);
 			ctx.clip("evenodd");
 			ctx.globalAlpha *= shadowOpacity;
 			ctx.fillStyle = "#000000";
@@ -2412,10 +2424,30 @@ export class FrameRenderer {
 			ctx.shadowBlur = bounded(shadow?.blur, 0, Math.min(256, half));
 			ctx.shadowOffsetX = bounded(shadow?.offsetX, -width, width);
 			ctx.shadowOffsetY = bounded(shadow?.offsetY, -height, height);
-			path(outer, radius);
+			path(frameRect, frameRadius);
 			ctx.fill();
 			ctx.restore();
 		}
+
+		if (hasBorder) {
+			ctx.save();
+			ctx.globalAlpha *= borderOpacity;
+			ctx.lineWidth = border;
+			ctx.strokeStyle = "#000000";
+			ctx.strokeStyle = color(appearance.borderColor);
+			path(
+				{
+					x: x - border / 2,
+					y: y - border / 2,
+					width: width + border,
+					height: height + border,
+				},
+				radius > 0 ? radius + border / 2 : 0,
+			);
+			ctx.stroke();
+			ctx.restore();
+		}
+
 		ctx.save();
 		path(outer, radius);
 		ctx.clip();
@@ -2447,29 +2479,102 @@ export class FrameRenderer {
 			width: width - padding * 2,
 			height: height - padding * 2,
 		};
+		const hasHeader =
+			Boolean(appearance.headerStyle) && appearance.headerStyle !== "none";
+		const headerHeight = hasHeader
+			? Math.min(32, Math.max(20, Math.round(Math.min(inner.width, inner.height) * 0.045)))
+			: 0;
+
+		if (hasHeader && appearance.headerStyle && appearance.headerStyle !== "none") {
+			this.drawWindowHeader(ctx, inner, headerHeight, appearance.headerStyle);
+		}
+
+		const mediaArea = {
+			x: inner.x,
+			y: inner.y + headerHeight,
+			width: inner.width,
+			height: inner.height - headerHeight,
+		};
 		ctx.save();
-		path(inner, Math.max(0, radius - padding));
+		path(mediaArea, Math.max(0, radius - padding));
 		ctx.clip();
-		drawMedia(inner);
+		drawMedia(mediaArea);
 		ctx.restore();
-		const borderOpacity = bounded(appearance.borderOpacity, 0, 1);
-		if (border > 0 && borderOpacity > 0) {
-			ctx.save();
-			ctx.globalAlpha *= borderOpacity;
-			ctx.lineWidth = border;
-			ctx.strokeStyle = "#000000";
-			ctx.strokeStyle = color(appearance.borderColor);
-			path(
-				{
-					x: x + border / 2,
-					y: y + border / 2,
-					width: width - border,
-					height: height - border,
-				},
-				Math.max(0, radius - border / 2),
-			);
+		ctx.restore();
+	}
+
+	private drawWindowHeader(
+		ctx: CanvasRenderingContext2D,
+		rect: { x: number; y: number; width: number; height: number },
+		headerHeight: number,
+		style: "macos" | "windows" | "linux",
+	): void {
+		const { x, y, width } = rect;
+		ctx.save();
+		// Header background
+		ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+		ctx.beginPath();
+		ctx.rect(x, y, width, headerHeight);
+		ctx.fill();
+
+		// Header bottom divider line
+		ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+		ctx.beginPath();
+		ctx.rect(x, y + headerHeight - 1, width, 1);
+		ctx.fill();
+
+		const centerY = y + headerHeight / 2;
+
+		if (style === "macos") {
+			const dotRadius = Math.max(3.5, Math.min(6, headerHeight * 0.2));
+			const gap = dotRadius * 2 + 7;
+			const startX = x + Math.max(12, headerHeight * 0.45);
+			const colors = ["#ff5f56", "#ffbd2e", "#27c93f"];
+			colors.forEach((c, idx) => {
+				ctx.beginPath();
+				ctx.ellipse(startX + idx * gap, centerY, dotRadius, dotRadius, 0, 0, Math.PI * 2);
+				ctx.fillStyle = c;
+				ctx.fill();
+			});
+		} else if (style === "windows") {
+			const glyphSize = Math.max(7, Math.min(10, headerHeight * 0.32));
+			const rightMargin = x + width - Math.max(16, headerHeight * 0.6);
+			const spacing = glyphSize * 2.2;
+			ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
+			ctx.lineWidth = 1.2;
+
+			// Close (X)
+			const closeX = rightMargin;
+			ctx.beginPath();
+			ctx.moveTo(closeX - glyphSize / 2, centerY - glyphSize / 2);
+			ctx.lineTo(closeX + glyphSize / 2, centerY + glyphSize / 2);
+			ctx.moveTo(closeX + glyphSize / 2, centerY - glyphSize / 2);
+			ctx.lineTo(closeX - glyphSize / 2, centerY + glyphSize / 2);
 			ctx.stroke();
-			ctx.restore();
+
+			// Maximize (square)
+			const maxSquareX = closeX - spacing;
+			ctx.beginPath();
+			ctx.rect(maxSquareX - glyphSize / 2, centerY - glyphSize / 2, glyphSize, glyphSize);
+			ctx.stroke();
+
+			// Minimize (dash)
+			const minDashX = maxSquareX - spacing;
+			ctx.beginPath();
+			ctx.moveTo(minDashX - glyphSize / 2, centerY);
+			ctx.lineTo(minDashX + glyphSize / 2, centerY);
+			ctx.stroke();
+		} else if (style === "linux") {
+			const dotRadius = Math.max(3, Math.min(5, headerHeight * 0.18));
+			const gap = dotRadius * 2 + 6;
+			const startX = x + Math.max(12, headerHeight * 0.45);
+			const dotColors = ["#6b7280", "#9ca3af", "#d1d5db"];
+			dotColors.forEach((c, idx) => {
+				ctx.beginPath();
+				ctx.ellipse(startX + idx * gap, centerY, dotRadius, dotRadius, 0, 0, Math.PI * 2);
+				ctx.fillStyle = c;
+				ctx.fill();
+			});
 		}
 		ctx.restore();
 	}

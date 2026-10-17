@@ -49,6 +49,8 @@ export type {
 	ZoomTransitionEasing,
 };
 
+export type WindowHeaderStyle = "none" | "macos" | "windows" | "linux";
+
 export interface RecordingFrameAppearance {
 	framePadding: number;
 	borderWidth: number;
@@ -58,6 +60,7 @@ export interface RecordingFrameAppearance {
 	surfaceColor: string;
 	surfaceOpacity: number;
 	backdropBlur: number;
+	headerStyle?: WindowHeaderStyle;
 	shadow: {
 		color: string;
 		opacity: number;
@@ -507,6 +510,10 @@ function isAppearanceColor(value: unknown): value is string {
 	return isString(value) && value.trim().length > 0;
 }
 
+function isWindowHeaderStyle(value: unknown): value is WindowHeaderStyle {
+	return value === "none" || value === "macos" || value === "windows" || value === "linux";
+}
+
 export function isValidRecordingFrameAppearance(value: unknown): value is RecordingFrameAppearance {
 	if (!isObjectRecord(value) || !isObjectRecord(value.shadow)) return false;
 	return (
@@ -518,6 +525,7 @@ export function isValidRecordingFrameAppearance(value: unknown): value is Record
 		isAppearanceColor(value.surfaceColor) &&
 		isOpacity(value.surfaceOpacity) &&
 		isNonNegativeNumber(value.backdropBlur) &&
+		isOptional(value.headerStyle, isWindowHeaderStyle) &&
 		isAppearanceColor(value.shadow.color) &&
 		isOpacity(value.shadow.opacity) &&
 		isNonNegativeNumber(value.shadow.blur) &&
@@ -550,6 +558,7 @@ export function resolveRecordingFrameAppearances(
 		surfaceColor: appearance?.surfaceColor ?? "#000000",
 		surfaceOpacity: appearance?.surfaceOpacity ?? 0,
 		backdropBlur: appearance?.backdropBlur ?? 0,
+		headerStyle: appearance?.headerStyle ?? "none",
 		shadow: {
 			color: appearance?.shadow?.color ?? "#000000",
 			opacity: appearance?.shadow?.opacity ?? shadowOpacity,

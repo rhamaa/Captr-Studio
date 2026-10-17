@@ -56,7 +56,10 @@ import type { RecordComposition, RecordingPackage, RecordingSettings } from "../
 import { changeRecordingSettings, resolveRecordingSettings } from "./compositionAdapter";
 import { playbackOutputTimeUs } from "./playbackClock";
 import { RecordingOverlayHandles } from "./RecordingOverlayHandles";
-import { resolveRecordingFrameAppearanceTarget } from "./recordingFrameAppearanceRouting";
+import {
+	type RecordingAppearanceTarget,
+	resolveRecordingFrameAppearanceTarget,
+} from "./recordingFrameAppearanceRouting";
 
 export interface RecordingCompositionEditorProps {
 	package: RecordingPackage;
@@ -122,7 +125,10 @@ const settingCallbacks: Partial<Record<keyof RecordingSettings, keyof PanelProps
 	connectedZoomEasing: "onConnectedZoomEasingChange",
 };
 
-type RecordingSection = Extract<EditorEffectSection, "scene" | "cursor" | "layout">;
+type RecordingSection = Extract<
+	EditorEffectSection,
+	"scene" | "cursor" | "layout" | "appearance"
+>;
 
 const RECORDING_TABS: {
 	id: RecordingSection;
@@ -132,6 +138,7 @@ const RECORDING_TABS: {
 	{ id: "scene", label: "Scene", icon: Palette },
 	{ id: "cursor", label: "Cursor", icon: CursorClick },
 	{ id: "layout", label: "Layout", icon: SquaresFour },
+	{ id: "appearance", label: "Appearance", icon: Sparkle },
 ];
 
 /** Controlled effect editor. Project library, recording, persistence and export live outside. */
@@ -309,10 +316,49 @@ export function RecordingCompositionEditor({
 		});
 	const selectedZoom = settings.zoomRegions.find((z) => z.id === selectedZoomId),
 		selectedLayout = settings.layoutRegions.find((l) => l.id === selectedLayoutId);
-	const appearanceTarget = resolveRecordingFrameAppearanceTarget(
+	const defaultAppearanceTarget = resolveRecordingFrameAppearanceTarget(
 		section,
 		selectedLayout ? (selectedLayout.preset ?? "bubble") : null,
 	);
+	const [activeAppearanceTarget, setActiveAppearanceTarget] =
+		useState<RecordingAppearanceTarget | null>(null);
+
+	useEffect(() => {
+		setActiveAppearanceTarget(null);
+	}, [section]);
+
+	const appearanceTarget = activeAppearanceTarget ?? defaultAppearanceTarget;
+	const presetLibrary =
+		typeof window !== "undefined" && window?.electronAPI?.recordFramePresets
+			? window.electronAPI.recordFramePresets
+			: {
+					list: async () => ({ success: true as const, value: [] }),
+					save: async (_name: string, app: any) => ({
+						success: true as const,
+						value: {
+							schemaVersion: 1 as const,
+							id: "fallback",
+							name: _name,
+							createdAt: new Date().toISOString(),
+							updatedAt: new Date().toISOString(),
+							appearance: app,
+						},
+					}),
+					rename: async (id: string, name: string) => ({
+						success: true as const,
+						value: {
+							schemaVersion: 1 as const,
+							id,
+							name,
+							createdAt: new Date().toISOString(),
+							updatedAt: new Date().toISOString(),
+							appearance: {} as any,
+						},
+					}),
+					delete: async (id: string) => ({ success: true as const, value: { id } }),
+					import: async () => ({ success: true as const, canceled: true as const }),
+					export: async () => ({ success: true as const, canceled: true as const }),
+				};
 	const recordingAppearanceContent = appearanceTarget ? (
 		<RecordingFrameAppearancePanel
 			target={appearanceTarget}
@@ -325,7 +371,8 @@ export function RecordingCompositionEditor({
 					},
 				})
 			}
-			presetLibrary={window.electronAPI.recordFramePresets}
+			onTargetChange={setActiveAppearanceTarget}
+			presetLibrary={presetLibrary}
 		/>
 	) : null;
 	const selectedAnnotation = settings.annotationRegions.find(
