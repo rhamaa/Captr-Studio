@@ -29,7 +29,7 @@ Dokumen ini memetakan visi, arsitektur, dan tahapan pengembangan **Captr Studio*
 
 Rincian scope finishing ada di spec 17 Oktober. Bagian advanced dan fitur yang secara eksplisit ditandai backlog belum diimplementasikan. Recording package tetap utuh; scope finishing tidak mengubah alur capture/path project.
 
-**Kondisi saat pencatatan:** versi dirilis ke `1.4.0-beta.2`. Text/Shape tetap inline, media privat dan Templates tersedia. Caption final digambar ke frame bersama; waveform menggunakan peak sumber; engine keyframing visual, shape library baru, dan custom dark scrollbars aktif. Hasil tes terbaru dan batas QA native dicatat di [verification](docs/project/verification.md).
+**Kondisi saat pencatatan:** versi dirilis ke `1.4.0-beta.3`. Text/Shape tetap inline, media privat dan Templates tersedia. Caption final digambar ke frame bersama; waveform menggunakan peak sumber; engine keyframing visual, shape library baru, custom dark scrollbars, Record Editor Frame Appearance studio dengan outward border expansion, serta preview zoom & pan aktif. Hasil tes terbaru dan batas QA native dicatat di [verification](docs/project/verification.md).
 
 Bagian milestone di bawah mempertahankan histori roadmap, termasuk istilah slide dan rencana Remotion lama. Untuk scope berikutnya gunakan update 17 Oktober; istilah historis tidak mengubah kontrak V3 atau menghidupkan kembali Video/Motion legacy.
 

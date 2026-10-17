@@ -11,6 +11,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0-beta.3] - 2026-10-18
+
+### 🚀 Highlights
+- **Record Editor Frame Appearance Studio**: Dedicated "Appearance" section in the Record Editor sidebar for styling screen and webcam frames with rounded corners, padding, border styling, drop shadows, and visual theme presets.
+- **Rich Visual Style Presets**: Built-in visual cards for Brutalism, Claymorphism, Glassmorphism, Retro Arcade, Clean Minimal, and Modern Dark with live user preset management (save, rename, delete, import, export).
+- **Outward Border Expansion Geometry**: Fixed border thickness encroaching onto recordings by positioning borders outward on the canvas and casting shadows from the outer frame contour.
+- **Interactive Preview Zoom & Pan in Record Editor**: Smooth mouse wheel zooming (0.25x–5x) anchored to cursor, dedicated pan mode toggle (`Hand`), middle-click drag support, and 100% reset badge in the transport bar.
+- **Custom Numeric Micro-Steppers & Keyboard Stepping**: High-precision custom dark micro-steppers (`▲`/`▼`) with native spinner suppression, keyboard arrow stepping (`↑`/`↓` ±1, Shift: ±5), and hex color input.
+- **Centralized Feature Flags & Streamlined AI Surface**: Consolidated AI features behind `FEATURE_AI_ENABLED` toggle while AI workflows undergo architectural re-planning.
+
+### Added
+- **Record Editor Appearance Tab & Presets (`RecordingFrameAppearancePanel.tsx`)**:
+  - Direct frame styling for Screen recording and Webcam video frames.
+  - Visual preset gallery rendering live SVG previews for Brutalism, Claymorphism, Modern Dark, Glassmorphism, and more.
+  - User preset manager to save, rename, delete, import, and export custom JSON presets.
+  - Custom micro-stepper controls and keyboard shortcut stepping for pixel-perfect adjustments.
+- **Preview Zoom & Pan Controls in Record Editor (`RecordingCompositionEditor.tsx`)**:
+  - Smooth wheel zoom with cursor focal point anchoring.
+  - Pan mode toggle button and middle-click pan drag.
+  - 1-click zoom reset to 100% in transport bar.
+  - Synchronized overlay handles and live rendering during zoom/pan.
+- **Outward Border Expansion (`frameRenderer.ts`)**:
+  - Outward stroke placement (`x - b/2`, `y - b/2`, `w + b`, `h + b`) preserving the recorded video's active viewport without overlaying pixels.
+  - Frame drop shadow adjusted to cast from the outer border boundary.
+- **Central Feature Flags (`src/core/featureFlags.ts`)**:
+  - Clean `FEATURE_AI_ENABLED` configuration hiding unfinished AI buttons and drawers cleanly.
+
+### Changed
+- **Record Editor Layout**: Frame styling moved to its own dedicated sidebar tab alongside Scene, Cursor, and Layout.
+- **Hyperframe Studio**: Defaulted to Direct Source Code mode with CLI Agent drawer hidden until planned.
+
+### Fixed
+- Fixed border thickness covering recording media in Record Editor export and preview.
+- Fixed browser default number spinner arrows disrupting input styling in appearance panels.
+- Fixed canvas drag/pan state desynchronization in recording preview monitor.
+
+---
+
 ## [1.4.0-beta.2] - 2026-10-17
 
 ### 🚀 Highlights

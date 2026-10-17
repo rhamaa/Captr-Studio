@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-1.4.0--beta.2-8B5CF6?style=for-the-badge&logo=rocket" alt="Version 1.4.0-beta.2" />
+  <img src="https://img.shields.io/badge/Version-1.4.0--beta.3-8B5CF6?style=for-the-badge&logo=rocket" alt="Version 1.4.0-beta.3" />
   <img src="https://img.shields.io/badge/macOS%20%7C%20Windows%20%7C%20Linux-0F172A?style=for-the-badge&logo=electron&logoColor=white" alt="macOS Windows Linux" />
   <img src="https://img.shields.io/badge/Open%20Source-AGPL--3.0-2563EB?style=for-the-badge" alt="AGPL 3.0 License" />
   <img src="https://img.shields.io/badge/AI%20Editing-CLI%20Agent%20Bridge-10B981?style=for-the-badge&logo=openai" alt="AI Editing" />
@@ -189,7 +189,7 @@ Type `@` inside the prompt textarea to open the asset suggestion popover. Select
 
 ## 🗺️ Progress & Implementation Status
 
-Dokumentasi capaian fitur dan fondasi teknis yang telah selesai diimplementasikan hingga rilis saat ini (**v1.4.0-beta.2**):
+Dokumentasi capaian fitur dan fondasi teknis yang telah selesai diimplementasikan hingga rilis saat ini (**v1.4.0-beta.3**):
 
 ### ✅ 1. Brand Identity & Project Architecture
 - [x] **Konsolidasi Identitas Captr Studio**: Nama aplikasi, identifier Windows (`studio.captr.app`), dan pipeline rilis resmi `rhamaa/Captr-Studio`.
@@ -233,18 +233,25 @@ Dokumentasi capaian fitur dan fondasi teknis yang telah selesai diimplementasika
 - [x] **Voiceover Studio**: Perekam suara narasi terintegrasi lengkap dengan visual VU meter dan waveform level audio.
 - [x] **Smart Audio Ducking**: Otomatis meredam musik latar saat narasi terdeteksi untuk menjaga kejelasan vokal.
 
-### ✅ 8. Keyframing Engine & Visual Transform Gizmo (New in v1.4.0-beta.2)
+### ✅ 8. Keyframing Engine & Visual Transform Gizmo
 - [x] **Interactive Property Diamond Toggles**: Tombol prisma (`◆` / `◇`) pada panel Inspector untuk mengaktifkan animasi keyframe pada Position (X/Y), Scale, dan Rotation.
 - [x] **Timeline Keyframe Markers**: Penanda berlian visual pada klip timeline dengan presisi timestamp per-frame.
 - [x] **Live Canvas Gizmo Auto-Keyframing**: Manipulasi langsung objek overlay pada kanvas preview secara real-time tanpa loncat atau teleportasi posisi.
 - [x] **Standardized Track Architecture**: Pemisahan jelas Media dan Audio dengan penamaan track kontekstual dinamis (`Shape`, `Shape 1`, `Track 1`, `Audio 1`).
 
-### ✅ 9. Shape & Highlight Studio with Custom Dark Scrollbars (New in v1.4.0-beta.2)
+### ✅ 9. Shape & Highlight Studio with Custom Dark Scrollbars
 - [x] **Visual SVG Shape Library**: Pilihan bentuk visual (Rectangle, Ellipse, Line, Arrow, Star, Callout Bubbles, Blur privacy masks) dengan kustomisasi warna fill/stroke, radius, dan opacity.
 - [x] **Integrated Top Rail Navigation**: Redesain sidebar kiri menyatu di header kartu, menghemat ruang horizontal kanvas.
 - [x] **Universal Dark Scrollbars**: Scrollbar halus 6px bernuansa gelap sesuai Captr Studio design tokens dan pembersihan tombol scrollbar native Windows.
 
-### ✅ 10. GPU Export & Multi-Language Localization
+### ✅ 10. Record Editor Frame Appearance Studio & Canvas Zoom (New in v1.4.0-beta.3)
+- [x] **Frame Appearance Studio**: Tab "Appearance" mandiri di Record Editor untuk styling visual screen dan webcam (border, padding, corner radius, drop shadow).
+- [x] **Visual Style Presets**: Preset tema visual (Brutalism, Claymorphism, Glassmorphism, Retro Arcade, Clean Minimal, Modern Dark) serta manajemen simpan/ekspor preset JSON kustom.
+- [x] **Outward Border Expansion**: Ketebalan border melebar ke luar kanvas sehingga tidak menimpa atau memotong media rekaman.
+- [x] **Record Preview Zoom & Pan**: Navigasi kanvas presisi menggunakan wheel zoom (0.25x–5x) berpusat kursor, tombol Pan (`Hand`), dan drag tombol tengah mouse.
+- [x] **Responsive Micro-Steppers**: Kontrol stepper mini kustom dengan keyboard stepping (`↑`/`↓` ±1, Shift: ±5) tanpa panah spinner browser bawaan.
+
+### ✅ 11. GPU Export & Multi-Language Localization
 - [x] **Hardware Video Encoding**: NVENC (NVIDIA CUDA), WMF (Windows), VideoToolbox (Apple Silicon), Intel QuickSync, dan AMD AMF.
 - [x] **Dukungan 10 Bahasa (i18n)**: English, Chinese (Simplified & Traditional), Spanish, Portuguese, French, Russian, Korean, Dutch, Italian.
 

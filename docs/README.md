@@ -1,6 +1,6 @@
 # Dokumentasi Resmi Captr Studio
 
-Selamat datang di portal dokumentasi arsitektur, panduan teknis, dan manual pengembang untuk **Captr Studio** (v1.4.0-beta.2).
+Selamat datang di portal dokumentasi arsitektur, panduan teknis, dan manual pengembang untuk **Captr Studio** (v1.4.0-beta.3).
 
 ---
 

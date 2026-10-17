@@ -1,6 +1,6 @@
 # Roadmap Produk dan Rekayasa Captr Studio
 
-Dokumen ini memetakan tahapan rilis, fitur yang telah diimplementasikan, serta backlog pengembangan aktif untuk **Captr Studio** per **17 Oktober 2026** (versi package: `1.4.0-beta.2`).
+Dokumen ini memetakan tahapan rilis, fitur yang telah diimplementasikan, serta backlog pengembangan aktif untuk **Captr Studio** per **18 Oktober 2026** (versi package: `1.4.0-beta.3`).
 
 ---
 
@@ -13,7 +13,7 @@ Captr Studio memadukan:
 
 ---
 
-## 2. Status Milestone (Per 17 Oktober 2026)
+## 2. Status Milestone (Per 18 Oktober 2026)
 
 | Tanggal | Fitur / Milestone | Status | Bukti / Catatan |
 | --- | --- | --- | --- |
@@ -25,7 +25,8 @@ Captr Studio memadukan:
 | **9 Okt 2026** | Story Editor NLE Shortcuts, Zoom/Pan & Gizmo | Selesai & Terverifikasi | Pintasan frame step, zoom stage, dan drag-and-drop koordinat. |
 | **9 Okt 2026** | Fix CanvasTransformGizmo Infinite Render Loop | Selesai & Terverifikasi | Stabilisasi ResizeObserver dan transform sync (Issue #11). |
 | **10 Okt 2026** | Story Asset Ownership Foundation (Issue #12) | Selesai (Unreleased) | 224 tes lolos di 15 suite (`8c2fe68`), review disetujui. |
-| **17 Okt 2026** | Lima tahap Story finishing | Implementasi tersedia (Unreleased); QA native pending | Stabilisasi, caption final, waveform/filmstrip, editing cepat, crop/mask/grading/Bezier. Bukti terbaru di [verifikasi](verification.md). |
+| **17 Okt 2026** | Lima tahap Story finishing | Implementasi tersedia; QA native pending | Stabilisasi, caption final, waveform/filmstrip, editing cepat, crop/mask/grading/Bezier. Bukti terbaru di [verifikasi](verification.md). |
+| **18 Okt 2026** | Record Editor Polish & Frame Appearance Studio (`1.4.0-beta.3`) | Selesai & Terverifikasi | Outward border expansion, visual presets, zoom wheel & pan stage, AI surface toggle. |
 
 ---
 

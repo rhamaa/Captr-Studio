@@ -23,7 +23,7 @@ Hasil Record Editor tetap berupa komposisi yang dapat diedit ketika dipakai oleh
 
 ## Kondisi pengembangan
 
-Versi package saat dokumentasi ini disusun adalah `1.4.0-beta.2`. Fondasi ownership Story, finishing Story Editor, engine keyframing visual, shape library baru, dan custom dark scrollbars telah diimplementasikan pada 17 Oktober 2026.
+Versi package saat dokumentasi ini disusun adalah `1.4.0-beta.3`. Fondasi ownership Story, finishing Story Editor, engine keyframing visual, shape library baru, custom dark scrollbars, Record Editor Frame Appearance studio, dan preview zoom & pan telah diimplementasikan pada 18 Oktober 2026.
 
 Story Editor sedang dikembangkan menuju workflow editor video modern dengan CapCut Desktop sebagai referensi perilaku. Caption final/burn-in, waveform nyata, filmstrip, dan sejumlah tool finishing masih backlog. Lihat [status fitur](status.md), [roadmap](../project/roadmap.md), dan [verifikasi](../project/verification.md) sebelum menulis klaim publikasi.
 
