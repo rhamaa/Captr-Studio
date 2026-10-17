@@ -338,4 +338,42 @@ describe("Recording composition settings", () => {
 		expect(html).toContain("1080 × 1080");
 		expect(html).toContain("1080 / 1080");
 	});
+
+	it("renders preview zoom and pan controls in transport bar", () => {
+		const registered = registerRecording(
+			createTimelineProject("project-zoom", "Project Zoom"),
+			{
+				captureId: "capture-zoom",
+				name: "Recording Zoom",
+				screen: { path: "screen.mp4", offsetUs: 0, durationUs: 5_000_000 },
+				durationUs: 5_000_000,
+				width: 1920,
+				height: 1080,
+				settings: {},
+			},
+			{ assetId: "asset-zoom", packageId: "package-zoom" },
+		);
+		const project = placeAsset(registered, "asset-zoom", registered.tracks[0].id, 0, {
+			clipId: "clip-zoom",
+			compositionId: "comp-zoom",
+		});
+		const html = translate(
+			createElement(RecordingCompositionEditor, {
+				package: project.packages[0],
+				composition: project.compositions[0],
+				canvas: { width: 1920, height: 1080, fps: 30 },
+				onChange: () => {},
+				onClose: () => {},
+			}),
+		);
+
+		expect(html).toContain('aria-label="Recording preview monitor"');
+		expect(html).toContain('aria-label="Preview zoom controls"');
+		expect(html).toContain('aria-label="Zoom out preview"');
+		expect(html).toContain('aria-label="Reset preview zoom"');
+		expect(html).toContain("100%");
+		expect(html).toContain('aria-label="Zoom in preview"');
+		expect(html).toContain('aria-label="Pan preview"');
+	});
 });
+

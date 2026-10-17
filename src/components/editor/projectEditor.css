@@ -1406,6 +1406,7 @@
 	overflow: hidden;
 	padding: 20px;
 	background: radial-gradient(ellipse at center, rgba(28, 32, 44, 0.45) 0%, hsl(var(--background)) 80%);
+	position: relative;
 }
 .recording-preview-stage {
 	max-width: 100%;
@@ -1422,6 +1423,10 @@
 	background: hsl(var(--background));
 	position: relative;
 	transition: aspect-ratio 0.2s ease;
+}
+.recording-preview-stage.panning {
+	cursor: grabbing !important;
+	user-select: none;
 }
 .recording-preview-stage .project-rendered-preview {
 	width: 100%;
@@ -1447,6 +1452,22 @@
 	background: hsl(var(--editor-panel));
 	border-top: 1px solid var(--line);
 	flex-shrink: 0;
+	position: relative;
+}
+.recording-transport-extras {
+	position: absolute;
+	right: 14px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+@media (max-width: 680px) {
+	.recording-transport-extras {
+		position: static;
+	}
+	.recording-editor-transport {
+		justify-content: space-between;
+	}
 }
 .recording-transport-center,
 .recording-transport-left {

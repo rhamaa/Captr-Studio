@@ -1,6 +1,8 @@
 import {
 	ArrowLeft,
 	CursorClick,
+	Hand,
+	MagnifyingGlassMinus,
 	MagnifyingGlassPlus,
 	Palette,
 	Pause,
@@ -13,6 +15,24 @@ import {
 	SquaresFour,
 } from "@phosphor-icons/react";
 import { type ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+const MIN_RECORDING_PREVIEW_ZOOM = 0.25;
+const MAX_RECORDING_PREVIEW_ZOOM = 5;
+const RECORDING_PREVIEW_ZOOM_STEP = 1.2;
+
+interface RecordingPreviewViewport {
+	zoom: number;
+	x: number;
+	y: number;
+}
+
+interface RecordingPreviewPanStart {
+	pointerId: number;
+	startX: number;
+	startY: number;
+	originX: number;
+	originY: number;
+}
 import { ProjectPreview } from "@/components/editor/ProjectPreview";
 import {
 	DropdownMenu,
@@ -187,6 +207,144 @@ export function RecordingCompositionEditor({
 		[selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null),
 		[selectedLayoutId, setSelectedLayoutId] = useState<string | null>(null),
 		[error, setError] = useState<string | null>(null);
+
+	const [previewViewport, setPreviewViewport] = useState<RecordingPreviewViewport>({
+		zoom: 1,
+		x: 0,
+		y: 0,
+	});
+	const [previewPanMode, setPreviewPanMode] = useState(false);
+	const [previewPanning, setPreviewPanning] = useState(false);
+	const previewPanStartRef = useRef<RecordingPreviewPanStart | null>(null);
+
+	const previewZoomed =
+		Math.abs(previewViewport.zoom - 1) > 0.001 ||
+		Math.abs(previewViewport.x) > 0.5 ||
+		Math.abs(previewViewport.y) > 0.5;
+
+	const previewTransformStyle: React.CSSProperties = {
+		transform: `translate3d(${previewViewport.x}px, ${previewViewport.y}px, 0) scale(${previewViewport.zoom})`,
+		transformOrigin: "center center",
+		willChange: "transform",
+		transition: previewPanning ? "none" : "transform 120ms ease-out",
+	};
+
+	const changePreviewZoom = useCallback((factor: number, anchor?: { x: number; y: number }) => {
+		setPreviewViewport((current) => {
+			const zoom = Math.min(
+				MAX_RECORDING_PREVIEW_ZOOM,
+				Math.max(MIN_RECORDING_PREVIEW_ZOOM, current.zoom * factor),
+			);
+			const zoomFactor = zoom / current.zoom;
+			const anchorX = anchor?.x ?? 0;
+			const anchorY = anchor?.y ?? 0;
+			return {
+				zoom,
+				x: anchorX - (anchorX - current.x) * zoomFactor,
+				y: anchorY - (anchorY - current.y) * zoomFactor,
+			};
+		});
+	}, []);
+
+	const handlePreviewWheel = useCallback(
+		(event: React.WheelEvent<HTMLDivElement>) => {
+			event.preventDefault();
+			const rect = event.currentTarget.getBoundingClientRect();
+			changePreviewZoom(Math.exp(-event.deltaY * 0.001), {
+				x: event.clientX - (rect.left + rect.width / 2),
+				y: event.clientY - (rect.top + rect.height / 2),
+			});
+		},
+		[changePreviewZoom],
+	);
+
+	const handlePreviewPanPointerDown = useCallback(
+		(event: React.PointerEvent<HTMLDivElement>) => {
+			if (event.button !== 0 && event.button !== 1) return;
+			event.preventDefault();
+			previewPanStartRef.current = {
+				pointerId: event.pointerId,
+				startX: event.clientX,
+				startY: event.clientY,
+				originX: previewViewport.x,
+				originY: previewViewport.y,
+			};
+			event.currentTarget.setPointerCapture(event.pointerId);
+			setPreviewPanning(true);
+		},
+		[previewViewport.x, previewViewport.y],
+	);
+
+	const handlePreviewPanPointerMove = useCallback(
+		(event: React.PointerEvent<HTMLDivElement>) => {
+			const panStart = previewPanStartRef.current;
+			if (!panStart || panStart.pointerId !== event.pointerId) return;
+			setPreviewViewport((current) => ({
+				...current,
+				x: panStart.originX + event.clientX - panStart.startX,
+				y: panStart.originY + event.clientY - panStart.startY,
+			}));
+		},
+		[],
+	);
+
+	const stopPreviewPan = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+		if (previewPanStartRef.current?.pointerId !== event.pointerId) return;
+		previewPanStartRef.current = null;
+		setPreviewPanning(false);
+	}, []);
+
+	const renderPreviewZoomControls = () => (
+		<div
+			className="story-preview-zoom-controls"
+			role="group"
+			aria-label="Preview zoom controls"
+		>
+			<button
+				type="button"
+				className="project-transport-extra-btn"
+				aria-label="Zoom out preview"
+				title="Zoom out preview"
+				disabled={previewViewport.zoom <= MIN_RECORDING_PREVIEW_ZOOM}
+				onClick={() => changePreviewZoom(1 / RECORDING_PREVIEW_ZOOM_STEP)}
+			>
+				<MagnifyingGlassMinus size={14} />
+			</button>
+			<button
+				type="button"
+				className="project-transport-extra-btn story-preview-zoom-level"
+				aria-label="Reset preview zoom"
+				title="Reset preview zoom and position"
+				onClick={() => setPreviewViewport({ zoom: 1, x: 0, y: 0 })}
+			>
+				{Math.round(previewViewport.zoom * 100)}%
+			</button>
+			<button
+				type="button"
+				className="project-transport-extra-btn"
+				aria-label="Zoom in preview"
+				title="Zoom in preview"
+				disabled={previewViewport.zoom >= MAX_RECORDING_PREVIEW_ZOOM}
+				onClick={() => changePreviewZoom(RECORDING_PREVIEW_ZOOM_STEP)}
+			>
+				<MagnifyingGlassPlus size={14} />
+			</button>
+			<button
+				type="button"
+				className={`project-transport-extra-btn ${previewPanMode ? "active" : ""}`}
+				aria-label="Pan preview"
+				aria-pressed={previewPanMode}
+				title={previewPanMode ? "Pan mode enabled: drag preview to move" : "Pan preview"}
+				onClick={() => {
+					setPreviewPanMode((enabled) => !enabled);
+					setPreviewPanning(false);
+					previewPanStartRef.current = null;
+				}}
+			>
+				<Hand size={14} />
+			</button>
+		</div>
+	);
 	const webcamPath = pkg.webcam?.path;
 	const [webcamPreview, setWebcamPreview] = useState<{ path: string; url: string } | null>(null);
 	const timeline = useRef<RecordingTimelineHandle>(null);
@@ -666,11 +824,26 @@ export function RecordingCompositionEditor({
 			)}
 			<div className="recording-editor-body">
 				<div className="recording-editor-monitor">
-					<div className="recording-preview-wrapper">
+					<div
+						className={`recording-preview-wrapper${previewZoomed ? " zoomed" : ""}${previewPanning ? " panning" : ""}`}
+						role="region"
+						aria-label="Recording preview monitor"
+						title="Scroll to zoom; use Pan preview to drag the canvas"
+						onWheel={handlePreviewWheel}
+						onPointerDown={(e) => {
+							if (e.button === 1) {
+								handlePreviewPanPointerDown(e);
+							}
+						}}
+						onPointerMove={handlePreviewPanPointerMove}
+						onPointerUp={stopPreviewPan}
+						onPointerCancel={stopPreviewPan}
+					>
 						<div
-							className="recording-preview-stage"
+							className={`recording-preview-stage${previewPanning ? " panning" : ""}`}
 							style={{
 								aspectRatio: `${previewCanvas.width} / ${previewCanvas.height}`,
+								...previewTransformStyle,
 							}}
 						>
 							<ProjectPreview
@@ -712,6 +885,16 @@ export function RecordingCompositionEditor({
 								}}
 							/>
 						</div>
+						{previewPanMode && (
+							<div
+								className={`story-preview-pan-surface${previewPanning ? " panning" : ""}`}
+								aria-hidden="true"
+								onPointerDown={handlePreviewPanPointerDown}
+								onPointerMove={handlePreviewPanPointerMove}
+								onPointerUp={stopPreviewPan}
+								onPointerCancel={stopPreviewPan}
+							/>
+						)}
 					</div>
 					<div className="recording-editor-transport">
 						<div className="recording-transport-center">
@@ -765,6 +948,9 @@ export function RecordingCompositionEditor({
 									{formatTimecode(durationMs / 1000)}
 								</span>
 							</div>
+						</div>
+						<div className="recording-transport-extras">
+							{renderPreviewZoomControls()}
 						</div>
 					</div>
 				</div>
