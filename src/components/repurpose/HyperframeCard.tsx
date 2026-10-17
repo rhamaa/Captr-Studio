@@ -178,7 +178,7 @@ export function HyperframeCard({
 					e.stopPropagation();
 					onOpenEditor?.(hyperframe.id);
 				}}
-				title="Drag header to move card · Double-click to edit Code & AI"
+				title="Drag header to move card · Double-click to open code editor"
 			>
 				<div className="flex items-center gap-2 min-w-0 flex-1">
 					{onStartDragCard && (
@@ -276,7 +276,7 @@ export function HyperframeCard({
 					e.stopPropagation();
 					onOpenEditor?.(hyperframe.id);
 				}}
-				title="Double-click to open Code & AI Editor · Click Play to preview motion"
+				title="Double-click to open code editor · Click Play to preview motion"
 			>
 				<iframe
 					ref={iframeRef}

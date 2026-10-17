@@ -90,6 +90,7 @@ describe("HyperframeEditor", () => {
 				hyperframe: mockHyperframe,
 				project: mockProject,
 				projectTitle: "Product Launch",
+				enableAIAgent: true,
 				onUpdate: vi.fn(),
 				onClose: vi.fn(),
 			}),
@@ -125,6 +126,7 @@ describe("HyperframeEditor", () => {
 			createElement(HyperframeEditor, {
 				hyperframe: mockHyperframe,
 				project: mockProject,
+				enableAIAgent: true,
 				onUpdate: vi.fn(),
 				onClose: vi.fn(),
 			}),
@@ -246,11 +248,12 @@ describe("HyperframeEditor", () => {
 		);
 	});
 
-	it("renders Chatbot UI thread with version history ribbon and initial draft snapshot", () => {
+	it("renders Chatbot UI thread with version history ribbon and initial draft snapshot when enableAIAgent is true", () => {
 		const html = renderToStaticMarkup(
 			createElement(HyperframeEditor, {
 				hyperframe: mockHyperframe,
 				project: mockProject,
+				enableAIAgent: true,
 				onUpdate: vi.fn(),
 				onClose: vi.fn(),
 			}),
@@ -270,6 +273,21 @@ describe("HyperframeEditor", () => {
 		expect(html).toContain("Video Showcase");
 		expect(html).toContain("Screen + PiP Webcam");
 		expect(html).toContain("Kinetic Intro");
+	});
+
+	it("hides CLI Agent tab and shows Direct HTML Source by default when AI is disabled", () => {
+		const html = renderToStaticMarkup(
+			createElement(HyperframeEditor, {
+				hyperframe: mockHyperframe,
+				project: mockProject,
+				onUpdate: vi.fn(),
+				onClose: vi.fn(),
+			}),
+		);
+
+		expect(html).not.toContain("CLI Agent");
+		expect(html).not.toContain("Motion Assistant:");
+		expect(html).toContain("Direct HTML Source");
 	});
 
 	it("renders multiple versions with historical assistant cards and terminal logs", () => {
@@ -303,6 +321,7 @@ describe("HyperframeEditor", () => {
 			createElement(HyperframeEditor, {
 				hyperframe: hyperframeWithVersions,
 				project: mockProject,
+				enableAIAgent: true,
 				onUpdate: vi.fn(),
 				onClose: vi.fn(),
 			}),

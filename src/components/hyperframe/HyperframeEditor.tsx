@@ -30,6 +30,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { HyperframeComposition, HyperframeVersionSnapshot } from "@/core/story/storyTypes";
 import type { MediaAsset, TimelineProject } from "@/core/timeline/types";
+import { FEATURE_AI_ENABLED } from "@/core/featureFlags";
 import { HyperframePromptInput } from "./HyperframePromptInput";
 import { HyperframeExportModal } from "./HyperframeExportModal";
 
@@ -53,6 +54,7 @@ export interface HyperframeEditorProps {
 	project: TimelineProject;
 	projectTitle?: string;
 	transcripts?: Record<string, any>;
+	enableAIAgent?: boolean;
 	onUpdate: (updated: Partial<HyperframeComposition>) => void;
 	onClose: () => void;
 	onExport?: () => void;
@@ -456,6 +458,7 @@ export function HyperframeEditor({
 	project,
 	projectTitle,
 	transcripts,
+	enableAIAgent = FEATURE_AI_ENABLED,
 	onUpdate,
 	onClose,
 }: HyperframeEditorProps) {
@@ -465,7 +468,9 @@ export function HyperframeEditor({
 
 	// Layout state: Sidebar toggle (Agent/Code side panel)
 	const [sidebarOpen, setSidebarOpen] = useState(true);
-	const [activeTab, setActiveTab] = useState<"agent" | "code">("agent");
+	const [activeTab, setActiveTab] = useState<"agent" | "code">(
+		enableAIAgent ? "agent" : "code",
+	);
 
 	// Playback Transport State: default playing so video and animations immediately run in a smooth loop
 	const [currentTimeSec, setCurrentTimeSec] = useState(0);
@@ -1544,39 +1549,41 @@ export function HyperframeEditor({
 				{sidebarOpen && (
 					<aside className="flex w-[460px] shrink-0 flex-col border-l border-[#343A46] bg-[#1C1F26] shadow-2xl z-20 overflow-hidden">
 						{/* Tab Switcher */}
-						<div className="flex border-b border-[#343A46] bg-[#15171C] p-2 gap-1.5 shrink-0">
-							<button
-								type="button"
-								onClick={() => setActiveTab("agent")}
-								className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition ${
-									activeTab === "agent"
-										? "border border-[#A879F5]/40 bg-[#A879F5]/15 text-white shadow-sm"
-										: "text-[#A8AFBD] hover:text-white"
-								}`}
-							>
-								<Robot size={16} weight="bold" className="text-[#A879F5]" />
-								<span>CLI Agent</span>
-								<span className="rounded-full bg-[#A879F5]/20 px-1.5 py-0.5 text-[10px] font-mono text-[#d4b9fc]">
-									v{activeVersion.versionNumber}
-								</span>
-							</button>
+						{enableAIAgent ? (
+							<div className="flex border-b border-[#343A46] bg-[#15171C] p-2 gap-1.5 shrink-0">
+								<button
+									type="button"
+									onClick={() => setActiveTab("agent")}
+									className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition ${
+										activeTab === "agent"
+											? "border border-[#A879F5]/40 bg-[#A879F5]/15 text-white shadow-sm"
+											: "text-[#A8AFBD] hover:text-white"
+									}`}
+								>
+									<Robot size={16} weight="bold" className="text-[#A879F5]" />
+									<span>CLI Agent</span>
+									<span className="rounded-full bg-[#A879F5]/20 px-1.5 py-0.5 text-[10px] font-mono text-[#d4b9fc]">
+										v{activeVersion.versionNumber}
+									</span>
+								</button>
 
-							<button
-								type="button"
-								onClick={() => setActiveTab("code")}
-								className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition ${
-									activeTab === "code"
-										? "border border-[#6FA8FF]/40 bg-[#6FA8FF]/15 text-white shadow-sm"
-										: "text-[#A8AFBD] hover:text-white"
-								}`}
-							>
-								<Code size={16} weight="bold" className="text-[#6FA8FF]" />
-								<span>Source Code</span>
-							</button>
-						</div>
+								<button
+									type="button"
+									onClick={() => setActiveTab("code")}
+									className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition ${
+										activeTab === "code"
+											? "border border-[#6FA8FF]/40 bg-[#6FA8FF]/15 text-white shadow-sm"
+											: "text-[#A8AFBD] hover:text-white"
+									}`}
+								>
+									<Code size={16} weight="bold" className="text-[#6FA8FF]" />
+									<span>Source Code</span>
+								</button>
+							</div>
+						) : null}
 
 						{/* Tab 1: AI Agent Chat & Versioning Studio */}
-						{activeTab === "agent" && (
+						{enableAIAgent && activeTab === "agent" && (
 							<div className="flex flex-1 flex-col overflow-hidden">
 								{/* Header 1: Agent Selector & Status */}
 								<div className="border-b border-[#343A46] bg-[#15171C] px-3.5 py-2.5 space-y-2 shrink-0">

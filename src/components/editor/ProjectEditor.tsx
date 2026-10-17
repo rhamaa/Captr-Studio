@@ -56,6 +56,7 @@ import { timelineActionCommand } from "./timelineInteractions";
 import { type ProjectController, useProjectController } from "./useProjectController";
 import { useProjectMessages } from "./useProjectMessages";
 import { useRecordingAssets } from "./useRecordingAssets";
+import { FEATURE_AI_ENABLED } from "@/core/featureFlags";
 import "./projectEditor.css";
 import type { RecordingSessionData } from "../../../electron/ipc/types";
 import { AudioRecorderDialog } from "./AudioRecorderDialog";
@@ -1076,19 +1077,21 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					<VideoCamera size={17} />
 					{m("record")}
 				</button>
-				<button
-					type="button"
-					className={`project-ai-assist-button ${copilotOpen ? "active" : ""}`}
-					aria-label="AI Editor Copilot"
-					title="Toggle AI Editor Copilot Sidebar (Claude, Antigravity, MCP)"
-					disabled={state.saving || state.navigationPending || busy}
-					onClick={() => {
-						setCopilotOpen((v) => !v);
-					}}
-				>
-					<Sparkle size={15} weight="fill" />
-					<span>AI Editor</span>
-				</button>
+				{FEATURE_AI_ENABLED && (
+					<button
+						type="button"
+						className={`project-ai-assist-button ${copilotOpen ? "active" : ""}`}
+						aria-label="AI Editor Copilot"
+						title="Toggle AI Editor Copilot Sidebar (Claude, Antigravity, MCP)"
+						disabled={state.saving || state.navigationPending || busy}
+						onClick={() => {
+							setCopilotOpen((v) => !v);
+						}}
+					>
+						<Sparkle size={15} weight="fill" />
+						<span>AI Editor</span>
+					</button>
+				)}
 				<button
 					aria-label="Save project"
 					title="Save project (Ctrl+S)"
