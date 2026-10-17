@@ -264,5 +264,7 @@ export function createStorySnapshot(
 		transition.fromClipId = clips.get(transition.fromClipId)!;
 		transition.toClipId = clips.get(transition.toClipId)!;
 	}
+	for (const cue of snapshot.subtitles?.segments ?? [])
+		if (cue.clipId) cue.clipId = clips.get(cue.clipId) ?? cue.clipId;
 	return { ...snapshot, compositions };
 }

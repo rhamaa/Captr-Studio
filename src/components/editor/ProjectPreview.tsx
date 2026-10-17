@@ -126,7 +126,7 @@ export function ProjectPreview({
 				className="project-rendered-preview"
 				data-project-preview-ready="false"
 			/>
-			<SubtitleOverlay project={project} timeUs={timeUs} />
+			{project.subtitles?.segments === undefined && <SubtitleOverlay project={project} timeUs={timeUs} />}
 			<CanvasTransformGizmo
 				project={project}
 				timeUs={timeUs}

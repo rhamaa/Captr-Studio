@@ -3014,6 +3014,13 @@
 	max-width: 100%;
 }
 
+.story-caption-panel .project-inspector-content { display: grid; gap: 12px; padding: 14px; overflow-y: auto; }
+.story-caption-panel label { display: grid; gap: 5px; font-size: 12px; }
+.story-caption-panel textarea { width: 100%; min-height: 60px; }
+.story-caption-cue { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--editor-border, #343640); }
+.story-edit-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.story-edit-actions button { padding: 5px 8px; border: 1px solid var(--editor-border, #343640); border-radius: 4px; font-size: 11px; }
+.story-edit-actions button:disabled { opacity: .45; cursor: not-allowed; }
 .project-transition-preset-section,
 .project-transition-direction { display: grid; gap: 7px; margin: 10px 0; }
 .project-transition-control-label { color: var(--editor-muted, #a5a5b1); font-size: 11px; }

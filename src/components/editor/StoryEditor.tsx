@@ -44,6 +44,7 @@ import { ProjectInspector } from "./ProjectInspector";
 import { ProjectPreview } from "./ProjectPreview";
 import { ProjectTimeline, shapePlacementCommand } from "./ProjectTimeline";
 import { ProjectToolRail } from "./ProjectToolRail";
+import { StoryCaptionPanel } from "./StoryCaptionPanel";
 import { ProjectWelcome } from "./ProjectWelcome";
 import {
 	fitPreviewCanvasToBounds,
@@ -247,6 +248,7 @@ export function StoryEditor({
 
 	const [selectedTransitionId, setSelectedTransitionId] = useState<string | null>(null);
 	const [terminalOpen, setTerminalOpen] = useState(false);
+	const [captionsOpen, setCaptionsOpen] = useState(false);
 	const [loopPlayback, setLoopPlayback] = useState(false);
 	const [showGridGuide, setShowGridGuide] = useState(false);
 	const [fullscreenPreview, setFullscreenPreview] = useState(false);
@@ -977,14 +979,14 @@ export function StoryEditor({
 						</div>
 					</div>
 				</section>
-				<ProjectInspector
+				{captionsOpen ? <StoryCaptionPanel key={`${openingKey}-${storyId ?? "root"}`} project={storyProject} transcripts={transcripts} playheadUs={playheadUs} onCommand={onCommand} onSeek={time=>controller.seek(time,durationUs)} onClose={()=>setCaptionsOpen(false)}/> : <ProjectInspector
 					project={storyProject}
 					selection={selection}
 					selectedTransitionId={selectedTransitionId}
 					playheadUs={playheadUs}
 					onCommand={onCommand}
 					onOpenRecording={setEditingClipId}
-				/>
+				/>}
 				{copilotOpen && (
 					<CopilotSidebar
 						editContext={editContext}
@@ -1051,6 +1053,7 @@ export function StoryEditor({
 				<div className="flex items-center gap-4">
 					<span>{busy ? "Importing media…" : `${rootProject.assets.length} assets`}</span>
 					<span>{storyProject.canvas.fps} fps</span>
+					<button type="button" onClick={()=>setCaptionsOpen(v=>!v)} aria-pressed={captionsOpen}>Captions</button>
 				</div>
 				<button
 					type="button"

@@ -11,6 +11,7 @@ import type {
 import { localMediaUrl } from "@/recording/mediaProbe";
 import { FrameRenderer } from "./frameRenderer";
 import { LayerVideoSource } from "./layerVideoSource";
+import { drawStoryCaptions } from "./storyCaptionRenderer";
 
 type Direction = "left" | "right" | "up" | "down";
 
@@ -426,6 +427,7 @@ export class ProjectFrameRenderer {
 			const layer = await this.visualLayer(visual, evaluation, continuousPlayback);
 			ctx.drawImage(layer, 0, 0);
 		}
+		drawStoryCaptions(ctx, evaluation.project, evaluation.timeUs);
 		return this.canvas;
 	}
 	destroy() {

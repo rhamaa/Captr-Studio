@@ -116,7 +116,7 @@ it("round trips every canonical media library, sidecars and current Story projec
 	let project = ownershipFixture();
 	const owner = project.repurposeBoard!.artboards[0];
 	owner.tracks = [];
-	owner.subtitles = { enabled: true, style: "classic", fontSize: 28 };
+	owner.subtitles = { enabled: true, style: "classic", fontSize: 28, position: "bottom", primaryColor: "#FFFFFF", segments: [{id:1,text:"Final caption",startUs:0,endUs:1_000_000,words:[]}] };
 	owner.localAssets!.push({
 		id: "video-A",
 		kind: "video",

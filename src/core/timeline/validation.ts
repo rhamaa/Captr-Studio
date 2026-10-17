@@ -1,4 +1,5 @@
 import { resolveClipSource } from "./clipSource";
+import { validateCaptionSettings } from "./storyCaptions";
 import { getStoryProject } from "./storyOwnership";
 import {
 	clipDurationUs,
@@ -374,6 +375,7 @@ export function validateStoryPresentation(owner: {
 				requireValue(typeof subtitles[key] === "string", `Invalid Story subtitles ${key}`);
 		if (subtitles.fontSize !== undefined)
 			requireValue(positive(subtitles.fontSize), "Invalid Story subtitle font size");
+		validateCaptionSettings(subtitles as unknown as import("../story/storyTypes").StorySubtitleSettings);
 	}
 }
 
