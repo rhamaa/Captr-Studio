@@ -1,12 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ClipTransform, TimelineProject } from "@/core/timeline/types";
 import {
 	type CanvasObjectBounds,
-	type ResizeHandleDirection,
 	calculateResizeScale,
 	calculateRotationAngle,
 	getActiveVisualClipsBounds,
 	hitTestCanvasPoint,
+	type ResizeHandleDirection,
 } from "./canvasGizmoMath";
 import { ASSET_DRAG_TYPE, getTimelineDrag } from "./timelineInteractions";
 
@@ -17,6 +17,7 @@ export interface CanvasTransformGizmoProps {
 	canvasElement?: HTMLCanvasElement | null;
 	onSelectClip?: (clipId: string) => void;
 	onUpdateClipTransform?: (clipId: string, transform: ClipTransform) => void;
+	onLiveTransform?: (clipId: string | null, transform: ClipTransform | null) => void;
 	onDropAsset?: (assetId: string, canvasX: number, canvasY: number) => void;
 	canTransformClip?: (clipId: string, assetKind: string) => boolean;
 	disabled?: boolean;
@@ -41,6 +42,7 @@ export function CanvasTransformGizmo({
 	canvasElement,
 	onSelectClip,
 	onUpdateClipTransform,
+	onLiveTransform,
 	onDropAsset,
 	canTransformClip,
 	disabled = false,
@@ -68,7 +70,7 @@ export function CanvasTransformGizmo({
 	const [dragCoordsHud, setDragCoordsHud] = useState<{ x: number; y: number } | null>(null);
 	const [isDragOverCanvas, setIsDragOverCanvas] = useState(false);
 
-	const updateActiveTransform = (transform: ClipTransform | null) => {
+	const updateActiveTransform = useCallback((transform: ClipTransform | null) => {
 		activeTransformRef.current = transform;
 		setActiveTransform((prev) => {
 			if (!prev && !transform) return null;
@@ -85,7 +87,7 @@ export function CanvasTransformGizmo({
 			}
 			return transform;
 		});
-	};
+	}, []);
 
 	// Overlay bounding rect tracking
 	const [overlayRect, setOverlayRect] = useState<DOMRect | null>(null);
@@ -130,8 +132,30 @@ export function CanvasTransformGizmo({
 		};
 	}, [canvasElement]);
 
+	const dragCleanupRef = useRef<(() => void) | null>(null);
+
+	useEffect(() => {
+		return () => {
+			if (dragCleanupRef.current) {
+				dragCleanupRef.current();
+				dragCleanupRef.current = null;
+			}
+		};
+	}, []);
+
+	useEffect(() => {
+		if (disabled && dragState.current) {
+			dragCleanupRef.current?.();
+			dragState.current = null;
+			setIsDragging(false);
+			setDragCoordsHud(null);
+			onLiveTransform?.(null, null);
+		}
+	}, [disabled, onLiveTransform]);
+
 	// Keep activeTransform in sync with selected clip
 	useEffect(() => {
+		if (dragState.current) return;
 		if (selectedClipId) {
 			const clip = project.tracks
 				.flatMap((t) => t.clips)
@@ -142,7 +166,7 @@ export function CanvasTransformGizmo({
 			}
 		}
 		updateActiveTransform(null);
-	}, [selectedClipId, project]);
+	}, [selectedClipId, project, updateActiveTransform]);
 
 	const { width: projectWidth, height: projectHeight } = project.canvas;
 
@@ -173,13 +197,22 @@ export function CanvasTransformGizmo({
 		setIsDragging(true);
 		setDragCoordsHud({ x: initialTransform.x, y: initialTransform.y });
 
+		const cleanup = () => {
+			window.removeEventListener("pointermove", handleWindowPointerMove);
+			window.removeEventListener("pointerup", handleWindowPointerUp);
+			dragCleanupRef.current = null;
+		};
+		dragCleanupRef.current = cleanup;
+
 		const handleWindowPointerMove = (e: PointerEvent) => {
 			const drag = dragState.current;
 			if (!drag) return;
 
 			const rect = overlayRef.current?.getBoundingClientRect() ?? overlayRect;
-			const currentScaleX = rect && projectWidth > 0 ? rect.width / projectWidth : scaleFactorX;
-			const currentScaleY = rect && projectHeight > 0 ? rect.height / projectHeight : scaleFactorY;
+			const currentScaleX =
+				rect && projectWidth > 0 ? rect.width / projectWidth : scaleFactorX;
+			const currentScaleY =
+				rect && projectHeight > 0 ? rect.height / projectHeight : scaleFactorY;
 
 			const deltaScreenX = e.clientX - drag.startX;
 			const deltaScreenY = e.clientY - drag.startY;
@@ -198,6 +231,7 @@ export function CanvasTransformGizmo({
 				};
 				updateActiveTransform(newTransform);
 				setDragCoordsHud({ x: newX, y: newY });
+				onLiveTransform?.(drag.clipId, newTransform);
 			} else if (drag.mode === "resize" && drag.handle) {
 				const deltaCanvasX = deltaScreenX / currentScaleX;
 				const deltaCanvasY = deltaScreenY / currentScaleY;
@@ -220,6 +254,7 @@ export function CanvasTransformGizmo({
 					scale: newScale,
 				};
 				updateActiveTransform(newTransform);
+				onLiveTransform?.(drag.clipId, newTransform);
 			} else if (drag.mode === "rotate") {
 				const originLeft = rect ? rect.left : 0;
 				const originTop = rect ? rect.top : 0;
@@ -238,17 +273,19 @@ export function CanvasTransformGizmo({
 					rotation: angle,
 				};
 				updateActiveTransform(newTransform);
+				onLiveTransform?.(drag.clipId, newTransform);
 			}
 		};
 
 		const handleWindowPointerUp = () => {
-			window.removeEventListener("pointermove", handleWindowPointerMove);
-			window.removeEventListener("pointerup", handleWindowPointerUp);
+			cleanup();
 
 			const drag = dragState.current;
 			dragState.current = null;
 			setIsDragging(false);
 			setDragCoordsHud(null);
+
+			onLiveTransform?.(null, null);
 
 			if (drag && onUpdateClipTransform && activeTransformRef.current) {
 				onUpdateClipTransform(drag.clipId, activeTransformRef.current);
@@ -281,16 +318,16 @@ export function CanvasTransformGizmo({
 			e.preventDefault();
 			onSelectClip?.(hit.clipId);
 
-			const clip = project.tracks
-				.flatMap((t) => t.clips)
-				.find((c) => c.id === hit.clipId);
-			const initialTransform = clip ? structuredClone(clip.transform) : {
-				x: hit.centerX - projectWidth / 2,
-				y: hit.centerY - projectHeight / 2,
-				scale: hit.scale,
-				rotation: hit.rotation,
-				opacity: hit.opacity,
-			};
+			const clip = project.tracks.flatMap((t) => t.clips).find((c) => c.id === hit.clipId);
+			const initialTransform = clip
+				? structuredClone(clip.transform)
+				: {
+						x: hit.centerX - projectWidth / 2,
+						y: hit.centerY - projectHeight / 2,
+						scale: hit.scale,
+						rotation: hit.rotation,
+						opacity: hit.opacity,
+					};
 			updateActiveTransform(initialTransform);
 			startDragSession("translate", hit.clipId, initialTransform, hit, e.clientX, e.clientY);
 		} else {
@@ -389,17 +426,17 @@ export function CanvasTransformGizmo({
 	// Calculate display coordinates for selected gizmo box
 	const currentCenterX = activeTransform
 		? projectWidth / 2 + activeTransform.x
-		: selectedBounds?.centerX ?? 0;
+		: (selectedBounds?.centerX ?? 0);
 	const currentCenterY = activeTransform
 		? projectHeight / 2 + activeTransform.y
-		: selectedBounds?.centerY ?? 0;
+		: (selectedBounds?.centerY ?? 0);
 	const currentScale = activeTransform?.scale ?? selectedBounds?.scale ?? 1;
 	const currentRotation = activeTransform?.rotation ?? selectedBounds?.rotation ?? 0;
 
 	const boxW = (selectedBounds?.width ?? 100) * currentScale * scaleFactorX;
 	const boxH = (selectedBounds?.height ?? 100) * currentScale * scaleFactorY;
-	const boxX = (currentCenterX * scaleFactorX) - boxW / 2;
-	const boxY = (currentCenterY * scaleFactorY) - boxH / 2;
+	const boxX = currentCenterX * scaleFactorX - boxW / 2;
+	const boxY = currentCenterY * scaleFactorY - boxH / 2;
 
 	return (
 		<div
@@ -436,10 +473,9 @@ export function CanvasTransformGizmo({
 				>
 					{/* Active Drag Coordinates Tooltip HUD */}
 					{isDragging && dragCoordsHud && (
-						<div
-							className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded bg-black/85 border border-[#6FA8FF]/60 text-[#6FA8FF] font-mono text-[10px] font-semibold whitespace-nowrap shadow-lg pointer-events-none z-30"
-						>
-							X: {dragCoordsHud.x > 0 ? `+${dragCoordsHud.x}` : dragCoordsHud.x}px  Y: {dragCoordsHud.y > 0 ? `+${dragCoordsHud.y}` : dragCoordsHud.y}px
+						<div className="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded bg-black/85 border border-[#6FA8FF]/60 text-[#6FA8FF] font-mono text-[10px] font-semibold whitespace-nowrap shadow-lg pointer-events-none z-30">
+							X: {dragCoordsHud.x > 0 ? `+${dragCoordsHud.x}` : dragCoordsHud.x}px Y:{" "}
+							{dragCoordsHud.y > 0 ? `+${dragCoordsHud.y}` : dragCoordsHud.y}px
 						</div>
 					)}
 
@@ -463,14 +499,38 @@ export function CanvasTransformGizmo({
 					{/* 8 Resize Handles */}
 					{(
 						[
-							{ dir: "nw", style: "left-0 top-0 -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize" },
-							{ dir: "n",  style: "left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 cursor-ns-resize" },
-							{ dir: "ne", style: "right-0 top-0 translate-x-1/2 -translate-y-1/2 cursor-nesw-resize" },
-							{ dir: "e",  style: "right-0 top-1/2 translate-x-1/2 -translate-y-1/2 cursor-ew-resize" },
-							{ dir: "se", style: "right-0 bottom-0 translate-x-1/2 translate-y-1/2 cursor-nwse-resize" },
-							{ dir: "s",  style: "left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2 cursor-ns-resize" },
-							{ dir: "sw", style: "left-0 bottom-0 -translate-x-1/2 translate-y-1/2 cursor-nesw-resize" },
-							{ dir: "w",  style: "left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize" },
+							{
+								dir: "nw",
+								style: "left-0 top-0 -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize",
+							},
+							{
+								dir: "n",
+								style: "left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 cursor-ns-resize",
+							},
+							{
+								dir: "ne",
+								style: "right-0 top-0 translate-x-1/2 -translate-y-1/2 cursor-nesw-resize",
+							},
+							{
+								dir: "e",
+								style: "right-0 top-1/2 translate-x-1/2 -translate-y-1/2 cursor-ew-resize",
+							},
+							{
+								dir: "se",
+								style: "right-0 bottom-0 translate-x-1/2 translate-y-1/2 cursor-nwse-resize",
+							},
+							{
+								dir: "s",
+								style: "left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2 cursor-ns-resize",
+							},
+							{
+								dir: "sw",
+								style: "left-0 bottom-0 -translate-x-1/2 translate-y-1/2 cursor-nesw-resize",
+							},
+							{
+								dir: "w",
+								style: "left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize",
+							},
 						] as const
 					).map(({ dir, style }) => (
 						<div

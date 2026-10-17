@@ -1,4 +1,9 @@
-import type { MediaAsset, TimelineClip, TimelineProject } from "@/core/timeline/types";
+import type {
+	ClipTransform,
+	MediaAsset,
+	TimelineClip,
+	TimelineProject,
+} from "@/core/timeline/types";
 import { sampleProjectVisual } from "@/core/timeline/visualAnimation";
 
 export interface CanvasObjectBounds {
@@ -7,8 +12,8 @@ export interface CanvasObjectBounds {
 	kind: MediaAsset["kind"];
 	centerX: number; // in project canvas pixels, relative to (0,0) top-left
 	centerY: number;
-	width: number;   // base width before scale
-	height: number;  // base height before scale
+	width: number; // base width before scale
+	height: number; // base height before scale
 	scale: number;
 	rotation: number; // degrees
 	opacity: number;
@@ -30,7 +35,10 @@ export function getClipBaseDimensions(
 		const lines = content.split("\n");
 		const longestLineLen = Math.max(...lines.map((l) => l.length), 1);
 		// Estimate width ~0.6 * fontSize per char, capped at canvasWidth * 0.9
-		const estimatedWidth = Math.min(canvasWidth * 0.9, Math.max(120, longestLineLen * fontSize * 0.6));
+		const estimatedWidth = Math.min(
+			canvasWidth * 0.9,
+			Math.max(120, longestLineLen * fontSize * 0.6),
+		);
 		const estimatedHeight = Math.max(fontSize * 1.2, lines.length * fontSize * 1.2);
 		return { width: estimatedWidth, height: estimatedHeight };
 	}
@@ -56,8 +64,12 @@ export function getClipBaseDimensions(
 
 	// Images, Videos, Recordings
 	const crop = clip.visualSettings?.crop;
-	const sourceWidth = (asset.kind === "recording" ? canvasWidth : asset.width || canvasWidth) * (1-(crop?.left??0)-(crop?.right??0));
-	const sourceHeight = (asset.kind === "recording" ? canvasHeight : asset.height || canvasHeight) * (1-(crop?.top??0)-(crop?.bottom??0));
+	const sourceWidth =
+		(asset.kind === "recording" ? canvasWidth : asset.width || canvasWidth) *
+		(1 - (crop?.left ?? 0) - (crop?.right ?? 0));
+	const sourceHeight =
+		(asset.kind === "recording" ? canvasHeight : asset.height || canvasHeight) *
+		(1 - (crop?.top ?? 0) - (crop?.bottom ?? 0));
 	const ratio = Math.min(canvasWidth / sourceWidth, canvasHeight / sourceHeight);
 	return {
 		width: Math.max(20, sourceWidth * ratio),
@@ -80,7 +92,8 @@ export function getActiveVisualClipsBounds(
 
 		for (const clip of track.clips) {
 			if (!clip.enabled) continue;
-			const clipEndUs = clip.startUs + Math.round((clip.sourceOutUs - clip.sourceInUs) / (clip.rate || 1));
+			const clipEndUs =
+				clip.startUs + Math.round((clip.sourceOutUs - clip.sourceInUs) / (clip.rate || 1));
 			if (timeUs < clip.startUs || timeUs >= clipEndUs) continue;
 
 			const { asset, transform } = sampleProjectVisual(project, track, clip, timeUs);
@@ -144,15 +157,7 @@ export function hitTestCanvasPoint(
 /**
  * Handle direction identifiers for 8-point resize handles
  */
-export type ResizeHandleDirection =
-	| "nw"
-	| "n"
-	| "ne"
-	| "e"
-	| "se"
-	| "s"
-	| "sw"
-	| "w";
+export type ResizeHandleDirection = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 
 /**
  * Computes new scale given drag delta in local unrotated coordinates.
@@ -217,4 +222,25 @@ export function calculateRotationAngle(
 	while (degrees > 180) degrees -= 360;
 	while (degrees < -180) degrees += 360;
 	return Math.round(degrees);
+}
+
+/**
+ * Applies transient live transform override to a specific clip without mutating project state.
+ */
+export function applyLiveTransform(
+	project: TimelineProject,
+	override: { clipId: string; transform: ClipTransform } | null,
+): TimelineProject {
+	if (!override) return project;
+	const { clipId, transform } = override;
+	let changed = false;
+	const tracks = project.tracks.map((track) => {
+		if (!track.clips.some((c) => c.id === clipId)) return track;
+		changed = true;
+		return {
+			...track,
+			clips: track.clips.map((clip) => (clip.id === clipId ? { ...clip, transform } : clip)),
+		};
+	});
+	return changed ? { ...project, tracks } : project;
 }

@@ -580,4 +580,28 @@ Suite penuh default parallel sebelum perbaikan review akhir: 1.491/1.500 tes lul
 - [ ] Full suite: 1.596 tes lulus, 24 gagal di 9 file (`mcpServer`, `projectFileConcurrency`, `projectFileService`, `projectRenameTransaction`, `recordedAudioFile`, `StoryEditor`, `mediaLayerTiming`, `audioEncoder`, `streamingDecoder`); tes inspector transisi lulus.
 - [ ] Native QA: Tempatkan dua file video penuh di timeline, klik tombol "Add transition", putar preview di area transisi, dan pastikan transisi cross-dissolve berjalan mulus dengan freeze frame di akhir/awal klip tanpa crash playback.
 
+## Live Drag Preview untuk Overlay Objek di Kanvas Story Editor (17 Oktober 2026)
+
+**Status:** Selesai dan terverifikasi.
+
+**Gejala Masalah:**
+- Ketika pengguna menggeser atau mengubah ukuran/rotasi klip overlay (teks, shape, gambar) di kanvas Story Editor preview, hanya bounding box gizmo biru yang bergerak secara real-time. Objek visual overlay aslinya tetap diam di posisi awal dan baru meloncat (*teleport*) ke posisi baru setelah tombol kiri mouse dilepas (`pointerup`).
+
+**Akar Masalah:**
+- `CanvasTransformGizmo` menghitung `newTransform` secara lokal selama drag (`pointermove`), namun hanya menyimpannya di internal state gizmo (`activeTransform`).
+- Kanvas pratinjau di `ProjectPreview` merender frame dari objek `project` yang tidak dimutasi hingga `onUpdateClipTransform` dipanggil saat `handleWindowPointerUp`. Hal ini sengaja dilakukan untuk menjaga atomisitas riwayat undo/redo agar tidak terjadi infinite re-render loop atau banjir command histori. Namun, `ProjectPreview` belum memiliki saluran transient untuk menerima pembaruan transform sementara secara visual.
+
+**Solusi & Perbaikan:**
+1. **Live Callback Non-Histori (`onLiveTransform`):** Menambahkan callback opsional `onLiveTransform?: (clipId: string | null, transform: ClipTransform | null) => void` pada `CanvasTransformGizmo`. Selama sesi drag berlangsung (`translate`, `resize`, `rotate`), transform baru diteruskan seketika tanpa mencatat command undo/redo.
+2. **Transient Transform Override di `ProjectPreview` (`applyLiveTransform`):** Fungsi murni `applyLiveTransform` di `canvasGizmoMath.ts` menyalin struktur track secara shallow dan menimpa `clip.transform` khusus untuk klip yang sedang digeser tanpa memutasi objek state induk.
+3. **Imperative Frame Coalescing via `PreviewQueue`:** Saat `onLiveTransform` dipanggil, `ProjectPreview` tidak memicu re-render komponen React (tidak ada `setState`). Sebagai gantinya, request frame pratinjau dikirim langsung ke `PreviewQueue.request`, yang secara otomatis melakukan *frame coalescing* pada 60 FPS untuk rendering WebGL/2D canvas yang halus dan tanpa lag.
+4. **Pembersihan Listener & Revert Handlers:** Saat `pointerup`, gizmo membersihkan override via `onLiveTransform(null, null)` dan mengomit satu command `onUpdateClipTransform` secara bersih ke `ProjectController`. Jika sesi drag terputus atau unmount di tengah jalan, `dragCleanupRef` memastikan listener window dibersihkan secara aman.
+
+**Pengujian & Verifikasi:**
+- Unit tests di `CanvasTransformGizmo.test.tsx` (10/10 lulus 100%), mencakup verifikasi immutability `applyLiveTransform` dan penanganan `onLiveTransform`.
+- Unit tests terkait di `canvasGizmoMath.test.ts`, `previewQueue.test.ts`, dan `CanvasProjectInspector.test.tsx` (12/12 lulus 100%).
+- Type check: `npx tsc -p tsconfig.json --noEmit` lolos bersih tanpa error.
+- Linter/Formatter: `npx biome check` lolos bersih tanpa error.
+
+
 
