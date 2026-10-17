@@ -55,8 +55,9 @@ export function getClipBaseDimensions(
 	}
 
 	// Images, Videos, Recordings
-	const sourceWidth = asset.width || canvasWidth;
-	const sourceHeight = asset.height || canvasHeight;
+	const crop = clip.visualSettings?.crop;
+	const sourceWidth = (asset.kind === "recording" ? canvasWidth : asset.width || canvasWidth) * (1-(crop?.left??0)-(crop?.right??0));
+	const sourceHeight = (asset.kind === "recording" ? canvasHeight : asset.height || canvasHeight) * (1-(crop?.top??0)-(crop?.bottom??0));
 	const ratio = Math.min(canvasWidth / sourceWidth, canvasHeight / sourceHeight);
 	return {
 		width: Math.max(20, sourceWidth * ratio),

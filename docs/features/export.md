@@ -22,7 +22,7 @@ Repo memiliki jalur encoder native/hardware serta fallback, antara lain Windows/
 
 ## Batas yang terlihat
 
-- Subtitle preview Story belum dibakar ke frame export final.
+- Caption final yang dibuat melalui panel Captions dibakar ke frame MP4. Preview transkrip lama perlu digenerate menjadi caption final terlebih dahulu.
 - QA desktop untuk export nyata dan native encoder belum diperbarui pada perubahan ownership terbaru.
 - Cancel/failure harus mempertahankan project aktif dan membersihkan output sementara sesuai pipeline.
 - Animated GIF sebagai input Story bukan dukungan otomatis hanya karena exporter lain menawarkan GIF.

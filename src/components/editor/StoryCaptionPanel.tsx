@@ -3,7 +3,7 @@ import { ColorPicker } from "@/components/ui/color-picker";
 import type { StoryCaptionSegment, StorySubtitleSettings } from "@/core/story/storyTypes";
 import type { ProjectCommand } from "@/core/timeline/history";
 import {
-	captionSourceTime,
+	setStoryCaptionTime,
 	generateStoryCaptions,
 	projectCaptionSegments,
 	updateStoryCaptions,
@@ -46,23 +46,7 @@ export function StoryCaptionPanel({
 	const edit = (id: number, patch: Partial<StoryCaptionSegment>) =>
 		update({ segments: cues.map((c) => (c.id === id ? { ...c, ...patch } : c)) });
 	const timing = (cue: StoryCaptionSegment, key: "startUs" | "endUs", raw: string) => {
-		try {
-			const value = captionSourceTime(project, cue.clipId, Number(raw) * 1_000_000);
-			const a = key === "startUs" ? value : cue.startUs,
-				b = key === "endUs" ? value : cue.endUs;
-			edit(cue.id, {
-				[key]: value,
-				words: cue.words
-					.filter((w) => w.endUs > a && w.startUs < b)
-					.map((w) => ({
-						...w,
-						startUs: Math.max(a, w.startUs),
-						endUs: Math.min(b, w.endUs),
-					})),
-			});
-		} catch (e) {
-			setError(String(e));
-		}
+		run(p=>setStoryCaptionTime(p,cue.id,key,Math.round(Number(raw)*1_000_000)));
 	};
 	return (
 		<aside className="project-inspector story-caption-panel" aria-label="Caption editor">

@@ -9,6 +9,10 @@ import {
 	VideoCamera,
 } from "@phosphor-icons/react";
 import { ColorPicker } from "@/components/ui/color-picker";
+import { KeyframeValueEditor } from "@/components/video-editor/annotations/KeyframeValueEditor";
+import { updateClipVisualSettings } from "@/core/timeline/clipVisualSettings";
+import { ClipVisualControls } from "./ClipVisualControls";
+import { KeyframeCurveEditor } from "./KeyframeCurveEditor";
 import type { KeyframeEasing, KeyframeProperty } from "@/components/video-editor/types";
 import { resolveClipSource } from "@/core/timeline/clipSource";
 import {
@@ -328,6 +332,7 @@ export function ProjectInspector({
 							Edit recording effects
 						</button>
 					)}
+					{!clip.audioOnly && ["video","image","recording"].includes(asset.kind) && <ClipVisualControls value={clip.visualSettings} onChange={settings=>onCommand(p=>updateClipVisualSettings(p,clip.id,settings))}/>}
 					{(asset.kind==="audio"||asset.kind==="video"||asset.kind==="recording") && <div className="project-component-animation-row">
 						{(["fadeInUs","fadeOutUs"] as const).map(key=><label key={key}>{key==="fadeInUs"?"Audio fade in (s)":"Audio fade out (s)"}<input type="number" min={0} max={clipDurationUs(clip)/1_000_000} step={.05} value={(clip[key]??0)/1_000_000} onChange={e=>{const value=Math.round(e.target.valueAsNumber*1_000_000);if(Number.isFinite(value))onCommand(p=>setClipFades(p,clip.id,key==="fadeInUs"?value:clip.fadeInUs??0,key==="fadeOutUs"?value:clip.fadeOutUs??0));}}/></label>)}
 					</div>}
@@ -741,12 +746,14 @@ export function ProjectInspector({
 															updateClipKeyframe(p, clip.id, kf.id, {
 																easing: e.target
 																	.value as KeyframeEasing,
+																bezier: e.target.value === "cubic-bezier" ? kf.bezier ?? [.42,0,.58,1] : undefined,
 															}),
 														)
 													}
 												>
 													<option value="ease-in-out">ease-in-out</option>
 													<option value="linear">linear</option>
+													<option value="cubic-bezier">cubic-bezier</option>
 													<option value="ease-in">ease-in</option>
 													<option value="ease-out">ease-out</option>
 													<option value="spring-bounce">
@@ -766,6 +773,7 @@ export function ProjectInspector({
 												>
 													<Trash size={12} />
 												</button>
+												<div className="project-kf-values"><KeyframeValueEditor frame={kf} disabled={track.locked} onChange={patch=>onCommand(p=>updateClipKeyframe(p,clip.id,kf.id,patch))} curveEditor={<KeyframeCurveEditor value={kf.bezier} disabled={track.locked} onChange={bezier=>onCommand(p=>updateClipKeyframe(p,clip.id,kf.id,{bezier}))}/>}/></div>
 											</div>
 										))}
 									</div>

@@ -20,9 +20,9 @@
 
 **Files:** failing test/production files identified by the recorded baseline; `ISSUE.md`.
 
-- [ ] Run full Vitest JSON report and classify all failures by cause.
-- [ ] Reproduce product failures with existing/focused tests (RED), fix root causes, rerun (GREEN).
-- [ ] Record environment/native limitations explicitly and commit completed stabilization.
+- [x] Run full Vitest JSON report and classify all failures by cause.
+- [x] Reproduce product failures with existing/focused tests (RED), fix root causes, rerun (GREEN).
+- [x] Record environment/native limitations explicitly and commit completed stabilization.
 
 ## Task 2: Final captions
 
@@ -30,9 +30,9 @@
 
 **Interfaces:** StorySubtitleSettings gains optional timeline `segments` and style/position fields. `generateStoryCaptions(project, transcripts)` maps sources; `updateStoryCaptions(project, settings)` returns a validated clone; shared `drawStoryCaptions(ctx, project, timeUs)` paints frames.
 
-- [ ] RED: trimmed/rated and nested Record mapping, invalid times/style, owner isolation/undo and canvas caption drawing.
-- [ ] Implement optional schema, commands, panel and renderer burn-in; remove duplicate final caption DOM overlay.
-- [ ] GREEN: caption, ownership, presentation, renderer and bundle suites; TypeScript; commit.
+- [x] RED: trimmed/rated and nested Record mapping, invalid times/style, owner isolation/undo and canvas caption drawing.
+- [x] Implement optional schema, commands, panel and renderer burn-in; remove duplicate final caption DOM overlay.
+- [x] GREEN: caption, ownership, presentation, renderer and bundle suites; TypeScript; commit.
 
 ## Task 3: Real waveform and filmstrip
 
@@ -40,9 +40,9 @@
 
 **Interfaces:** real peaks feed an SVG path with sourceIn/rate; filmstrip source sampling maps clip time to source/Record time.
 
-- [ ] RED: silence/real peaks, trimmed/rated source selection, bounded thumbnail sampling.
-- [ ] Replace synthetic waveform; add bounded cached thumbnail loading and resource cleanup.
-- [ ] GREEN: timeline and helper tests, TypeScript; commit.
+- [x] RED: silence/real peaks, trimmed/rated source selection, bounded thumbnail sampling.
+- [x] Replace synthetic waveform; add bounded cached thumbnail loading and resource cleanup.
+- [x] GREEN: timeline and helper tests, TypeScript; commit.
 
 ## Task 4: Editing workflow
 
@@ -50,9 +50,9 @@
 
 **Interfaces:** copy/paste snapshots (new IDs/compositions), attribute copying, group/link IDs on clips, atomic group movement, unlink/relink audio, optional fade durations on clips with a shared gain envelope.
 
-- [ ] RED: owner-safe paste, independent compositions, locked-member atomicity, grouped movement, linked AV timing/no doubled audio, fade endpoints.
-- [ ] Implement commands and visible controls/shortcuts, integrate gestures and shared audio envelope.
-- [ ] GREEN: editing, commands, history, interactions, audio and bundle suites; TypeScript; commit.
+- [x] RED: owner-safe paste, independent compositions, locked-member atomicity, grouped movement, linked AV timing/no doubled audio, fade endpoints.
+- [x] Implement commands and visible controls/shortcuts, integrate gestures and shared audio envelope.
+- [x] GREEN: editing, commands, history, interactions, audio and bundle suites; TypeScript; commit.
 
 ## Task 5: Visual finishing
 
@@ -60,9 +60,9 @@
 
 **Interfaces:** optional placement visual settings (crop/mask/color) and existing cubic-bezier PropertyKeyframe values.
 
-- [ ] RED: invalid crop/mask/color/curve, immutable edits, renderer operations and persistence.
-- [ ] Add inspector controls and shared renderer evaluation; reuse existing keyframe controls with an editable SVG curve.
-- [ ] GREEN: visual, renderer, validation, keyframe and lifecycle suites; TypeScript; commit.
+- [x] RED: invalid crop/mask/color/curve, immutable edits, renderer operations and persistence.
+- [x] Add inspector controls and shared renderer evaluation; reuse existing keyframe controls with an editable SVG curve.
+- [x] GREEN: visual, renderer, validation, keyframe and lifecycle suites; TypeScript; commit.
 
 ## Review focus
 
@@ -74,6 +74,6 @@
 
 ## Final verification
 
-- [ ] Full suite + TypeScript + diff check; review all stage diffs.
-- [ ] Refresh graft. Update docs, issue QA status and changelog with actual results.
-- [ ] Report remaining native/environment limitations explicitly.
+- [x] Full suite + TypeScript + diff check; review all stage diffs.
+- [x] Refresh graft. Update docs, issue QA status and changelog with actual results.
+- [x] Report remaining native/environment limitations explicitly.

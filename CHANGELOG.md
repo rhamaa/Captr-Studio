@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Implemented — Story Editor finishing (2026-10-17)
+
+- Stabilized the automated baseline: five stale tests/fixtures corrected; filesystem/loopback failures from the restricted Windows sandbox were separated from product regressions.
+- Added editable Story-owned captions, placement source-clock mapping, independent Artboard anchors, and shared Canvas burn-in for preview/MP4 export.
+- Replaced synthetic audio waveforms with source peaks and added bounded, cancellable video/Recording filmstrips.
+- Added scoped clip/attribute clipboard, group/link selection and movement, independent detached audio, and shared playback/export fades.
+- Added placement crop, rectangle/ellipse masks, basic color adjustment and editable Bezier keyframe curves. Output dimensions remain fixed by the Artboard.
+- Closed review regressions in fade endpoints, styled audio detachment, compatible attribute paste, Record caption cut boundaries and package audio waveforms. Final verification: 1,657 tests across 236 files and TypeScript passed.
+- Native device/playback and visual export QA remains pending. Automated results and known limits are recorded in [ISSUE.md](ISSUE.md).
+
 ### Implemented — Story ownership foundation (2026-10-10)
 
 - Text/Shapes belong inline to each Story clip; independent Templates preserve reusable presets and unused legacy designs. New designs use finite five-second source extents with undoable extension.
@@ -22,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deferred finishing and verification
 
 - Native recorder/microphone/editor lifecycle QA remains pending. Automated lifecycle tests do not verify HUD/native interaction.
-- Caption editing/burn-in, real waveform/filmstrip, grouping, grading/masks, speed curves/tracking/proxies and authored trailing-blank duration control remain backlog; this foundation preserves caption metadata.
+- Speed curves/tracking/proxies, advanced blend/LUT/audio automation and authored trailing-blank duration control remain backlog; the five Story finishing stages above now extend this foundation.
 - Task 8 and whole-branch reviews are approved after the focused migration fixes. Nine original full-suite failures and existing lint debt remain recorded; native QA is pending.
 
 ---

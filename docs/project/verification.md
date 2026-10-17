@@ -1,6 +1,29 @@
 # Laporan Verifikasi dan Pengujian (Verification Report)
 
-Dokumen ini mencatat bukti pengujian otomatis, cakupan suite tes, status pemeriksaan tipe, dan checklist pengujian native pada **Captr Studio V3** per **10 Oktober 2026** (commit `8c2fe68` / `2241025`).
+Dokumen ini mencatat bukti pengujian otomatis, cakupan suite tes, status pemeriksaan tipe, dan checklist pengujian native pada **Captr Studio V3** per **17 Oktober 2026**. Bagian 1–5 di bawah menyimpan bukti historis ownership 10 Oktober (`8c2fe68` / `2241025`).
+
+## Verifikasi Story finishing — 17 Oktober 2026
+
+- **Hasil akhir:** **1.657/1.657 tes lulus pada 236 file**, exit 0. Perintah: `node node_modules/vitest/vitest.mjs run --maxWorkers=4`. Run dilakukan di luar sandbox Windows setelah run sandbox menghasilkan 1.638 lulus / 19 gagal akibat akses loopback dan link filesystem; tidak ada assertion atau produksi yang dilonggarkan untuk melewati batas lingkungan tersebut.
+- Delapan suite langsung terkait caption, workflow, waveform, visual/kurva, renderer dan real bundle mencakup **78/78 tes lulus** dalam run yang sama; ini bagian dari 1.657 tes, bukan tambahan.
+- Baseline awal di luar sandbox Windows: **1.615 lulus / 5 gagal / 1.620 tes**. Lima kegagalan adalah fixture/assertion lama; empat file terkait lulus 26/26 setelah diperbarui.
+- Caption: source anchor mengikuti trim/rate/move dan cut Record; teks segmen/kata, timing segmen, style/posisi, undo/redo, snapshot dan bundle `.captr`; renderer Canvas bersama untuk burn-in preview/export.
+- Timeline: peak audio sumber asli, waveform package Record mengikuti offset/cut/rate, dan sampling filmstrip maksimal 12 frame per klip. Cache dibatasi 120 thumbnail dengan satu decoder aktif.
+- Workflow: clipboard scoped, salinan komposisi independen, group/link dengan gerak atomik dan penolakan member terkunci; detach audio, fade preview/export dan kompatibilitas paste atribut.
+- Visual: validasi crop/mask/grading, edit immutable, source rectangle/mask/filter pada renderer bersama, ukuran gizmo setelah crop, kurva Bezier dan round-trip bundle.
+- Review independen menemukan lima isu: endpoint fade-in-only, metadata visual pada detach, atribut animasi ke audio, sisi batas cut untuk caption, dan waveform package Record. Semuanya direproduksi dengan tes, diperbaiki dalam satu pass, dan diperiksa ulang.
+- TypeScript `node node_modules/typescript/bin/tsc --noEmit`: **lulus, exit 0**.
+- Graft rebuild: **lulus**, 5.449 nodes, 13.660 edges, 778 cards. Diff whitespace diperiksa terpisah sebelum commit.
+
+**Batas verifikasi:** belum menjalankan interaksi native desktop, capture mic/system/HUD, playback hardware, atau membandingkan video hasil ekspor secara visual. Pemeriksaan renderer memakai konteks Canvas/audio yang dimock; codec, font dan filter aktual masih memerlukan QA desktop. Tidak ada perubahan perilaku capture/save dalam scope ini.
+
+Checklist QA finishing:
+
+- [ ] Edit caption, trim/speed Record, lalu bandingkan caption pada preview dan MP4 hasil ekspor.
+- [ ] Scrub/pan/zoom timeline panjang; periksa filmstrip, waveform mic/system, loading dan kegagalan decode.
+- [ ] Copy/paste, group/link dan detach pada dua Artboard; undo/redo dan buka ulang `.captr`.
+- [ ] Dengarkan fade-in saja, fade-out saja, dan fade bertumpuk pada klip pendek.
+- [ ] Bandingkan crop, rectangle/ellipse mask, grading dan easing Bezier pada preview/ekspor.
 
 ---
 

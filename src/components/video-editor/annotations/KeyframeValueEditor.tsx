@@ -1,13 +1,16 @@
 import type { PropertyKeyframe } from "../types";
+import type { ReactNode } from "react";
 
 export function KeyframeValueEditor({
 	frame,
 	disabled,
 	onChange,
+	curveEditor,
 }: {
 	frame: PropertyKeyframe;
 	disabled?: boolean;
 	onChange: (changes: Partial<PropertyKeyframe>) => void;
+	curveEditor?: ReactNode;
 }) {
 	const field = (
 		label: string,
@@ -58,14 +61,14 @@ export function KeyframeValueEditor({
 			)}
 			{frame.easing === "cubic-bezier" && (
 				<>
-					<svg aria-label="Easing curve" width="60" height="60" viewBox="0 0 100 100">
+					{curveEditor ?? <svg aria-label="Easing curve" width="60" height="60" viewBox="0 0 100 100">
 						<path
 							d={`M 0 100 C ${curve[0] * 100} ${100 - curve[1] * 100}, ${curve[2] * 100} ${100 - curve[3] * 100}, 100 0`}
 							fill="none"
 							stroke="currentColor"
 							strokeWidth="3"
 						/>
-					</svg>
+					</svg>}
 					{curve.map((value, index) =>
 						field(
 							["Curve X1", "Curve Y1", "Curve X2", "Curve Y2"][index],

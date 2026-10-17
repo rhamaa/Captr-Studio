@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { ownershipFixture, fixtureClip, fixtureTrack } from "./storyOwnership.fixtures";
 import { getStoryProject } from "./storyOwnership";
-import { moveClip } from "./commands";
+import { createTimelineProject, moveClip } from "./commands";
 import { audioAtTime, buildProjectAudioPlan } from "./audioPlan";
 import {
 	copyClips,
@@ -71,6 +71,21 @@ it("detaches Record audio without flattening or doubling playback", () => {
 	).toEqual([audio.id]);
 	expect(() => validateTimelineProject(next)).not.toThrow();
 });
+it("detaches styled media while keeping its visual settings on the visual placement", () => {
+	const p = fixture(),
+		id = p.tracks[0].clips[0].id;
+	p.tracks[0].clips[0].visualSettings = {
+		crop: { left: 0.1, right: 0, top: 0, bottom: 0 },
+		mask: "ellipse",
+		brightness: 1.2,
+	};
+	const next = detachClipAudio(p, id);
+	expect(next.tracks[0].clips[0].visualSettings).toEqual(p.tracks[0].clips[0].visualSettings);
+	expect(
+		next.tracks.flatMap((t) => t.clips).find((c) => c.audioOnly)?.visualSettings,
+	).toBeUndefined();
+	expect(() => validateTimelineProject(next)).not.toThrow();
+});
 it("applies a shared fade envelope and rejects invalid values", () => {
 	let p = fixture(),
 		id = p.tracks[0].clips[0].id;
@@ -128,4 +143,45 @@ it("copies placement attributes without replacing text content or sharing mutabl
 		color: "#00ff00",
 	});
 	expect(p.tracks[0].clips[1].content).not.toEqual(content);
+});
+it("pastes compatible audio attributes from an animated visual", () => {
+	const p = createTimelineProject("attribute-paste", "Attribute paste"),
+		visual = fixtureClip("attribute-source", { assetId: "shared" });
+	p.assets = [
+		{
+			id: "shared",
+			kind: "video",
+			name: "Video",
+			width: 1920,
+			height: 1080,
+			durationUs: 5_000_000,
+			source: { path: "video.mp4", durationUs: 5_000_000, offsetUs: 0 },
+		},
+	];
+	p.tracks = [fixtureTrack("attribute-visual", [visual])];
+	visual.componentAnimation = {
+		enter: { preset: "fade", durationUs: 200_000, easing: "linear" },
+	};
+	visual.gain = 0.6;
+	visual.fadeInUs = 100_000;
+	p.assets.push({
+		id: "paste-voice-asset",
+		kind: "audio",
+		name: "Voice",
+		width: 0,
+		height: 0,
+		durationUs: 5_000_000,
+		source: { path: "voice.wav", durationUs: 5_000_000, offsetUs: 0 },
+	});
+	p.tracks.push(
+		fixtureTrack(
+			"paste-audio-track",
+			[fixtureClip("voice-clip", { assetId: "paste-voice-asset" })],
+			"audio",
+		),
+	);
+	const next = pasteClipAttributes(p, ["voice-clip"], copyClipAttributes(p, visual.id));
+	expect(next.tracks.at(-1)!.clips[0]).toMatchObject({ gain: 0.6, fadeInUs: 100_000 });
+	expect(next.tracks.at(-1)!.clips[0].componentAnimation).toBeUndefined();
+	expect(() => validateTimelineProject(next)).not.toThrow();
 });

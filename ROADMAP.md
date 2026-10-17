@@ -4,11 +4,11 @@ Dokumen ini memetakan visi, arsitektur, dan tahapan pengembangan **Captr Studio*
 
 ---
 
-## Fokus dan timeline pengembangan Story Editor — update 10 Oktober 2026
+## Fokus dan timeline pengembangan Story Editor — update 17 Oktober 2026
 
 **Target produk:** Record Editor mengolah rekaman; Story Editor milik Artboard menyusun video final dari hasil Record Editor, B-roll, teks, shape, musik, subtitle, dan efek. CapCut Desktop menjadi referensi perilaku dan workflow. Seluruh data tetap dalam satu project `.captr` V3 dengan source media bersama dan edit placement independen.
 
-**Prioritas aktif:** [Issue #12 — pemisahan Assets global dan elemen/media lokal Story](ISSUE.md#12-pemisahan-assets-global-elemen-story-dan-komposisi-record-10-oktober-2026). Fondasi kepemilikan dan review akhir selesai; acceptance otomatis dicatat, QA native pending. TODO dan acceptance authoritative dicatat di issue tersebut.
+**Prioritas aktif:** QA desktop lima tahap Story finishing. Fondasi ownership dan implementasi finishing tersedia; lihat [rencana pelaksanaan](docs/superpowers/plans/2026-10-17-story-finishing.md), [fitur](docs/features/story-editor.md), dan [bukti verifikasi](docs/project/verification.md).
 
 | Tanggal | Progres / keputusan | Status |
 | --- | --- | --- |
@@ -17,20 +17,21 @@ Dokumen ini memetakan visi, arsitektur, dan tahapan pengembangan **Captr Studio*
 | 9 Oktober 2026 | Perbaikan UI freeze / infinite re-render CanvasTransformGizmo. Commit terakhir saat pencatatan: `92f2cd7`. | Issue #11 mencatat 11/11 tes fokus dan TypeScript lulus; tidak dijalankan ulang pada update ini. |
 | 10 Oktober 2026 | Audit gap Story Editor: subtitle final/export, waveform nyata, filmstrip, workflow clip, audio finishing, compositing, color, keyframe graph, retiming, dan proxy. | Audit berbasis kode; belum QA interaksi native. |
 | 10 Oktober 2026 | Kontrak Artboard → Story → placement Record → Record Editor; Assets global hanya untuk source media reusable, desain lokal dimiliki Story. | Diimplementasikan; automated evidence dan native gap di issue #12. |
+| 17 Oktober 2026 | Stabilisasi, caption final/burn-in, waveform nyata/filmstrip, clipboard/group/link/detach/fade, crop/mask/grading/Bezier. | Implementasi unreleased; pengujian otomatis dan QA native dibedakan di laporan verifikasi. |
 
 **Urutan TODO pengembangan; tanpa estimasi tanggal selesai:**
 
 1. **Fondasi kepemilikan — issue #12:** schema/resolver scoped, inline Text/Shape, media privat, isolasi Record, UI/Templates, legacy normalization, history dan bundle round-trip selesai serta lolos review akhir. Perbaikan override transisi dan missing owner ditutup dengan 224 tes terkait lulus. Lanjutkan QA regresi native yang masih pending.
-2. **Finishing dasar:** subtitle lokal yang ikut save/reopen dan export, waveform dari audio nyata, filmstrip thumbnail video. Metadata subtitle sudah ikut canonical owner/Story projection/save-reopen; editing dan burn-in final tetap perlu dikerjakan.
-3. **Workflow editing cepat:** copy/paste clip dan attributes, group/ungroup serta pemindahan grup, link/unlink video–audio, insert/overwrite, ripple trim, audio fades/crossfade dan volume automation.
-4. **Visual polish:** crop/mask/feather/blend per placement, color adjustment/LUT, keyframe drag/value/time dan graph editor, preset yang menghasilkan elemen lokal.
+2. **Finishing dasar — terimplementasi:** caption final dengan edit teks/timing/style/posisi, burn-in preview/export, waveform sumber asli dan filmstrip video/Record.
+3. **Workflow editing cepat — sebagian terimplementasi:** clipboard clip/attributes, group/link dan gerak atomik, detach audio independen, fade-in/out. Insert/overwrite, ripple trim, compound bersarang, crossfade dan automation bebas masih backlog.
+4. **Visual polish — dasar terimplementasi:** crop empat sisi, mask rectangle/ellipse/inset, brightness/contrast/saturation dan graph cubic-Bezier. Feather/blend/mask bebas, suhu warna dan LUT masih backlog.
 5. **Advanced:** speed curves/reverse/freeze frame, motion tracking, proxy media/preview quality, serta perluasan library preset dan efek.
 
-Tahap 2–5 adalah backlog arah produk, belum fitur selesai atau rencana implementasi rinci. Setiap tahap membutuhkan scope/spec yang jelas dan verifikasi preview/export parity, isolasi Artboard/Story, serta round-trip `.captr`. Recording package tidak diratakan dan alur capture/path project tetap dipertahankan.
+Rincian scope finishing ada di spec 17 Oktober. Bagian advanced dan fitur yang secara eksplisit ditandai backlog belum diimplementasikan. Recording package tetap utuh; scope finishing tidak mengubah alur capture/path project.
 
-**Kondisi saat pencatatan:** versi tetap `1.4.0-beta.1`. Text/Shape sudah inline milik clip; Story Media privat dan Templates tersedia. Waveform Story masih sintetis dan subtitle preview masih overlay UI terpisah dari frame export. QA native tertunda serta catatan kegagalan suite penuh lama tetap mengikuti ISSUE.md; hasil aktual dan ruling tercatat di [verification](docs/superpowers/plans/2026-10-10-story-asset-ownership-verification.md); suite tidak sepenuhnya hijau.
+**Kondisi saat pencatatan:** versi tetap `1.4.0-beta.1`. Text/Shape tetap inline, media privat dan Templates tersedia. Caption final digambar ke frame bersama; waveform menggunakan peak sumber. Hasil tes terbaru dan batas QA native dicatat di [verification](docs/project/verification.md).
 
-Bagian milestone di bawah mempertahankan histori roadmap, termasuk istilah slide dan rencana Remotion lama. Untuk scope pengembangan berikutnya, gunakan update 10 Oktober dan issue #12; istilah historis tersebut tidak mengubah kontrak V3 atau menghidupkan kembali Video/Motion legacy.
+Bagian milestone di bawah mempertahankan histori roadmap, termasuk istilah slide dan rencana Remotion lama. Untuk scope berikutnya gunakan update 17 Oktober; istilah historis tidak mengubah kontrak V3 atau menghidupkan kembali Video/Motion legacy.
 
 ---
 

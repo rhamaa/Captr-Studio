@@ -142,7 +142,7 @@ export async function renderProjectAudio(
 						gain.gain.linearRampToValueAtTime(
 							baseGain *
 								(source.fade
-									? fadeGain(
+									? timeUs === source.fade.endUs && source.fade.outUs === 0 ? 1 : fadeGain(
 											ms * 1000,
 											source.fade.startUs,
 											source.fade.endUs,

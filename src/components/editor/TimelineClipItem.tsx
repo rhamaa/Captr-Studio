@@ -1,6 +1,6 @@
 import type { PointerEvent } from "react";
 import { useRef, useState } from "react";
-import { TimelineAudioPreview, TimelineFilmstrip } from "./TimelineSourcePreview";
+import { TimelineClipAudioPreview, TimelineFilmstrip } from "./TimelineSourcePreview";
 import { resolveClipSource } from "@/core/timeline/clipSource";
 import { relatedClipIds } from "@/core/timeline/editingCommands";
 import type { ProjectCommand } from "@/core/timeline/history";
@@ -142,9 +142,8 @@ export function TimelineClipItem({
 				if (asset.kind === "recording") onOpenRecording(clip.id);
 			}}
 		>
-			{asset.kind === "audio" && asset.media?.source?.path && <TimelineAudioPreview path={asset.media.source.path} clip={shown} scale={scale} width={clipWidthPx}/>}
+			{(asset.kind === "audio" || clip.audioOnly) && <TimelineClipAudioPreview project={project} clip={shown} scale={scale}/>}
 			{!clip.audioOnly && (asset.kind === "video" || asset.kind === "recording") && <TimelineFilmstrip project={project} clip={shown} width={clipWidthPx}/>}
-			{clip.audioOnly && asset.media?.source?.path && <TimelineAudioPreview path={asset.media.source.path} clip={shown} scale={scale} width={clipWidthPx}/>}
 			<span
 				className="project-trim-handle left"
 				role="slider"

@@ -74,7 +74,47 @@ export function generateStoryCaptions(
 				segments.push({ ...structuredClone(cue), id: segments.length, clipId: clip.id });
 		}
 	}
-	return updateStoryCaptions(project, { ...project.subtitles, enabled: true, segments });
+	const settings = { ...project.subtitles, enabled: true, segments };
+	validateCaptionSettings(settings);
+	const visible = new Set(
+		projectCaptionSegments({ ...project, subtitles: settings }).map((c) => c.id),
+	);
+	return updateStoryCaptions(project, {
+		...settings,
+		segments: segments.filter((c) => visible.has(c.id)),
+	});
+}
+
+export function setStoryCaptionTime(
+	project: TimelineProject,
+	id: number,
+	key: "startUs" | "endUs",
+	timeUs: number,
+): TimelineProject {
+	if (!Number.isSafeInteger(timeUs) || timeUs < 0) throw new Error("Invalid caption time");
+	const settings = project.subtitles,
+		cue = settings?.segments?.find((c) => c.id === id);
+	if (!settings || !cue) throw new Error("Caption no longer exists");
+	const parts = projectCaptionSegments({
+		...project,
+		subtitles: { ...settings, enabled: true },
+	}).filter((c) => c.id === id);
+	const visible = key === "startUs" ? parts[0]?.startUs : parts.at(-1)?.endUs;
+	if (timeUs === (visible ?? cue[key])) return project;
+	const source = parts.length ? captionSourceTime(project, cue.clipId, timeUs, key) : timeUs;
+	const a = key === "startUs" ? source : cue.startUs,
+		b = key === "endUs" ? source : cue.endUs;
+	const edited = {
+		...cue,
+		[key]: source,
+		words: cue.words
+			.filter((w) => w.endUs > a && w.startUs < b)
+			.map((w) => ({ ...w, startUs: Math.max(a, w.startUs), endUs: Math.min(b, w.endUs) })),
+	};
+	return updateStoryCaptions(project, {
+		...settings,
+		segments: settings.segments!.map((c) => (c.id === id ? edited : c)),
+	});
 }
 
 function mapCue(
@@ -149,6 +189,7 @@ export function captionSourceTime(
 	project: TimelineProject,
 	clipId: string | undefined,
 	timelineUs: number,
+	edge: "startUs" | "endUs",
 ): number {
 	if (!clipId) return Math.round(timelineUs);
 	const clip = project.tracks.flatMap((t) => t.clips).find((c) => c.id === clipId);
@@ -156,7 +197,11 @@ export function captionSourceTime(
 	const output = clip.sourceInUs + (timelineUs - clip.startUs) * clip.rate;
 	const comp = project.compositions.find((c) => c.id === clip.compositionId);
 	if (!comp) return Math.round(output);
-	const s = comp.timeMap.find((s) => output >= s.outputStartUs && output <= s.outputEndUs);
+	const s = comp.timeMap.find((s) =>
+		edge === "startUs"
+			? output >= s.outputStartUs && output < s.outputEndUs
+			: output > s.outputStartUs && output <= s.outputEndUs,
+	);
 	if (!s) throw new Error("Caption time is outside the Record composition");
 	const offset = project.packages.find((p) => p.id === comp.packageId)?.screen.offsetUs ?? 0;
 	return Math.round(s.sourceStartUs + (output - s.outputStartUs) * s.rate - offset);

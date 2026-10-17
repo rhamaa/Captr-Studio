@@ -178,6 +178,7 @@ export function copyClipAttributes(p: TimelineProject, id: string) {
 		keyframes: clip.keyframes,
 		componentAnimation: clip.componentAnimation,
 		shapeStyleOverride: clip.shapeStyleOverride,
+		visualSettings: clip.visualSettings,
 		fadeInUs: clip.fadeInUs,
 		fadeOutUs: clip.fadeOutUs,
 		text: clip.content?.kind === "text" ? clip.content.text : undefined,
@@ -189,9 +190,23 @@ export function pasteClipAttributes(
 	data: ReturnType<typeof copyClipAttributes>,
 ): TimelineProject {
 	return commit(p, (n) => {
-		for (const { clip } of entries(n, ids)) {
-			const { text, shapeStyleOverride, ...common } = structuredClone(data);
+		for (const { clip, track } of entries(n, ids)) {
+			const {
+				text,
+				shapeStyleOverride,
+				visualSettings,
+				componentAnimation,
+				keyframes,
+				transform,
+				...common
+			} = structuredClone(data);
 			Object.assign(clip, common);
+			const kind = resolveClipSource(n, clip).kind;
+			if (track.kind === "visual" && !clip.audioOnly) {
+				Object.assign(clip, { componentAnimation, keyframes, transform });
+				if (["video", "image", "recording"].includes(kind))
+					clip.visualSettings = visualSettings;
+			}
 			if (clip.content?.kind === "text" && text)
 				clip.content.text = { ...text, content: clip.content.text.content };
 			if (resolveClipSource(n, clip).kind === "shape")
@@ -214,6 +229,7 @@ export function detachClipAudio(p: TimelineProject, id: string): TimelineProject
 		delete audio.linkId;
 		delete audio.keyframes;
 		delete audio.componentAnimation;
+		delete audio.visualSettings;
 		if (audio.compositionId) {
 			const comp = n.compositions.find((c) => c.id === audio.compositionId)!;
 			audio.compositionId = crypto.randomUUID();

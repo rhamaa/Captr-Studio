@@ -1,10 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTimelineAudioPeaks } from "../video-editor/timeline/hooks/useTimelineAudioPeaks";
 import type { TimelineClip, TimelineProject } from "@/core/timeline/types";
 import { resolveClipSource } from "@/core/timeline/clipSource";
 import { mapCompositionTime } from "@/core/timeline/timeMapping";
 import { LayerVideoSource } from "@/lib/exporter/layerVideoSource";
-import { sourceTimesForFilmstrip, waveformPath } from "./timelineMediaPreview";
+import {
+	sourceTimesForFilmstrip,
+	waveformPath,
+	timelineAudioSegments,
+} from "./timelineMediaPreview";
 
 const thumbnails = new Map<string, string>();
 let thumbnailQueue = Promise.resolve();
@@ -22,7 +26,13 @@ export function TimelineAudioPreview({
 }) {
 	const { peaks, loading } = useTimelineAudioPeaks(path);
 	return peaks ? (
-		<svg className="project-clip-waveform" aria-hidden="true">
+		<svg
+			className="project-clip-waveform"
+			aria-hidden="true"
+			viewBox={`0 0 ${width} 51`}
+			preserveAspectRatio="none"
+			style={{ height: "100%" }}
+		>
 			<path
 				d={waveformPath(peaks, clip.sourceInUs, clip.rate, scale, width, 51)}
 				fill="currentColor"
@@ -32,6 +42,48 @@ export function TimelineAudioPreview({
 		<span className="project-clip-media-status">
 			{loading ? "Loading waveform…" : "Waveform unavailable"}
 		</span>
+	);
+}
+
+export function TimelineClipAudioPreview({
+	project,
+	clip,
+	scale,
+}: {
+	project: TimelineProject;
+	clip: TimelineClip;
+	scale: number;
+}) {
+	const segments = useMemo(() => timelineAudioSegments(project, clip), [project, clip]);
+	const paths = [...new Set(segments.map((s) => s.path))];
+	if (!segments.length) return <span className="project-clip-media-status">No audio source</span>;
+	return (
+		<>
+			{segments.map((s) => {
+				const width = ((s.endUs - s.startUs) / 1_000_000) * scale;
+				return (
+					<div
+						key={s.id}
+						title={s.kind}
+						style={{
+							position: "absolute",
+							overflow: "hidden",
+							left: ((s.startUs - clip.startUs) / 1_000_000) * scale,
+							width,
+							top: `${(paths.indexOf(s.path) / paths.length) * 100}%`,
+							height: `${100 / paths.length}%`,
+						}}
+					>
+						<TimelineAudioPreview
+							path={s.path}
+							clip={{ ...clip, sourceInUs: s.sourceStartUs, rate: s.rate }}
+							scale={scale}
+							width={width}
+						/>
+					</div>
+				);
+			})}
+		</>
 	);
 }
 

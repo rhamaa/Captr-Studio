@@ -2,6 +2,9 @@
 
 ## Story Editor finishing — 17 Oktober 2026
 
+- **Verifikasi akhir:** seluruh **1.657 tes di 236 file lulus**, TypeScript exit 0, diff whitespace bersih dan graft berhasil dibangun. Run sandbox sebelumnya 1.638/1.657 dengan 19 kegagalan terkait loopback/hardlink/junction; suite yang sama di luar sandbox lulus utuh. Ini verifikasi otomatis, bukan QA perangkat native.
+- Visual finishing: crop empat sisi, mask rectangle/ellipse/inset, brightness/contrast/saturation per placement, gizmo mengikuti ukuran crop, dan graph keyframe cubic-Bezier dengan pointer/keyboard. Metadata opsional tersimpan lewat bundle `.captr` V3 tanpa mengubah dimensi Artboard.
+- Lima temuan review ditutup dengan regresi: fade-in tanpa fade-out mempertahankan gain akhir; detach tidak membawa metadata visual; paste ke audio menyaring atribut visual; caption start/end memilih sisi cut Record yang tepat; waveform Record memakai stream package dan clock komposisi.
 - Baseline otomatis di luar sandbox Windows: **1.615/1.620 lulus; 5 gagal** pada empat file. Sebagian besar 24 kegagalan run sebelumnya tidak muncul di luar sandbox; jangan menganggap semuanya bug produk.
 - Lima kegagalan tersisa adalah tes/fixture lama: callback Text/Shape/Template pindah ke tool rail dan Assets disatukan (2); fixture legacy media layer kehilangan `name`/`trackIndex` (1); assertion audio decoder belum menerima opsi container (1); URL loopback harus memakai port server aktif (1). Tes diperbarui tanpa melonggarkan validator atau mengubah perilaku produk.
 - Native QA HUD/perangkat, transisi desktop, dan pemeriksaan hasil export secara visual tetap pending; tes otomatis bukan bukti capture atau playback hardware.
@@ -10,7 +13,7 @@
 - Caption final: panel edit segmen/kata, timing, style/posisi, generate dari transkrip, undo/redo, anchor source per placement (trim/rate/move dan clock Record), dan burn-in pada renderer preview/export bersama. Snapshot Artboard me-remap anchor; bundle nyata mempertahankan cue. QA terkait: 104/104 regresi pada 8 suite dan 33/33 pada 5 suite penutup; TypeScript lulus. QA visual native pending.
 - Timeline: waveform audio sumber asli menggantikan pola sintetis. Filmstrip video/Record mengikuti trim/rate/time map; maksimal 12 sampel per klip, 120 thumbnail di cache, satu decoder thumbnail aktif, cleanup dan stale-result guard. File gagal dibaca menampilkan status unavailable tanpa membuat waveform palsu. QA perangkat/visual pending.
 
-**Update terbaru — 12 Oktober 2026:** [Issue #13: Loop Background Studio](#13-mini-app-loop-background-studio-gif-background-seamless-12-oktober-2026) sudah memiliki MVP dan tes otomatis; QA native masih pending. QA native regresi Issue #12 juga belum dijalankan. Timeline pengerjaan tercatat di [ROADMAP.md](ROADMAP.md), kondisi pengembangan di [CHANGELOG.md](CHANGELOG.md).
+**Update terbaru — 17 Oktober 2026:** lima tahap Story Editor finishing tercatat di bagian awal log ini. Implementasi dan verifikasi otomatis dibedakan dari QA desktop/perangkat yang masih pending. Timeline pengerjaan ada di [ROADMAP.md](ROADMAP.md), kondisi pengembangan di [CHANGELOG.md](CHANGELOG.md).
 
 
 ## 1. Keyframing engine pada timeline overlay (Text Overlay & Gambar)

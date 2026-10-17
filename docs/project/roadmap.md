@@ -1,6 +1,6 @@
 # Roadmap Produk dan Rekayasa Captr Studio
 
-Dokumen ini memetakan tahapan rilis, fitur yang telah diimplementasikan, serta backlog pengembangan aktif untuk **Captr Studio** per **10 Oktober 2026** (versi package: `1.4.0-beta.1`).
+Dokumen ini memetakan tahapan rilis, fitur yang telah diimplementasikan, serta backlog pengembangan aktif untuk **Captr Studio** per **17 Oktober 2026** (versi package: `1.4.0-beta.1`).
 
 ---
 
@@ -13,7 +13,7 @@ Captr Studio memadukan:
 
 ---
 
-## 2. Status Milestone (Per 10 Oktober 2026)
+## 2. Status Milestone (Per 17 Oktober 2026)
 
 | Tanggal | Fitur / Milestone | Status | Bukti / Catatan |
 | --- | --- | --- | --- |
@@ -25,6 +25,7 @@ Captr Studio memadukan:
 | **9 Okt 2026** | Story Editor NLE Shortcuts, Zoom/Pan & Gizmo | Selesai & Terverifikasi | Pintasan frame step, zoom stage, dan drag-and-drop koordinat. |
 | **9 Okt 2026** | Fix CanvasTransformGizmo Infinite Render Loop | Selesai & Terverifikasi | Stabilisasi ResizeObserver dan transform sync (Issue #11). |
 | **10 Okt 2026** | Story Asset Ownership Foundation (Issue #12) | Selesai (Unreleased) | 224 tes lolos di 15 suite (`8c2fe68`), review disetujui. |
+| **17 Okt 2026** | Lima tahap Story finishing | Implementasi tersedia (Unreleased); QA native pending | Stabilisasi, caption final, waveform/filmstrip, editing cepat, crop/mask/grading/Bezier. Bukti terbaru di [verifikasi](verification.md). |
 
 ---
 
@@ -37,22 +38,25 @@ Captr Studio memadukan:
 - [x] API resolusi sumber terpadu dan proteksi transaksi bundle `.captr`.
 - [ ] *Pending:* Pengujian regresi native interaksi desktop.
 
-### Tahap 2: Finishing Dasar Story Editor (Prioritas Aktif)
-- [ ] **Editor Caption Final & Burn-In Story:** Editor segmen teks/kata dengan undo/redo dan pembakaran subtitle ke frame ekspor MP4 Story.
-- [ ] **Real Audio Waveform:** Ekstraksi peak amplitudo riil dari audio sumber untuk visualisasi gelombang suara di timeline.
-- [ ] **Filmstrip Thumbnail Video:** Thumbnail frame video berkala di sepanjang klip timeline untuk mempermudah pencarian visual.
+### Tahap 2: Finishing Dasar Story Editor (Terimplementasi)
+- [x] **Editor Caption Final & Burn-In Story:** Edit teks segmen/kata, timing segmen, style dan posisi; undo/redo dan renderer preview/export bersama.
+- [x] **Real Audio Waveform:** Peak sumber audio, termasuk stream package Record dengan clock komposisi.
+- [x] **Filmstrip Thumbnail Video:** Sampel frame video/Record mengikuti trim/rate, dengan cache dan decoder terbatas.
 
 ### Tahap 3: Workflow Editing Cepat
-- [ ] **Clipboard Klip & Atribut:** Copy/paste klip, pemindahan efek/transform dari satu klip ke klip lain.
-- [ ] **Grup Klip & Compound Story:** Menggabungkan beberapa klip menjadi satu kesatuan yang dapat dipindah bersama.
-- [ ] **Link / Unlink Audio-Video:** Memisahkan atau menyatukan trek audio dari klip video rekaman.
+- [x] **Clipboard Klip & Atribut:** Copy/paste dalam Story aktif; salinan Record memiliki komposisi independen.
+- [x] **Grup dan Link Klip:** Seleksi dan gerak bersama secara atomik, termasuk proteksi track terkunci.
+- [x] **Detach Audio:** Placement audio independen tanpa meratakan package Record atau menggandakan playback.
+- [x] **Fade Audio:** Fade-in/out per placement dipakai playback/export.
+- [ ] **Compound Story:** Sequence bersarang belum dibuat.
 - [ ] **Ripple Trim & Insert/Overwrite Mode:** Mode pengeditan timeline magnetik tingkat lanjut.
-- [ ] **Audio Automation & Crossfades:** Kurva fade-in, fade-out, dan crossfade halus antar klip audio.
+- [ ] **Audio Automation & Crossfades:** Automation bebas dan crossfade antar klip.
 
 ### Tahap 4: Visual Polish & Grading
-- [ ] **Crop, Mask & Blend Mode:** Fitur masking (rectangle, circle, linear) dan blending per placement.
-- [ ] **Color Adjustment & LUTs:** Pengaturan brightness, contrast, saturation, suhu warna, dan filter LUT.
-- [ ] **Graph Editor Keyframe:** Kurva kurva Bezier visual untuk timing animasi yang sangat presisi.
+- [x] **Crop dan Mask Dasar:** Crop empat sisi, mask rectangle/ellipse dan inset per placement.
+- [x] **Color Adjustment Dasar:** Brightness, contrast dan saturation per placement.
+- [x] **Graph Editor Keyframe:** Dua handle cubic-Bezier dengan kontrol pointer dan keyboard.
+- [ ] **Visual Lanjutan:** Feather, blend mode, mask bebas, suhu warna dan LUT.
 
 ### Tahap 5: Fitur Lanjutan (Advanced)
 - [ ] **Speed Curves & Retiming:** Kurva kecepatan variabel (ramp-up / slow-motion) dan freeze frame.

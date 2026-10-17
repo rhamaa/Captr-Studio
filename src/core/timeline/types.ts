@@ -119,6 +119,15 @@ export interface TimelineClipFields {
 	audioMuted?: boolean;
 	fadeInUs?: number;
 	fadeOutUs?: number;
+	visualSettings?: ClipVisualSettings;
+}
+export interface ClipVisualSettings {
+	crop?: {left:number;right:number;top:number;bottom:number};
+	mask?: "rectangle"|"ellipse";
+	maskInset?:number;
+	brightness?:number;
+	contrast?:number;
+	saturation?:number;
 }
 export type TimelineClip = TimelineClipFields &
 	({ assetId: string; content?: never } | { assetId?: never; content: StoryClipContent });

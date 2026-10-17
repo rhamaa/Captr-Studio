@@ -11,6 +11,7 @@ import {
 	generateStoryCaptions,
 	projectCaptionSegments,
 	updateStoryCaptions,
+	setStoryCaptionTime,
 } from "./storyCaptions";
 import { validateTimelineProject } from "./validation";
 import type { AssetTranscript } from "./transcriptTypes";
@@ -49,6 +50,28 @@ function fixture() {
 	return placeAsset(p, "speech", p.tracks[0].id, 2_000_000, { clipId: "clip" });
 }
 describe("final Story captions", () => {
+	it("does not dirty or truncate an anchored caption when unchanged visible timing loses focus", () => {
+		const p = trimClip(
+			generateStoryCaptions(fixture(), { speech: transcript }),
+			"clip",
+			1_500_000,
+			4_000_000,
+		);
+		expect(setStoryCaptionTime(p, 0, "startUs", 2_000_000)).toBe(p);
+		expect(p.subtitles!.segments![0].startUs).toBe(1_000_000);
+	});
+	it("generates only captions intersecting the current placement", () => {
+		const p = trimClip(fixture(), "clip", 0, 3_000_000);
+		const raw = structuredClone(transcript);
+		raw.segments.push({
+			id: 1,
+			text: "Outside",
+			startUs: 3_100_000,
+			endUs: 3_800_000,
+			words: [],
+		});
+		expect(generateStoryCaptions(p, { speech: raw }).subtitles!.segments).toHaveLength(1);
+	});
 	it("keeps editable source captions anchored through later trims, rate changes and moves", () => {
 		let p = generateStoryCaptions(fixture(), { speech: transcript });
 		p = trimClip(p, "clip", 1_500_000, 4_000_000);
@@ -78,6 +101,27 @@ describe("final Story captions", () => {
 		p = generateStoryCaptions(p, { [clip.assetId!]: transcript });
 		const cues = projectCaptionSegments(p);
 		expect(cues.map((c) => [c.startUs, c.endUs])).toEqual([[0, 500_000]]);
+	});
+	it.each([
+		"startUs",
+		"endUs",
+	] as const)("anchors caption %s to the correct side of a Record cut", (edge) => {
+		const p = getStoryProject(ownershipFixture(), { kind: "artboard", artboardId: "A" });
+		const clip = p.tracks[0].clips[0],
+			comp = p.compositions.find((c) => c.id === clip.compositionId)!;
+		comp.timeMap = [
+			{ outputStartUs: 0, outputEndUs: 1_000_000, sourceStartUs: 0, rate: 1 },
+			{ outputStartUs: 1_000_000, outputEndUs: 2_000_000, sourceStartUs: 3_000_000, rate: 1 },
+		];
+		comp.durationUs = clip.sourceOutUs = 2_000_000;
+		p.subtitles = {
+			enabled: true,
+			segments: [
+				{ id: 0, clipId: clip.id, text: "Cut", startUs: 0, endUs: 4_000_000, words: [] },
+			],
+		};
+		const next = setStoryCaptionTime(p, 0, edge, 1_000_000);
+		expect(next.subtitles!.segments![0][edge]).toBe(edge === "startUs" ? 3_000_000 : 1_000_000);
 	});
 	it("preserves edited wordless captions and localizes changes to one Artboard", () => {
 		const p = ownershipFixture(),

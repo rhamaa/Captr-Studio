@@ -1,4 +1,22 @@
 import type { AudioPeaksData } from "../video-editor/timeline/core/timelineTypes";
+import type { TimelineClip, TimelineProject } from "@/core/timeline/types";
+import { buildProjectAudioPlan } from "@/core/timeline/audioPlan";
+
+export function timelineAudioSegments(project: TimelineProject, clip: TimelineClip) {
+	const track = project.tracks.find((t) => t.clips.some((c) => c.id === clip.id));
+	return track
+		? buildProjectAudioPlan({
+				...project,
+				tracks: [
+					{
+						...track,
+						muted: false,
+						clips: [{ ...clip, enabled: true, audioMuted: false }],
+					},
+				],
+			})
+		: [];
+}
 
 export function waveformPath(
 	data: AudioPeaksData,
@@ -11,7 +29,7 @@ export function waveformPath(
 	let path = "";
 	const count = Math.min(4000, Math.ceil(width / 3));
 	for (let i = 0; i < count; i++) {
-		const x = i * width / count,
+		const x = (i * width) / count,
 			begin = (sourceInUs + (x / scale) * 1_000_000 * rate) / 1000;
 		const end = begin + (width / count / scale) * 1000 * rate;
 		const a = Math.max(0, Math.floor((begin / data.durationMs) * data.peaks.length));

@@ -1,5 +1,6 @@
 import { resolveClipSource } from "./clipSource";
 import { validateCaptionSettings } from "./storyCaptions";
+import { validateClipVisualSettings } from "./clipVisualSettings";
 import { getStoryProject } from "./storyOwnership";
 import {
 	clipDurationUs,
@@ -145,7 +146,8 @@ function clipKeyframes(value: unknown) {
 			requireValue(
 				Array.isArray(kf.bezier) &&
 					kf.bezier.length === 4 &&
-					kf.bezier.every((n: unknown) => typeof n === "number" && Number.isFinite(n)),
+					kf.bezier.every((n: unknown) => typeof n === "number" && Number.isFinite(n)) &&
+					kf.bezier[0]>=0 && kf.bezier[0]<=1 && kf.bezier[2]>=0 && kf.bezier[2]<=1,
 				"Invalid keyframe bezier",
 			);
 		}
@@ -615,6 +617,10 @@ export function validateTimelineProject(
 					"Invalid clip transform/gain",
 				);
 				clipKeyframes(c.keyframes);
+				if(c.visualSettings!==undefined){
+					requireValue(t.kind==="visual"&&["video","image","recording"].includes(a.kind),"Visual settings require a media placement");
+					validateClipVisualSettings(c.visualSettings);
+				}
 				for (const relation of [c.groupId,c.linkId])
 					if(relation!==undefined)requireValue(typeof relation==="string"&&/^[a-zA-Z0-9_-]+$/.test(relation),"Invalid clip relation");
 				for(const flag of [c.audioOnly,c.audioMuted])if(flag!==undefined)requireValue(typeof flag==="boolean","Invalid clip audio routing");

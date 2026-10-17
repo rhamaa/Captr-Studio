@@ -12,6 +12,7 @@ import { localMediaUrl } from "@/recording/mediaProbe";
 import { FrameRenderer } from "./frameRenderer";
 import { LayerVideoSource } from "./layerVideoSource";
 import { drawStoryCaptions } from "./storyCaptionRenderer";
+import { drawStyledMedia } from "./clipVisualRenderer";
 
 type Direction = "left" | "right" | "up" | "down";
 
@@ -323,9 +324,7 @@ export class ProjectFrameRenderer {
 			? source.videoHeight
 			: source instanceof HTMLImageElement ? source.naturalHeight : source.height;
 		if (!sourceWidth || !sourceHeight) throw new Error(`No decoded frame for ${visual.clipId}`);
-		const ratio = Math.min(width / sourceWidth, height / sourceHeight);
-		const drawWidth = sourceWidth * ratio, drawHeight = sourceHeight * ratio;
-		ctx.drawImage(source, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+		drawStyledMedia(ctx,source,sourceWidth,sourceHeight,width,height,visual.clip.visualSettings);
 		ctx.restore();
 		return canvas;
 	}
