@@ -1,6 +1,6 @@
 # Status fitur dan batas dukungan
 
-Halaman ini mencatat kondisi checkout pada **17 Oktober 2026**, dengan package `1.4.0-beta.1`. Status implementasi, status tes, dan status rilis adalah hal berbeda.
+Halaman ini mencatat kondisi checkout pada **17 Oktober 2026**, dengan package `1.4.0-beta.2`. Status implementasi, status tes, dan status rilis adalah hal berbeda.
 
 | Label | Arti |
 | --- | --- |

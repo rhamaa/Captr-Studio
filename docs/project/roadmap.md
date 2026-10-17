@@ -1,6 +1,6 @@
 # Roadmap Produk dan Rekayasa Captr Studio
 
-Dokumen ini memetakan tahapan rilis, fitur yang telah diimplementasikan, serta backlog pengembangan aktif untuk **Captr Studio** per **17 Oktober 2026** (versi package: `1.4.0-beta.1`).
+Dokumen ini memetakan tahapan rilis, fitur yang telah diimplementasikan, serta backlog pengembangan aktif untuk **Captr Studio** per **17 Oktober 2026** (versi package: `1.4.0-beta.2`).
 
 ---
 

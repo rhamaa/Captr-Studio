@@ -9,31 +9,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Implemented — Story Editor finishing (2026-10-17)
+---
 
-- Stabilized the automated baseline: five stale tests/fixtures corrected; filesystem/loopback failures from the restricted Windows sandbox were separated from product regressions.
-- Added editable Story-owned captions, placement source-clock mapping, independent Artboard anchors, and shared Canvas burn-in for preview/MP4 export.
-- Replaced synthetic audio waveforms with source peaks and added bounded, cancellable video/Recording filmstrips.
-- Added scoped clip/attribute clipboard, group/link selection and movement, independent detached audio, and shared playback/export fades.
-- Added placement crop, rectangle/ellipse masks, basic color adjustment and editable Bezier keyframe curves. Output dimensions remain fixed by the Artboard.
-- Closed review regressions in fade endpoints, styled audio detachment, compatible attribute paste, Record caption cut boundaries and package audio waveforms. Final verification: 1,657 tests across 236 files and TypeScript passed.
-- Native device/playback and visual export QA remains pending. Automated results and known limits are recorded in [ISSUE.md](ISSUE.md).
+## [1.4.0-beta.2] - 2026-10-17
 
-### Implemented — Story ownership foundation (2026-10-10)
+### 🚀 Highlights
+- **Interactive Transform Keyframe Engine**: Toggle keyframes on Position (X/Y), Scale (X/Y), and Rotation with diamond indicators (`◆`/`◇`) in the Inspector, visual keyframe diamonds on timeline clips, and auto-keyframing directly from the canvas gizmo.
+- **Live Canvas Transform Gizmo & Drag Sync**: Smoothly manipulate overlay objects in the video preview without position jumping or desynchronized bounding boxes.
+- **Unified Left Sidebar & Top Rail Navigation**: Replaced the separate 48px left rail with a clean, space-saving horizontal top bar inside the sidebar card header for switching between Assets, Shapes, Text Overlays, and Templates.
+- **Rich Shape & Highlight Studio**: Expanded shape library with visual SVG cards, blur/privacy masks, callouts, arrows, and granular controls for fill, stroke, corner radius, and opacity.
+- **Standardized Timeline Track Architecture**: Separated media and audio tracks with contextual track naming (`Shape`, `Shape 1`, `Track 1`, `Audio 1`, etc.).
+- **Studio Design System Custom Dark Scrollbars**: Sleek 6px custom scrollbars matching Captr Studio theme tokens across the Timeline, Inspector, Asset Grid, and Modal dialogs, eliminating stark Windows native scrollbar UI.
+- **Story Editor Finishing & Test Baseline Stabilization**: Complete Story-owned captions, shared preview/export burn-in, filmstrips, clip clipboard, and 1,670+ passing automated tests.
 
-- Text/Shapes belong inline to each Story clip; independent Templates preserve reusable presets and unused legacy designs. New designs use finite five-second source extents with undoable extension.
-- Root and Artboard tracks/private media are authoritative. Assets contain reusable media and Recording sources; Story Media contains the active owner's private file media. Publish to Assets preserves source IDs and undoable references.
-- Shared Recording packages retain independent placement compositions. Preview/export use scoped resolution and existing source clocks; no source flattening.
-- Voiceover captures immutable originating Story/token/playhead/IDs and registers private source separately from placement. Deleted/stale/canceled takes reject with bounded cleanup. Screen Record remains global Assets-only.
-- V3 clone normalization and real bundle persistence retain all libraries including unplaced private sources, sidecars, captions metadata and current projections. Bounded manifest filenames preserve long/case/prefix-distinct Story IDs. Atomic ingress and project identity/path protections remain.
-- Legacy inherited Artboards preserve explicit transition overrides, including empty lists, through independent snapshot remapping. Dangling transitions and Story owner associations reject atomically without changing active project paths or source bytes.
-- Version remains `1.4.0-beta.1`; no release/version bump. [Verification](docs/superpowers/plans/2026-10-10-story-asset-ownership-verification.md) records approved task/whole-branch reviews, 224 passing final covering tests, exact baseline comparison and native gaps.
+### Added
+- **Visual Keyframe Engine**:
+  - Interactive diamond toggle buttons (`◆`/`◇`) for transform properties in `ProjectInspector`.
+  - Timeline keyframe glyphs rendering exact timestamp markers inside `TimelineClipItem`.
+  - Timeline toolbar keyframe navigation: toggle keyframe (`K`), jump to previous/next keyframe.
+  - Canvas gizmo interactions (drag, resize) that immediately create and update keyframes when transform keyframing is active.
+- **Shape & Highlight Library (`ShapeLibrary.tsx`)**:
+  - Visual SVG shape selector cards for Rectangle, Ellipse, Line, Arrow, Star, Callout Bubble, and Privacy Blur masks.
+  - Detailed shape attribute configuration panel with live preview of fill color, stroke color, stroke width, corner radius, opacity, and blur intensity.
+  - Direct 1-click addition onto timeline at playhead position.
+- **Custom Scrollbar System**:
+  - Global 6px custom scrollbars with `--scrollbar-thumb`, `--scrollbar-track`, and hover states.
+  - Suppressed default Windows native scrollbar buttons (`::-webkit-scrollbar-button { display: none !important; }`).
+- **Standardized Track Naming System**:
+  - Clean separation into visual media tracks and audio tracks without cluttered subtypes.
+  - Context-aware dynamic track names based on primary clip type (`Shape`, `Shape 1`, `Track 1`, `Audio 1`, etc.).
 
-### Deferred finishing and verification
+### Changed
+- **Left Sidebar Layout**: Replaced the standalone 48px rail column with an integrated horizontal top navigation bar embedded in the sidebar card header, expanding available video preview workspace.
+- **Live Overlay Dragging**: Overhauled drag and resize physics in `StoryEditor` so overlay graphics and their selection bounding boxes translate simultaneously in real time without teleporting on mouse release.
+- **Story Finishing & Baseline**: Integrated Story-owned captions, placement source-clock mapping, independent Artboard anchors, shared Canvas burn-in, filmstrips, clip clipboard, and group/link selections.
 
-- Native recorder/microphone/editor lifecycle QA remains pending. Automated lifecycle tests do not verify HUD/native interaction.
-- Speed curves/tracking/proxies, advanced blend/LUT/audio automation and authored trailing-blank duration control remain backlog; the five Story finishing stages above now extend this foundation.
-- Task 8 and whole-branch reviews are approved after the focused migration fixes. Nine original full-suite failures and existing lint debt remain recorded; native QA is pending.
+### Fixed
+- Fixed overlay bounding box desynchronization during live dragging on preview canvas.
+- Fixed stark white Windows scrollbars showing in dark mode UI on Windows.
+- Restored missing shadow direction label in `RecordingFrameAppearancePanel`.
+- Stabilized the automated baseline to 1,670+ passing tests across 238 test suites.
 
 ---
 
