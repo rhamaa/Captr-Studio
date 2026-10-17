@@ -2,25 +2,25 @@
 .tldraw__editor,
 .tl-container,
 .tl-theme__dark {
-	--color-panel: #15171c;
-	--color-muted-panel: #1c1f26;
-	--color-accent: #6fa8ff;
-	--color-selected: #a879f5;
+	--color-panel: hsl(var(--editor-panel));
+	--color-muted-panel: hsl(var(--primary-foreground));
+	--color-accent: var(--captr-blue);
+	--color-selected: var(--captr-purple);
 
 	/* Tldraw dark theme overrides to match Captr Studio palette */
-	--tl-color-background: #121214;
-	--tl-color-grid: #25252b;
-	--color-background: #121214;
-	--color-grid: #25252b;
-	--tl-color-panel: #15171c;
-	--tl-color-panel-contrast: #222630;
+	--tl-color-background: hsl(var(--background));
+	--tl-color-grid: hsl(var(--editor-surface));
+	--color-background: hsl(var(--background));
+	--color-grid: hsl(var(--editor-surface));
+	--tl-color-panel: hsl(var(--editor-panel));
+	--tl-color-panel-contrast: hsl(var(--editor-surface));
 	--tl-color-panel-overlay: rgba(21, 23, 28, 0.85);
-	--tl-color-low: #181b22;
-	--tl-color-low-border: #222631;
-	--tl-color-divider: #262b36;
-	--tl-color-selected: #a879f5;
-	--tl-color-primary: #6fa8ff;
-	--tl-color-focus: #6fa8ff;
+	--tl-color-low: hsl(var(--editor-panel));
+	--tl-color-low-border: hsl(var(--border));
+	--tl-color-divider: hsl(var(--editor-surface));
+	--tl-color-selected: var(--captr-purple);
+	--tl-color-primary: var(--captr-blue);
+	--tl-color-focus: var(--captr-blue);
 }
 
 .tldraw-whiteboard-wrapper {
@@ -30,7 +30,7 @@
 	min-width: 0;
 	min-height: 0;
 	position: relative;
-	background-color: #121214;
+	background-color: hsl(var(--background));
 	overflow: hidden;
 }
 
@@ -38,7 +38,7 @@
 .repurpose-board-stage:has(.tldraw-whiteboard-wrapper),
 .repurpose-board-stage.has-whiteboard {
 	padding: 0 !important;
-	background-color: #121214 !important;
+	background-color: hsl(var(--background)) !important;
 	background-image: none !important;
 	display: flex !important;
 	flex-direction: column !important;

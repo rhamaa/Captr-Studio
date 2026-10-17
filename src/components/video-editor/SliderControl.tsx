@@ -165,23 +165,19 @@ export const SliderControl = memo(function SliderControl({
 					onChange(clamp(quantizeToStep(value + step, min, step), min, max));
 				}
 			}}
-			className="relative flex h-10 w-full select-none items-center overflow-hidden rounded-full bg-editor-bg/80 px-1.5 outline-none focus-visible:ring-1 focus-visible:ring-[#6FA8FF]/40"
+			className="relative flex h-11 w-full min-w-0 touch-none select-none items-start justify-between gap-3 pt-1 outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
 			style={
 				{
 					"--slider-pct": String(pct / 100),
 				} as React.CSSProperties
 			}
 		>
-			<div
-				className="pointer-events-none absolute inset-y-0 left-0 bg-foreground/[0.08] transition-none"
-				style={{
-					width: "calc(9px + var(--slider-pct) * (100% - 18px))",
-				}}
-				data-slider-fill="flush"
-			/>
+			<div className="pointer-events-none absolute bottom-[5px] left-[9px] right-[9px] h-1 rounded-sm bg-foreground/10">
+				<div className="absolute inset-y-0 left-0 rounded-sm bg-primary" style={{width:"calc(var(--slider-pct) * 100%)"}} data-slider-fill="flush" />
+			</div>
 			<div
 				className={cn(
-					"pointer-events-none absolute top-1/2 z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-editor-bg bg-foreground ring-1 transition-none",
+					"pointer-events-none absolute bottom-px z-10 h-3 w-3 -translate-x-1/2 rounded-full border-2 border-editor-panel bg-primary ring-1 transition-none",
 					thumbClass,
 				)}
 				style={{
@@ -189,12 +185,12 @@ export const SliderControl = memo(function SliderControl({
 				}}
 				data-slider-thumb="true"
 			/>
-			<span className="pointer-events-none relative z-10 flex-1 pl-3 text-[12px] font-medium text-muted-foreground">
+			<span className="pointer-events-none min-w-0 truncate text-[12px] font-medium text-muted-foreground">
 				{label}
 			</span>
 			<span
 				ref={valueTextRef}
-				className="pointer-events-none relative z-10 pr-3 text-[12px] font-medium tabular-nums text-foreground"
+				className="pointer-events-none shrink-0 text-[12px] font-medium tabular-nums text-foreground"
 			>
 				{formatValue(value)}
 			</span>

@@ -819,7 +819,7 @@ export function SettingsPanel({
 
 	if (isBackgroundPanel) {
 		return (
-			<div className="flex-[2] w-[332px] min-w-[280px] max-w-[332px] bg-editor-panel rounded-2xl flex flex-col shadow-xl h-full overflow-hidden">
+			<div className={cn("captr-docked-panel flex flex-col h-full overflow-hidden", className ?? "flex-[2] w-[332px] max-w-full")} style={style}>
 				<div
 					className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 pb-0"
 					style={{ scrollbarGutter: "stable" }}
@@ -1102,8 +1102,8 @@ export function SettingsPanel({
 	return (
 		<div
 			className={cn(
-				"bg-editor-panel rounded-2xl flex flex-col shadow-xl h-full overflow-hidden",
-				className ?? "flex-[2] w-[332px] min-w-[280px] max-w-[332px]",
+				"captr-docked-panel flex flex-col h-full overflow-hidden",
+				className ?? "flex-[2] w-[332px] max-w-full",
 			)}
 			style={style}
 		>

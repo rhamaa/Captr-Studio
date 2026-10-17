@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ColorPicker } from "@/components/ui/color-picker";
+import { HelpPopover } from "@/components/ui/help-popover";
 import type { StoryCaptionSegment, StorySubtitleSettings } from "@/core/story/storyTypes";
 import type { ProjectCommand } from "@/core/timeline/history";
 import {
@@ -92,10 +93,8 @@ export function StoryCaptionPanel({
 					>
 						Add caption
 					</button>
+					{!Object.keys(transcripts).length && <HelpPopover label="Caption help">Transcribe a source in Assets, or add captions manually.</HelpPopover>}
 				</div>
-				{!Object.keys(transcripts).length && (
-					<p>Transcribe a source in Assets, or add captions manually.</p>
-				)}
 				<label>
 					Position
 					<select

@@ -258,7 +258,7 @@ export function RecordingFrameAppearancePanel({
 	};
 
 	return (
-		<section aria-label={title} className="recording-frame-appearance flex flex-col gap-4 p-3">
+		<section aria-label={title} className="recording-frame-appearance min-w-0 flex flex-col gap-4">
 			<h3 className="text-sm font-semibold">{title}</h3>
 
 			<div className="grid grid-cols-2 gap-3">
@@ -318,9 +318,6 @@ export function RecordingFrameAppearancePanel({
 					(value) => updateAppearance({ shadow: { blur: value } }),
 					0,
 				)}
-				<p className="col-span-2 text-[11px] text-muted-foreground">
-					{t("recordingFrameAppearance.shadowDirection", "Shadow direction (X/Y)")}
-				</p>
 				{numberField(
 					appearance.shadow.offsetX,
 					"shadowOffsetX",

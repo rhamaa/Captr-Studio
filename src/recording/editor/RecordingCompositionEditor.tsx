@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { setAnnotationPositionKeyframe } from "@/components/video-editor/annotationKeyframes";
 import { SettingsPanel } from "@/components/video-editor/SettingsPanel";
+import { HelpPopover } from "@/components/ui/help-popover";
 import { ZOOM_DEPTH_OPTIONS } from "@/components/video-editor/settings/sections/ZoomItemSection";
 import {
 	buildAutoReframeSuggestions,
@@ -978,10 +979,10 @@ export function RecordingCompositionEditor({
 						</div>
 					</div>
 					<div className="recording-timeline-tools-right">
-						<span className="recording-tb-hint">
+						<HelpPopover label="Keyboard shortcuts">
 							<kbd>Space</kbd> Play · <kbd>S</kbd> Cut · <kbd>Z</kbd> Zoom ·{" "}
-							<kbd>T</kbd> Text overlay · <kbd>Esc</kbd> Back
-						</span>
+							<kbd>T</kbd> Overlay · <kbd>Esc</kbd> Back
+						</HelpPopover>
 					</div>
 				</div>
 				{selectedZoom && (

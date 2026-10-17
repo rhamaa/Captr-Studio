@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Copy, Clipboard, PaintBrush, ClipboardText, SelectionAll, SelectionSlash, Link, LinkBreak, Waveform } from "@phosphor-icons/react";
 import {
 	copyClips,
 	copyClipAttributes,
@@ -77,62 +78,67 @@ export function StoryEditingToolbar({
 	return (
 		<div className="story-workflow-toolbar" aria-label="Story editing tools">
 			<div className="story-edit-actions">
-				<button type="button" disabled={!selection.length} onClick={copy} title="Ctrl+C">
-					Copy
+				<button type="button" disabled={!selection.length} onClick={copy} title="Copy (Ctrl+C)" aria-label="Copy">
+					<Copy size={16} aria-hidden="true" />
 				</button>
-				<button type="button" disabled={!clipboard} onClick={paste} title="Ctrl+V">
-					Paste
+				<button type="button" disabled={!clipboard} onClick={paste} title="Paste (Ctrl+V)" aria-label="Paste">
+					<Clipboard size={16} aria-hidden="true" />
 				</button>
 				<button
 					type="button"
 					disabled={selection.length !== 1}
 					onClick={copyAttributes}
-					title="Ctrl+Shift+C"
+					title="Copy attributes (Ctrl+Shift+C)" aria-label="Copy attributes"
 				>
-					Copy attributes
+					<PaintBrush size={16} aria-hidden="true" />
 				</button>
 				<button
 					type="button"
 					disabled={!attributes || !selection.length}
 					onClick={pasteAttributes}
-					title="Ctrl+Shift+V"
+					title="Paste attributes (Ctrl+Shift+V)" aria-label="Paste attributes"
 				>
-					Paste attributes
+					<ClipboardText size={16} aria-hidden="true" />
 				</button>
 				<button
 					type="button"
 					disabled={selection.length < 2}
 					onClick={() => relation("groupId", true)}
+					title="Group (Ctrl+G)" aria-label="Group"
 				>
-					Group
+					<SelectionAll size={16} aria-hidden="true" />
 				</button>
 				<button
 					type="button"
 					disabled={!selection.length}
 					onClick={() => relation("groupId", false)}
+					title="Ungroup (Ctrl+Shift+G)" aria-label="Ungroup"
 				>
-					Ungroup
+					<SelectionSlash size={16} aria-hidden="true" />
 				</button>
 				<button
 					type="button"
 					disabled={selection.length < 2}
 					onClick={() => relation("linkId", true)}
+					title="Link clips" aria-label="Link"
 				>
-					Link
+					<Link size={16} aria-hidden="true" />
 				</button>
 				<button
 					type="button"
 					disabled={!selection.length}
 					onClick={() => relation("linkId", false)}
+					title="Unlink clips" aria-label="Unlink"
 				>
-					Unlink
+					<LinkBreak size={16} aria-hidden="true" />
 				</button>
 				<button
 					type="button"
 					disabled={selection.length !== 1}
 					onClick={() => run(() => onCommand((p) => detachClipAudio(p, selection[0])))}
+					title="Detach audio" aria-label="Detach audio"
 				>
-					Detach audio
+					<Waveform size={16} aria-hidden="true" />
 				</button>
 			</div>
 			{error && <p role="alert">{error}</p>}

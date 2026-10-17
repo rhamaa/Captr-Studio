@@ -70,7 +70,8 @@
 		--chart-3: 131 53% 71%;        /* Green */
 		--chart-4: 40 89% 69%;         /* Yellow */
 		--chart-5: 351 100% 71%;       /* Red */
-		--radius: 0.5rem;              /* 8px default */
+		--radius: 0.5rem;              /* Floating surfaces: 8px; docked panels stay flush. */
+		--radius-control: 4px;
 
 		/* Editor surface colors — light mode */
 		--editor-bg: 225 43% 98%;
@@ -99,7 +100,7 @@
 	}
 
 	.dark {
-		--background: 223 14% 10%;     /* #15171C */
+		--background: 220 8% 7%;       /* #111214 */
 		--foreground: 220 20% 97%;     /* #F5F6F8 */
 		--card: 222 15% 13%;           /* #1C1F26 */
 		--card-foreground: 220 20% 97%;
@@ -125,14 +126,14 @@
 		--chart-5: 351 100% 71%;
 
 		/* Editor surface colors — Dark Editor Palette (#15171C, #1C1F26, #242832, #2C313C, #343A46) */
-		--editor-bg: 223 14% 10%;       /* #15171C */
+		--editor-bg: var(--background);
 		--editor-header: 222 15% 13%;   /* #1C1F26 */
 		--editor-panel: 222 15% 13%;    /* #1C1F26 */
 		--editor-surface: 223 16% 17%;  /* #242832 */
 		--editor-surface-alt: 221 15% 21%; /* #2C313C */
 		--editor-dialog: 222 15% 13%;   /* #1C1F26 */
 		--editor-dialog-alt: 223 16% 17%; /* #242832 */
-		--editor-timeline: 223 14% 10%; /* #15171C */
+		--editor-timeline: var(--background);
 		--editor-row: 222 15% 13%;      /* #1C1F26 */
 		--editor-subrow: 223 16% 17%;   /* #242832 */
 
@@ -173,6 +174,36 @@
 	body .font-mono,
 	body kbd {
 		font-family: var(--app-font-sans);
+	}
+}
+
+@layer components {
+	.captr-docked-panel {
+		min-width: 0;
+		min-height: 0;
+		border-radius: 0;
+		background: hsl(var(--editor-panel));
+		box-shadow: none;
+	}
+	.captr-help-trigger {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex: 0 0 auto;
+		width: 28px;
+		height: 28px;
+		padding: 0;
+		border: 0;
+		border-radius: var(--radius-control);
+		color: hsl(var(--muted-foreground));
+		background: transparent;
+		cursor: pointer;
+		transition: color 150ms ease-out, background-color 150ms ease-out;
+	}
+	.captr-help-trigger:hover,
+	.captr-help-trigger[data-state="open"] {
+		color: hsl(var(--foreground));
+		background: hsl(var(--muted));
 	}
 }
 

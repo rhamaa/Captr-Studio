@@ -1,7 +1,7 @@
 .project-home {
 	height: 100vh;
-	background: #111214;
-	color: #eee;
+	background: hsl(var(--background));
+	color: hsl(var(--foreground));
 	display: flex;
 	flex-direction: column;
 	overflow: hidden;
@@ -17,7 +17,7 @@
 	align-items: center;
 	gap: 12px;
 	padding-left: 24px;
-	border-bottom: 1px solid #2b2c32;
+	border-bottom: 1px solid hsl(var(--border));
 	-webkit-app-region: drag;
 }
 .home-window-controls {
@@ -30,12 +30,12 @@
 	width: 48px;
 	border: 0;
 	background: transparent;
-	color: #acafbc;
+	color: hsl(var(--muted-foreground));
 	display: grid;
 	place-items: center;
 }
 .home-window-controls button:hover {
-	background: #28292e;
+	background: hsl(var(--editor-surface));
 }
 .home-window-controls button:last-child:hover {
 	background: #a53a49;
@@ -51,7 +51,7 @@
 .home-heading > p {
 	font-size: 11px;
 	letter-spacing: 2px;
-	color: #9698aa;
+	color: hsl(var(--muted-foreground));
 }
 .home-heading h1 {
 	font-size: 32px;
@@ -60,7 +60,7 @@
 	margin: 10px 0;
 }
 .home-heading > span {
-	color: #9ca0af;
+	color: hsl(var(--muted-foreground));
 	font-size: 14px;
 }
 .home-quick-actions {
@@ -75,26 +75,26 @@
 	align-items: center;
 	gap: 18px;
 	text-align: left;
-	border: 1px solid #343640;
+	border: 1px solid hsl(var(--border));
 	border-radius: 14px;
 	padding: 24px;
-	background: #1c1d22;
-	color: #eceef6;
+	background: hsl(var(--editor-panel));
+	color: hsl(var(--foreground));
 	transition:
 		background 0.15s,
 		border-color 0.15s;
 }
 .home-quick-actions button:hover {
-	background: #24262e;
-	border-color: #6FA8FF;
+	background: hsl(var(--editor-surface));
+	border-color: var(--captr-blue);
 }
 .home-quick-actions .home-primary {
-	background: #242c41;
+	background: hsl(var(--editor-surface));
 	border-color: #475a89;
 	color: #aec4ff;
 }
 .home-quick-actions .home-primary:hover {
-	border-color: #6FA8FF;
+	border-color: var(--captr-blue);
 }
 .home-quick-actions span {
 	display: grid;
@@ -105,7 +105,7 @@
 }
 .home-quick-actions small {
 	font-size: 12px;
-	color: #a2aabd;
+	color: hsl(var(--muted-foreground));
 }
 .home-library-toolbar {
 	display: flex;
@@ -119,19 +119,19 @@
 }
 .home-library-toolbar input {
 	width: min(300px, 40vw);
-	background: #1b1c21;
-	border: 1px solid #32343c;
+	background: hsl(var(--editor-panel));
+	border: 1px solid hsl(var(--border));
 	border-radius: 8px;
 	padding: 9px 12px;
-	color: #eee;
+	color: hsl(var(--foreground));
 	font: inherit;
 	font-size: 13px;
 }
 .home-library-toolbar button,
 .home-state button {
-	background: #252731;
-	color: #d0d5e4;
-	border: 1px solid #383b47;
+	background: hsl(var(--editor-surface));
+	color: hsl(var(--foreground));
+	border: 1px solid hsl(var(--border));
 	border-radius: 8px;
 	padding: 9px;
 	display: grid;
@@ -143,9 +143,9 @@
 	gap: 20px;
 }
 .home-project-card {
-	border: 1px solid #2e3038;
+	border: 1px solid hsl(var(--border));
 	border-radius: 12px;
-	background: #1a1b20;
+	background: hsl(var(--editor-panel));
 	overflow: hidden;
 	position: relative;
 }
@@ -159,11 +159,11 @@
 	display: block;
 }
 .home-project-open:hover {
-	background: #24262e;
+	background: hsl(var(--editor-surface));
 }
 .home-project-thumbnail {
 	aspect-ratio: 16 / 9;
-	background: #202127;
+	background: hsl(var(--editor-panel));
 	display: grid;
 	place-items: center;
 	overflow: hidden;
@@ -191,7 +191,7 @@
 .home-project-info span,
 .home-project-info time {
 	font-size: 11px;
-	color: #9097aa;
+	color: hsl(var(--muted-foreground));
 }
 .home-project-actions {
 	position: absolute;
@@ -204,7 +204,7 @@
 	background: #15161fcc;
 	border: 0;
 	padding: 6px;
-	color: #ddd;
+	color: hsl(var(--foreground));
 	border-radius: 5px;
 }
 .home-state {
@@ -213,14 +213,14 @@
 	align-items: center;
 	justify-content: center;
 	flex-direction: column;
-	color: #969bad;
+	color: hsl(var(--muted-foreground));
 	text-align: center;
-	border: 1px dashed #32343d;
+	border: 1px dashed hsl(var(--border));
 	border-radius: 14px;
 	padding: 28px;
 }
 .home-state h3 {
-	color: #d7dbea;
+	color: hsl(var(--foreground));
 	margin: 12px 0 6px;
 }
 .home-state p {
@@ -233,9 +233,9 @@
 	bottom: 24px;
 	transform: translateX(-50%);
 	z-index: 10001;
-	background: #292b35;
-	color: #eee;
-	border: 1px solid #4b4e5c;
+	background: hsl(var(--editor-surface));
+	color: hsl(var(--foreground));
+	border: 1px solid hsl(var(--border));
 	border-radius: 10px;
 	padding: 12px 18px;
 	max-width: 90vw;
@@ -249,16 +249,16 @@
 	justify-content: flex-end;
 }
 .project-dialog-actions button {
-	border: 1px solid #40434e;
-	background: #2a2d38;
-	color: #eee;
+	border: 1px solid hsl(var(--border));
+	background: hsl(var(--editor-surface));
+	color: hsl(var(--foreground));
 	border-radius: 7px;
 	padding: 9px 14px;
 	font: inherit;
 }
 .project-dialog-actions button:last-child {
 	background: #7898e8;
-	color: #111a30;
+	color: hsl(var(--primary-foreground));
 }
 .project-name-label {
 	font-size: 13px;
@@ -267,10 +267,10 @@
 }
 .project-name-input {
 	display: flex;
-	border: 1px solid #414553;
+	border: 1px solid hsl(var(--border));
 	border-radius: 8px;
 	overflow: hidden;
-	background: #191b23;
+	background: hsl(var(--editor-panel));
 }
 .project-name-input input {
 	flex: 1;
@@ -278,13 +278,13 @@
 	padding: 11px 12px;
 	background: transparent;
 	border: 0;
-	color: #eee;
+	color: hsl(var(--foreground));
 	font: inherit;
 }
 .project-name-input span {
 	padding: 11px 12px;
-	color: #999faf;
-	background: #242733;
+	color: hsl(var(--muted-foreground));
+	background: hsl(var(--editor-surface));
 }
 .project-home button:focus-visible,
 .project-home input:focus-visible {

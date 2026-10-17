@@ -34,13 +34,13 @@
 
 .name {
 	font-size: 0.85rem;
-	color: #f3f4f6;
+	color: hsl(var(--foreground));
 	font-weight: 500;
 	letter-spacing: 0.01em;
 }
 
 .cardText {
-	color: #a1a1aa;
+	color: hsl(var(--muted-foreground));
 	font-size: 0.75rem;
 }
 
