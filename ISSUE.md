@@ -7,6 +7,7 @@
 - Native QA HUD/perangkat, transisi desktop, dan pemeriksaan hasil export secara visual tetap pending; tes otomatis bukan bukti capture atau playback hardware.
 - Rencana lima tahap: `docs/superpowers/plans/2026-10-17-story-finishing.md`.
 - Caption final: panel edit segmen/kata, timing, style/posisi, generate dari transkrip, undo/redo, anchor source per placement (trim/rate/move dan clock Record), dan burn-in pada renderer preview/export bersama. Snapshot Artboard me-remap anchor; bundle nyata mempertahankan cue. QA terkait: 104/104 regresi pada 8 suite dan 33/33 pada 5 suite penutup; TypeScript lulus. QA visual native pending.
+- Timeline: waveform audio sumber asli menggantikan pola sintetis. Filmstrip video/Record mengikuti trim/rate/time map; maksimal 12 sampel per klip, 120 thumbnail di cache, satu decoder thumbnail aktif, cleanup dan stale-result guard. File gagal dibaca menampilkan status unavailable tanpa membuat waveform palsu. QA perangkat/visual pending.
 
 **Update terbaru — 12 Oktober 2026:** [Issue #13: Loop Background Studio](#13-mini-app-loop-background-studio-gif-background-seamless-12-oktober-2026) sudah memiliki MVP dan tes otomatis; QA native masih pending. QA native regresi Issue #12 juga belum dijalankan. Timeline pengerjaan tercatat di [ROADMAP.md](ROADMAP.md), kondisi pengembangan di [CHANGELOG.md](CHANGELOG.md).
 
