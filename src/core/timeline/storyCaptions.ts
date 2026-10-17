@@ -69,7 +69,7 @@ export function generateStoryCaptions(
 		if (track.hidden || (track.kind === "audio" && track.muted)) continue;
 		for (const clip of track.clips) {
 			const transcript = clip.assetId && transcripts[clip.assetId];
-			if (!clip.enabled || !transcript) continue;
+			if (!clip.enabled || clip.audioOnly || !transcript) continue;
 			for (const cue of transcript.segments)
 				segments.push({ ...structuredClone(cue), id: segments.length, clipId: clip.id });
 		}

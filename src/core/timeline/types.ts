@@ -113,6 +113,12 @@ export interface TimelineClipFields {
 	keyframes?: PropertyKeyframe[];
 	componentAnimation?: { enter?: ComponentAnimation; exit?: ComponentAnimation };
 	shapeStyleOverride?: ShapeStyle;
+	groupId?: string;
+	linkId?: string;
+	audioOnly?: boolean;
+	audioMuted?: boolean;
+	fadeInUs?: number;
+	fadeOutUs?: number;
 }
 export type TimelineClip = TimelineClipFields &
 	({ assetId: string; content?: never } | { assetId?: never; content: StoryClipContent });

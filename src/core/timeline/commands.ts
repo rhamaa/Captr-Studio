@@ -4,6 +4,7 @@ import {
 	createRecordingPackage,
 } from "../../recording/packageAdapter";
 import { resolveMediaAsset } from "./clipSource";
+import { relatedClipIds } from "./editingCommands";
 import { reconcileClipTransitions } from "./clipTransitions";
 import { getStoryProject, listStoryScopes, refreshStoryProjections } from "./storyOwnership";
 import {
@@ -59,6 +60,12 @@ function edit(project: TimelineProject, update: (next: TimelineProject) => void)
 	reconcileClipTransitions(next);
 	next.updatedAt = new Date().toISOString();
 	return validateTimelineProject(refreshStoryProjections(next));
+}
+function cloneCaptionAnchors(project:TimelineProject,from:string,to:string) {
+	const cues=project.subtitles?.segments;
+	if(!cues)return;
+	let id=Math.max(-1,...cues.map(c=>c.id))+1;
+	cues.push(...cues.filter(c=>c.clipId===from).map(c=>({...structuredClone(c),id:id++,clipId:to})));
 }
 
 function clampEdgeAnimation(clip: TimelineClip, edge: "enter" | "exit", maxDurationUs: number) {
@@ -202,6 +209,7 @@ export function removeClip(p: TimelineProject, id: string) {
 	return edit(p, (n) => {
 		const { track: t, clip } = find(n, id);
 		t.clips = t.clips.filter((c) => c.id !== id);
+		if(n.subtitles?.segments)n.subtitles.segments=n.subtitles.segments.filter(c=>c.clipId!==id);
 		if (
 			clip.compositionId &&
 			!n.tracks.some((t) => t.clips.some((c) => c.compositionId === clip.compositionId))
@@ -280,6 +288,10 @@ export function setClipRate(p: TimelineProject, id: string, rate: number) {
 export function moveClip(p: TimelineProject, id: string, trackId: string, startUs: number) {
 	return edit(p, (n) => {
 		const { track: t, clip } = find(n, id);
+		const delta = startUs - clip.startUs;
+		for (const relatedId of relatedClipIds(n, [id])) {
+			if (relatedId !== id) find(n, relatedId).clip.startUs += delta;
+		}
 		t.clips = t.clips.filter((c) => c.id !== id);
 		clip.startUs = startUs;
 		track(n, trackId).clips.push(clip);
@@ -342,6 +354,7 @@ export function splitClip(
 			right.compositionId = ids.rightCompositionId;
 		}
 		t.clips.push(right);
+		cloneCaptionAnchors(n,id,right.id);
 	});
 }
 export function duplicateClip(
@@ -353,6 +366,8 @@ export function duplicateClip(
 	return edit(p, (n) => {
 		const { track: t, clip } = find(n, id),
 			copy = { ...structuredClone(clip), id: ids.clipId, startUs };
+		delete copy.groupId;
+		delete copy.linkId;
 		if (clip.compositionId) {
 			if (!ids.compositionId) throw new Error("Composition ID required");
 			const e = n.compositions.find((e) => e.id === clip.compositionId)!;
@@ -360,6 +375,7 @@ export function duplicateClip(
 			copy.compositionId = ids.compositionId;
 		}
 		t.clips.push(copy);
+		cloneCaptionAnchors(n,id,copy.id);
 	});
 }
 export function updateComposition(p: TimelineProject, id: string, value: RecordComposition) {

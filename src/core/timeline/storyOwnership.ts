@@ -229,6 +229,7 @@ export function createStorySnapshot(
 	const clips = new Map<string, string>();
 	const media = new Map<string, string>();
 	const compositions: TimelineProject["compositions"] = [];
+	const relations = new Map<string,string>();
 	for (const asset of snapshot.localAssets ?? []) {
 		const id = newId("media", asset.id);
 		media.set(asset.id, id);
@@ -242,6 +243,11 @@ export function createStorySnapshot(
 			const id = newId("clip", clip.id);
 			clips.set(clip.id, id);
 			clip.id = id;
+			for(const kind of ["groupId","linkId"] as const)if(clip[kind]){
+				const key=`${kind}:${clip[kind]}`;
+				if(!relations.has(key))relations.set(key,newId(kind,clip[kind]!));
+				clip[kind]=relations.get(key)!;
+			}
 			if (clip.assetId && media.has(clip.assetId)) clip.assetId = media.get(clip.assetId)!;
 			if (clip.compositionId) {
 				const original = project.compositions.find((c) => c.id === clip.compositionId);

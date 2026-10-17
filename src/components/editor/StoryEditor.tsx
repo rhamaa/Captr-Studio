@@ -45,6 +45,7 @@ import { ProjectPreview } from "./ProjectPreview";
 import { ProjectTimeline, shapePlacementCommand } from "./ProjectTimeline";
 import { ProjectToolRail } from "./ProjectToolRail";
 import { StoryCaptionPanel } from "./StoryCaptionPanel";
+import { StoryEditingToolbar } from "./StoryEditingToolbar";
 import { ProjectWelcome } from "./ProjectWelcome";
 import {
 	fitPreviewCanvasToBounds,
@@ -1005,6 +1006,7 @@ export function StoryEditor({
 					/>
 				)}
 			</div>
+			<StoryEditingToolbar key={`tools-${openingKey}-${storyId ?? "root"}`} project={storyProject} selection={selection} playheadUs={playheadUs} onCommand={onCommand}/>
 			<ProjectTimeline
 				project={storyProject}
 				selection={selection}

@@ -116,3 +116,22 @@ it("maps detected speech through stream offsets and speed", () => {
 		{ startMs: 1750, endMs: 3000 },
 	]);
 });
+
+it("preserves the peak of overlapping fades on a clip shorter than the automation step",async()=>{
+	const project=createTimelineProject("short-fade","Short fade"),clip=fixtureClip("short",{assetId:"voice"});
+	clip.sourceOutUs=10_000;clip.fadeInUs=10_000;clip.fadeOutUs=10_000;
+	project.tracks=[fixtureTrack("audio",[clip],"audio")];
+	project.assets=[{id:"voice",kind:"audio",name:"Voice",width:0,height:0,durationUs:10_000,source:{path:"voice.wav",durationUs:10_000,offsetUs:0}}];
+	const points:number[][]=[];
+	vi.spyOn(AudioProcessor.prototype,"decodeAudioFromUrl").mockResolvedValue({duration:.01,numberOfChannels:1} as AudioBuffer);
+	vi.spyOn(AudioProcessor.prototype,"stretchAudioBuffer").mockReturnValue({} as AudioBuffer);
+	vi.stubGlobal("window",{electronAPI:{getLocalMediaUrl:async()=>({success:true,url:"voice.wav"})}});
+	vi.stubGlobal("OfflineAudioContext",class {
+		destination={};
+		createBufferSource(){return {buffer:null,connect:()=>({connect(){}}),start(){}};}
+		createGain(){return {gain:{value:1,linearRampToValueAtTime:(gain:number,time:number)=>points.push([gain,time])}};}
+		async startRendering(){return {getChannelData:()=>new Float32Array(480)};}
+	});
+	await renderProjectAudio(project);
+	expect(points).toContainEqual([.5,.005]);
+});

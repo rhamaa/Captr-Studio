@@ -29,6 +29,7 @@ import {
 	updateTextOverlay,
 } from "@/core/timeline/commands";
 import { extendInlineClip } from "@/core/timeline/designTemplateCommands";
+import { setClipFades } from "@/core/timeline/editingCommands";
 import type { ProjectCommand } from "@/core/timeline/history";
 import { setShapeStyleOverride } from "@/core/timeline/shapeCommands";
 import { clipDurationUs, type ClipTransition, type ClipTransitionPreset, type ComponentAnimation, type ShapeStyle, type TimelineProject } from "@/core/timeline/types";
@@ -327,6 +328,9 @@ export function ProjectInspector({
 							Edit recording effects
 						</button>
 					)}
+					{(asset.kind==="audio"||asset.kind==="video"||asset.kind==="recording") && <div className="project-component-animation-row">
+						{(["fadeInUs","fadeOutUs"] as const).map(key=><label key={key}>{key==="fadeInUs"?"Audio fade in (s)":"Audio fade out (s)"}<input type="number" min={0} max={clipDurationUs(clip)/1_000_000} step={.05} value={(clip[key]??0)/1_000_000} onChange={e=>{const value=Math.round(e.target.valueAsNumber*1_000_000);if(Number.isFinite(value))onCommand(p=>setClipFades(p,clip.id,key==="fadeInUs"?value:clip.fadeInUs??0,key==="fadeOutUs"?value:clip.fadeOutUs??0));}}/></label>)}
+					</div>}
 					{asset.kind === "text" && (
 						<>
 							<label className="project-text-content-field">

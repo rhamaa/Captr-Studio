@@ -3019,6 +3019,8 @@
 .story-caption-panel textarea { width: 100%; min-height: 60px; }
 .story-caption-cue { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--editor-border, #343640); }
 .story-edit-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.story-workflow-toolbar { flex-shrink: 0; padding: 6px 12px; border-top: 1px solid var(--editor-border, #343640); background: var(--editor-panel, #17181d); }
+.story-workflow-toolbar p[role="alert"] { color: #ffaaa3; font-size: 11px; margin: 5px 0; }
 .story-edit-actions button { padding: 5px 8px; border: 1px solid var(--editor-border, #343640); border-radius: 4px; font-size: 11px; }
 .story-edit-actions button:disabled { opacity: .45; cursor: not-allowed; }
 .project-clip-filmstrip { position: absolute; inset: 0; display: flex; opacity: .55; pointer-events: none; }

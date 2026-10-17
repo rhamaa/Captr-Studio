@@ -556,7 +556,7 @@ export function validateTimelineProject(
 				if (options.mode === "canonical" || c.content !== undefined)
 					requireValue(c.text === undefined, "Unexpected legacy clip text overlay");
 				requireValue(
-					(t.kind === "audio") === (a.kind === "audio"),
+					(t.kind === "audio") === (a.kind === "audio" || c.audioOnly === true),
 					"Incompatible asset track",
 				);
 				const composition = c.compositionId
@@ -615,6 +615,11 @@ export function validateTimelineProject(
 					"Invalid clip transform/gain",
 				);
 				clipKeyframes(c.keyframes);
+				for (const relation of [c.groupId,c.linkId])
+					if(relation!==undefined)requireValue(typeof relation==="string"&&/^[a-zA-Z0-9_-]+$/.test(relation),"Invalid clip relation");
+				for(const flag of [c.audioOnly,c.audioMuted])if(flag!==undefined)requireValue(typeof flag==="boolean","Invalid clip audio routing");
+				if(c.audioOnly)requireValue(["video","recording"].includes(a.kind),"Audio-only placement requires video or recording");
+				for(const fade of [c.fadeInUs,c.fadeOutUs])if(fade!==undefined)requireValue(integer(fade),"Invalid clip fade");
 				if (c.componentAnimation !== undefined) {
 					requireValue(
 						t.kind === "visual" && a.kind !== "audio",

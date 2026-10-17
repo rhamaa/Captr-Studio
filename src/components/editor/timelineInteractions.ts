@@ -11,6 +11,7 @@ import {
 	trimClip,
 } from "@/core/timeline/commands";
 import type { ProjectCommand } from "@/core/timeline/history";
+import { relatedClipIds } from "@/core/timeline/editingCommands";
 import { clipDurationUs, type TimelineProject, type TimelineTrack } from "@/core/timeline/types";
 export const ASSET_DRAG_TYPE = "application/x-captr-asset";
 export const CLIP_DRAG_TYPE = "application/x-captr-clip";
@@ -298,6 +299,8 @@ export function applyClipGesture(
 	const owner = project.tracks.find((t) => t.clips.some((c) => c.id === clipId));
 	const clip = owner?.clips.find((c) => c.id === clipId);
 	if (!clip || !owner) throw new Error("Clip not found");
+	if(gesture.kind === "move" && relatedClipIds(project,[clipId]).length>1)
+		return moveClip(project,clipId,gesture.trackId ?? owner.id,Math.max(0,clip.startUs+gesture.deltaUs));
 
 	const targetTrackId = gesture.trackId ?? owner.id;
 	const targetTrack = project.tracks.find((t) => t.id === targetTrackId);

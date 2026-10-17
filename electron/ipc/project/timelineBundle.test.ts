@@ -117,6 +117,7 @@ it("round trips every canonical media library, sidecars and current Story projec
 	const owner = project.repurposeBoard!.artboards[0];
 	owner.tracks = [];
 	owner.subtitles = { enabled: true, style: "classic", fontSize: 28, position: "bottom", primaryColor: "#FFFFFF", segments: [{id:1,text:"Final caption",startUs:0,endUs:1_000_000,words:[]}] };
+	Object.assign(project.repurposeBoard!.artboards[1].tracks![0].clips[0],{groupId:"bundle-group",linkId:"bundle-link",audioMuted:true,fadeInUs:500_000,fadeOutUs:700_000});
 	owner.localAssets!.push({
 		id: "video-A",
 		kind: "video",
@@ -198,6 +199,7 @@ it("round trips every canonical media library, sidecars and current Story projec
 		reopenedArtboard.localAssets,
 	);
 	expect(reopenedArtboard.subtitles).toEqual(owner.subtitles);
+	expect(reopened.repurposeBoard!.artboards[1].tracks![0].clips[0]).toMatchObject({groupId:"bundle-group",linkId:"bundle-link",audioMuted:true,fadeInUs:500_000,fadeOutUs:700_000});
 	expect(reopened.designTemplates).toEqual(project.designTemplates);
 	expect(reopened.compositions).toEqual(project.compositions);
 	reopened.repurposeBoard!.artboards[1].tracks = [];

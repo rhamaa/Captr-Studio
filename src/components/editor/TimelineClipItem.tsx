@@ -2,6 +2,7 @@ import type { PointerEvent } from "react";
 import { useRef, useState } from "react";
 import { TimelineAudioPreview, TimelineFilmstrip } from "./TimelineSourcePreview";
 import { resolveClipSource } from "@/core/timeline/clipSource";
+import { relatedClipIds } from "@/core/timeline/editingCommands";
 import type { ProjectCommand } from "@/core/timeline/history";
 import { clipDurationUs, type TimelineClip, type TimelineProject } from "@/core/timeline/types";
 import {
@@ -55,7 +56,7 @@ export function TimelineClipItem({
 		event.stopPropagation();
 		if (locked) return;
 		event.currentTarget.setPointerCapture(event.pointerId);
-		onSelect([clip.id]);
+		onSelect(relatedClipIds(project,[clip.id]));
 		gesture.current = { startX: event.clientX, kind, deltaUs: 0 };
 	};
 	const move = (event: PointerEvent<HTMLSpanElement>) => {
@@ -105,7 +106,7 @@ export function TimelineClipItem({
 					type: "clip",
 					id: clip.id,
 					durationUs: clipDurationUs(clip),
-					mediaKind: asset.kind === "audio" ? "audio" : "visual",
+					mediaKind: asset.kind === "audio" || clip.audioOnly ? "audio" : "visual",
 					pointerOffsetPx,
 				});
 				event.currentTarget.classList.add("dragging");
@@ -120,13 +121,14 @@ export function TimelineClipItem({
 				event.stopPropagation();
 				if (event.shiftKey || event.ctrlKey || event.metaKey) {
 					const currentSelection = selection ?? (selected ? [clip.id] : []);
+					const related = relatedClipIds(project,[clip.id]);
 					if (currentSelection.includes(clip.id)) {
-						onSelect(currentSelection.filter((id) => id !== clip.id));
+						onSelect(currentSelection.filter((id) => !related.includes(id)));
 					} else {
-						onSelect([...currentSelection, clip.id]);
+						onSelect([...new Set([...currentSelection, ...related])]);
 					}
 				} else {
-					onSelect([clip.id]);
+					onSelect(relatedClipIds(project,[clip.id]));
 				}
 			}}
 			onKeyDown={(event) => {
@@ -141,7 +143,8 @@ export function TimelineClipItem({
 			}}
 		>
 			{asset.kind === "audio" && asset.media?.source?.path && <TimelineAudioPreview path={asset.media.source.path} clip={shown} scale={scale} width={clipWidthPx}/>}
-			{(asset.kind === "video" || asset.kind === "recording") && <TimelineFilmstrip project={project} clip={shown} width={clipWidthPx}/>}
+			{!clip.audioOnly && (asset.kind === "video" || asset.kind === "recording") && <TimelineFilmstrip project={project} clip={shown} width={clipWidthPx}/>}
+			{clip.audioOnly && asset.media?.source?.path && <TimelineAudioPreview path={asset.media.source.path} clip={shown} scale={scale} width={clipWidthPx}/>}
 			<span
 				className="project-trim-handle left"
 				role="slider"
