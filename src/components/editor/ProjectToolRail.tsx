@@ -3,6 +3,8 @@ import type { ShapeDefinition, StoryDesignTemplate } from "@/core/timeline/types
 import { useProjectMessages } from "./useProjectMessages";
 
 interface ProjectToolRailProps {
+	activeTab?: "assets" | "shapes";
+	onSelectTab?: (tab: "assets" | "shapes") => void;
 	onAddText: () => void;
 	onAddShape: (kind: ShapeDefinition["kind"]) => void;
 	templates?: StoryDesignTemplate[];
@@ -12,6 +14,8 @@ interface ProjectToolRailProps {
 const shapeKinds = ["rectangle", "ellipse", "line", "arrow"] as const;
 
 export function ProjectToolRail({
+	activeTab = "assets",
+	onSelectTab,
 	onAddText,
 	onAddShape,
 	templates,
@@ -20,7 +24,13 @@ export function ProjectToolRail({
 	const m = useProjectMessages();
 	return (
 		<aside className="project-tool-rail">
-			<button type="button" aria-label="Assets" aria-current="page">
+			<button
+				type="button"
+				aria-label="Assets"
+				aria-current={activeTab === "assets" ? "page" : undefined}
+				className={activeTab === "assets" ? "active" : ""}
+				onClick={() => onSelectTab?.("assets")}
+			>
 				<Folder size={21} />
 			</button>
 			<button
@@ -32,7 +42,18 @@ export function ProjectToolRail({
 				<TextT size={19} />
 			</button>
 			<details className="project-shape-rail-menu">
-				<summary aria-label={m("addShape")} title={m("addShape")}>
+				<summary
+					aria-label={m("addShape")}
+					title={m("addShape")}
+					aria-current={activeTab === "shapes" ? "page" : undefined}
+					className={activeTab === "shapes" ? "active" : ""}
+					onClick={(e) => {
+						if (onSelectTab) {
+							e.preventDefault();
+							onSelectTab("shapes");
+						}
+					}}
+				>
 					<span className="project-shape-rail-icon" aria-hidden="true">
 						<Square size={19} />
 						<Plus size={10} weight="bold" />

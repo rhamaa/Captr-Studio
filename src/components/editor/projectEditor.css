@@ -162,6 +162,15 @@
 	height: 38px;
 	width: 36px;
 }
+.project-tool-rail button.active,
+.project-tool-rail button[aria-current="page"],
+.project-shape-rail-menu > summary.active,
+.project-shape-rail-menu > summary[aria-current="page"] {
+	border-color: var(--project-accent);
+	background: hsl(var(--editor-surface));
+	color: var(--project-accent);
+	box-shadow: 0 0 0 1px var(--project-accent);
+}
 .project-assets,
 .project-preview-panel,
 .project-inspector {
@@ -2884,9 +2893,9 @@
 	left: calc(100% + 8px);
 	min-width: 168px;
 	padding: 6px;
-	border: 1px solid hsl(var(--border))));
+	border: 1px solid hsl(var(--border));
 	border-radius: 10px;
-	background: hsl(var(--editor-panel))));
+	background: hsl(var(--editor-panel));
 	box-shadow: 0 12px 32px rgb(0 0 0 / 35%);
 }
 
@@ -2894,6 +2903,327 @@
 	width: 100%;
 	justify-content: flex-start;
 	text-align: left;
+}
+
+/* Left Sidebar Top Navigation Sub-Menu */
+.project-sidebar-top-tabs {
+	display: inline-flex;
+	align-items: center;
+	background: hsl(var(--editor-surface));
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	padding: 2px;
+	gap: 2px;
+	margin-right: auto;
+}
+
+.project-sidebar-top-tab {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 4px 9px;
+	border-radius: 4px;
+	font-size: 11px;
+	font-weight: 500;
+	color: hsl(var(--muted-foreground));
+	background: transparent;
+	border: 1px solid transparent;
+	cursor: pointer;
+	white-space: nowrap;
+	line-height: 1;
+	transition: all 0.12s ease;
+}
+
+.project-sidebar-top-tab:hover {
+	color: hsl(var(--foreground));
+	background: rgba(255, 255, 255, 0.04);
+}
+
+.project-sidebar-top-tab.active {
+	background: hsl(var(--editor-panel));
+	color: var(--captr-blue);
+	border-color: rgba(111, 168, 255, 0.25);
+	font-weight: 600;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.project-sidebar-top-tab span {
+	font-size: 9.5px;
+	opacity: 0.8;
+	padding: 0 4px;
+	background: rgba(111, 168, 255, 0.15);
+	border-radius: 999px;
+}
+
+/* Category Sub-Tabs (Positioned at the very top of Library panels) */
+.project-sub-tabs {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 6px 10px;
+	background: hsl(var(--editor-panel));
+	border-bottom: 1px solid var(--line);
+	flex-shrink: 0;
+	overflow-x: auto;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+
+.project-sub-tabs::-webkit-scrollbar {
+	display: none;
+}
+
+.project-sub-tab-btn {
+	display: inline-flex;
+	align-items: center;
+	padding: 4px 9px;
+	border-radius: 5px;
+	font-size: 11px;
+	font-weight: 500;
+	color: hsl(var(--muted-foreground));
+	background: transparent;
+	border: 1px solid transparent;
+	cursor: pointer;
+	white-space: nowrap;
+	flex-shrink: 0;
+	transition: all 0.12s ease;
+}
+
+.project-sub-tab-btn:hover {
+	color: hsl(var(--foreground));
+	background: rgba(255, 255, 255, 0.05);
+}
+
+.project-sub-tab-btn.active {
+	background: rgba(111, 168, 255, 0.14);
+	color: var(--captr-blue);
+	border-color: rgba(111, 168, 255, 0.3);
+	font-weight: 600;
+}
+
+/* Shape Library Panel & Toolbar */
+.project-shapes-panel {
+	border: 1px solid var(--line);
+	border-radius: 7px;
+	background: hsl(var(--background));
+	min-width: 0;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+.project-shapes-search {
+	padding: 8px 10px 6px;
+	border-bottom: 1px solid var(--line);
+	background: hsl(var(--editor-panel));
+	flex-shrink: 0;
+}
+
+.project-shapes-search-inner {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	padding: 4px 8px;
+	border-radius: 5px;
+	background: hsl(var(--editor-surface));
+	border: 1px solid var(--line);
+	transition: border-color 0.15s ease;
+}
+
+.project-shapes-search-inner:focus-within {
+	border-color: var(--captr-blue);
+}
+
+.project-shapes-search-inner input {
+	flex: 1;
+	background: transparent;
+	border: none;
+	outline: none;
+	color: hsl(var(--foreground));
+	font-size: 11px;
+	padding: 0;
+}
+
+.project-shapes-search-inner input::placeholder {
+	color: hsl(var(--muted-foreground));
+	opacity: 0.8;
+}
+
+.project-shapes-toolbar {
+	padding: 8px 10px;
+	border-bottom: 1px solid var(--line);
+	background: hsl(var(--editor-panel));
+	display: flex;
+	flex-direction: column;
+	gap: 7px;
+	flex-shrink: 0;
+}
+
+.project-shapes-toolbar-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.project-shapes-toolbar-label {
+	font-size: 11px;
+	font-weight: 500;
+	color: hsl(var(--muted-foreground));
+	white-space: nowrap;
+}
+
+.project-shapes-colors {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+}
+
+.project-shape-color-swatch {
+	width: 15px;
+	height: 15px;
+	border-radius: 50%;
+	border: 1px solid rgba(255, 255, 255, 0.15);
+	cursor: pointer;
+	padding: 0;
+	transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.project-shape-color-swatch:hover {
+	transform: scale(1.15);
+}
+
+.project-shape-color-swatch.active {
+	transform: scale(1.22);
+	border-color: #ffffff;
+	box-shadow: 0 0 0 1.5px var(--captr-blue);
+}
+
+.project-shape-color-picker-btn {
+	width: 16px;
+	height: 16px;
+	border-radius: 4px;
+	border: 1px solid var(--line);
+	cursor: pointer;
+	padding: 0;
+	background: transparent;
+	overflow: hidden;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.project-shape-weights {
+	display: inline-flex;
+	align-items: center;
+	background: hsl(var(--editor-surface));
+	border: 1px solid var(--line);
+	border-radius: 5px;
+	padding: 1.5px;
+	gap: 1.5px;
+}
+
+.project-shape-weight-btn {
+	padding: 2px 7px;
+	font-size: 10px;
+	font-weight: 500;
+	color: hsl(var(--muted-foreground));
+	background: transparent;
+	border: 0;
+	border-radius: 3px;
+	cursor: pointer;
+	transition: all 0.12s ease;
+}
+
+.project-shape-weight-btn:hover {
+	color: hsl(var(--foreground));
+}
+
+.project-shape-weight-btn.active {
+	background: hsl(var(--editor-panel));
+	color: var(--captr-blue);
+	font-weight: 600;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Shape Grid & Cards */
+.project-shapes-grid {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding: 10px;
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 9px;
+	align-content: start;
+	scrollbar-width: thin;
+	scrollbar-color: hsl(var(--editor-surface)) transparent;
+}
+
+.project-shapes-grid::-webkit-scrollbar {
+	width: 5px;
+}
+
+.project-shapes-grid::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.project-shapes-grid::-webkit-scrollbar-thumb {
+	background: hsl(var(--editor-surface));
+	border-radius: 3px;
+}
+
+.project-shapes-grid::-webkit-scrollbar-thumb:hover {
+	background: #4e4e56;
+}
+
+.project-shape-card {
+	display: flex;
+	flex-direction: column;
+	background: hsl(var(--editor-panel));
+	border: 1px solid var(--line);
+	border-radius: 7px;
+	padding: 6px;
+	gap: 6px;
+	cursor: pointer;
+	text-align: left;
+	transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.project-shape-card:hover {
+	border-color: rgba(111, 168, 255, 0.5);
+	background: hsl(var(--editor-surface));
+	box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+}
+
+.project-shape-preview-box {
+	width: 100%;
+	height: 60px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: hsl(var(--background));
+	border: 1px solid rgba(255, 255, 255, 0.04);
+	border-radius: 5px;
+	padding: 4px;
+	overflow: hidden;
+}
+
+.project-shape-card-title {
+	font-size: 11px;
+	font-weight: 500;
+	color: hsl(var(--foreground));
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	text-align: center;
+	line-height: 1.2;
+}
+
+.project-shape-card:hover .project-shape-card-title {
+	color: #ffffff;
 }
 
 .project-transition-item {

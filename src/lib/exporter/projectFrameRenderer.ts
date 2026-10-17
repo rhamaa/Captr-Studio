@@ -236,6 +236,15 @@ export class ProjectFrameRenderer {
 			if (stroke) ctx.strokeRect(x, y, shape.width, shape.height);
 			return;
 		}
+		if (shape.kind === "blur") {
+			const x = -assetWidth / 2, y = -assetHeight / 2;
+			if (style.fill) {
+				ctx.fillStyle = style.fill;
+				ctx.fillRect(x, y, shape.width, shape.height);
+			}
+			if (stroke) ctx.strokeRect(x, y, shape.width, shape.height);
+			return;
+		}
 		if (shape.kind === "ellipse") {
 			ctx.beginPath();
 			ctx.ellipse(0, 0, shape.width / 2, shape.height / 2, 0, 0, Math.PI * 2);
@@ -422,6 +431,32 @@ export class ProjectFrameRenderer {
 				transitionClips.add(transition.fromClipId);
 				transitionClips.add(transition.toClipId);
 				continue;
+			}
+			const shape = visual.source.content?.kind === "shape"
+				? visual.source.content.shapeDefinition
+				: visual.source.media?.shapeDefinition;
+			if (visual.source.kind === "shape" && shape?.kind === "blur") {
+				const animated = this.animationTransform(visual, width, height);
+				const radius = shape.blurRadius ?? 16;
+				const ratio = Math.min(width / visual.source.width, height / visual.source.height);
+				const sw = shape.width * ratio * animated.scale;
+				const sh = shape.height * ratio * animated.scale;
+				const cx = width / 2 + animated.x;
+				const cy = height / 2 + animated.y;
+				const rad = (visual.transform.rotation * Math.PI) / 180;
+
+				ctx.save();
+				ctx.translate(cx, cy);
+				ctx.rotate(rad);
+				ctx.beginPath();
+				ctx.rect(-sw / 2, -sh / 2, sw, sh);
+				ctx.clip();
+				ctx.rotate(-rad);
+				ctx.translate(-cx, -cy);
+				ctx.filter = `blur(${radius}px)`;
+				ctx.drawImage(this.canvas, 0, 0);
+				ctx.filter = "none";
+				ctx.restore();
 			}
 			const layer = await this.visualLayer(visual, evaluation, continuousPlayback);
 			ctx.drawImage(layer, 0, 0);

@@ -25,6 +25,8 @@ export interface AssetLibraryProps {
 	storyAssets?: MediaAsset[];
 	onPublish?: (id: string) => void;
 	onRemoveStoryMedia?: (id: string) => void;
+	activeTab?: "assets" | "shapes";
+	onSelectTab?: (tab: "assets" | "shapes") => void;
 }
 
 type LibraryMediaEntry = { asset: MediaAsset; owner: "project" | "story" };
@@ -47,6 +49,8 @@ export function AssetLibrary({
 	storyAssets,
 	onPublish,
 	onRemoveStoryMedia,
+	activeTab = "assets",
+	onSelectTab,
 }: AssetLibraryProps) {
 	const m = useProjectMessages();
 	const [view, setView] = useState<"grid" | "list">("grid"),
@@ -94,10 +98,30 @@ export function AssetLibrary({
 			}}
 		>
 			<header className="project-panel-header">
-				<h2>
-					{m("assets")}
-					<span>{media.length || ""}</span>
-				</h2>
+				{onSelectTab ? (
+					<div className="project-sidebar-top-tabs">
+						<button
+							type="button"
+							className={`project-sidebar-top-tab ${activeTab === "assets" ? "active" : ""}`}
+							onClick={() => onSelectTab("assets")}
+						>
+							{m("assets")}
+							{!!media.length && <span>{media.length}</span>}
+						</button>
+						<button
+							type="button"
+							className={`project-sidebar-top-tab ${activeTab === "shapes" ? "active" : ""}`}
+							onClick={() => onSelectTab("shapes")}
+						>
+							Shapes
+						</button>
+					</div>
+				) : (
+					<h2>
+						{m("assets")}
+						<span>{media.length || ""}</span>
+					</h2>
+				)}
 				<button
 					aria-label={view === "grid" ? "List view" : "Grid view"}
 					title="Change asset view"
@@ -158,7 +182,7 @@ export function AssetLibrary({
 								sourcePath={asset.source?.path ?? pkg?.screen.path}
 								audioPath={
 									owner === "project"
-										? pkg?.microphone?.path ?? pkg?.system?.path
+										? (pkg?.microphone?.path ?? pkg?.system?.path)
 										: undefined
 								}
 								selected={asset.id === selectedAssetId}

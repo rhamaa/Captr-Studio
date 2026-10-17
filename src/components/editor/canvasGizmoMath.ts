@@ -51,7 +51,7 @@ export function getClipBaseDimensions(
 		let shapeW = 200;
 		let shapeH = 200;
 		if (shape) {
-			if (shape.kind === "rectangle" || shape.kind === "ellipse") {
+			if (shape.kind === "rectangle" || shape.kind === "ellipse" || shape.kind === "blur") {
 				shapeW = shape.width * ratio;
 				shapeH = shape.height * ratio;
 			} else if (shape.kind === "line" || shape.kind === "arrow") {

@@ -27,6 +27,7 @@ import {
 } from "@/core/timeline/commands";
 import { applyDesignTemplate } from "@/core/timeline/designTemplateCommands";
 import type { ProjectCommand } from "@/core/timeline/history";
+import { createAndPlaceShape } from "@/core/timeline/shapeCommands";
 import { publishStoryMedia, removeStoryMedia } from "@/core/timeline/storyMediaCommands";
 import type { StoryEditContext } from "@/core/timeline/storyOwnership";
 import type { AssetTranscript } from "@/core/timeline/transcriptTypes";
@@ -44,13 +45,11 @@ import { ProjectInspector } from "./ProjectInspector";
 import { ProjectPreview } from "./ProjectPreview";
 import { ProjectTimeline, shapePlacementCommand } from "./ProjectTimeline";
 import { ProjectToolRail } from "./ProjectToolRail";
+import { ProjectWelcome } from "./ProjectWelcome";
+import { fitPreviewCanvasToBounds, type PreviewCanvasBounds } from "./previewCanvasSizing";
+import { ShapeLibrary } from "./ShapeLibrary";
 import { StoryCaptionPanel } from "./StoryCaptionPanel";
 import { StoryEditingToolbar } from "./StoryEditingToolbar";
-import { ProjectWelcome } from "./ProjectWelcome";
-import {
-	fitPreviewCanvasToBounds,
-	type PreviewCanvasBounds,
-} from "./previewCanvasSizing";
 import { timelineActionCommand } from "./timelineInteractions";
 import type { ProjectController } from "./useProjectController";
 import { useProjectMessages } from "./useProjectMessages";
@@ -248,6 +247,7 @@ export function StoryEditor({
 	}, [storyProject.canvas.height, storyProject.canvas.width]);
 
 	const [selectedTransitionId, setSelectedTransitionId] = useState<string | null>(null);
+	const [sidebarTab, setSidebarTab] = useState<"assets" | "shapes">("assets");
 	const [terminalOpen, setTerminalOpen] = useState(false);
 	const [captionsOpen, setCaptionsOpen] = useState(false);
 	const [loopPlayback, setLoopPlayback] = useState(false);
@@ -290,9 +290,7 @@ export function StoryEditor({
 			{ width: canvasWidth, height: canvasHeight },
 			(size) =>
 				setPreviewFrameSize((current) =>
-					current.width === size.width && current.height === size.height
-						? current
-						: size,
+					current.width === size.width && current.height === size.height ? current : size,
 				),
 		);
 	}, [canvasHeight, canvasWidth, previewStage]);
@@ -306,9 +304,7 @@ export function StoryEditor({
 			{ width: canvasWidth, height: canvasHeight },
 			(size) =>
 				setFullscreenFrameSize((current) =>
-					current.width === size.width && current.height === size.height
-						? current
-						: size,
+					current.width === size.width && current.height === size.height ? current : size,
 				),
 		);
 	}, [canvasHeight, canvasWidth, fullscreenPreview]);
@@ -320,10 +316,7 @@ export function StoryEditor({
 		previewPanStartRef.current = null;
 	}, [storyId, storyProject.canvas.height, storyProject.canvas.width, storyProject.projectId]);
 
-	const changePreviewZoom = (
-		factor: number,
-		anchor?: { x: number; y: number },
-	) => {
+	const changePreviewZoom = (factor: number, anchor?: { x: number; y: number }) => {
 		setPreviewViewport((current) => {
 			const zoom = Math.min(
 				MAX_STORY_PREVIEW_ZOOM,
@@ -621,6 +614,14 @@ export function StoryEditor({
 		onCommand(shapePlacementCommand(kind, playheadUs, ids), [ids.clipId]);
 	};
 
+	const addCustomShape = (shape: ShapeDefinition) => {
+		const ids = {
+			clipId: crypto.randomUUID(),
+			trackId: crypto.randomUUID(),
+		};
+		onCommand((p) => createAndPlaceShape(p, shape, playheadUs, ids), [ids.clipId]);
+	};
+
 	const addToTimeline = (assetId: string) => {
 		const asset = resolveMediaAsset(storyProject, assetId);
 		const track = storyProject.tracks.find(
@@ -653,6 +654,8 @@ export function StoryEditor({
 		<>
 			<div className={`project-workspace ${copilotOpen ? "with-copilot" : ""}`}>
 				<ProjectToolRail
+					activeTab={sidebarTab}
+					onSelectTab={setSidebarTab}
 					onAddShape={addShape}
 					templates={rootProject.designTemplates ?? []}
 					onAddText={() => {
@@ -678,46 +681,59 @@ export function StoryEditor({
 						);
 					}}
 				/>
-				<AssetLibrary
-					storyAssets={storyProject.localAssets ?? []}
-					onPublish={(id) =>
-						onProjectCommand?.((root) =>
-							publishStoryMedia(
-								root,
+				{sidebarTab === "assets" ? (
+					<AssetLibrary
+						activeTab={sidebarTab}
+						onSelectTab={setSidebarTab}
+						storyAssets={storyProject.localAssets ?? []}
+						onPublish={(id) =>
+							onProjectCommand?.((root) =>
+								publishStoryMedia(
+									root,
+									storyId
+										? { kind: "artboard", artboardId: storyId }
+										: { kind: "root" },
+									id,
+								),
+							)
+						}
+						onRemoveStoryMedia={(id) =>
+							onProjectCommand?.((root) =>
+								removeStoryMedia(
+									root,
+									storyId
+										? { kind: "artboard", artboardId: storyId }
+										: { kind: "root" },
+									id,
+								),
+							)
+						}
+						assets={rootProject.assets}
+						packages={rootProject.packages}
+						selectedAssetId={selectedAssetId}
+						onImport={(paths) => onImportMedia?.(paths)}
+						onRecord={() => onStartRecord?.()}
+						onRecordAudio={() => onOpenAudioRecorder?.()}
+						onPreview={(id) => {
+							setPlaying(false);
+							controller.preview(
+								id,
 								storyId
 									? { kind: "artboard", artboardId: storyId }
 									: { kind: "root" },
-								id,
-							),
-						)
-					}
-					onRemoveStoryMedia={(id) =>
-						onProjectCommand?.((root) =>
-							removeStoryMedia(
-								root,
-								storyId
-									? { kind: "artboard", artboardId: storyId }
-									: { kind: "root" },
-								id,
-							),
-						)
-					}
-					assets={rootProject.assets}
-					packages={rootProject.packages}
-					selectedAssetId={selectedAssetId}
-					onImport={(paths) => onImportMedia?.(paths)}
-					onRecord={() => onStartRecord?.()}
-					onRecordAudio={() => onOpenAudioRecorder?.()}
-					onPreview={(id) => {
-						setPlaying(false);
-						controller.preview(
-							id,
-							storyId ? { kind: "artboard", artboardId: storyId } : { kind: "root" },
-						);
-					}}
-					onPlace={addToTimeline}
-					onRemove={(id) => onProjectCommand?.((root) => removeAsset(root, id))}
-				/>
+							);
+						}}
+						onPlace={addToTimeline}
+						onRemove={(id) => onProjectCommand?.((root) => removeAsset(root, id))}
+					/>
+				) : (
+					<ShapeLibrary
+						activeTab={sidebarTab}
+						onSelectTab={setSidebarTab}
+						onAddShape={addCustomShape}
+						onClose={() => setSidebarTab("assets")}
+					/>
+				)}
 				<section className="project-preview-panel">
 					<header className="project-panel-header">
 						<h2>
@@ -802,10 +818,10 @@ export function StoryEditor({
 									onError={onError}
 									selectedClipId={selection[0] ?? null}
 									canTransformClip={(_clipId, assetKind) =>
-									assetKind === "text" ||
-									assetKind === "shape" ||
-									assetKind === "image"
-								}
+										assetKind === "text" ||
+										assetKind === "shape" ||
+										assetKind === "image"
+									}
 									onSelectClip={(clipId) => {
 										const currentSelected = selection[0] ?? "";
 										if (currentSelected !== (clipId ?? "")) {
@@ -980,14 +996,26 @@ export function StoryEditor({
 						</div>
 					</div>
 				</section>
-				{captionsOpen ? <StoryCaptionPanel key={`${openingKey}-${storyId ?? "root"}`} project={storyProject} transcripts={transcripts} playheadUs={playheadUs} onCommand={onCommand} onSeek={time=>controller.seek(time,durationUs)} onClose={()=>setCaptionsOpen(false)}/> : <ProjectInspector
-					project={storyProject}
-					selection={selection}
-					selectedTransitionId={selectedTransitionId}
-					playheadUs={playheadUs}
-					onCommand={onCommand}
-					onOpenRecording={setEditingClipId}
-				/>}
+				{captionsOpen ? (
+					<StoryCaptionPanel
+						key={`${openingKey}-${storyId ?? "root"}`}
+						project={storyProject}
+						transcripts={transcripts}
+						playheadUs={playheadUs}
+						onCommand={onCommand}
+						onSeek={(time) => controller.seek(time, durationUs)}
+						onClose={() => setCaptionsOpen(false)}
+					/>
+				) : (
+					<ProjectInspector
+						project={storyProject}
+						selection={selection}
+						selectedTransitionId={selectedTransitionId}
+						playheadUs={playheadUs}
+						onCommand={onCommand}
+						onOpenRecording={setEditingClipId}
+					/>
+				)}
 				{copilotOpen && (
 					<CopilotSidebar
 						editContext={editContext}
@@ -1006,7 +1034,13 @@ export function StoryEditor({
 					/>
 				)}
 			</div>
-			<StoryEditingToolbar key={`tools-${openingKey}-${storyId ?? "root"}`} project={storyProject} selection={selection} playheadUs={playheadUs} onCommand={onCommand}/>
+			<StoryEditingToolbar
+				key={`tools-${openingKey}-${storyId ?? "root"}`}
+				project={storyProject}
+				selection={selection}
+				playheadUs={playheadUs}
+				onCommand={onCommand}
+			/>
 			<ProjectTimeline
 				project={storyProject}
 				selection={selection}
@@ -1055,7 +1089,13 @@ export function StoryEditor({
 				<div className="flex items-center gap-4">
 					<span>{busy ? "Importing media…" : `${rootProject.assets.length} assets`}</span>
 					<span>{storyProject.canvas.fps} fps</span>
-					<button type="button" onClick={()=>setCaptionsOpen(v=>!v)} aria-pressed={captionsOpen}>Captions</button>
+					<button
+						type="button"
+						onClick={() => setCaptionsOpen((v) => !v)}
+						aria-pressed={captionsOpen}
+					>
+						Captions
+					</button>
 				</div>
 				<button
 					type="button"
@@ -1085,9 +1125,9 @@ export function StoryEditor({
 								onClick={() => setFullscreenPreview(false)}
 								className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
 								title="Exit Fullscreen (Esc / F)"
-						>
-							<X size={18} />
-						</button>
+							>
+								<X size={18} />
+							</button>
 						</div>
 					</div>
 					<div

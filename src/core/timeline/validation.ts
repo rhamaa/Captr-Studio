@@ -200,7 +200,11 @@ function shapeAsset(asset: MediaAsset) {
 			!asset.packageId,
 		"Invalid pathless shape asset",
 	);
-	if (definition.kind === "rectangle" || definition.kind === "ellipse") {
+	if (
+		definition.kind === "rectangle" ||
+		definition.kind === "ellipse" ||
+		definition.kind === "blur"
+	) {
 		requireValue(
 			positive(definition.width) &&
 				positive(definition.height) &&
@@ -208,6 +212,9 @@ function shapeAsset(asset: MediaAsset) {
 				asset.height === Math.ceil(definition.height),
 			"Invalid shape geometry dimensions",
 		);
+		if (definition.kind === "blur" && definition.blurRadius !== undefined) {
+			requireValue(positive(definition.blurRadius), "Invalid shape blur radius");
+		}
 		shapeStyle(definition.style);
 		return;
 	}
@@ -289,7 +296,11 @@ function inlineContent(value: StoryClipContent, width: number, height: number) {
 		);
 		requireValue(!("text" in value), "Unexpected inline text");
 		const definition = value.shapeDefinition;
-		if (definition.kind === "rectangle" || definition.kind === "ellipse") {
+		if (
+			definition.kind === "rectangle" ||
+			definition.kind === "ellipse" ||
+			definition.kind === "blur"
+		) {
 			width = Math.ceil(definition.width);
 			height = Math.ceil(definition.height);
 		} else if (definition.kind === "line" || definition.kind === "arrow") {

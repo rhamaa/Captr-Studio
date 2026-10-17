@@ -64,6 +64,13 @@ export type ShapeDefinition =
 			to: { x: number; y: number };
 			headLength: number;
 			style: { stroke: { color: string; width: number } };
+	  }
+	| {
+			kind: "blur";
+			width: number;
+			height: number;
+			blurRadius?: number;
+			style: ShapeStyle;
 	  };
 export interface MediaAsset {
 	id: string;
