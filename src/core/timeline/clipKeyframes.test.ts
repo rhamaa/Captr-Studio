@@ -186,4 +186,27 @@ describe("Timeline Clip Keyframing Engine", () => {
 		const visual = evaluation.visuals[0];
 		expect(visual.transform.scale).toBeCloseTo(2);
 	});
+
+	it("timelineActionCommand toggles keyframe creation and removal on selected clip at playhead", async () => {
+		const { timelineActionCommand } = await import("@/components/editor/timelineInteractions");
+		let project = addTextOverlay(createTimelineProject("cmd-proj", "Command"), 0, {
+			assetId: "text-asset",
+			trackId: "track-1",
+			clipId: "clip-1",
+		});
+
+		// At playhead 1s (1_000_000us), toggle keyframe on clip-1
+		const addCmd = timelineActionCommand("keyframe", ["clip-1"], 1_000_000);
+		project = addCmd(project);
+		let clip = project.tracks.flatMap((t) => t.clips).find((c) => c.id === "clip-1")!;
+		expect(clip.keyframes).toBeDefined();
+		expect(clip.keyframes!.length).toBeGreaterThanOrEqual(1);
+		expect(clip.keyframes!.some((k) => k.timeMs === 1000)).toBe(true);
+
+		// Triggering keyframe action again at 1s removes the keyframe (toggle)
+		const removeCmd = timelineActionCommand("keyframe", ["clip-1"], 1_000_000);
+		project = removeCmd(project);
+		clip = project.tracks.flatMap((t) => t.clips).find((c) => c.id === "clip-1")!;
+		expect(clip.keyframes!.some((k) => k.timeMs === 1000)).toBe(false);
+	});
 });

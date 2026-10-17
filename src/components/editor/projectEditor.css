@@ -145,31 +145,91 @@
 .project-workspace {
 	flex: 1;
 	display: grid;
-	grid-template-columns: 48px 310px minmax(280px, 1fr) 260px;
+	grid-template-columns: 310px minmax(280px, 1fr) 260px;
 	gap: 8px;
-	padding: 10px 10px 8px 0;
+	padding: 10px 10px 8px 10px;
 	min-height: 240px;
 	position: relative;
 	overflow: hidden;
 }
 .project-tool-rail {
-	padding: 3px 4px 0 8px;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 0;
+	margin-right: auto;
 }
-.project-tool-rail button {
-	color: var(--project-accent);
-	background: hsl(var(--editor-panel));
-	border-color: #213951;
-	height: 38px;
-	width: 36px;
-}
-.project-tool-rail button.active,
-.project-tool-rail button[aria-current="page"],
-.project-shape-rail-menu > summary.active,
-.project-shape-rail-menu > summary[aria-current="page"] {
-	border-color: var(--project-accent);
+.project-tool-rail-tabs {
+	display: inline-flex;
+	align-items: center;
 	background: hsl(var(--editor-surface));
-	color: var(--project-accent);
-	box-shadow: 0 0 0 1px var(--project-accent);
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	padding: 2px;
+	gap: 2px;
+}
+.project-tool-rail-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 4px 8px;
+	border-radius: 4px;
+	font-size: 11px;
+	font-weight: 500;
+	color: hsl(var(--muted-foreground));
+	background: transparent;
+	border: 1px solid transparent;
+	cursor: pointer;
+	white-space: nowrap;
+	line-height: 1;
+	transition: all 0.12s ease;
+}
+.project-tool-rail-btn:hover {
+	color: hsl(var(--foreground));
+	background: rgba(255, 255, 255, 0.05);
+}
+.project-tool-rail-btn.active,
+.project-tool-rail-btn[aria-current="page"] {
+	background: hsl(var(--editor-panel));
+	color: var(--captr-blue);
+	border-color: rgba(111, 168, 255, 0.35);
+	font-weight: 600;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+.project-tool-rail-btn.active svg,
+.project-tool-rail-btn[aria-current="page"] svg {
+	color: var(--captr-blue);
+}
+.project-tool-rail-divider {
+	width: 1px;
+	height: 16px;
+	background: var(--line);
+	margin: 0 1px;
+}
+.project-tool-rail-actions {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+}
+.project-tool-rail-action-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 7px;
+	border-radius: 4px;
+	font-size: 11px;
+	font-weight: 500;
+	color: hsl(var(--muted-foreground));
+	background: hsl(var(--editor-surface));
+	border: 1px solid var(--line);
+	cursor: pointer;
+	line-height: 1;
+	transition: all 0.12s ease;
+}
+.project-tool-rail-action-btn:hover {
+	color: hsl(var(--foreground));
+	background: hsl(var(--editor-surface-alt));
+	border-color: rgba(111, 168, 255, 0.3);
 }
 .project-assets,
 .project-preview-panel,
@@ -231,12 +291,40 @@
 }
 .project-asset-grid {
 	padding: 11px;
-	overflow: auto;
+	overflow-y: auto;
+	overflow-x: hidden;
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	align-content: start;
 	gap: 12px 10px;
 	flex: 1;
+	scrollbar-width: thin;
+	scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+.project-asset-grid::-webkit-scrollbar {
+	width: 6px;
+}
+.project-asset-grid::-webkit-scrollbar-track {
+	background: transparent;
+}
+.project-asset-grid::-webkit-scrollbar-thumb {
+	background: var(--scrollbar-thumb);
+	border-radius: 9999px;
+	border: 1px solid transparent;
+	background-clip: padding-box;
+}
+.project-asset-grid::-webkit-scrollbar-thumb:hover {
+	background: var(--scrollbar-thumb-hover);
+	background-clip: padding-box;
+}
+.project-asset-grid::-webkit-scrollbar-thumb:active {
+	background: var(--scrollbar-thumb-active);
+	background-clip: padding-box;
+}
+.project-asset-grid::-webkit-scrollbar-button {
+	display: none !important;
+	width: 0 !important;
+	height: 0 !important;
 }
 .project-assets.drag-over {
 	outline: 2px solid var(--project-accent);
@@ -537,10 +625,38 @@
 	font-size: 11px;
 }
 .project-inspector fieldset {
-	overflow: auto;
+	overflow-y: auto;
+	overflow-x: hidden;
 	flex: 1;
 	padding: 16px 13px;
 	border: 0;
+	scrollbar-width: thin;
+	scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+.project-inspector fieldset::-webkit-scrollbar {
+	width: 6px;
+}
+.project-inspector fieldset::-webkit-scrollbar-track {
+	background: transparent;
+}
+.project-inspector fieldset::-webkit-scrollbar-thumb {
+	background: var(--scrollbar-thumb);
+	border-radius: 9999px;
+	border: 1px solid transparent;
+	background-clip: padding-box;
+}
+.project-inspector fieldset::-webkit-scrollbar-thumb:hover {
+	background: var(--scrollbar-thumb-hover);
+	background-clip: padding-box;
+}
+.project-inspector fieldset::-webkit-scrollbar-thumb:active {
+	background: var(--scrollbar-thumb-active);
+	background-clip: padding-box;
+}
+.project-inspector fieldset::-webkit-scrollbar-button {
+	display: none !important;
+	width: 0 !important;
+	height: 0 !important;
 }
 .project-inspector-title {
 	display: flex;
@@ -644,6 +760,37 @@
 .project-timeline-scroll {
 	height: calc(100% - 42px);
 	overflow: auto;
+	scrollbar-width: thin;
+	scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+.project-timeline-scroll::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+.project-timeline-scroll::-webkit-scrollbar-track {
+	background: transparent;
+}
+.project-timeline-scroll::-webkit-scrollbar-thumb {
+	background: var(--scrollbar-thumb);
+	border-radius: 9999px;
+	border: 1.5px solid transparent;
+	background-clip: padding-box;
+}
+.project-timeline-scroll::-webkit-scrollbar-thumb:hover {
+	background: var(--scrollbar-thumb-hover);
+	background-clip: padding-box;
+}
+.project-timeline-scroll::-webkit-scrollbar-thumb:active {
+	background: var(--scrollbar-thumb-active);
+	background-clip: padding-box;
+}
+.project-timeline-scroll::-webkit-scrollbar-button {
+	display: none !important;
+	width: 0 !important;
+	height: 0 !important;
+}
+.project-timeline-scroll::-webkit-scrollbar-corner {
+	background: transparent;
 }
 .project-track-list {
 	position: relative;
@@ -1424,20 +1571,32 @@
 	overflow-y: auto;
 	overflow-x: hidden;
 	scrollbar-width: thin;
-	scrollbar-color: #38383e transparent;
+	scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 .recording-settings-scroll::-webkit-scrollbar {
-	width: 5px;
+	width: 6px;
 }
 .recording-settings-scroll::-webkit-scrollbar-track {
 	background: transparent;
 }
 .recording-settings-scroll::-webkit-scrollbar-thumb {
-	background: hsl(var(--editor-surface));
-	border-radius: 3px;
+	background: var(--scrollbar-thumb);
+	border-radius: 9999px;
+	border: 1px solid transparent;
+	background-clip: padding-box;
 }
 .recording-settings-scroll::-webkit-scrollbar-thumb:hover {
-	background: #4e4e56;
+	background: var(--scrollbar-thumb-hover);
+	background-clip: padding-box;
+}
+.recording-settings-scroll::-webkit-scrollbar-thumb:active {
+	background: var(--scrollbar-thumb-active);
+	background-clip: padding-box;
+}
+.recording-settings-scroll::-webkit-scrollbar-button {
+	display: none !important;
+	width: 0 !important;
+	height: 0 !important;
 }
 .recording-motion-control {
 	display: flex;
@@ -2838,37 +2997,18 @@
 	}
 }
 
-/* Shape picker lives in the left tool rail, next to the Assets sidebar. */
+/* Shape picker lives in the top tool rail of the sidebar card */
 .project-shape-rail-menu {
-	position: absolute;
-	z-index: 30;
-	top: 54px;
-	left: 8px;
+	position: relative;
 }
 
 .project-shape-rail-menu > summary {
-	width: 36px;
-	height: 38px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
 	list-style: none;
 	cursor: pointer;
-	color: var(--project-accent);
-	background: hsl(var(--editor-panel));
-	border: 1px solid #213951;
-	border-radius: 6px;
 }
 
 .project-shape-rail-menu > summary::-webkit-details-marker {
 	display: none;
-}
-
-.project-shape-rail-menu[open] > summary,
-.project-shape-rail-menu > summary:hover,
-.project-shape-rail-menu > summary:focus-visible {
-	border-color: var(--project-accent);
-	background: hsl(var(--editor-surface));
 }
 
 .project-shape-rail-icon {
@@ -2880,29 +3020,36 @@
 
 .project-shape-rail-icon > :last-child {
 	position: absolute;
-	right: -5px;
-	bottom: -4px;
+	right: -4px;
+	bottom: -3px;
 	background: hsl(var(--editor-panel));
 	border-radius: 50%;
 }
 
 .project-shape-rail-menu-items {
 	position: absolute;
-	z-index: 31;
-	top: 0;
-	left: calc(100% + 8px);
-	min-width: 168px;
-	padding: 6px;
+	z-index: 50;
+	top: calc(100% + 5px);
+	left: 0;
+	min-width: 150px;
+	padding: 5px;
 	border: 1px solid hsl(var(--border));
-	border-radius: 10px;
+	border-radius: 8px;
 	background: hsl(var(--editor-panel));
-	box-shadow: 0 12px 32px rgb(0 0 0 / 35%);
+	box-shadow: 0 12px 32px rgb(0 0 0 / 45%);
 }
 
 .project-shape-rail-menu-items button {
 	width: 100%;
 	justify-content: flex-start;
 	text-align: left;
+}
+
+.project-panel-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-left: auto;
 }
 
 /* Left Sidebar Top Navigation Sub-Menu */
@@ -3159,11 +3306,11 @@
 	gap: 9px;
 	align-content: start;
 	scrollbar-width: thin;
-	scrollbar-color: hsl(var(--editor-surface)) transparent;
+	scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 .project-shapes-grid::-webkit-scrollbar {
-	width: 5px;
+	width: 6px;
 }
 
 .project-shapes-grid::-webkit-scrollbar-track {
@@ -3171,12 +3318,26 @@
 }
 
 .project-shapes-grid::-webkit-scrollbar-thumb {
-	background: hsl(var(--editor-surface));
-	border-radius: 3px;
+	background: var(--scrollbar-thumb);
+	border-radius: 9999px;
+	border: 1px solid transparent;
+	background-clip: padding-box;
 }
 
 .project-shapes-grid::-webkit-scrollbar-thumb:hover {
-	background: #4e4e56;
+	background: var(--scrollbar-thumb-hover);
+	background-clip: padding-box;
+}
+
+.project-shapes-grid::-webkit-scrollbar-thumb:active {
+	background: var(--scrollbar-thumb-active);
+	background-clip: padding-box;
+}
+
+.project-shapes-grid::-webkit-scrollbar-button {
+	display: none !important;
+	width: 0 !important;
+	height: 0 !important;
 }
 
 .project-shape-card {
@@ -5529,7 +5690,7 @@
 
 /* ── In-Context Copilot Dock & Sidebar ────────────────────────────── */
 .project-workspace.with-copilot {
-	grid-template-columns: 48px 270px minmax(260px, 1fr) 240px 340px;
+	grid-template-columns: 280px minmax(260px, 1fr) 240px 340px;
 }
 
 .copilot-sidebar-dock {
@@ -6383,4 +6544,74 @@
 	z-index: 20;
 	pointer-events: auto;
 	user-select: none;
+}
+
+
+/* Keyframe Engine & Timeline Markers */
+.project-clip-keyframes {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	z-index: 6;
+}
+
+.project-clip-kf-marker {
+	position: absolute;
+	top: 14px;
+	transform: translate(-50%, -50%);
+	pointer-events: auto;
+	cursor: pointer;
+	padding: 0;
+	margin: 0;
+	background: transparent;
+	border: none;
+	color: #93c5fd;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: transform 0.15s ease, color 0.15s ease, filter 0.15s ease;
+	filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8));
+	outline: none;
+}
+
+.project-clip-kf-marker:hover {
+	color: #ffffff;
+	transform: translate(-50%, -50%) scale(1.35);
+	filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.8));
+}
+
+.project-clip-kf-marker.active {
+	color: #38bdf8;
+	transform: translate(-50%, -50%) scale(1.45);
+	filter: drop-shadow(0 0 6px #0284c7);
+}
+
+.project-transform-grid {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 6px;
+}
+
+.project-transform-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.project-prop-kf-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 3px;
+	border-radius: 4px;
+	border: none;
+	cursor: pointer;
+	background: transparent;
+	transition: all 0.15s ease;
+}
+
+.project-prop-kf-btn:hover {
+	background: rgba(255, 255, 255, 0.08);
 }

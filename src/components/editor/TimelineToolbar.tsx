@@ -2,6 +2,7 @@ import {
 	ArrowLineLeft,
 	ArrowsInLineHorizontal,
 	Copy,
+	Diamond,
 	Eye,
 	LockKey as LockKeyhole,
 	Magnet,
@@ -14,7 +15,7 @@ import {
 } from "@phosphor-icons/react";
 import { addTrack, toggleClipEnabled } from "@/core/timeline/commands";
 import type { ProjectCommand } from "@/core/timeline/history";
-import type { TimelineProject } from "@/core/timeline/types";
+import { clipDurationUs, type TimelineProject } from "@/core/timeline/types";
 import { findClipsAtPlayhead, timelineActionCommand } from "./timelineInteractions";
 
 interface Props {
@@ -47,6 +48,22 @@ export function TimelineToolbar({
 		? findClipsAtPlayhead(project, playheadUs).length > 0
 		: false;
 	const canSplit = !locked && (selection.length > 0 || hasClipsUnderPlayhead);
+	const activeClip = project?.tracks
+		.flatMap((t) => t.clips)
+		.find(
+			(c) =>
+				(selection.includes(c.id) ||
+					(c.startUs <= playheadUs && playheadUs <= c.startUs + clipDurationUs(c))) &&
+				c.startUs <= playheadUs &&
+				playheadUs <= c.startUs + clipDurationUs(c),
+		);
+	const canKeyframe = !locked && Boolean(activeClip);
+	const activeLocalMs = activeClip
+		? Math.round(Math.max(0, (playheadUs - activeClip.startUs) / 1000))
+		: 0;
+	const hasKeyframeAtPlayhead = Boolean(
+		activeClip?.keyframes?.some((k) => Math.abs(k.timeMs - activeLocalMs) <= 50),
+	);
 	const selectionDisabled = !selection.length || locked;
 	return (
 		<div className="project-timeline-toolbar">
@@ -103,13 +120,28 @@ export function TimelineToolbar({
 			>
 				<ArrowLineLeft size={17} />
 			</button>
+			<button
+				title={
+					canKeyframe
+						? hasKeyframeAtPlayhead
+							? "Remove keyframe at playhead (K)"
+							: "Add keyframe at playhead (K)"
+						: "Select a clip under playhead to add keyframe"
+				}
+				aria-label="Toggle keyframe at playhead"
+				disabled={!canKeyframe}
+				onClick={() => onCommand(timelineActionCommand("keyframe", selection, playheadUs))}
+				style={hasKeyframeAtPlayhead ? { color: "var(--captr-blue, #6fa8ff)" } : undefined}
+			>
+				<Diamond size={17} weight={hasKeyframeAtPlayhead ? "fill" : "regular"} />
+			</button>
 			<span className="project-toolbar-separator" />
 			<button
-				title="Add video track"
+				title="Add track"
 				onClick={() => onCommand((p) => addTrack(p, crypto.randomUUID(), "visual"))}
 			>
 				<Plus size={15} />
-				Video
+				Track
 			</button>
 			<button title="Add text overlay (T)" aria-label="Add text overlay" onClick={onAddText}>
 				<Plus size={15} />

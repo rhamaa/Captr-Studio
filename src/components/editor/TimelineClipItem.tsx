@@ -1,5 +1,6 @@
 import type { PointerEvent } from "react";
 import { useRef, useState } from "react";
+import { Diamond } from "@phosphor-icons/react";
 import { TimelineClipAudioPreview, TimelineFilmstrip } from "./TimelineSourcePreview";
 import { resolveClipSource } from "@/core/timeline/clipSource";
 import { relatedClipIds } from "@/core/timeline/editingCommands";
@@ -26,6 +27,7 @@ interface Props {
 	locked: boolean;
 	onCommand: (command: ProjectCommand) => void;
 	onSelect: (ids: string[]) => void;
+	onSeek?: (timeUs: number) => void;
 	onOpenRecording: (id: string) => void;
 	snappingEnabled?: boolean;
 	onSnapChange?: (timeUs: number | null) => void;
@@ -40,6 +42,7 @@ export function TimelineClipItem({
 	locked,
 	onCommand,
 	onSelect,
+	onSeek,
 	onOpenRecording,
 	snappingEnabled = true,
 	onSnapChange,
@@ -169,15 +172,27 @@ export function TimelineClipItem({
 				{shown.rate !== 1 ? ` · ${shown.rate}×` : ""}
 			</span>
 			{shown.keyframes && shown.keyframes.length > 0 && (
-				<div className="project-clip-keyframes" aria-hidden="true">
-					{shown.keyframes.map((kf) => (
-						<span
-							key={kf.id}
-							className="project-clip-kf-marker"
-							style={{ left: timeToPixels((kf.timeMs * 1000) / shown.rate, scale) }}
-							title={`${kf.property} at ${(kf.timeMs / 1000).toFixed(2)}s`}
-						/>
-					))}
+				<div className="project-clip-keyframes" aria-label="Clip keyframes">
+					{shown.keyframes.map((kf) => {
+						const kfTimeUs = shown.startUs + Math.round((kf.timeMs * 1000) / shown.rate);
+						const isActive = Math.abs(playheadUs - kfTimeUs) <= 50_000;
+						return (
+							<button
+								key={kf.id}
+								type="button"
+								className={`project-clip-kf-marker ${isActive ? "active" : ""}`}
+								style={{ left: timeToPixels((kf.timeMs * 1000) / shown.rate, scale) }}
+								title={`${kf.property} at ${(kf.timeMs / 1000).toFixed(2)}s (Click to seek)`}
+								aria-label={`${kf.property} keyframe at ${(kf.timeMs / 1000).toFixed(2)}s`}
+								onClick={(e) => {
+									e.stopPropagation();
+									onSeek?.(kfTimeUs);
+								}}
+							>
+								<Diamond size={8} weight="fill" />
+							</button>
+						);
+					})}
 				</div>
 			)}
 			<span

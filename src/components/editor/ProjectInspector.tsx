@@ -37,6 +37,7 @@ import { setClipFades } from "@/core/timeline/editingCommands";
 import type { ProjectCommand } from "@/core/timeline/history";
 import { setShapeStyleOverride } from "@/core/timeline/shapeCommands";
 import { clipDurationUs, type ClipTransition, type ClipTransitionPreset, type ComponentAnimation, type ShapeStyle, type TimelineProject } from "@/core/timeline/types";
+import { sampleClipTransform } from "@/core/timeline/clipTransform";
 import { CanvasProjectInspector } from "./CanvasProjectInspector";
 import { useProjectMessages } from "./useProjectMessages";
 
@@ -245,12 +246,17 @@ export function ProjectInspector({
 	const fromAsset = transitionFrom && resolveClipSource(project, transitionFrom),
 		toAsset = transitionTo && resolveClipSource(project, transitionTo);
 	const localMs = clip ? Math.round(Math.max(0, (playheadUs - clip.startUs) / 1000)) : 0;
+	const displayTransform = clip
+		? clip.keyframes && clip.keyframes.length > 0
+			? sampleClipTransform(clip, localMs * 1000)
+			: clip.transform
+		: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 };
 	const handleAddKeyframe = (property: KeyframeProperty) => {
 		if (!clip) return;
 		const value =
 			property === "position"
-				? { x: clip.transform.x, y: clip.transform.y }
-				: clip.transform[property];
+				? { x: displayTransform.x, y: displayTransform.y }
+				: displayTransform[property];
 		onCommand((p) =>
 			addClipKeyframe(p, clip.id, {
 				id: `kf_${crypto.randomUUID()}`,
@@ -260,6 +266,61 @@ export function ProjectInspector({
 				easing: "ease-in-out",
 			}),
 		);
+	};
+	const handleTogglePropKeyframe = (prop: KeyframeProperty) => {
+		if (!clip) return;
+		const existing = clip.keyframes?.find(
+			(k) => k.property === prop && Math.abs(k.timeMs - localMs) <= 50,
+		);
+		if (existing) {
+			onCommand((p) => removeClipKeyframe(p, clip.id, existing.id));
+		} else {
+			const val =
+				prop === "position"
+					? { x: displayTransform.x, y: displayTransform.y }
+					: displayTransform[prop];
+			onCommand((p) =>
+				addClipKeyframe(p, clip.id, {
+					id: `kf_${crypto.randomUUID()}`,
+					timeMs: localMs,
+					property: prop,
+					value: val,
+					easing: "ease-in-out",
+				}),
+			);
+		}
+	};
+	const handleTransformChange = (
+		key: "x" | "y" | "scale" | "rotation" | "opacity",
+		newVal: number,
+	) => {
+		if (!clip) return;
+		const prop: KeyframeProperty = key === "x" || key === "y" ? "position" : key;
+		onCommand((p) => {
+			const nextTransform = {
+				...clip.transform,
+				[key]: newVal,
+			};
+			let next = updateClip(p, clip.id, { transform: nextTransform });
+			const targetClip = next.tracks.flatMap((t) => t.clips).find((c) => c.id === clip.id);
+			if (targetClip?.keyframes?.some((k) => k.property === prop)) {
+				const kfVal =
+					prop === "position"
+						? {
+								x: key === "x" ? newVal : nextTransform.x,
+								y: key === "y" ? newVal : nextTransform.y,
+							}
+						: newVal;
+				next = addClipKeyframe(next, clip.id, {
+					id: `kf_${crypto.randomUUID()}`,
+					timeMs: localMs,
+					property: prop,
+					value: kfVal,
+					easing: "ease-in-out",
+				});
+			}
+			return next;
+		});
 	};
 	const componentDurationLimit = (edge: "enter" | "exit") => {
 		if (!clip) return 0;
@@ -643,35 +704,75 @@ export function ProjectInspector({
 									</button>
 								</div>
 							</div>
-							{(["x", "y", "scale", "rotation", "opacity"] as const).map((key) => (
-								<label key={key}>
-									{key.charAt(0).toUpperCase() + key.slice(1)}
-									<input
-										aria-label={`Clip ${key}`}
-										type="number"
-										step={key === "scale" || key === "opacity" ? 0.05 : 1}
-										value={clip.transform[key]}
-										min={
-											key === "scale"
-												? 0.05
-												: key === "opacity"
-													? 0
-													: undefined
-										}
-										max={key === "opacity" ? 1 : undefined}
-										onChange={(e) =>
-											onCommand((p) =>
-												updateClip(p, clip.id, {
-													transform: {
-														...clip.transform,
-														[key]: Number(e.target.value),
-													},
-												}),
-											)
-										}
-									/>
-								</label>
-							))}
+							<div className="project-transform-grid flex flex-col gap-1.5 mt-1">
+								{(
+									[
+										{ key: "x" as const, label: "X", prop: "position" as KeyframeProperty, step: 1, min: undefined, max: undefined },
+										{ key: "y" as const, label: "Y", prop: "position" as KeyframeProperty, step: 1, min: undefined, max: undefined },
+										{ key: "scale" as const, label: "Scale", prop: "scale" as KeyframeProperty, step: 0.05, min: 0.05, max: undefined },
+										{ key: "rotation" as const, label: "Rotation", prop: "rotation" as KeyframeProperty, step: 1, min: undefined, max: undefined },
+										{ key: "opacity" as const, label: "Opacity", prop: "opacity" as KeyframeProperty, step: 0.05, min: 0, max: 1 },
+									]
+								).map(({ key, label, prop, step, min, max }) => {
+									const isAtKf = Boolean(
+										clip.keyframes?.some(
+											(k) => k.property === prop && Math.abs(k.timeMs - localMs) <= 50,
+										),
+									);
+									const isAnimated = Boolean(
+										clip.keyframes?.some((k) => k.property === prop),
+									);
+									return (
+										<div
+											key={key}
+											className="project-transform-row flex items-center justify-between gap-2"
+										>
+											<div className="flex items-center gap-1.5 min-w-[70px]">
+												<button
+													type="button"
+													className={`project-prop-kf-btn p-1 rounded transition-colors cursor-pointer ${
+														isAtKf
+															? "text-[var(--captr-blue,#6fa8ff)] bg-blue-500/10 hover:bg-blue-500/20"
+															: isAnimated
+																? "text-white/60 hover:text-white hover:bg-white/10"
+																: "text-white/30 hover:text-white/80 hover:bg-white/5"
+													}`}
+													title={
+														isAtKf
+															? `Remove ${prop} keyframe at ${(localMs / 1000).toFixed(2)}s`
+															: `Add ${prop} keyframe at ${(localMs / 1000).toFixed(2)}s`
+													}
+													aria-label={`Toggle ${label} keyframe`}
+													onClick={() => handleTogglePropKeyframe(prop)}
+												>
+													<Diamond size={13} weight={isAtKf ? "fill" : "regular"} />
+												</button>
+												<span className="text-xs text-white/80 select-none font-medium">
+													{label}
+												</span>
+											</div>
+											<input
+												aria-label={`Clip ${key}`}
+												type="number"
+												className="project-transform-input flex-1 max-w-[140px] bg-white/5 border border-white/10 rounded px-2 py-0.5 text-xs text-right text-white focus:outline-none focus:border-[var(--captr-blue,#6fa8ff)]"
+												step={step}
+												min={min}
+												max={max}
+												value={
+													isAnimated
+														? Number(
+																displayTransform[key].toFixed(
+																	key === "scale" || key === "opacity" ? 3 : 1,
+																),
+															)
+														: clip.transform[key]
+												}
+												onChange={(e) => handleTransformChange(key, Number(e.target.value))}
+											/>
+										</div>
+									);
+								})}
+							</div>
 							<div className="project-keyframe-section">
 								<div className="project-keyframe-header">
 									<h4>

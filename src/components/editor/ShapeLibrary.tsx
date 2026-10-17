@@ -1,4 +1,4 @@
-import { MagnifyingGlass, X } from "@phosphor-icons/react";
+import { Folder, MagnifyingGlass, Plus, Square, X } from "@phosphor-icons/react";
 import React, { useMemo, useState } from "react";
 import type { ShapeDefinition } from "@/core/timeline/types";
 
@@ -7,6 +7,7 @@ export interface ShapeLibraryProps {
 	onClose?: () => void;
 	activeTab?: "assets" | "shapes";
 	onSelectTab?: (tab: "assets" | "shapes") => void;
+	toolRail?: React.ReactNode;
 }
 
 export type ShapeCategory = "all" | "highlights" | "arrows" | "callouts" | "privacy";
@@ -453,6 +454,7 @@ export function ShapeLibrary({
 	onClose,
 	activeTab = "shapes",
 	onSelectTab,
+	toolRail,
 }: ShapeLibraryProps) {
 	const [activeCategory, setActiveCategory] = useState<ShapeCategory>("all");
 	const [activeColor, setActiveColor] = useState<string>("#6FA8FF");
@@ -478,21 +480,28 @@ export function ShapeLibrary({
 		<aside className="project-assets project-shapes-panel select-none">
 			{/* Panel Header */}
 			<header className="project-panel-header">
-				{onSelectTab ? (
+				{toolRail ? (
+					toolRail
+				) : onSelectTab ? (
 					<div className="project-sidebar-top-tabs">
 						<button
 							type="button"
 							className={`project-sidebar-top-tab ${activeTab === "assets" ? "active" : ""}`}
 							onClick={() => onSelectTab("assets")}
 						>
-							Assets
+							<Folder size={16} weight={activeTab === "assets" ? "fill" : "regular"} />
+							<span>Assets</span>
 						</button>
 						<button
 							type="button"
 							className={`project-sidebar-top-tab ${activeTab === "shapes" ? "active" : ""}`}
 							onClick={() => onSelectTab("shapes")}
 						>
-							Shapes &amp; Highlights
+							<span className="project-shape-rail-icon" aria-hidden="true">
+								<Square size={15} weight={activeTab === "shapes" ? "fill" : "regular"} />
+								<Plus size={8} weight="bold" />
+							</span>
+							<span>Shapes &amp; Highlights</span>
 							<span>{filteredPresets.length}</span>
 						</button>
 					</div>
@@ -506,7 +515,7 @@ export function ShapeLibrary({
 					<button
 						type="button"
 						onClick={onClose}
-						className="project-panel-close-btn"
+						className="project-panel-close-btn ml-auto"
 						title="Close Shapes"
 						aria-label="Close Shapes"
 					>

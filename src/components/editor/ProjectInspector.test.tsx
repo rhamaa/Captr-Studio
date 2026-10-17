@@ -202,3 +202,13 @@ it("projectInspector edits shape style per placement without mutating the asset"
 	expect(next.tracks[0]?.clips[1]?.content?.kind).toBe("shape");
 	expect(next.tracks[0]?.clips[1]?.shapeStyleOverride?.fill).toBe("#ff0000");
 });
+
+it("projectInspector renders inline diamond keyframe toggle buttons on transform property rows", () => {
+	const project = projectWithShapesAndTransition();
+	const html = markup(project, { selection: ["left-clip"] });
+	expect(html).toContain('aria-label="Toggle X keyframe"');
+	expect(html).toContain('aria-label="Toggle Y keyframe"');
+	expect(html).toContain('aria-label="Toggle Scale keyframe"');
+	expect(html).toContain('aria-label="Toggle Rotation keyframe"');
+	expect(html).toContain('aria-label="Toggle Opacity keyframe"');
+});

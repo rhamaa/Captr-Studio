@@ -33,7 +33,7 @@ export function createTimelineProject(projectId: string, title: string): Timelin
 		tracks: [
 			{
 				id: "visual-1",
-				name: "Video 1",
+				name: "Track 1",
 				kind: "visual",
 				locked: false,
 				muted: false,
@@ -166,7 +166,7 @@ export function addTextOverlay(
 	const overlay = structuredClone(DEFAULT_TEXT_OVERLAY),
 		durationUs = 5_000_000,
 		number =
-			p.tracks.filter((t) => t.kind === "visual" && /^Text(?: \d+)?$/.test(t.name)).length +
+			p.tracks.filter((t) => t.kind === "visual" && /^Track(?: \d+)?$/i.test(t.name)).length +
 			1;
 	const clip: TimelineClip = {
 		id: ids.clipId,
@@ -181,7 +181,7 @@ export function addTextOverlay(
 	};
 	const newTrack = {
 		id: ids.trackId,
-		name: `Text ${number}`,
+		name: `Track ${number}`,
 		kind: "visual" as const,
 		locked: false,
 		muted: false,
@@ -464,18 +464,35 @@ export function updateTrack(
 		Object.assign(t, patch);
 	});
 }
-export function addTrack(p: TimelineProject, id: string, kind: "visual" | "audio") {
-	return edit(p, (n) =>
+export function addTrack(
+	p: TimelineProject,
+	id: string,
+	kind: "visual" | "audio",
+	customName?: string,
+) {
+	return edit(p, (n) => {
+		let name = customName;
+		if (!name) {
+			if (kind === "visual") {
+				const count =
+					n.tracks.filter((t) => t.kind === "visual" && /^Track(?: \d+)?$/i.test(t.name)).length + 1;
+				name = `Track ${count}`;
+			} else {
+				const count =
+					n.tracks.filter((t) => t.kind === "audio" && /^Audio(?: \d+)?$/i.test(t.name)).length + 1;
+				name = `Audio ${count}`;
+			}
+		}
 		n.tracks.push({
 			id,
-			name: kind === "visual" ? "Video" : "Audio",
+			name,
 			kind,
 			locked: false,
 			muted: false,
 			hidden: false,
 			clips: [],
-		}),
-	);
+		});
+	});
 }
 export function removeTrack(p: TimelineProject, id: string): TimelineProject {
 	return edit(p, (n) => {

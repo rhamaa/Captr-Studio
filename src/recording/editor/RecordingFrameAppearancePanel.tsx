@@ -318,6 +318,9 @@ export function RecordingFrameAppearancePanel({
 					(value) => updateAppearance({ shadow: { blur: value } }),
 					0,
 				)}
+				<p className="col-span-2 text-[11px] text-muted-foreground">
+					{t("recordingFrameAppearance.shadowDirection", "Shadow direction (X/Y)")}
+				</p>
 				{numberField(
 					appearance.shadow.offsetX,
 					"shadowOffsetX",

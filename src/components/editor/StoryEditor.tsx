@@ -19,6 +19,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { AgentDiffSummary } from "@/core/timeline/agentPayload";
 import { resolveMediaAsset } from "@/core/timeline/clipSource";
 import {
+	addClipKeyframe,
 	addTextOverlay,
 	placeAsset,
 	removeAsset,
@@ -247,8 +248,8 @@ export function StoryEditor({
 	}, [storyProject.canvas.height, storyProject.canvas.width]);
 
 	const [selectedTransitionId, setSelectedTransitionId] = useState<string | null>(null);
-	const [sidebarTab, setSidebarTab] = useState<"assets" | "shapes">("assets");
 	const [terminalOpen, setTerminalOpen] = useState(false);
+	const [sidebarTab, setSidebarTab] = useState<"assets" | "shapes">("assets");
 	const [captionsOpen, setCaptionsOpen] = useState(false);
 	const [loopPlayback, setLoopPlayback] = useState(false);
 	const [showGridGuide, setShowGridGuide] = useState(false);
@@ -535,6 +536,11 @@ export function StoryEditor({
 				}
 				return;
 			}
+			if (e.key.toLowerCase() === "k" && !e.ctrlKey && !e.metaKey) {
+				e.preventDefault();
+				onCommand(timelineActionCommand("keyframe", selection, playheadUs));
+				return;
+			}
 			if (e.key.toLowerCase() === "f" && !e.ctrlKey && !e.metaKey) {
 				e.preventDefault();
 				setFullscreenPreview((v) => !v);
@@ -650,39 +656,43 @@ export function StoryEditor({
 		}
 	};
 
+	const toolRail = (
+		<ProjectToolRail
+			activeTab={sidebarTab}
+			onSelectTab={setSidebarTab}
+			onAddShape={addShape}
+			templates={rootProject.designTemplates ?? []}
+			onAddText={() => {
+				const clipId = crypto.randomUUID();
+				onCommand(
+					(p) =>
+						addTextOverlay(p, playheadUs, {
+							clipId,
+							trackId: crypto.randomUUID(),
+						}),
+					[clipId],
+				);
+			}}
+			onApplyTemplate={(id) => {
+				const clipId = crypto.randomUUID();
+				onCommand(
+					(p) =>
+						applyDesignTemplate(p, id, playheadUs, {
+							clipId,
+							trackId: crypto.randomUUID(),
+						}),
+					[clipId],
+				);
+			}}
+		/>
+	);
+
 	return (
 		<>
 			<div className={`project-workspace ${copilotOpen ? "with-copilot" : ""}`}>
-				<ProjectToolRail
-					activeTab={sidebarTab}
-					onSelectTab={setSidebarTab}
-					onAddShape={addShape}
-					templates={rootProject.designTemplates ?? []}
-					onAddText={() => {
-						const clipId = crypto.randomUUID();
-						onCommand(
-							(p) =>
-								addTextOverlay(p, playheadUs, {
-									clipId,
-									trackId: crypto.randomUUID(),
-								}),
-							[clipId],
-						);
-					}}
-					onApplyTemplate={(id) => {
-						const clipId = crypto.randomUUID();
-						onCommand(
-							(p) =>
-								applyDesignTemplate(p, id, playheadUs, {
-									clipId,
-									trackId: crypto.randomUUID(),
-								}),
-							[clipId],
-						);
-					}}
-				/>
 				{sidebarTab === "assets" ? (
 					<AssetLibrary
+						toolRail={toolRail}
 						activeTab={sidebarTab}
 						onSelectTab={setSidebarTab}
 						storyAssets={storyProject.localAssets ?? []}
@@ -728,6 +738,7 @@ export function StoryEditor({
 					/>
 				) : (
 					<ShapeLibrary
+						toolRail={toolRail}
 						activeTab={sidebarTab}
 						onSelectTab={setSidebarTab}
 						onAddShape={addCustomShape}
@@ -829,9 +840,49 @@ export function StoryEditor({
 										}
 									}}
 									onUpdateClipTransform={(clipId, transform) => {
-										onCommand((p: TimelineProject) =>
-											updateClip(p, clipId, { transform }),
-										);
+										onCommand((p: TimelineProject) => {
+											let next = updateClip(p, clipId, { transform });
+											const clip = next.tracks
+												.flatMap((t) => t.clips)
+												.find((c) => c.id === clipId);
+											if (clip && clip.keyframes && clip.keyframes.length > 0) {
+												const localMs = Math.round(
+													Math.max(0, (playheadUs - clip.startUs) / 1000),
+												);
+												const hasPosKf = clip.keyframes.some((k) => k.property === "position");
+												const hasScaleKf = clip.keyframes.some((k) => k.property === "scale");
+												const hasRotKf = clip.keyframes.some((k) => k.property === "rotation");
+
+												if (hasPosKf || transform.x !== 0 || transform.y !== 0) {
+													next = addClipKeyframe(next, clipId, {
+														id: `kf_${crypto.randomUUID()}`,
+														timeMs: localMs,
+														property: "position",
+														value: { x: transform.x, y: transform.y },
+														easing: "ease-in-out",
+													});
+												}
+												if (hasScaleKf || transform.scale !== 1) {
+													next = addClipKeyframe(next, clipId, {
+														id: `kf_${crypto.randomUUID()}`,
+														timeMs: localMs,
+														property: "scale",
+														value: transform.scale,
+														easing: "ease-in-out",
+													});
+												}
+												if (hasRotKf || transform.rotation !== 0) {
+													next = addClipKeyframe(next, clipId, {
+														id: `kf_${crypto.randomUUID()}`,
+														timeMs: localMs,
+														property: "rotation",
+														value: transform.rotation,
+														easing: "ease-in-out",
+													});
+												}
+											}
+											return next;
+										});
 									}}
 									onDropAsset={handleDropAssetOnCanvas}
 								/>

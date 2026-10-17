@@ -91,6 +91,12 @@
 		--slider-thumb-shadow: 216 100% 72% / 0.35;
 		--slider-glow: 263 87% 72% / 0.35;
 
+		/* Scrollbar colors — light mode */
+		--scrollbar-track: transparent;
+		--scrollbar-thumb: rgba(52, 64, 84, 0.2);
+		--scrollbar-thumb-hover: rgba(52, 64, 84, 0.38);
+		--scrollbar-thumb-active: #6FA8FF;
+
 		/* Timeline colors */
 		--timeline-video: #6FA8FF;
 		--timeline-audio: #8DDB9B;
@@ -142,6 +148,12 @@
 		--slider-thumb: 216 100% 72%;
 		--slider-thumb-shadow: 216 100% 72% / 0.4;
 		--slider-glow: 263 87% 72% / 0.5;
+
+		/* Scrollbar colors — dark mode */
+		--scrollbar-track: transparent;
+		--scrollbar-thumb: rgba(255, 255, 255, 0.16);
+		--scrollbar-thumb-hover: rgba(255, 255, 255, 0.32);
+		--scrollbar-thumb-active: #6FA8FF;
 
 		/* Timeline colors */
 		--timeline-video: #6FA8FF;
@@ -240,14 +252,61 @@
 		animation: indeterminate-progress 1.15s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 	}
 
-	/* Hidden scrollbar - still scrollable but invisible */
-	.custom-scrollbar {
-		scrollbar-width: none; /* Firefox */
-		-ms-overflow-style: none; /* IE/Edge */
+	/* Global Custom Scrollbars for Captr Studio (Horizontal & Vertical) */
+	*::-webkit-scrollbar {
+		width: 6px;
+		height: 6px;
 	}
 
-	.custom-scrollbar::-webkit-scrollbar {
-		display: none; /* Chrome, Safari, Opera */
+	*::-webkit-scrollbar-track {
+		background: var(--scrollbar-track);
+	}
+
+	*::-webkit-scrollbar-thumb {
+		background: var(--scrollbar-thumb);
+		border-radius: 9999px;
+		border: 1px solid transparent;
+		background-clip: padding-box;
+		transition: background-color 0.15s ease;
+	}
+
+	*::-webkit-scrollbar-thumb:hover {
+		background: var(--scrollbar-thumb-hover);
+		background-clip: padding-box;
+	}
+
+	*::-webkit-scrollbar-thumb:active {
+		background: var(--scrollbar-thumb-active);
+		background-clip: padding-box;
+	}
+
+	*::-webkit-scrollbar-button {
+		display: none !important;
+		width: 0 !important;
+		height: 0 !important;
+	}
+
+	*::-webkit-scrollbar-corner {
+		background: transparent;
+	}
+
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--scrollbar-thumb) transparent;
+	}
+
+	/* Hidden scrollbar - still scrollable but invisible */
+	.custom-scrollbar,
+	.no-scrollbar {
+		scrollbar-width: none !important;
+		-ms-overflow-style: none !important;
+	}
+
+	.custom-scrollbar::-webkit-scrollbar,
+	.no-scrollbar::-webkit-scrollbar {
+		display: none !important;
+		width: 0 !important;
+		height: 0 !important;
 	}
 
 	/* Smooth playback scrubber */

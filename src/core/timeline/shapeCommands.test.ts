@@ -140,4 +140,33 @@ describe("inline shape commands", () => {
 			setShapeStyleOverride(edited, "first", null).tracks[0]!.clips[0]!.shapeStyleOverride,
 		).toBeUndefined();
 	});
+
+	it("names new tracks formed from shapes as Shape, Shape 1, Shape 2", () => {
+		let project = createTimelineProject("shape-names", "Shapes");
+		// Place first shape on visual-1 (starts at 0 to 5s)
+		project = createAndPlaceShape(project, rectangle, 0, { clipId: "c1", trackId: "t1" });
+		// Place second shape overlapping at 0s -> creates new track
+		project = createAndPlaceShape(project, rectangle, 0, { clipId: "c2", trackId: "t2" });
+		expect(project.tracks.find((t) => t.id === "t2")?.name).toBe("Shape");
+
+		// Place third shape overlapping at 0s -> creates another new track
+		project = createAndPlaceShape(project, rectangle, 0, { clipId: "c3", trackId: "t3" });
+		expect(project.tracks.find((t) => t.id === "t3")?.name).toBe("Shape 1");
+
+		// Place fourth shape overlapping at 0s -> creates another new track
+		project = createAndPlaceShape(project, rectangle, 0, { clipId: "c4", trackId: "t4" });
+		expect(project.tracks.find((t) => t.id === "t4")?.name).toBe("Shape 2");
+	});
+
+	it("names visual tracks Track 1, Track 2... and audio tracks Audio 1, Audio 2...", () => {
+		let project = createTimelineProject("naming-proj", "Naming");
+		expect(project.tracks[0].name).toBe("Track 1");
+		expect(project.tracks[1].name).toBe("Audio 1");
+
+		project = addTrack(project, "v2", "visual");
+		expect(project.tracks.find((t) => t.id === "v2")?.name).toBe("Track 2");
+
+		project = addTrack(project, "a2", "audio");
+		expect(project.tracks.find((t) => t.id === "a2")?.name).toBe("Audio 2");
+	});
 });

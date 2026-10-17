@@ -76,6 +76,12 @@
 	background: rgba(107, 107, 120, 0.4);
 }
 
+.source-selector-scroll::-webkit-scrollbar-button {
+	display: none !important;
+	width: 0 !important;
+	height: 0 !important;
+}
+
 /* Support for Firefox */
 .source-selector-scroll {
 	scrollbar-width: thin;

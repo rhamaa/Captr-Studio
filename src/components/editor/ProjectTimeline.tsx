@@ -821,7 +821,7 @@ export function ProjectTimeline({
 									{!track.clips.length && (
 										<span className="project-track-empty">
 											{track.kind === "visual"
-												? "Drag video, images, text or recordings here"
+												? "Drag media here (video, images, shapes, text)"
 												: "Drag audio here"}
 										</span>
 									)}
@@ -839,6 +839,7 @@ export function ProjectTimeline({
 											onSnapChange={setSnapGuideUs}
 											onCommand={onCommand}
 											onSelect={onSelect}
+											onSeek={onSeek}
 											onOpenRecording={onOpenRecording}
 										/>
 									))}

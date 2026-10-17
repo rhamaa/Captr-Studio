@@ -2,11 +2,15 @@ import {
 	ArrowsDownUp,
 	ArrowUp,
 	CloudArrowUp,
+	Folder,
 	List,
 	Microphone,
+	Plus,
+	Square,
 	SquaresFour,
 	VideoCamera,
 } from "@phosphor-icons/react";
+import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import type { MediaAsset, RecordingPackage } from "@/core/timeline/types";
 import { AssetCard } from "./AssetCard";
@@ -27,6 +31,7 @@ export interface AssetLibraryProps {
 	onRemoveStoryMedia?: (id: string) => void;
 	activeTab?: "assets" | "shapes";
 	onSelectTab?: (tab: "assets" | "shapes") => void;
+	toolRail?: ReactNode;
 }
 
 type LibraryMediaEntry = { asset: MediaAsset; owner: "project" | "story" };
@@ -51,6 +56,7 @@ export function AssetLibrary({
 	onRemoveStoryMedia,
 	activeTab = "assets",
 	onSelectTab,
+	toolRail,
 }: AssetLibraryProps) {
 	const m = useProjectMessages();
 	const [view, setView] = useState<"grid" | "list">("grid"),
@@ -98,14 +104,17 @@ export function AssetLibrary({
 			}}
 		>
 			<header className="project-panel-header">
-				{onSelectTab ? (
+				{toolRail ? (
+					toolRail
+				) : onSelectTab ? (
 					<div className="project-sidebar-top-tabs">
 						<button
 							type="button"
 							className={`project-sidebar-top-tab ${activeTab === "assets" ? "active" : ""}`}
 							onClick={() => onSelectTab("assets")}
 						>
-							{m("assets")}
+							<Folder size={16} weight={activeTab === "assets" ? "fill" : "regular"} />
+							<span>{m("assets")}</span>
 							{!!media.length && <span>{media.length}</span>}
 						</button>
 						<button
@@ -113,7 +122,11 @@ export function AssetLibrary({
 							className={`project-sidebar-top-tab ${activeTab === "shapes" ? "active" : ""}`}
 							onClick={() => onSelectTab("shapes")}
 						>
-							Shapes
+							<span className="project-shape-rail-icon" aria-hidden="true">
+								<Square size={15} weight={activeTab === "shapes" ? "fill" : "regular"} />
+								<Plus size={8} weight="bold" />
+							</span>
+							<span>Shapes</span>
 						</button>
 					</div>
 				) : (
@@ -122,32 +135,35 @@ export function AssetLibrary({
 						<span>{media.length || ""}</span>
 					</h2>
 				)}
-				<button
-					aria-label={view === "grid" ? "List view" : "Grid view"}
-					title="Change asset view"
-					onClick={() => setView((v) => (v === "grid" ? "list" : "grid"))}
-				>
-					{view === "grid" ? <List size={18} /> : <SquaresFour size={18} />}
-				</button>
-				<button
-					aria-label="Sort assets"
-					title={sort === "name" ? "Sort by added order" : "Sort by name"}
-					onClick={() => setSort((s) => (s === "added" ? "name" : "added"))}
-				>
-					<ArrowsDownUp size={16} />
-				</button>
-				<button className="project-import-button" onClick={() => onImport()}>
-					<CloudArrowUp size={18} />
-					{m("import")}
-				</button>
-				<button
-					className="project-import-button"
-					aria-label={m("recordAudio")}
-					onClick={onRecordAudio}
-				>
-					<Microphone size={18} />
-					{m("recordAudio")}
-				</button>
+				<div className="project-panel-header-actions">
+					<button
+						aria-label={view === "grid" ? "List view" : "Grid view"}
+						title="Change asset view"
+						onClick={() => setView((v) => (v === "grid" ? "list" : "grid"))}
+					>
+						{view === "grid" ? <List size={18} /> : <SquaresFour size={18} />}
+					</button>
+					<button
+						aria-label="Sort assets"
+						title={sort === "name" ? "Sort by added order" : "Sort by name"}
+						onClick={() => setSort((s) => (s === "added" ? "name" : "added"))}
+					>
+						<ArrowsDownUp size={16} />
+					</button>
+					<button className="project-import-button" onClick={() => onImport()} title={m("import")}>
+						<CloudArrowUp size={18} />
+						<span className="hidden sm:inline">{m("import")}</span>
+					</button>
+					<button
+						className="project-import-button"
+						aria-label={m("recordAudio")}
+						title={m("recordAudio")}
+						onClick={onRecordAudio}
+					>
+						<Microphone size={18} />
+						<span className="hidden sm:inline">{m("recordAudio")}</span>
+					</button>
+				</div>
 			</header>
 			{!!media.length && (
 				<div className="project-assets-search">

@@ -142,6 +142,12 @@
 	border-radius: 10px;
 }
 
+.menuCard::-webkit-scrollbar-button {
+	display: none !important;
+	width: 0 !important;
+	height: 0 !important;
+}
+
 .ddLabel {
 	font-size: 9px;
 	font-weight: 600;
