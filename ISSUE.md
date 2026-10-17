@@ -1,5 +1,12 @@
 # Issue Log & Regression Checklist
 
+## Story Editor finishing — 17 Oktober 2026
+
+- Baseline otomatis di luar sandbox Windows: **1.615/1.620 lulus; 5 gagal** pada empat file. Sebagian besar 24 kegagalan run sebelumnya tidak muncul di luar sandbox; jangan menganggap semuanya bug produk.
+- Lima kegagalan tersisa adalah tes/fixture lama: callback Text/Shape/Template pindah ke tool rail dan Assets disatukan (2); fixture legacy media layer kehilangan `name`/`trackIndex` (1); assertion audio decoder belum menerima opsi container (1); URL loopback harus memakai port server aktif (1). Tes diperbarui tanpa melonggarkan validator atau mengubah perilaku produk.
+- Native QA HUD/perangkat, transisi desktop, dan pemeriksaan hasil export secara visual tetap pending; tes otomatis bukan bukti capture atau playback hardware.
+- Rencana lima tahap: `docs/superpowers/plans/2026-10-17-story-finishing.md`.
+
 **Update terbaru — 12 Oktober 2026:** [Issue #13: Loop Background Studio](#13-mini-app-loop-background-studio-gif-background-seamless-12-oktober-2026) sudah memiliki MVP dan tes otomatis; QA native masih pending. QA native regresi Issue #12 juga belum dijalankan. Timeline pengerjaan tercatat di [ROADMAP.md](ROADMAP.md), kondisi pengembangan di [CHANGELOG.md](CHANGELOG.md).
 
 

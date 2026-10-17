@@ -69,6 +69,8 @@ describe("multi-layer media contract", () => {
 				mediaTrackLayers: [
 					{
 						id: "v",
+						name: "Video layer",
+						trackIndex: 0,
 						type: "video",
 						sourcePath: "b.mp4",
 						startMs: 0,
