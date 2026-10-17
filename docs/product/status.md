@@ -1,6 +1,6 @@
 # Status fitur dan batas dukungan
 
-Halaman ini mencatat kondisi checkout pada **10 Oktober 2026**, dengan package `1.4.0-beta.1`. Status implementasi, status tes, dan status rilis adalah hal berbeda.
+Halaman ini mencatat kondisi checkout pada **18 Oktober 2026**, dengan package `1.4.0-beta.3`. Status implementasi, status tes, dan status rilis adalah hal berbeda.
 
 | Label | Arti |
 | --- | --- |
@@ -24,15 +24,15 @@ Halaman ini mencatat kondisi checkout pada **10 Oktober 2026**, dengan package `
 | Assets global dan Story Media privat | Tersedia, unreleased | Resolusi scope, publikasi, penghapusan, dan persistence diuji. |
 | Templates Text/Shape independen | Tersedia, unreleased | Preset menghasilkan salinan konten; bukan source media sintetis. |
 | Transisi visual dan animasi enter/exit | Tersedia | Handle source terbatas; evaluasi preview/export bersama. |
-| Keyframe position/scale/rotation/opacity | Tersedia | Inspector dan evaluator ada; editing graph lanjutan tetap backlog. |
+| Keyframe position/scale/rotation/opacity | Tersedia | Inspector, evaluator dan graph cubic-Bezier dengan dua handle tersedia. |
 | Canvas gizmo, zoom/pan, frame stepping, loop | Tersedia | Kontrol Story Editor terpasang; shortcut terpisah dari mode mengetik. |
 | Voiceover privat dengan playhead anchor | Tersedia, unreleased; QA native pending | Registrasi source dan placement dipisahkan; stale completion ditolak. |
 | Import video/gambar/audio | Tersedia; QA native pending | Source masuk library; tidak berarti otomatis ditempatkan di timeline. |
 | Whisper lokal dan metadata transkrip | Tersedia | Memerlukan runtime/model yang tersedia di mesin pengguna. |
-| Subtitle preview dan metadata milik Story | Parsial | Metadata round-trip tersedia; preview overlay belum menjadi caption final yang dibakar ke frame ekspor Story. |
-| Editor caption final dan burn-in Story | Backlog | Jangan mengiklankan subtitle preview sebagai dukungan ekspor final lengkap. |
-| Waveform Story | Parsial | Tampilan masih sintetis; ekstraksi peak audio nyata belum selesai. |
-| Filmstrip thumbnail video di timeline | Backlog | Belum dicatat sebagai finishing selesai. |
+| Subtitle preview legacy | Tersedia | Generate menjadi caption final untuk menyertakannya dalam frame ekspor Story. |
+| Editor caption final dan burn-in Story | Tersedia, unreleased; QA native pending | Teks segmen/kata, timing segmen, style, posisi dan undo/redo; mengikuti clock placement/Record. |
+| Waveform Story | Tersedia, unreleased; QA native pending | Peak sumber asli; package audio Record mengikuti offset/cut/rate komposisi. |
+| Filmstrip thumbnail video di timeline | Tersedia, unreleased; QA native pending | Maksimal 12 frame per klip, cache 120 thumbnail, satu decoder aktif. |
 | Copilot, MCP, ghost preview, rencana edit | Tersedia | Context membawa scope/projectId/generation/revision; draft stale ditolak. |
 | Terminal project dan konfigurasi tersimpan | Tersedia | Konfigurasi tingkat project; bukan setting lokal satu Story. |
 | Hyperframe HTML, versi draft, MP4 offscreen | Tersedia | Catatan implementasi 6–7 Oktober; QA encoder/perangkat tidak diperbarui oleh tes ownership. |
@@ -40,9 +40,11 @@ Halaman ini mencatat kondisi checkout pada **10 Oktober 2026**, dengan package `
 | Rename, Save As, Home/New/Open guards | Tersedia; QA native pending | Rename mempertahankan ID; Save As menghasilkan identitas salinan. |
 | Konversi Record V1/V2 | Terbatas | Eksplisit ke salinan baru; metadata yang tidak didukung ditolak utuh. Video/Motion legacy tetap ditolak. |
 | Full compatibility seluruh project legacy | Tidak didukung | Klaim lama di arsip tidak menggantikan batas konversi current. |
-| Copy/paste clip/attributes, group, link/unlink | Backlog | Duplikasi clip/Artboard tidak berarti workflow clipboard/group sudah selesai. |
-| Insert/overwrite, ripple trim, audio automation/crossfade | Backlog Story | Jangan menyamakan helper audio/Record lama dengan workflow finishing Story lengkap. |
-| Mask/feather/blend dan color/LUT per placement Story | Backlog | Fitur historis Record tidak membuktikan fitur finishing Story ini. |
+| Copy/paste clip/attributes, group, link/unlink | Tersedia, unreleased; QA native pending | Clipboard scoped ke Story; gerak kelompok atomik dan detach audio independen. Compound bersarang belum tersedia. |
+| Fade-in/out audio | Tersedia, unreleased; QA native pending | Envelope per placement dipakai playback/export. |
+| Insert/overwrite, ripple trim, audio automation/crossfade | Backlog Story | Automation bebas dan crossfade antar klip belum tersedia. |
+| Crop/mask dasar dan grading per placement Story | Tersedia, unreleased; QA native pending | Rectangle/ellipse/inset; brightness, contrast, saturation. |
+| Feather/blend, mask bebas, suhu warna dan LUT | Backlog | Memerlukan scope lanjutan. |
 | Speed curve, reverse, freeze frame, tracking, proxies | Backlog | Scope/spec lanjutan diperlukan. |
 | Engine TTS baru untuk Story | Backlog | Kontrak media privat mendukung arah ini; tidak ada engine baru dalam ownership foundation. |
 
@@ -54,5 +56,5 @@ Jenis media canonical adalah video, image, audio, dan recording; Text/Shape meru
 
 ## Bukti terbaru
 
-Perbaikan final ownership di `8c2fe68` lulus **224 tes pada 15 suite**, TypeScript, dan review independen. Run seluruh suite sebelumnya memiliki **1.491 lulus / 9 gagal / 1.500 tes**; sembilan kegagalan merupakan baseline lama. Suite penuh tidak diulang sesudah perbaikan terarah. QA native tetap pending. Rincian ada di [verifikasi project](../project/verification.md).
+Story finishing 17 Oktober lulus **1.657/1.657 tes pada 236 file**, TypeScript dan pemeriksaan diff. Lima temuan review independen sudah direproduksi dan diperbaiki. Run penuh dijalankan di luar sandbox setelah kegagalan izin loopback/link filesystem dipisahkan dari regresi produk. QA desktop/perangkat dan pemeriksaan visual hasil ekspor tetap pending. Bukti historis ownership dan hasil terbaru ada di [verifikasi project](../project/verification.md).
 

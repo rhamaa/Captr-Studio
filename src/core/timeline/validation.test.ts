@@ -269,7 +269,7 @@ describe("canonical Story ownership validation", () => {
 		expect(() => validateTimelineProject(p, { mode: "legacy" })).not.toThrow();
 		expect(() => validateTimelineProject(p, { mode: "canonical" })).toThrow();
 	});
-	it("uses finite inline extents for transition handles inside an Artboard", () => {
+	it("allows edge-held transitions between finite inline clips inside an Artboard", () => {
 		const p = ownershipFixture();
 		const a = p.repurposeBoard!.artboards[0];
 		const track = a.tracks![2];
@@ -286,7 +286,7 @@ describe("canonical Story ownership validation", () => {
 				preset: { kind: "cross-dissolve" },
 			},
 		];
-		expect(() => validateTimelineProject(p, { mode: "canonical" })).toThrow(/handles/);
+		expect(() => validateTimelineProject(p, { mode: "canonical" })).not.toThrow();
 	});
 	it("validates projection references in their owner scope without trusting a forged private mirror", () => {
 		const p = ownershipFixture();
@@ -550,10 +550,16 @@ describe("V3 visual effects and shape validation", () => {
 		).toThrow(/transition|adjacent/i);
 	});
 
-	it("rejects transition durations beyond source handles in saved projects", () => {
+	it("accepts saved transitions that hold edge frames after source handles run out", () => {
 		expect(() =>
 			validateTimelineProject(withTransitions([transition({ durationUs: 1_000_001 })])),
-		).toThrow(/handle|duration/i);
+		).not.toThrow();
+	});
+
+	it("rejects transition durations that exceed adjacent clip bounds in saved projects", () => {
+		expect(() =>
+			validateTimelineProject(withTransitions([transition({ durationUs: 19_000_001 })])),
+		).toThrow(/clip bounds|duration/i);
 	});
 
 	it("rejects overlapping neighboring transition intervals in saved projects", () => {
@@ -577,7 +583,7 @@ describe("V3 visual effects and shape validation", () => {
 				}),
 			],
 		};
-		expect(() => validateTimelineProject(overlapping)).toThrow(/overlap|handle/i);
+		expect(() => validateTimelineProject(overlapping)).toThrow(/overlap/i);
 	});
 
 	it("accepts component animations and per-placement shape style overrides", () => {

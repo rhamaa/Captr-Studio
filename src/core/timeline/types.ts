@@ -64,6 +64,13 @@ export type ShapeDefinition =
 			to: { x: number; y: number };
 			headLength: number;
 			style: { stroke: { color: string; width: number } };
+	  }
+	| {
+			kind: "blur";
+			width: number;
+			height: number;
+			blurRadius?: number;
+			style: ShapeStyle;
 	  };
 export interface MediaAsset {
 	id: string;
@@ -113,6 +120,21 @@ export interface TimelineClipFields {
 	keyframes?: PropertyKeyframe[];
 	componentAnimation?: { enter?: ComponentAnimation; exit?: ComponentAnimation };
 	shapeStyleOverride?: ShapeStyle;
+	groupId?: string;
+	linkId?: string;
+	audioOnly?: boolean;
+	audioMuted?: boolean;
+	fadeInUs?: number;
+	fadeOutUs?: number;
+	visualSettings?: ClipVisualSettings;
+}
+export interface ClipVisualSettings {
+	crop?: {left:number;right:number;top:number;bottom:number};
+	mask?: "rectangle"|"ellipse";
+	maskInset?:number;
+	brightness?:number;
+	contrast?:number;
+	saturation?:number;
 }
 export type TimelineClip = TimelineClipFields &
 	({ assetId: string; content?: never } | { assetId?: never; content: StoryClipContent });

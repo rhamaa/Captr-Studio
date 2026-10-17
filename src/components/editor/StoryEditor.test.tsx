@@ -10,12 +10,17 @@ import {
 } from "@/core/timeline/storyOwnership";
 import { ownershipFixture } from "@/core/timeline/storyOwnership.fixtures";
 import { AssetLibrary } from "./AssetLibrary";
+import { ProjectToolRail } from "./ProjectToolRail";
 import { formatTimecode, StoryEditor } from "./StoryEditor";
 import { ProjectController } from "./useProjectController";
 
 vi.mock("./AssetLibrary", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("./AssetLibrary")>();
 	return { ...actual, AssetLibrary: vi.fn(actual.AssetLibrary) };
+});
+vi.mock("./ProjectToolRail", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("./ProjectToolRail")>();
+	return { ...actual, ProjectToolRail: vi.fn(actual.ProjectToolRail) };
 });
 
 describe("StoryEditor", () => {
@@ -85,15 +90,16 @@ describe("StoryEditor", () => {
 			);
 		render();
 		const controls = vi.mocked(AssetLibrary).mock.calls.at(-1)![0];
+		const tools = vi.mocked(ProjectToolRail).mock.calls.at(-1)![0];
 		expect(controls.assets.map((a) => a.id)).toEqual(["shared", "record"]);
 		expect(controls.storyAssets!.map((a) => a.id)).toEqual(["voice-A"]);
-		controls.onCreateText!();
+		tools.onAddText();
 		const textId = controller.snapshot.selection[0];
-		controls.onCreateShape!("ellipse");
+		tools.onAddShape("ellipse");
 		const shapeId = controller.snapshot.selection[0];
-		controls.onApplyTemplate!("title-template");
+		tools.onApplyTemplate!("title-template");
 		const first = controller.snapshot.selection[0];
-		controls.onApplyTemplate!("title-template");
+		tools.onApplyTemplate!("title-template");
 		const second = controller.snapshot.selection[0];
 		controller.execute((root) =>
 			applyStoryCommand(root, scope, (p) =>
@@ -163,12 +169,14 @@ describe("StoryEditor", () => {
 
 		expect(markup).toContain("TikTok Clip");
 		expect(markup).toContain(`${project.canvas.width} × ${project.canvas.height}`);
+		expect(markup).toContain('aria-label="Canvas aspect ratio, fixed"');
+		expect(markup).not.toContain('aria-label="Canvas Aspect Ratio"');
 		expect(markup).toContain("All Stories");
 		expect(markup).toContain("project-workspace");
-		expect(markup).toContain("Story Media");
-		expect(markup).toContain("No media in this Story");
-		expect(markup).toContain("Text / Shapes");
-		expect(markup).toContain("Templates");
+		expect(markup).toContain('aria-label="Add text overlay"');
+		expect(markup).toContain('aria-label="Add shape"');
+		expect(markup).not.toContain("Text / Shapes");
+		expect(markup).not.toContain("Story Media</h3>");
 	});
 
 	it("omits All Stories button when viewing root project without storyId", () => {
@@ -248,7 +256,7 @@ describe("StoryEditor", () => {
 		expect(markup).toContain("Toggle Project Terminal (Ctrl + `)");
 	});
 
-	it("renders pro transport controls and aspect ratio selector", () => {
+	it("renders pro transport controls and fixed Artboard aspect ratio", () => {
 		const project = createTimelineProject("pro-proj", "Pro Project");
 		const controller = new ProjectController(project, async () => ({
 			success: true,
@@ -282,9 +290,10 @@ describe("StoryEditor", () => {
 			),
 		);
 
-		expect(markup).toContain("Canvas Aspect Ratio");
+		expect(markup).toContain('aria-label="Canvas aspect ratio, fixed"');
+		expect(markup).not.toContain('aria-label="Canvas Aspect Ratio"');
 		expect(markup).toContain("16:9 Landscape");
-		expect(markup).toContain("9:16 Shorts/Reels");
+		expect(markup).not.toContain("9:16 Shorts/Reels");
 		expect(markup).toContain("project-transport-timecode");
 		expect(markup).toContain("Jump to Start (Home)");
 		expect(markup).toContain("Step Back 1 Frame (Left Arrow)");
@@ -293,9 +302,10 @@ describe("StoryEditor", () => {
 		expect(markup).toContain("Loop Playback: OFF (L)");
 		expect(markup).toContain("Grid &amp; Safe Zones: OFF");
 		expect(markup).toContain("Fullscreen Preview (F)");
-		expect(markup).toContain("Preview Zoom");
-		expect(markup).toContain("Zoom In");
-		expect(markup).toContain("Zoom Out");
+		expect(markup).toContain('aria-label="Zoom in preview"');
+		expect(markup).toContain('aria-label="Zoom out preview"');
+		expect(markup).toContain('aria-label="Reset preview zoom"');
+		expect(markup).toContain('aria-label="Pan preview"');
 		expect(markup).toContain("project-preview-zoom-wrapper");
 	});
 });

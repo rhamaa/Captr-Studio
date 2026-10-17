@@ -93,6 +93,7 @@ import { FrameRenderer } from "./frameRenderer";
 type MockFunction = ReturnType<typeof vi.fn>;
 type MockContext = {
 	beginPath: MockFunction;
+	roundRect: MockFunction;
 	moveTo: MockFunction;
 	lineTo: MockFunction;
 	closePath: MockFunction;
@@ -222,12 +223,18 @@ class FakeVideoElement {
 function createMockContext() {
 	return {
 		beginPath: vi.fn(),
+		roundRect: vi.fn(),
 		moveTo: vi.fn(),
 		lineTo: vi.fn(),
 		closePath: vi.fn(),
 		clip: vi.fn(),
 		drawImage: vi.fn(),
 		fillRect: vi.fn(),
+		arc: vi.fn(),
+		ellipse: vi.fn(),
+		fill: vi.fn(),
+		fillStyle: "",
+		globalAlpha: 1,
 		save: vi.fn(),
 		restore: vi.fn(),
 		translate: vi.fn(),
@@ -516,6 +523,35 @@ describe("FrameRenderer webcam export path", () => {
 		expect(renderer.backgroundSprite).toBeTruthy();
 	});
 
+	it("renders dynamic wallpapers from the same timeline phase in fallback export", async () => {
+		const renderer = new FrameRenderer({
+			width: 640,
+			height: 360,
+			wallpaper:
+				"captr-dynamic-bg:v1:%7B%22pattern%22%3A%22dot-noise%22%2C%22durationSeconds%22%3A4%7D",
+			zoomRegions: [],
+			showShadow: false,
+			shadowIntensity: 0,
+			backgroundBlur: 0,
+			cropRegion: { x: 0, y: 0, width: 1, height: 1 },
+			webcam: { ...DEFAULT_WEBCAM_OVERLAY, enabled: false },
+			videoWidth: 640,
+			videoHeight: 360,
+		}) as unknown as {
+			setupBackground: () => Promise<void>;
+			syncBackgroundFrame: (timeSeconds: number) => Promise<void>;
+			backgroundDynamicSettings: { pattern: string };
+			backgroundCtx: ReturnType<typeof createMockContext>;
+		};
+
+		await renderer.setupBackground();
+		const firstX = renderer.backgroundCtx.arc.mock.calls[0][0];
+		await renderer.syncBackgroundFrame(0.5);
+
+		expect(renderer.backgroundDynamicSettings.pattern).toBe("dot-noise");
+		expect(renderer.backgroundCtx.arc.mock.calls[1][0]).not.toBe(firstX);
+	});
+
 	it("falls back to media-element sync when video wallpaper packet streaming fails", async () => {
 		vi.clearAllMocks();
 		initializeForwardFrameSourceMock.mockResolvedValue(undefined);
@@ -556,5 +592,412 @@ describe("FrameRenderer webcam export path", () => {
 		expect(resolveMediaElementSourceMock).toHaveBeenCalledWith("wallpapers/wispysky.mp4");
 		expect(renderer.backgroundForwardFrameSource).toBeNull();
 		expect(renderer.backgroundVideoElement).toBeTruthy();
+	});
+});
+
+// Canvas traces exercise the real compositor while keeping GPU/video decoding out of unit tests.
+function appearanceContext(canvas: any) {
+	const operations: any[] = [],
+		stack: any[] = [];
+	const ctx: any = {
+		canvas,
+		operations,
+		path: [],
+		clips: [],
+		globalAlpha: 1,
+		filter: "none",
+		fillStyle: "#000",
+		strokeStyle: "#000",
+		lineWidth: 1,
+		shadowColor: "transparent",
+		shadowBlur: 0,
+		shadowOffsetX: 0,
+		shadowOffsetY: 0,
+		save() {
+			stack.push({
+				globalAlpha: this.globalAlpha,
+				clips: this.clips,
+				filter: this.filter,
+				fillStyle: this.fillStyle,
+				strokeStyle: this.strokeStyle,
+				lineWidth: this.lineWidth,
+				shadowColor: this.shadowColor,
+				shadowBlur: this.shadowBlur,
+				shadowOffsetX: this.shadowOffsetX,
+				shadowOffsetY: this.shadowOffsetY,
+			});
+		},
+		restore() {
+			Object.assign(this, stack.pop());
+		},
+	};
+	for (const name of [
+		"beginPath",
+		"closePath",
+		"moveTo",
+		"lineTo",
+		"roundRect",
+		"ellipse",
+		"rect",
+		"clip",
+		"fill",
+		"stroke",
+		"drawImage",
+		"clearRect",
+		"translate",
+		"scale",
+	])
+		ctx[name] = (...args: any[]) => {
+			if (name === "beginPath") ctx.path = [];
+			if (["moveTo", "lineTo", "roundRect", "rect", "ellipse"].includes(name))
+				ctx.path.push([name, ...args]);
+			if (name === "clip") ctx.clips = [...ctx.clips, [...ctx.path]];
+			operations.push({
+				clips: ctx.clips,
+				name,
+				args,
+				alpha: ctx.globalAlpha,
+				filter: ctx.filter,
+				fill: ctx.fillStyle,
+				stroke: ctx.strokeStyle,
+				lineWidth: ctx.lineWidth,
+				shadowColor: ctx.shadowColor,
+				shadowBlur: ctx.shadowBlur,
+				shadowOffsetX: ctx.shadowOffsetX,
+				shadowOffsetY: ctx.shadowOffsetY,
+			});
+		};
+	return ctx;
+}
+function bareAppearance(overrides: any = {}) {
+	return {
+		framePadding: 0,
+		borderWidth: 0,
+		borderColor: "#000000",
+		borderOpacity: 0,
+		cornerRadius: 0,
+		surfaceColor: "#000000",
+		surfaceOpacity: 0,
+		backdropBlur: 0,
+		shadow: { color: "#000000", opacity: 0, blur: 0, offsetX: 0, offsetY: 0 },
+		...overrides,
+	};
+}
+function appearanceHarness(frameAppearances?: any) {
+	const canvases: any[] = [];
+	vi.stubGlobal("HTMLMediaElement", { HAVE_CURRENT_DATA: 2 });
+	vi.stubGlobal("document", {
+		createElement: () => {
+			const canvas: any = { width: 0, height: 0 };
+			canvas.context = appearanceContext(canvas);
+			canvas.getContext = () => canvas.context;
+			canvases.push(canvas);
+			return canvas;
+		},
+	});
+	const renderer: any = createRenderer();
+	renderer.config.width = 400;
+	renderer.config.height = 300;
+	renderer.config.frameAppearances = frameAppearances;
+	renderer.config.webcam = {
+		...renderer.config.webcam,
+		size: 50,
+		margin: 0,
+		cornerRadius: 40,
+		cornerRadiusPercent: 0.5,
+		shadow: 0.6,
+	};
+	const output: any = document.createElement("canvas");
+	output.width = 400;
+	output.height = 300;
+	const video: any = document.createElement("canvas");
+	video.width = 400;
+	video.height = 300;
+	const background: any = document.createElement("canvas");
+	renderer.compositeCanvas = output;
+	renderer.compositeCtx = output.context;
+	renderer.backgroundSprite = background;
+	renderer.app = { canvas: video };
+	renderer.layoutCache = { maskRect: { x: 40, y: 30, width: 320, height: 240 } };
+	renderer.animationState = { appliedScale: 1, x: 0, y: 0 };
+	renderer.webcamVideoElement = new FakeVideoElement({ videoWidth: 640, videoHeight: 480 });
+	renderer.currentVideoTime = 0;
+	renderer.lastSyncedWebcamTime = null;
+	return { renderer, output, video, background, canvases };
+}
+describe("Record frame appearances", () => {
+	it("independently insets and paints both Window and Webcam frames", () => {
+		const window = bareAppearance({
+			framePadding: 12,
+			cornerRadius: 18,
+			borderWidth: 4,
+			borderColor: "#ff0000",
+			borderOpacity: 0.25,
+			surfaceColor: "#00ff00",
+			surfaceOpacity: 0.5,
+			shadow: { color: "#112233", opacity: 0.4, blur: 7, offsetX: 3, offsetY: 5 },
+		});
+		const webcam = bareAppearance({
+			framePadding: 8,
+			cornerRadius: 11,
+			borderWidth: 2,
+			borderColor: "#0000ff",
+			borderOpacity: 0.75,
+			surfaceColor: "#ffffff",
+			surfaceOpacity: 0.3,
+		});
+		const { renderer, output, video } = appearanceHarness({ window, webcam });
+		renderer.compositeWithShadows();
+		const ops = output.context.operations;
+		expect(
+			ops.find((o: any) => o.name === "drawImage" && o.args[0] === video)?.args.slice(1),
+		).toEqual([40, 30, 320, 240, 52, 42, 296, 216]);
+		expect(
+			ops.some((o: any) => o.name === "fill" && o.fill === "#00ff00" && o.alpha === 0.5),
+		).toBe(true);
+		expect(
+			ops.some((o: any) => o.name === "fill" && o.fill === "#ffffff" && o.alpha === 0.3),
+		).toBe(true);
+		expect(
+			ops
+				.filter((o: any) => o.name === "stroke")
+				.map((o: any) => [o.stroke, o.alpha, o.lineWidth]),
+		).toEqual([
+			["#ff0000", 0.25, 4],
+			["#0000ff", 0.75, 2],
+		]);
+		expect(
+			ops.some(
+				(o: any) =>
+					o.name === "fill" &&
+					o.shadowColor === "#112233" &&
+					o.shadowBlur === 7 &&
+					o.shadowOffsetX === 3 &&
+					o.shadowOffsetY === 5 &&
+					o.alpha === 0.4,
+			),
+		).toBe(true);
+		expect(
+			ops.some(
+				(o: any) =>
+					o.name === "roundRect" &&
+					JSON.stringify(o.args) === JSON.stringify([52, 42, 296, 216, 6]),
+			),
+		).toBe(true);
+		expect(
+			ops.some(
+				(o: any) =>
+					o.name === "roundRect" &&
+					JSON.stringify(o.args) === JSON.stringify([38, 28, 324, 244, 20]),
+			),
+		).toBe(true);
+		const webcamDraw = ops.find(
+			(o: any) => o.name === "drawImage" && o.args[0] instanceof FakeVideoElement,
+		);
+		expect(webcamDraw?.args.slice(-4)).toEqual([258, 158, 134, 134]);
+	});
+
+	it("clips zoomed Window decorations and media to the rounded non-fullscreen layout viewport", () => {
+		const { renderer, output, video, background } = appearanceHarness({
+			window: bareAppearance({
+				surfaceColor: "#ffffff",
+				surfaceOpacity: 0.5,
+				borderWidth: 4,
+				borderOpacity: 1,
+				backdropBlur: 8,
+				shadow: { color: "#000000", opacity: 0.4, blur: 12, offsetX: 4, offsetY: 8 },
+			}),
+			webcam: bareAppearance(),
+		});
+		renderer.config.webcam.sourcePath = "webcam.mp4";
+		renderer.config.layoutRegions = [
+			{ id: "center", startMs: 0, endMs: 1000, preset: "screen-center", transitionMs: 0 },
+		];
+		renderer.animationState = { appliedScale: 2, x: -200, y: -150 };
+		renderer.compositeWithShadows();
+		const ops = output.context.operations;
+		const paintedWindow = ops.filter(
+			(op: any) =>
+				["fill", "stroke"].includes(op.name) ||
+				(op.name === "drawImage" && op.args[0] !== background),
+		);
+		expect(paintedWindow.some((op: any) => op.name === "stroke")).toBe(true);
+		expect(paintedWindow.some((op: any) => op.filter === "blur(8px)")).toBe(true);
+		expect(
+			paintedWindow.some((op: any) => op.name === "drawImage" && op.args[0] === video),
+		).toBe(true);
+		// A 400x300 screen-center layout is [36,33,328,234], with 24px rounded corners.
+		// The zoomed frame extends beyond it; every shadow/surface/blur/border/media paint must keep this clip.
+		expect(
+			paintedWindow.every((op: any) =>
+				op.clips.some(
+					(path: any[]) =>
+						path.length > 4 &&
+						path[0][0] === "moveTo" &&
+						Math.abs(path[0][1] - 60) < 1e-8 &&
+						Math.abs(path[0][2] - 33) < 1e-8 &&
+						Math.abs(Math.min(...path.map((point) => point[1])) - 36) < 1e-8 &&
+						Math.abs(Math.max(...path.map((point) => point[1])) - 364) < 1e-8 &&
+						Math.abs(Math.min(...path.map((point) => point[2])) - 33) < 1e-8 &&
+						Math.abs(Math.max(...path.map((point) => point[2])) - 267) < 1e-8,
+				),
+			),
+		).toBe(true);
+		expect(
+			ops.find((op: any) => op.name === "drawImage" && op.args[0] === video)?.args[5],
+		).toBeLessThan(36);
+	});
+
+	it("blurs only a bounded sample behind the layer and reuses its canvas", () => {
+		const { renderer, output, video, canvases } = appearanceHarness({
+			window: bareAppearance({ backdropBlur: 9, surfaceOpacity: 0.2 }),
+			webcam: bareAppearance(),
+		});
+		renderer.config.webcam.enabled = false;
+		renderer.compositeWithShadows();
+		const scratch = canvases.find(
+			(c: any) =>
+				c !== output &&
+				c.context.operations.some(
+					(o: any) => o.name === "drawImage" && o.args[0] === output,
+				),
+		);
+		expect(scratch).toBeDefined();
+		expect([scratch.width, scratch.height]).toEqual([320, 240]);
+		expect(
+			scratch.context.operations.find((o: any) => o.name === "drawImage")?.args.slice(1),
+		).toEqual([40, 30, 320, 240, 0, 0, 320, 240]);
+		expect(
+			output.context.operations.find(
+				(o: any) => o.name === "drawImage" && o.args[0] === scratch,
+			)?.filter,
+		).toBe("blur(9px)");
+		expect(
+			output.context.operations.find(
+				(o: any) => o.name === "drawImage" && o.args[0] === video,
+			)?.filter,
+		).toBe("none");
+		const count = canvases.length;
+		renderer.compositeWithShadows();
+		expect(canvases).toHaveLength(count);
+	});
+	it("zero added styles retain media geometry without painting decoration", () => {
+		const { renderer, output, video } = appearanceHarness({
+			window: bareAppearance(),
+			webcam: bareAppearance(),
+		});
+		renderer.config.webcam.enabled = false;
+		renderer.compositeWithShadows();
+		expect(
+			output.context.operations.filter((o: any) => ["stroke", "fill"].includes(o.name)),
+		).toEqual([]);
+		expect(
+			output.context.operations
+				.find((o: any) => o.name === "drawImage" && o.args[0] === video)
+				?.args.slice(1),
+		).toEqual([40, 30, 320, 240, 40, 30, 320, 240]);
+	});
+	it("legacy webcam radius and shadow remain relative to its dimensions", () => {
+		const { renderer, output, canvases } = appearanceHarness({
+			window: bareAppearance({ cornerRadius: 31 }),
+			webcam: bareAppearance({
+				cornerRadius: 40,
+				shadow: { color: "#000000", opacity: 0.6, blur: 0, offsetX: 0, offsetY: 0 },
+			}),
+		});
+		renderer.config.legacyFrameAppearances = true;
+		renderer.compositeWithShadows();
+		expect(
+			canvases
+				.flatMap((c: any) => c.context.operations)
+				.some(
+					(o: any) => o.name === "roundRect" && o.args[2] === 150 && o.args[4] === 37.5,
+				),
+		).toBe(true);
+		expect(
+			output.context.operations.some(
+				(o: any) =>
+					o.name === "drawImage" &&
+					o.filter === "drop-shadow(0 9px 33px rgba(0,0,0,0.6))",
+			),
+		).toBe(true);
+	});
+
+	it("keeps legacy window radius in the source mask while explicit styles clip in the compositor", () => {
+		const { renderer } = appearanceHarness({
+			window: bareAppearance({ cornerRadius: 90 }),
+			webcam: bareAppearance(),
+		});
+		renderer.config.borderRadius = 31;
+		renderer.config.legacyFrameAppearances = true;
+		renderer.videoSprite = { scale: { set() {} }, position: { set() {} } };
+		renderer.videoContainer = { position: { set() {} } };
+		renderer.maskGraphics = {
+			clear() {},
+			fill() {},
+			moveTo: vi.fn(),
+			lineTo() {},
+			closePath() {},
+		};
+		renderer.updateLayout();
+		expect(renderer.maskGraphics.moveTo.mock.calls.at(-1)?.[0]).toBeCloseTo((31 * 400) / 1920);
+		renderer.config.legacyFrameAppearances = false;
+		renderer.updateLayout();
+		expect(renderer.maskGraphics.moveTo.mock.calls.at(-1)?.[0]).toBe(0);
+	});
+
+	it("bounds malformed and extreme frame inputs to finite geometry", () => {
+		const { renderer, output, canvases } = appearanceHarness({
+			window: bareAppearance({
+				framePadding: Infinity,
+				cornerRadius: 1e12,
+				borderWidth: 1e12,
+				backdropBlur: 1e12,
+				surfaceOpacity: 9,
+				shadow: { color: "#112233", opacity: 9, blur: 1e12, offsetX: -1e12, offsetY: NaN },
+			}),
+			webcam: bareAppearance(),
+		});
+		renderer.config.webcam.enabled = false;
+		renderer.compositeWithShadows();
+		const ops = output.context.operations;
+		expect(
+			ops
+				.filter((o: any) => o.name === "roundRect")
+				.every((o: any) => o.args.every((n: any) => Number.isFinite(n) && n >= 0)),
+		).toBe(true);
+		expect(ops.some((o: any) => o.name === "drawImage" && o.filter === "blur(120px)")).toBe(
+			true,
+		);
+		expect(
+			ops
+				.filter((o: any) => ["fill", "stroke"].includes(o.name))
+				.every(
+					(o: any) =>
+						o.alpha >= 0 &&
+						o.alpha <= 1 &&
+						o.shadowBlur <= 120 &&
+						Math.abs(o.shadowOffsetX) <= 320 &&
+						Math.abs(o.shadowOffsetY) <= 240,
+				),
+		).toBe(true);
+		expect(canvases.every((c: any) => c.width <= 400 && c.height <= 300)).toBe(true);
+	});
+
+	it("renders window headers with traffic lights or window controls and insets media", () => {
+		const macosWindow = bareAppearance({
+			headerStyle: "macos",
+		});
+		const { renderer, output } = appearanceHarness({
+			window: macosWindow,
+			webcam: bareAppearance(),
+		});
+		renderer.config.webcam.enabled = false;
+		renderer.compositeWithShadows();
+		const ops = output.context.operations;
+		const ellipses = ops.filter((o: any) => o.name === "ellipse");
+		expect(ellipses.length).toBe(3);
+		const roundRects = ops.filter((o: any) => o.name === "roundRect");
+		expect(roundRects.length).toBeGreaterThanOrEqual(1);
 	});
 });

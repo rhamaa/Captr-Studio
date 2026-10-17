@@ -2,6 +2,7 @@ import type { AudioDuckingSettings } from "@/components/video-editor/types";
 import { buildVideoLayerAudioRegions } from "@/components/video-editor/videoLayerAudio";
 import { resolveRecordingSettings } from "@/recording/editor/compositionAdapter";
 import { resolveClipSource } from "./clipSource";
+import { fadeGain } from "./audioFades";
 import type { MediaSource, TimelineProject } from "./types";
 export interface ProjectAudioSegment {
 	id: string;
@@ -15,6 +16,7 @@ export interface ProjectAudioSegment {
 	gain: number;
 	normalize: boolean;
 	ducking?: AudioDuckingSettings;
+	fade?: { startUs:number; endUs:number; inUs:number; outUs:number };
 }
 /** Full project intervals. Stream offsets are applied in source time before timeline rate. */
 export function buildProjectAudioPlan(project: TimelineProject): ProjectAudioSegment[] {
@@ -22,7 +24,7 @@ export function buildProjectAudioPlan(project: TimelineProject): ProjectAudioSeg
 	for (const track of project.tracks) {
 		if (track.muted) continue;
 		for (const clip of track.clips) {
-			if (!clip.enabled) continue;
+			if (!clip.enabled || clip.audioMuted) continue;
 			const asset = resolveClipSource(project, clip).media;
 			if (!asset) continue;
 			const append = (
@@ -73,6 +75,7 @@ export function buildProjectAudioPlan(project: TimelineProject): ProjectAudioSeg
 						gain: clip.gain * gain,
 						normalize,
 						ducking,
+						...((clip.fadeInUs || clip.fadeOutUs) ? {fade:{startUs:clip.startUs,endUs:clip.startUs+(clip.sourceOutUs-clip.sourceInUs)/clip.rate,inUs:clip.fadeInUs??0,outUs:clip.fadeOutUs??0}} : {}),
 					});
 				}
 			};
@@ -160,5 +163,5 @@ export function buildProjectAudioPlan(project: TimelineProject): ProjectAudioSeg
 export function audioAtTime(plan: ProjectAudioSegment[], timeUs: number) {
 	return plan
 		.filter((s) => timeUs >= s.startUs && timeUs < s.endUs)
-		.map((s) => ({ ...s, sourceUs: s.sourceStartUs + (timeUs - s.startUs) * s.rate }));
+		.map((s) => ({ ...s, gain:s.gain*(s.fade?fadeGain(timeUs,s.fade.startUs,s.fade.endUs,s.fade.inUs,s.fade.outUs):1), sourceUs: s.sourceStartUs + (timeUs - s.startUs) * s.rate }));
 }

@@ -70,7 +70,8 @@
 		--chart-3: 131 53% 71%;        /* Green */
 		--chart-4: 40 89% 69%;         /* Yellow */
 		--chart-5: 351 100% 71%;       /* Red */
-		--radius: 0.5rem;              /* 8px default */
+		--radius: 0.5rem;              /* Floating surfaces: 8px; docked panels stay flush. */
+		--radius-control: 4px;
 
 		/* Editor surface colors — light mode */
 		--editor-bg: 225 43% 98%;
@@ -90,6 +91,12 @@
 		--slider-thumb-shadow: 216 100% 72% / 0.35;
 		--slider-glow: 263 87% 72% / 0.35;
 
+		/* Scrollbar colors — light mode */
+		--scrollbar-track: transparent;
+		--scrollbar-thumb: rgba(52, 64, 84, 0.2);
+		--scrollbar-thumb-hover: rgba(52, 64, 84, 0.38);
+		--scrollbar-thumb-active: #6FA8FF;
+
 		/* Timeline colors */
 		--timeline-video: #6FA8FF;
 		--timeline-audio: #8DDB9B;
@@ -99,7 +106,7 @@
 	}
 
 	.dark {
-		--background: 223 14% 10%;     /* #15171C */
+		--background: 220 8% 7%;       /* #111214 */
 		--foreground: 220 20% 97%;     /* #F5F6F8 */
 		--card: 222 15% 13%;           /* #1C1F26 */
 		--card-foreground: 220 20% 97%;
@@ -125,14 +132,14 @@
 		--chart-5: 351 100% 71%;
 
 		/* Editor surface colors — Dark Editor Palette (#15171C, #1C1F26, #242832, #2C313C, #343A46) */
-		--editor-bg: 223 14% 10%;       /* #15171C */
+		--editor-bg: var(--background);
 		--editor-header: 222 15% 13%;   /* #1C1F26 */
 		--editor-panel: 222 15% 13%;    /* #1C1F26 */
 		--editor-surface: 223 16% 17%;  /* #242832 */
 		--editor-surface-alt: 221 15% 21%; /* #2C313C */
 		--editor-dialog: 222 15% 13%;   /* #1C1F26 */
 		--editor-dialog-alt: 223 16% 17%; /* #242832 */
-		--editor-timeline: 223 14% 10%; /* #15171C */
+		--editor-timeline: var(--background);
 		--editor-row: 222 15% 13%;      /* #1C1F26 */
 		--editor-subrow: 223 16% 17%;   /* #242832 */
 
@@ -141,6 +148,12 @@
 		--slider-thumb: 216 100% 72%;
 		--slider-thumb-shadow: 216 100% 72% / 0.4;
 		--slider-glow: 263 87% 72% / 0.5;
+
+		/* Scrollbar colors — dark mode */
+		--scrollbar-track: transparent;
+		--scrollbar-thumb: rgba(255, 255, 255, 0.16);
+		--scrollbar-thumb-hover: rgba(255, 255, 255, 0.32);
+		--scrollbar-thumb-active: #6FA8FF;
 
 		/* Timeline colors */
 		--timeline-video: #6FA8FF;
@@ -173,6 +186,36 @@
 	body .font-mono,
 	body kbd {
 		font-family: var(--app-font-sans);
+	}
+}
+
+@layer components {
+	.captr-docked-panel {
+		min-width: 0;
+		min-height: 0;
+		border-radius: 0;
+		background: hsl(var(--editor-panel));
+		box-shadow: none;
+	}
+	.captr-help-trigger {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		flex: 0 0 auto;
+		width: 28px;
+		height: 28px;
+		padding: 0;
+		border: 0;
+		border-radius: var(--radius-control);
+		color: hsl(var(--muted-foreground));
+		background: transparent;
+		cursor: pointer;
+		transition: color 150ms ease-out, background-color 150ms ease-out;
+	}
+	.captr-help-trigger:hover,
+	.captr-help-trigger[data-state="open"] {
+		color: hsl(var(--foreground));
+		background: hsl(var(--muted));
 	}
 }
 
@@ -209,14 +252,61 @@
 		animation: indeterminate-progress 1.15s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 	}
 
-	/* Hidden scrollbar - still scrollable but invisible */
-	.custom-scrollbar {
-		scrollbar-width: none; /* Firefox */
-		-ms-overflow-style: none; /* IE/Edge */
+	/* Global Custom Scrollbars for Captr Studio (Horizontal & Vertical) */
+	*::-webkit-scrollbar {
+		width: 6px;
+		height: 6px;
 	}
 
-	.custom-scrollbar::-webkit-scrollbar {
-		display: none; /* Chrome, Safari, Opera */
+	*::-webkit-scrollbar-track {
+		background: var(--scrollbar-track);
+	}
+
+	*::-webkit-scrollbar-thumb {
+		background: var(--scrollbar-thumb);
+		border-radius: 9999px;
+		border: 1px solid transparent;
+		background-clip: padding-box;
+		transition: background-color 0.15s ease;
+	}
+
+	*::-webkit-scrollbar-thumb:hover {
+		background: var(--scrollbar-thumb-hover);
+		background-clip: padding-box;
+	}
+
+	*::-webkit-scrollbar-thumb:active {
+		background: var(--scrollbar-thumb-active);
+		background-clip: padding-box;
+	}
+
+	*::-webkit-scrollbar-button {
+		display: none !important;
+		width: 0 !important;
+		height: 0 !important;
+	}
+
+	*::-webkit-scrollbar-corner {
+		background: transparent;
+	}
+
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--scrollbar-thumb) transparent;
+	}
+
+	/* Hidden scrollbar - still scrollable but invisible */
+	.custom-scrollbar,
+	.no-scrollbar {
+		scrollbar-width: none !important;
+		-ms-overflow-style: none !important;
+	}
+
+	.custom-scrollbar::-webkit-scrollbar,
+	.no-scrollbar::-webkit-scrollbar {
+		display: none !important;
+		width: 0 !important;
+		height: 0 !important;
 	}
 
 	/* Smooth playback scrubber */

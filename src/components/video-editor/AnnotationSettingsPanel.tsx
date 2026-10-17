@@ -1,12 +1,12 @@
 import {
 	ImageSquare as ImageIcon,
-	Info,
 	BoundingBox as SquareDashed,
 	Trash as Trash2,
 	TextT as Type,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { HelpPopover } from "@/components/ui/help-popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type CustomFont, getCustomFonts } from "@/lib/customFonts";
 import { useScopedT } from "../../contexts/I18nContext";
@@ -67,7 +67,7 @@ export function AnnotationSettingsPanel({
 	}, []);
 
 	return (
-		<div className="flex-[2] min-w-0 bg-editor-panel border border-foreground/10 rounded-2xl flex flex-col shadow-xl h-full overflow-hidden">
+		<div className="captr-docked-panel flex-1 flex flex-col h-full overflow-hidden">
 			<div className="flex-1 min-h-0 p-4 overflow-y-auto custom-scrollbar">
 				<div className="mb-6">
 					<AnnotationHeader annotation={annotation} onLayerChange={onLayerChange} t={t} />
@@ -222,19 +222,13 @@ export function AnnotationSettingsPanel({
 						currentTimeMs={currentTimeMs}
 					/>
 
-					<div className="mt-6 p-3 bg-foreground/5 rounded-lg border border-foreground/5">
-						<div className="flex items-center gap-2 mb-2 text-muted-foreground">
-							<Info className="w-3.5 h-3.5" />
-							<span className="text-xs font-medium">
-								{t("annotations.shortcutsAndTips")}
-							</span>
-						</div>
-						<ul className="text-[10px] text-muted-foreground space-y-1.5 list-disc pl-3 leading-relaxed">
+					<HelpPopover label={t("annotations.shortcutsAndTips")}>
+						<ul className="space-y-1.5 list-disc pl-3 leading-relaxed">
 							<li>{t("annotations.tipSelectAnnotation")}</li>
 							<li>{t("annotations.tipCycleForward")}</li>
 							<li>{t("annotations.tipCycleBackward")}</li>
 						</ul>
-					</div>
+					</HelpPopover>
 				</div>
 			</div>
 			<div className="flex-shrink-0 border-t border-foreground/10 bg-editor-panel p-4 pt-3">

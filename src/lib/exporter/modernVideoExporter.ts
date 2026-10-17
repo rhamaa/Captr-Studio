@@ -41,6 +41,7 @@ import {
 	getWebcamOverlayPosition,
 	getWebcamOverlaySizePx,
 } from "@/components/video-editor/webcamOverlay";
+import { isDynamicBackgroundWallpaper } from "@/lib/dynamicBackground/settings";
 import { extensionHost } from "@/lib/extensions";
 import { getEffectiveVideoStreamDurationSeconds } from "@/lib/mediaTiming";
 import {
@@ -1506,7 +1507,9 @@ export class ModernVideoExporter {
 
 		const speedRegions = this.config.speedRegions ?? [];
 		const configuredWallpaper = this.config.wallpaper?.trim() ?? "";
-		if (isVideoWallpaperSource(configuredWallpaper)) {
+		if (isDynamicBackgroundWallpaper(configuredWallpaper)) {
+			reasons.push("unsupported-background-dynamic");
+		} else if (isVideoWallpaperSource(configuredWallpaper)) {
 			reasons.push("unsupported-background-video");
 		}
 

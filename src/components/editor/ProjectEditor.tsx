@@ -45,7 +45,6 @@ import {
 import { TimelineProjectExporter } from "@/lib/exporter/timelineProjectExporter";
 import { RecordingCompositionEditor } from "@/recording/editor/RecordingCompositionEditor";
 import { probeMedia } from "@/recording/mediaProbe";
-import type { AspectRatio } from "@/utils/aspectRatioUtils";
 import { HyperframeEditor } from "../hyperframe/HyperframeEditor";
 import { RepurposeBoardEditor } from "../repurpose/RepurposeBoardEditor";
 import type { EditPlan } from "./CopilotSidebar";
@@ -57,11 +56,17 @@ import { timelineActionCommand } from "./timelineInteractions";
 import { type ProjectController, useProjectController } from "./useProjectController";
 import { useProjectMessages } from "./useProjectMessages";
 import { useRecordingAssets } from "./useRecordingAssets";
+import { FEATURE_AI_ENABLED } from "@/core/featureFlags";
 import "./projectEditor.css";
 import type { RecordingSessionData } from "../../../electron/ipc/types";
 import { AudioRecorderDialog } from "./AudioRecorderDialog";
 import { createProjectAudioRecorderNavigation } from "./projectAudioRecorderNavigation";
 import { bindProjectClose } from "./projectLifecycle";
+import {
+	bindProjectSaveShortcut,
+	canAutosaveProject,
+	scheduleProjectAutosave,
+} from "./projectSaveShortcuts";
 import { useAudioRecordingAssets } from "./useAudioRecordingAssets";
 export interface ProjectEditorProps {
 	controller: ProjectController;
@@ -382,6 +387,57 @@ export function ProjectEditor(props: ProjectEditorProps) {
 			errorMessage(e);
 		}
 	};
+	const autosaveEligibility = useMemo(
+		() => ({
+			path: state.path,
+			dirty: state.dirty,
+			saving: state.saving,
+			fileOperation: state.fileOperation,
+			navigationPending: state.navigationPending,
+			pendingWork: state.pendingWork,
+			busy,
+			audioCaptureActive,
+			exportInProgress: exportProgress !== null,
+			navigationBlocked: Boolean(props.navigationBlocked),
+			nameDialogOpen: nameDialog,
+		}),
+		[
+			state.path,
+			state.dirty,
+			state.saving,
+			state.fileOperation,
+			state.navigationPending,
+			state.pendingWork,
+			busy,
+			audioCaptureActive,
+			exportProgress,
+			props.navigationBlocked,
+			nameDialog,
+		],
+	);
+	const autosaveEligibilityRef = useRef(autosaveEligibility);
+	autosaveEligibilityRef.current = autosaveEligibility;
+	const autosaveAttemptedRevision = useRef<number | null>(null);
+	const saveRef = useRef(save);
+	saveRef.current = save;
+	useEffect(() => {
+		if (
+			!canAutosaveProject(autosaveEligibility) ||
+			autosaveAttemptedRevision.current === state.revision
+		)
+			return;
+		const revision = state.revision;
+		return scheduleProjectAutosave(() => {
+			if (
+				autosaveAttemptedRevision.current === revision ||
+				controller.snapshot.revision !== revision ||
+				!canAutosaveProject(autosaveEligibilityRef.current)
+			)
+				return;
+			autosaveAttemptedRevision.current = revision;
+			void saveRef.current();
+		});
+	}, [controller, state.revision, autosaveEligibility]);
 	const commitName = async (intent: "save" | "save-as" | "rename") => {
 		try {
 			const result =
@@ -400,6 +456,29 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		} catch (e) {
 			setNameError(e instanceof Error ? e.message : String(e));
 		}
+	};
+	const saveShortcutOptionsRef = useRef({
+		blocked: false,
+		nameDialogOpen: false,
+		hasSavedPath: false,
+		save,
+		commitName,
+	});
+	saveShortcutOptionsRef.current = {
+		blocked:
+			busy ||
+			recordingPending > 0 ||
+			audioCaptureActive ||
+			exportProgress !== null ||
+			state.saving ||
+			state.fileOperation !== null ||
+			state.navigationPending ||
+			state.pendingWork > 0 ||
+			Boolean(props.navigationBlocked),
+		nameDialogOpen: nameDialog,
+		hasSavedPath: Boolean(state.path),
+		save,
+		commitName,
 	};
 	useEffect(() => {
 		document.title = `${projectFileName(state.path)} — Captr Studio`;
@@ -564,6 +643,10 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		[controller, audioNavigation, errorMessage],
 	);
 	useEffect(() => {
+		const removeSaveShortcut = bindProjectSaveShortcut(
+			window,
+			() => saveShortcutOptionsRef.current,
+		);
 		const keydown = (e: KeyboardEvent) => {
 			if (
 				editingClipId ||
@@ -585,10 +668,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 
 			if (e.ctrlKey || e.metaKey) {
 				const key = e.key.toLowerCase();
-				if (key === "s") {
-					e.preventDefault();
-					void save(e.shiftKey);
-				} else if (key === "z") {
+				if (key === "z") {
 					e.preventDefault();
 					if (e.shiftKey) controller.redo();
 					else controller.undo();
@@ -785,6 +865,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		];
 		return () => {
 			window.removeEventListener("keydown", keydown);
+			removeSaveShortcut();
 			unsub.forEach((u) => u?.());
 		};
 	}, [controller, currentActiveArtboardId, activeHyperframeId, activeProject, navigateStory]);
@@ -996,19 +1077,21 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					<VideoCamera size={17} />
 					{m("record")}
 				</button>
-				<button
-					type="button"
-					className={`project-ai-assist-button ${copilotOpen ? "active" : ""}`}
-					aria-label="AI Editor Copilot"
-					title="Toggle AI Editor Copilot Sidebar (Claude, Antigravity, MCP)"
-					disabled={state.saving || state.navigationPending || busy}
-					onClick={() => {
-						setCopilotOpen((v) => !v);
-					}}
-				>
-					<Sparkle size={15} weight="fill" />
-					<span>AI Editor</span>
-				</button>
+				{FEATURE_AI_ENABLED && (
+					<button
+						type="button"
+						className={`project-ai-assist-button ${copilotOpen ? "active" : ""}`}
+						aria-label="AI Editor Copilot"
+						title="Toggle AI Editor Copilot Sidebar (Claude, Antigravity, MCP)"
+						disabled={state.saving || state.navigationPending || busy}
+						onClick={() => {
+							setCopilotOpen((v) => !v);
+						}}
+					>
+						<Sparkle size={15} weight="fill" />
+						<span>AI Editor</span>
+					</button>
+				)}
 				<button
 					aria-label="Save project"
 					title="Save project (Ctrl+S)"
@@ -1064,22 +1147,6 @@ export function ProjectEditor(props: ProjectEditorProps) {
 							composition={composition}
 							projectTitle={projectFileName(state.path)}
 							canvas={activeProject.canvas}
-							aspectRatio={
-								(activeArtboard?.aspectRatio &&
-								activeArtboard.aspectRatio !== "custom"
-									? (activeArtboard.aspectRatio as AspectRatio)
-									: null) ??
-								(composition.settings?.aspectRatio as AspectRatio) ??
-								(activeProject.canvas.width === 1080 &&
-								activeProject.canvas.height === 1920
-									? "9:16"
-									: activeProject.canvas.width === activeProject.canvas.height
-										? "1:1"
-										: activeProject.canvas.width === 1080 &&
-												activeProject.canvas.height === 1350
-											? "4:5"
-											: "16:9")
-							}
 							clipTransform={editedClip?.transform}
 							onClipTransformChange={(transform) => {
 								if (editingClipId) {

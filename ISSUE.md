@@ -1,6 +1,19 @@
 # Issue Log & Regression Checklist
 
-**Fokus berikutnya — 10 Oktober 2026:** [Issue #12: kepemilikan Assets global dan elemen lokal Story](#12-pemisahan-assets-global-elemen-story-dan-komposisi-record-10-oktober-2026). Fondasi kepemilikan selesai dan review akhir disetujui; QA native masih pending. Timeline pengerjaan tercatat di [ROADMAP.md](ROADMAP.md), kondisi pengembangan di [CHANGELOG.md](CHANGELOG.md).
+## Story Editor finishing — 17 Oktober 2026
+
+- **Verifikasi akhir:** seluruh **1.657 tes di 236 file lulus**, TypeScript exit 0, diff whitespace bersih dan graft berhasil dibangun. Run sandbox sebelumnya 1.638/1.657 dengan 19 kegagalan terkait loopback/hardlink/junction; suite yang sama di luar sandbox lulus utuh. Ini verifikasi otomatis, bukan QA perangkat native.
+- Visual finishing: crop empat sisi, mask rectangle/ellipse/inset, brightness/contrast/saturation per placement, gizmo mengikuti ukuran crop, dan graph keyframe cubic-Bezier dengan pointer/keyboard. Metadata opsional tersimpan lewat bundle `.captr` V3 tanpa mengubah dimensi Artboard.
+- Lima temuan review ditutup dengan regresi: fade-in tanpa fade-out mempertahankan gain akhir; detach tidak membawa metadata visual; paste ke audio menyaring atribut visual; caption start/end memilih sisi cut Record yang tepat; waveform Record memakai stream package dan clock komposisi.
+- Baseline otomatis di luar sandbox Windows: **1.615/1.620 lulus; 5 gagal** pada empat file. Sebagian besar 24 kegagalan run sebelumnya tidak muncul di luar sandbox; jangan menganggap semuanya bug produk.
+- Lima kegagalan tersisa adalah tes/fixture lama: callback Text/Shape/Template pindah ke tool rail dan Assets disatukan (2); fixture legacy media layer kehilangan `name`/`trackIndex` (1); assertion audio decoder belum menerima opsi container (1); URL loopback harus memakai port server aktif (1). Tes diperbarui tanpa melonggarkan validator atau mengubah perilaku produk.
+- Native QA HUD/perangkat, transisi desktop, dan pemeriksaan hasil export secara visual tetap pending; tes otomatis bukan bukti capture atau playback hardware.
+- Workflow editing: clipboard klip/atribut scoped ke Story, grup/link untuk seleksi dan gerak bersama, detach audio dengan komposisi Record independen tanpa menggandakan audio, serta fade envelope bersama playback/export. Tes regresi terarah 151/151 lulus; pengecekan penutup dan native QA dicatat terpisah.
+- Rencana lima tahap: `docs/superpowers/plans/2026-10-17-story-finishing.md`.
+- Caption final: panel edit segmen/kata, timing, style/posisi, generate dari transkrip, undo/redo, anchor source per placement (trim/rate/move dan clock Record), dan burn-in pada renderer preview/export bersama. Snapshot Artboard me-remap anchor; bundle nyata mempertahankan cue. QA terkait: 104/104 regresi pada 8 suite dan 33/33 pada 5 suite penutup; TypeScript lulus. QA visual native pending.
+- Timeline: waveform audio sumber asli menggantikan pola sintetis. Filmstrip video/Record mengikuti trim/rate/time map; maksimal 12 sampel per klip, 120 thumbnail di cache, satu decoder thumbnail aktif, cleanup dan stale-result guard. File gagal dibaca menampilkan status unavailable tanpa membuat waveform palsu. QA perangkat/visual pending.
+
+**Update terbaru — 17 Oktober 2026:** lima tahap Story Editor finishing tercatat di bagian awal log ini. Implementasi dan verifikasi otomatis dibedakan dari QA desktop/perangkat yang masih pending. Timeline pengerjaan ada di [ROADMAP.md](ROADMAP.md), kondisi pengembangan di [CHANGELOG.md](CHANGELOG.md).
 
 
 ## 1. Keyframing engine pada timeline overlay (Text Overlay & Gambar)
@@ -19,6 +32,9 @@
 
 ## 2. Audio record pada "Video Record" sering hilang / tidak ter-record
 
+**Status (11 Oktober 2026):** belum dapat ditutup sebagai bug capture yang terverifikasi. Laporan lama tidak mencatat OS, pilihan mic/system audio, langkah reproduksi, atau apakah file audio tidak dibuat, kosong, atau hanya tidak terdengar. Implementasi saat ini menyimpan audio mic dan system sebagai sidecar; tes V3 memverifikasi penyimpanan dan buka ulang sidecar, tetapi tidak menjalankan capture perangkat native. QA capture native masih pending.
+
+**Data untuk reproduksi:** platform/OS; sumber capture (screen/window); status mic dan system audio; perangkat mic yang dipilih; durasi; apakah sidecar mic/system terbentuk dan ukurannya; serta log diagnostik capture. Jangan menandai isu ini selesai hanya dari tes bundle atau decode video.
 
 ## 3. Menambahkan Record slide meminta project baru
 
@@ -67,6 +83,12 @@
 - [ ] Native QA Audio Recorder: record/discard, rekam sambil preview berjalan, playhead anchor, track audio penuh, undo/redo, save/reopen, dan pilihan Finish/Discard/Stay untuk Home/Open/New/window close.
 
 **QA ulang setelah perubahan ownership (10 Oktober 2026):** native belum dijalankan; checkbox native historis di atas bukan verifikasi branch ini. Pending: Record berulang + Ctrl+S; import video/gambar/audio; Assets-only save/reopen; dua placement Record dan edit independen; voiceover Finish/Discard/Stay; Rename/Save As/New; konversi Record V1/V2 eksplisit serta finalisasi native/browser/Windows. Tes lifecycle/bundle otomatis tetap berbeda dari HUD/mikrofon/UI native.
+
+**Save dan autosave Project Editor (12 Oktober 2026):** Ctrl+S/Meta+S kini ditangani pada fase capture sehingga tetap bekerja saat fokus di input atau dialog; di dialog nama shortcut memilih Save/Rename atau Save As. Autosave menunggu 1,2 detik setelah edit terakhir, hanya untuk project yang sudah tersimpan, dan berhenti saat operasi/import/capture/export/navigasi aktif. Bila path renderer kosong atau berbeda, V3 hanya memulihkan path Electron setelah isi bundle membuktikan `projectId` yang sama; identitas berbeda ditolak tanpa menulis file. `tsc --noEmit`, tes shortcut/autosave, tes controller/lifecycle, tes pemulihan path, dan siklus V3 lifecycle (5/5) lulus. Enam kasus Rename/hardlink pada suite penuh `projectFileService.test.ts` gagal di sandbox Windows dengan `EPERM`; tes path pemulihan yang relevan lulus. QA native Windows untuk edit lalu menunggu autosave, fokus input/dialog, dan Ctrl+S setelah Record masih pending.
+
+**Regresi finalisasi Windows (11 Oktober 2026):** WGC menghasilkan MP4 layar 30.790.419 byte dan webcam 994.311 byte; `ffprobe` membaca stream H.264 berdurasi 13,95 s dan 13,89 s, serta FFmpeg sistem berhasil mendekode frame pertama keduanya. Penyebab gagalnya penyimpanan lokal: executable `ffmpeg-static` ada tetapi Windows menolaknya sebagai aplikasi Win32 yang valid. `getFfmpegBinaryPath` kini menguji executable sebelum memilihnya dan memakai FFmpeg sistem yang dapat dijalankan sebagai fallback; tes regresi mencakup bundled binary yang rusak. Retest rekam lewat HUD dan Ctrl+S setelah perubahan ini masih pending.
+
+**Verifikasi otomatis terbaru (11 Oktober 2026):** `tsc --noEmit` lulus; tes FFmpeg binary (1), siklus V3 Record/save/reopen (5), dan diagnostik audio recording (11) lulus. Suite Vitest penuh: 1.490/1.518 lulus; 28 gagal pada 10 file, mencakup migrasi media layer lama, assertion audio export, mock canvas webcam, operasi project file/rename, concurrency, MCP loopback, media-server, dan symlink. Sebagian kegagalan OS jelas terkena batas hardlink/symlink/network pada sandbox; semuanya perlu dipisahkan dari regresi produk sebelum baseline diperbarui. QA HUD/capture native tetap pending.
 
 **Instruksi berikutnya:** pertahankan preservasi path native/browser/Windows dan pemeriksaan identitas. Jangan menentukan project kosong dari source aktif. Aset milik library, penghapusan clip tidak menghapus source; seluruh library harus ikut save meskipun timeline kosong. Perbarui checklist ini dan `AGENTS.md` saat kontrak berubah.
 
@@ -501,5 +523,85 @@ Mentransformasikan integrasi AI Agent CLI (`agy`, `claude`, `opencode`) yang seb
 **Verifikasi 10 Oktober 2026:** Lihat [hasil aktual, perbandingan baseline, acceptance, ruling dan status review](docs/superpowers/plans/2026-10-10-story-asset-ownership-verification.md). Version tetap `1.4.0-beta.1`; native belum dijalankan. Durasi Story berasal dari canonical clip clocks; kontrol trailing blank deferred.
 
 Suite penuh default parallel sebelum perbaikan review akhir: 1.491/1.500 tes lulus; 9 kegagalan di 5 file sama persis dengan baseline, 3 kegagalan baseline manager/lifecycle kini lulus. Perbaikan terakhir di `8c2fe68` mempertahankan override transisi Artboard dan menolak asosiasi Story tanpa owner; 224 tes terkait di 15 suite lulus, TypeScript dan diff check exit 0. Biome konfigurasi existing: 42 error/22 warning tersisa dibanding baseline 106/22 pada path yang sama; seluruh 14 file baru clean. Enam path yang diubah pada perbaikan akhir tidak menambah diagnostic/count. Graft build terbaru: 5.188 node, 12.981 edge, 735 card. Review Task 8 dan whole branch disetujui; dua minor tes ditunda dengan alasan/biaya di catatan verifikasi. QA native dan sembilan kegagalan baseline tetap terbuka; suite penuh tidak diulang setelah perbaikan terarah.
+
+**Update Record/Story preview layout (11 Oktober 2026):** Tanpa clip layout, preview/export memakai layar sebagai card terpusat dan webcam square kanan bawah; layout custom berlaku di rentang clip dan timeline yang bersebelahan tetap kontigu. Kontrol zoom/pan viewport di Story preview dihapus; clip video sumber terkunci pada canvas, sementara overlay text/shape/image tetap dapat diedit. TypeScript lulus dan 46 tes pada lima suite terkait lulus. QA native serta pemeriksaan visual preview/export belum dijalankan.
+
+## 13. Mini-app Loop Background Studio: GIF background seamless (12 Oktober 2026)
+
+**Status:** MVP diimplementasikan; renderer, ekspor, UI, dan navigasi memiliki tes otomatis. QA native dan pemeriksaan file GIF hasil ekspor masih pending.
+
+**Tujuan:** Home membuka editor khusus untuk membuat background prosedural yang dapat diputar tanpa batas. Semua pengaturan bersifat sementara di sesi; editor tidak membuat atau mengubah project `.captr` maupun Assets.
+
+**Sudah diimplementasikan:**
+
+- [x] Home card membuka Loop Background Studio; Back kembali ke Home dan project aktif tetap memiliki prioritas pada navigasi aplikasi.
+- [x] Pola Dot Noise, Film Grain, dan Orbit memakai renderer Canvas deterministik yang sama untuk preview dan frame ekspor.
+- [x] Siklus pola periodik; frame GIF mengambil fase `index / totalFrames` tanpa menambahkan frame endpoint duplikat, termasuk infinite-repeat metadata.
+- [x] Pengaturan rasio 16:9, 9:16, 1:1; resolusi 720p/1080p; warna, density, scale, speed; durasi 1–10 detik; dan 15/20/25/30 FPS.
+- [x] Progress ekspor, pembatalan, error, dan download hasil GIF.
+- [x] Teks UI tersedia pada semua resource locale `common.json` yang ada.
+
+**QA native berikutnya:**
+
+- [ ] Buka mini-app dari Home dan kembali tanpa membuat project atau mengubah Assets.
+- [ ] Periksa sambungan akhir-ke-awal ketiga pola, pilihan rasio/resolusi, serta GIF yang berulang tanpa batas.
+- [ ] Uji batal dan error ekspor, lalu pastikan editor tetap dapat dipakai.
+- [ ] Verifikasi worker GIF dalam build Electron terpaket.
+
+**Di luar rilis pertama:** penyimpanan preset, MP4/WebM, timeline editing, impor media, dan integrasi ke Story/Record Editor.
+
+**Verifikasi otomatis (12 Oktober 2026):** 26/26 tes fokus lulus dan `npx tsc --noEmit` lulus. `npm run lint` melaporkan 3.692 error dan 84 warning di 1.315 file repo; file fitur ini bersih dari error. `npm run i18n:check` melaporkan 248 key yang hilang/ekstra di namespace editor/launch/settings; tidak ada key Loop Background Studio yang hilang. QA Electron native belum dilakukan.
+
+## Record Editor frame appearance (13 Oktober 2026)
+
+**Status:** implementasi Record Video selesai; QA native masih pending.
+
+- [x] Window dan Webcam memiliki kontrol appearance independen di sub-editor Record Video. Padding, border width/ketebalan, radius, fill, opacity, backdrop blur, dan shadow disimpan pada composition placement di `.captr`.
+- [x] Styling Window muncul di tab Scene dan Layout saat layout terpilih memakai mode Screen only. Styling Webcam muncul di Layout pada mode Bubble atau Webcam only; tidak ada tab Appearance atau pemilih target khusus.
+- [x] Opacity shadow ditampilkan sebagai slider 0–100% dan disimpan sebagai nilai 0–1; warna, blur, serta arah/jarak shadow diatur lewat offset X/Y.
+- [x] User dapat menyimpan snapshot desain lengkap sebagai preset bersama di library aplikasi, mengganti nama/menghapusnya, serta mengimpor dan mengekspor JSON.
+- [x] Preset diterapkan hanya ke target yang sedang dipilih; perubahan Window mempertahankan Webcam dan sebaliknya. Preview dan export memakai renderer frame bersama.
+- [x] Shadow memiliki kontrol warna, opacity 0–100%, blur, dan arah melalui offset horizontal/vertikal; border memiliki kontrol ketebalan.
+- [x] Automated QA: 96/96 tes pada 10 suite terkait lulus di implementasi fitur; setelah integrasi ke branch aktif, 83/83 tes di 8 suite fokus lulus dan TypeScript lulus. Biome sebelumnya tidak menemukan error pada file terkait (satu warning dependency hook lama tetap ada). Semua 10 file locale JSON valid dan key fitur tersedia di setiap bahasa.
+- [x] Automated QA flow tab/mode: 29/29 tes pada 3 suite fokus lulus dan TypeScript lulus.
+- [ ] Native QA: ubah Window dan Webcam secara terpisah, simpan/buka ulang `.captr`, ekspor lalu impor preset JSON antar-project, pastikan penerapan hanya mengubah target terpilih, dan bandingkan preview dengan hasil export untuk desain glass/solid/brutalist.
+
+## Edge-hold Clip Transitions pada media penuh / tanpa handle (13 Oktober 2026)
+
+**Status:** Implementasi dan QA otomatis lulus; QA native masih pending.
+
+- [x] Klip video utuh (full-source) yang ditempatkan berdampingan pada visual track tanpa source handle kini dapat menerima transisi default (500 ms) dengan menahan frame tepi (*edge frame holding*).
+- [x] `getMaxClipTransitionDurationUs` di `clipTransitions.ts` dan validator sequence di `validation.ts` mengizinkan transisi hingga batas timeline clip saat available handle adalah 0.
+- [x] `sampleClipTransition` dan `visualSample` di `visualAnimation.ts` menahan frame valid pertama (`0`) dan terakhir (`durationUs - 1`) dari sumber video/rekaman saat evaluasi transisi melampaui batas media.
+- [x] Tombol aksi "Add transition" di `ProjectTimeline` langsung muncul di perbatasan media penuh tanpa perlu pemotongan trim manual terlebih dahulu.
+- [x] Inspector transisi memakai 5 kartu preset dengan preview animasi; arah Wipe/Push dipilih lewat tombol panah.
+- [x] Automated QA terarah: 156/156 tes pada 10 suite transisi/editor/export lulus; `pnpm exec tsc --noEmit` lolos.
+- [x] Lifecycle `.captr`: 5/5 tes lulus, termasuk penyimpanan dan pembukaan ulang transisi.
+- [ ] Full suite: 1.596 tes lulus, 24 gagal di 9 file (`mcpServer`, `projectFileConcurrency`, `projectFileService`, `projectRenameTransaction`, `recordedAudioFile`, `StoryEditor`, `mediaLayerTiming`, `audioEncoder`, `streamingDecoder`); tes inspector transisi lulus.
+- [ ] Native QA: Tempatkan dua file video penuh di timeline, klik tombol "Add transition", putar preview di area transisi, dan pastikan transisi cross-dissolve berjalan mulus dengan freeze frame di akhir/awal klip tanpa crash playback.
+
+## Live Drag Preview untuk Overlay Objek di Kanvas Story Editor (17 Oktober 2026)
+
+**Status:** Selesai dan terverifikasi.
+
+**Gejala Masalah:**
+- Ketika pengguna menggeser atau mengubah ukuran/rotasi klip overlay (teks, shape, gambar) di kanvas Story Editor preview, hanya bounding box gizmo biru yang bergerak secara real-time. Objek visual overlay aslinya tetap diam di posisi awal dan baru meloncat (*teleport*) ke posisi baru setelah tombol kiri mouse dilepas (`pointerup`).
+
+**Akar Masalah:**
+- `CanvasTransformGizmo` menghitung `newTransform` secara lokal selama drag (`pointermove`), namun hanya menyimpannya di internal state gizmo (`activeTransform`).
+- Kanvas pratinjau di `ProjectPreview` merender frame dari objek `project` yang tidak dimutasi hingga `onUpdateClipTransform` dipanggil saat `handleWindowPointerUp`. Hal ini sengaja dilakukan untuk menjaga atomisitas riwayat undo/redo agar tidak terjadi infinite re-render loop atau banjir command histori. Namun, `ProjectPreview` belum memiliki saluran transient untuk menerima pembaruan transform sementara secara visual.
+
+**Solusi & Perbaikan:**
+1. **Live Callback Non-Histori (`onLiveTransform`):** Menambahkan callback opsional `onLiveTransform?: (clipId: string | null, transform: ClipTransform | null) => void` pada `CanvasTransformGizmo`. Selama sesi drag berlangsung (`translate`, `resize`, `rotate`), transform baru diteruskan seketika tanpa mencatat command undo/redo.
+2. **Transient Transform Override di `ProjectPreview` (`applyLiveTransform`):** Fungsi murni `applyLiveTransform` di `canvasGizmoMath.ts` menyalin struktur track secara shallow dan menimpa `clip.transform` khusus untuk klip yang sedang digeser tanpa memutasi objek state induk.
+3. **Imperative Frame Coalescing via `PreviewQueue`:** Saat `onLiveTransform` dipanggil, `ProjectPreview` tidak memicu re-render komponen React (tidak ada `setState`). Sebagai gantinya, request frame pratinjau dikirim langsung ke `PreviewQueue.request`, yang secara otomatis melakukan *frame coalescing* pada 60 FPS untuk rendering WebGL/2D canvas yang halus dan tanpa lag.
+4. **Pembersihan Listener & Revert Handlers:** Saat `pointerup`, gizmo membersihkan override via `onLiveTransform(null, null)` dan mengomit satu command `onUpdateClipTransform` secara bersih ke `ProjectController`. Jika sesi drag terputus atau unmount di tengah jalan, `dragCleanupRef` memastikan listener window dibersihkan secara aman.
+
+**Pengujian & Verifikasi:**
+- Unit tests di `CanvasTransformGizmo.test.tsx` (10/10 lulus 100%), mencakup verifikasi immutability `applyLiveTransform` dan penanganan `onLiveTransform`.
+- Unit tests terkait di `canvasGizmoMath.test.ts`, `previewQueue.test.ts`, dan `CanvasProjectInspector.test.tsx` (12/12 lulus 100%).
+- Type check: `npx tsc -p tsconfig.json --noEmit` lolos bersih tanpa error.
+- Linter/Formatter: `npx biome check` lolos bersih tanpa error.
+
 
 

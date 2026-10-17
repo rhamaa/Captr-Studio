@@ -4,8 +4,11 @@ import type { ClipTransform, TimelineProject } from "@/core/timeline/types";
 import { renderProjectAudio } from "@/lib/exporter/projectAudioRenderer";
 import { ProjectFrameRenderer } from "@/lib/exporter/projectFrameRenderer";
 import { CanvasTransformGizmo } from "./CanvasTransformGizmo";
+import { applyLiveTransform } from "./canvasGizmoMath";
 import { PreviewQueue } from "./previewQueue";
 import { SubtitleOverlay } from "./SubtitleOverlay";
+
+export { applyLiveTransform };
 
 export function ProjectPreview({
 	project,
@@ -16,6 +19,7 @@ export function ProjectPreview({
 	selectedClipId,
 	onSelectClip,
 	onUpdateClipTransform,
+	canTransformClip,
 	onDropAsset,
 }: {
 	project: TimelineProject;
@@ -26,6 +30,7 @@ export function ProjectPreview({
 	selectedClipId?: string | null;
 	onSelectClip?: (clipId: string) => void;
 	onUpdateClipTransform?: (clipId: string, transform: ClipTransform) => void;
+	canTransformClip?: (clipId: string, assetKind: string) => boolean;
 	onDropAsset?: (assetId: string, canvasX: number, canvasY: number) => void;
 }) {
 	const canvas = useRef<HTMLCanvasElement>(null),
@@ -39,6 +44,28 @@ export function ProjectPreview({
 		latest = useRef({ timeUs, playing, onError, onRenderedCanvas });
 	latest.current = { timeUs, playing, onError, onRenderedCanvas };
 	const audio = useRef<HTMLAudioElement>();
+	const liveTransform = useRef<{ clipId: string; transform: ClipTransform } | null>(null);
+
+	const handleLiveTransform = (clipId: string | null, transform: ClipTransform | null) => {
+		if (clipId && transform) {
+			liveTransform.current = { clipId, transform };
+			const activeProject = applyLiveTransform(project, liveTransform.current);
+			queue.current?.request(
+				{ project: activeProject, timeUs, playing },
+				{ continuousPlayback: playing },
+			);
+		} else {
+			const hadOverride = liveTransform.current !== null;
+			liveTransform.current = null;
+			if (hadOverride && !onUpdateClipTransform) {
+				queue.current?.request(
+					{ project, timeUs, playing },
+					{ continuousPlayback: playing },
+				);
+			}
+		}
+	};
+
 	useEffect(() => {
 		const renderer = new ProjectFrameRenderer();
 		const next = new PreviewQueue<
@@ -69,7 +96,11 @@ export function ProjectPreview({
 	}, []);
 	useEffect(() => {
 		if (canvas.current) canvas.current.dataset.projectPreviewReady = "false";
-		queue.current?.request({ project, timeUs, playing }, { continuousPlayback: playing });
+		const activeProject = applyLiveTransform(project, liveTransform.current);
+		queue.current?.request(
+			{ project: activeProject, timeUs, playing },
+			{ continuousPlayback: playing },
+		);
 	}, [project, timeUs, playing]);
 	useEffect(() => {
 		const abort = new AbortController();
@@ -124,7 +155,9 @@ export function ProjectPreview({
 				className="project-rendered-preview"
 				data-project-preview-ready="false"
 			/>
-			<SubtitleOverlay project={project} timeUs={timeUs} />
+			{project.subtitles?.segments === undefined && (
+				<SubtitleOverlay project={project} timeUs={timeUs} />
+			)}
 			<CanvasTransformGizmo
 				project={project}
 				timeUs={timeUs}
@@ -132,6 +165,8 @@ export function ProjectPreview({
 				canvasElement={canvas.current}
 				onSelectClip={onSelectClip}
 				onUpdateClipTransform={onUpdateClipTransform}
+				onLiveTransform={handleLiveTransform}
+				canTransformClip={canTransformClip}
 				onDropAsset={onDropAsset}
 				disabled={playing}
 			/>

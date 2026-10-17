@@ -26,9 +26,21 @@ export function placeInlineDesign(
 				),
 		);
 	if (!track) {
+		let name: string;
+		if (content.kind === "shape") {
+			const shapeTracks = next.tracks.filter(
+				(t) => t.kind === "visual" && /^Shape(?: \d+)?$/i.test(t.name),
+			);
+			name = shapeTracks.length === 0 ? "Shape" : `Shape ${shapeTracks.length}`;
+		} else {
+			const visualTracks = next.tracks.filter(
+				(t) => t.kind === "visual" && /^Track(?: \d+)?$/i.test(t.name),
+			);
+			name = `Track ${visualTracks.length + 1}`;
+		}
 		track = {
 			id: ids.trackId,
-			name: "Video",
+			name,
 			kind: "visual",
 			locked: false,
 			muted: false,

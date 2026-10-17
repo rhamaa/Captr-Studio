@@ -8,9 +8,19 @@ import {
 	Trash,
 	VideoCamera,
 } from "@phosphor-icons/react";
-import { resolveClipSource } from "@/core/timeline/clipSource";
-import { extendInlineClip } from "@/core/timeline/designTemplateCommands";
+import { ColorPicker } from "@/components/ui/color-picker";
+import { KeyframeValueEditor } from "@/components/video-editor/annotations/KeyframeValueEditor";
+import { updateClipVisualSettings } from "@/core/timeline/clipVisualSettings";
+import { ClipVisualControls } from "./ClipVisualControls";
+import { KeyframeCurveEditor } from "./KeyframeCurveEditor";
 import type { KeyframeEasing, KeyframeProperty } from "@/components/video-editor/types";
+import { resolveClipSource } from "@/core/timeline/clipSource";
+import {
+	getMaxClipTransitionDurationUs,
+	removeClipTransition,
+	setComponentAnimation,
+	updateClipTransition,
+} from "@/core/timeline/clipTransitions";
 import {
 	addClipKeyframe,
 	moveClip,
@@ -22,15 +32,12 @@ import {
 	updateClipKeyframe,
 	updateTextOverlay,
 } from "@/core/timeline/commands";
-import {
-	getMaxClipTransitionDurationUs,
-	removeClipTransition,
-	setComponentAnimation,
-	updateClipTransition,
-} from "@/core/timeline/clipTransitions";
-import { setShapeStyleOverride } from "@/core/timeline/shapeCommands";
+import { extendInlineClip } from "@/core/timeline/designTemplateCommands";
+import { setClipFades } from "@/core/timeline/editingCommands";
 import type { ProjectCommand } from "@/core/timeline/history";
+import { setShapeStyleOverride } from "@/core/timeline/shapeCommands";
 import { clipDurationUs, type ClipTransition, type ClipTransitionPreset, type ComponentAnimation, type ShapeStyle, type TimelineProject } from "@/core/timeline/types";
+import { sampleClipTransform } from "@/core/timeline/clipTransform";
 import { CanvasProjectInspector } from "./CanvasProjectInspector";
 import { useProjectMessages } from "./useProjectMessages";
 
@@ -76,37 +83,92 @@ function TransitionInspector({
 	onCommand: (command: ProjectCommand) => void;
 }) {
 	const m = useProjectMessages();
-	const maxDurationMs = maximumDurationUs === Number.MAX_SAFE_INTEGER ? undefined : maximumDurationUs / 1000;
+	const maxDurationMs = maximumDurationUs === Number.MAX_SAFE_INTEGER ? undefined : maximumDurationUs / 1000,
+		selectedPreset = transitionPresetControlValue(transition.preset),
+		direction = transition.preset.kind === "wipe" || transition.preset.kind === "push"
+			? transition.preset.direction
+			: "left";
+	const presets = [
+		{ value: "cross-dissolve", label: m("transitionCrossDissolve") },
+		{ value: "fade-through-black", label: m("transitionFadeThroughBlack") },
+		{ value: "fade-through-white", label: m("transitionFadeThroughWhite") },
+		{ value: "wipe", label: m("transitionWipe") },
+		{ value: "push", label: m("transitionPush") },
+	] as const;
+	const directions: { value: Direction; glyph: string }[] = [
+		{ value: "left", glyph: "←" },
+		{ value: "right", glyph: "→" },
+		{ value: "up", glyph: "↑" },
+		{ value: "down", glyph: "↓" },
+	];
 	return (
 		<fieldset disabled={locked} className="project-transition-inspector">
 			<div className="project-inspector-title">
 				<strong>{fromName} → {toName}</strong>
 				<span>{m("transition")}</span>
 			</div>
-			<label>
-				{m("transitionPreset")}
-				<select aria-label={m("transitionPreset")} value={transitionPresetControlValue(transition.preset)} onChange={(event) => {
-					const direction = transition.preset.kind === "wipe" || transition.preset.kind === "push" ? transition.preset.direction : "left";
-					onCommand((p) => updateClipTransition(p, transition.id, { preset: transitionPresetFromControl(event.target.value, direction) }));
-				}}>
-					<option value="cross-dissolve">{m("transitionCrossDissolve")}</option>
-					<option value="fade-through-black">{m("transitionFadeThroughBlack")}</option>
-					<option value="fade-through-white">{m("transitionFadeThroughWhite")}</option>
-					<option value="wipe">{m("transitionWipe")}</option>
-					<option value="push">{m("transitionPush")}</option>
-				</select>
-			</label>
+			<div className="project-transition-preset-section">
+				<span className="project-transition-control-label">{m("transitionPreset")}</span>
+				<div className="project-transition-presets" role="group" aria-label={m("transitionPreset")}>
+					{presets.map(({ value, label }) => (
+						<button
+							key={value}
+							type="button"
+							data-transition-preset={value}
+							aria-pressed={selectedPreset === value}
+							aria-label={label}
+							className={`project-transition-preset${selectedPreset === value ? " is-selected" : ""}`}
+							onClick={() =>
+								onCommand((p) =>
+									updateClipTransition(p, transition.id, {
+										preset: transitionPresetFromControl(value, direction),
+									}),
+								)
+							}
+						>
+							<span
+								className={`project-transition-preview project-transition-preview--${value}`}
+								data-transition-preview={value}
+								data-direction={direction}
+								aria-hidden="true"
+							>
+								<span className="project-transition-preview__scene project-transition-preview__scene--from">
+									<span className="project-transition-preview__bar" />
+									<span className="project-transition-preview__card" />
+								</span>
+								<span className="project-transition-preview__scene project-transition-preview__scene--to">
+									<span className="project-transition-preview__bar" />
+									<span className="project-transition-preview__card" />
+								</span>
+								<span className="project-transition-preview__veil" />
+							</span>
+							<span className="project-transition-preset-label">{label}</span>
+						</button>
+					))}
+				</div>
+			</div>
 			{(transition.preset.kind === "wipe" || transition.preset.kind === "push") && (
-				<label>
-					{m("transitionDirection")}
-					<select aria-label={m("transitionDirection")} value={transition.preset.direction} onChange={(event) => {
-						const direction = event.target.value as Direction;
-						const kind = transition.preset.kind as "wipe" | "push";
-						onCommand((p) => updateClipTransition(p, transition.id, { preset: { kind, direction } }));
-					}}>
-						{(["left", "right", "up", "down"] as const).map((direction) => <option key={direction} value={direction}>{m(direction)}</option>)}
-					</select>
-				</label>
+				<div className="project-transition-direction">
+					<span className="project-transition-control-label">{m("transitionDirection")}</span>
+					<div className="project-transition-directions" role="group" aria-label={m("transitionDirection")}>
+						{directions.map(({ value, glyph }) => (
+							<button
+								key={value}
+								type="button"
+								data-transition-direction={value}
+								aria-label={m(value)}
+							aria-pressed={direction === value}
+								className="project-transition-direction-button"
+								onClick={() => {
+									const kind = transition.preset.kind as "wipe" | "push";
+									onCommand((p) => updateClipTransition(p, transition.id, { preset: { kind, direction: value } }));
+								}}
+							>
+								{glyph}
+							</button>
+						))}
+					</div>
+				</div>
 			)}
 			{transition.preset.kind === "fade-through" && (
 				<label>
@@ -184,12 +246,17 @@ export function ProjectInspector({
 	const fromAsset = transitionFrom && resolveClipSource(project, transitionFrom),
 		toAsset = transitionTo && resolveClipSource(project, transitionTo);
 	const localMs = clip ? Math.round(Math.max(0, (playheadUs - clip.startUs) / 1000)) : 0;
+	const displayTransform = clip
+		? clip.keyframes && clip.keyframes.length > 0
+			? sampleClipTransform(clip, localMs * 1000)
+			: clip.transform
+		: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1 };
 	const handleAddKeyframe = (property: KeyframeProperty) => {
 		if (!clip) return;
 		const value =
 			property === "position"
-				? { x: clip.transform.x, y: clip.transform.y }
-				: clip.transform[property];
+				? { x: displayTransform.x, y: displayTransform.y }
+				: displayTransform[property];
 		onCommand((p) =>
 			addClipKeyframe(p, clip.id, {
 				id: `kf_${crypto.randomUUID()}`,
@@ -199,6 +266,61 @@ export function ProjectInspector({
 				easing: "ease-in-out",
 			}),
 		);
+	};
+	const handleTogglePropKeyframe = (prop: KeyframeProperty) => {
+		if (!clip) return;
+		const existing = clip.keyframes?.find(
+			(k) => k.property === prop && Math.abs(k.timeMs - localMs) <= 50,
+		);
+		if (existing) {
+			onCommand((p) => removeClipKeyframe(p, clip.id, existing.id));
+		} else {
+			const val =
+				prop === "position"
+					? { x: displayTransform.x, y: displayTransform.y }
+					: displayTransform[prop];
+			onCommand((p) =>
+				addClipKeyframe(p, clip.id, {
+					id: `kf_${crypto.randomUUID()}`,
+					timeMs: localMs,
+					property: prop,
+					value: val,
+					easing: "ease-in-out",
+				}),
+			);
+		}
+	};
+	const handleTransformChange = (
+		key: "x" | "y" | "scale" | "rotation" | "opacity",
+		newVal: number,
+	) => {
+		if (!clip) return;
+		const prop: KeyframeProperty = key === "x" || key === "y" ? "position" : key;
+		onCommand((p) => {
+			const nextTransform = {
+				...clip.transform,
+				[key]: newVal,
+			};
+			let next = updateClip(p, clip.id, { transform: nextTransform });
+			const targetClip = next.tracks.flatMap((t) => t.clips).find((c) => c.id === clip.id);
+			if (targetClip?.keyframes?.some((k) => k.property === prop)) {
+				const kfVal =
+					prop === "position"
+						? {
+								x: key === "x" ? newVal : nextTransform.x,
+								y: key === "y" ? newVal : nextTransform.y,
+							}
+						: newVal;
+				next = addClipKeyframe(next, clip.id, {
+					id: `kf_${crypto.randomUUID()}`,
+					timeMs: localMs,
+					property: prop,
+					value: kfVal,
+					easing: "ease-in-out",
+				});
+			}
+			return next;
+		});
 	};
 	const componentDurationLimit = (edge: "enter" | "exit") => {
 		if (!clip) return 0;
@@ -271,6 +393,10 @@ export function ProjectInspector({
 							Edit recording effects
 						</button>
 					)}
+					{!clip.audioOnly && ["video","image","recording"].includes(asset.kind) && <ClipVisualControls value={clip.visualSettings} onChange={settings=>onCommand(p=>updateClipVisualSettings(p,clip.id,settings))}/>}
+					{(asset.kind==="audio"||asset.kind==="video"||asset.kind==="recording") && <div className="project-component-animation-row">
+						{(["fadeInUs","fadeOutUs"] as const).map(key=><label key={key}>{key==="fadeInUs"?"Audio fade in (s)":"Audio fade out (s)"}<input type="number" min={0} max={clipDurationUs(clip)/1_000_000} step={.05} value={(clip[key]??0)/1_000_000} onChange={e=>{const value=Math.round(e.target.valueAsNumber*1_000_000);if(Number.isFinite(value))onCommand(p=>setClipFades(p,clip.id,key==="fadeInUs"?value:clip.fadeInUs??0,key==="fadeOutUs"?value:clip.fadeOutUs??0));}}/></label>)}
+					</div>}
 					{asset.kind === "text" && (
 						<>
 							<label className="project-text-content-field">
@@ -323,21 +449,19 @@ export function ProjectInspector({
 								/>
 								<span>px</span>
 							</label>
-							<label>
-								Color
-								<input
-									aria-label="Overlay text color"
-									type="color"
+							<div className="project-inspector-color-control">
+								<span>Color</span>
+								<ColorPicker
+									label="Overlay text color"
 									value={text?.color ?? "#ffffff"}
-									onChange={(e) =>
+									compact
+									onChange={(color) =>
 										onCommand((p) =>
-											updateTextOverlay(p, clip.id, {
-												color: e.target.value,
-											}),
+											updateTextOverlay(p, clip.id, { color }),
 										)
 									}
 								/>
-							</label>
+							</div>
 							<label>
 								Align
 								<select
@@ -488,9 +612,42 @@ export function ProjectInspector({
 									<div className="project-shape-style">
 										<h3>{m("shapeStyle")}</h3>
 										{shape!.kind !== "line" && shape!.kind !== "arrow" && (
-											<label>{m("shapeFill")}<input aria-label={m("shapeFill")} type="color" value={style.fill ?? "#6387ff"} onChange={(event) => onCommand((p) => setShapeStyleOverride(p, clip.id, { ...style, fill: event.target.value }))} /></label>
+										<div className="project-color-control">
+											<span>{m("shapeFill")}</span>
+											<ColorPicker
+												label={m("shapeFill")}
+												value={style.fill ?? "#6387ff"}
+												compact
+												onChange={(color) =>
+													onCommand((p) =>
+														setShapeStyleOverride(p, clip.id, {
+															...style,
+															fill: color,
+														}),
+													)
+												}
+											/>
+										</div>
 										)}
-										<label>{m("shapeStroke")}<input aria-label={m("shapeStroke")} type="color" value={style.stroke?.color ?? "#ffffff"} onChange={(event) => onCommand((p) => setShapeStyleOverride(p, clip.id, { ...style, stroke: { color: event.target.value, width: style.stroke?.width ?? 4 } }))} /></label>
+										<div className="project-color-control">
+											<span>{m("shapeStroke")}</span>
+											<ColorPicker
+												label={m("shapeStroke")}
+												value={style.stroke?.color ?? "#ffffff"}
+												compact
+												onChange={(color) =>
+													onCommand((p) =>
+														setShapeStyleOverride(p, clip.id, {
+															...style,
+															stroke: {
+																color,
+																width: style.stroke?.width ?? 4,
+															},
+														}),
+													)
+												}
+											/>
+										</div>
 										<label>{m("shapeStrokeWidth")}<input aria-label={m("shapeStrokeWidth")} type="number" min={0} max={64} step={1} value={style.stroke?.width ?? 0} onChange={(event) => onCommand((p) => setShapeStyleOverride(p, clip.id, { ...style, stroke: Number(event.target.value) > 0 ? { color: style.stroke?.color ?? "#ffffff", width: Number(event.target.value) } : null }))} /></label>
 									</div>
 								);
@@ -547,35 +704,75 @@ export function ProjectInspector({
 									</button>
 								</div>
 							</div>
-							{(["x", "y", "scale", "rotation", "opacity"] as const).map((key) => (
-								<label key={key}>
-									{key.charAt(0).toUpperCase() + key.slice(1)}
-									<input
-										aria-label={`Clip ${key}`}
-										type="number"
-										step={key === "scale" || key === "opacity" ? 0.05 : 1}
-										value={clip.transform[key]}
-										min={
-											key === "scale"
-												? 0.05
-												: key === "opacity"
-													? 0
-													: undefined
-										}
-										max={key === "opacity" ? 1 : undefined}
-										onChange={(e) =>
-											onCommand((p) =>
-												updateClip(p, clip.id, {
-													transform: {
-														...clip.transform,
-														[key]: Number(e.target.value),
-													},
-												}),
-											)
-										}
-									/>
-								</label>
-							))}
+							<div className="project-transform-grid flex flex-col gap-1.5 mt-1">
+								{(
+									[
+										{ key: "x" as const, label: "X", prop: "position" as KeyframeProperty, step: 1, min: undefined, max: undefined },
+										{ key: "y" as const, label: "Y", prop: "position" as KeyframeProperty, step: 1, min: undefined, max: undefined },
+										{ key: "scale" as const, label: "Scale", prop: "scale" as KeyframeProperty, step: 0.05, min: 0.05, max: undefined },
+										{ key: "rotation" as const, label: "Rotation", prop: "rotation" as KeyframeProperty, step: 1, min: undefined, max: undefined },
+										{ key: "opacity" as const, label: "Opacity", prop: "opacity" as KeyframeProperty, step: 0.05, min: 0, max: 1 },
+									]
+								).map(({ key, label, prop, step, min, max }) => {
+									const isAtKf = Boolean(
+										clip.keyframes?.some(
+											(k) => k.property === prop && Math.abs(k.timeMs - localMs) <= 50,
+										),
+									);
+									const isAnimated = Boolean(
+										clip.keyframes?.some((k) => k.property === prop),
+									);
+									return (
+										<div
+											key={key}
+											className="project-transform-row flex items-center justify-between gap-2"
+										>
+											<div className="flex items-center gap-1.5 min-w-[70px]">
+												<button
+													type="button"
+													className={`project-prop-kf-btn p-1 rounded transition-colors cursor-pointer ${
+														isAtKf
+															? "text-[var(--captr-blue,#6fa8ff)] bg-blue-500/10 hover:bg-blue-500/20"
+															: isAnimated
+																? "text-white/60 hover:text-white hover:bg-white/10"
+																: "text-white/30 hover:text-white/80 hover:bg-white/5"
+													}`}
+													title={
+														isAtKf
+															? `Remove ${prop} keyframe at ${(localMs / 1000).toFixed(2)}s`
+															: `Add ${prop} keyframe at ${(localMs / 1000).toFixed(2)}s`
+													}
+													aria-label={`Toggle ${label} keyframe`}
+													onClick={() => handleTogglePropKeyframe(prop)}
+												>
+													<Diamond size={13} weight={isAtKf ? "fill" : "regular"} />
+												</button>
+												<span className="text-xs text-white/80 select-none font-medium">
+													{label}
+												</span>
+											</div>
+											<input
+												aria-label={`Clip ${key}`}
+												type="number"
+												className="project-transform-input flex-1 max-w-[140px] bg-white/5 border border-white/10 rounded px-2 py-0.5 text-xs text-right text-white focus:outline-none focus:border-[var(--captr-blue,#6fa8ff)]"
+												step={step}
+												min={min}
+												max={max}
+												value={
+													isAnimated
+														? Number(
+																displayTransform[key].toFixed(
+																	key === "scale" || key === "opacity" ? 3 : 1,
+																),
+															)
+														: clip.transform[key]
+												}
+												onChange={(e) => handleTransformChange(key, Number(e.target.value))}
+											/>
+										</div>
+									);
+								})}
+							</div>
 							<div className="project-keyframe-section">
 								<div className="project-keyframe-header">
 									<h4>
@@ -650,12 +847,14 @@ export function ProjectInspector({
 															updateClipKeyframe(p, clip.id, kf.id, {
 																easing: e.target
 																	.value as KeyframeEasing,
+																bezier: e.target.value === "cubic-bezier" ? kf.bezier ?? [.42,0,.58,1] : undefined,
 															}),
 														)
 													}
 												>
 													<option value="ease-in-out">ease-in-out</option>
 													<option value="linear">linear</option>
+													<option value="cubic-bezier">cubic-bezier</option>
 													<option value="ease-in">ease-in</option>
 													<option value="ease-out">ease-out</option>
 													<option value="spring-bounce">
@@ -675,6 +874,7 @@ export function ProjectInspector({
 												>
 													<Trash size={12} />
 												</button>
+												<div className="project-kf-values"><KeyframeValueEditor frame={kf} disabled={track.locked} onChange={patch=>onCommand(p=>updateClipKeyframe(p,clip.id,kf.id,patch))} curveEditor={<KeyframeCurveEditor value={kf.bezier} disabled={track.locked} onChange={bezier=>onCommand(p=>updateClipKeyframe(p,clip.id,kf.id,{bezier}))}/>}/></div>
 											</div>
 										))}
 									</div>

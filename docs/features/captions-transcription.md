@@ -12,9 +12,9 @@ Inferensi lokal memerlukan runtime Whisper dan model yang tersedia. Downloader m
 
 Caption video final adalah keputusan Story: teks, timing, segmentasi, posisi, dan style dapat berbeda dari transkrip mentah. Ownership foundation mempertahankan metadata caption pada canonical owner, projection, dan save/reopen.
 
-Subtitle/karaoke overlay pada preview tersedia. Namun pada kondisi 10 Oktober 2026, overlay Story berada di lapisan UI terpisah dari canvas yang diekspor. **Editor caption final dan burn-in pada export Story masih backlog.**
+Per 17 Oktober 2026, tombol **Captions** pada footer Story membuka editor caption final. Pilih **Generate from transcripts** atau **Add caption**, lalu ubah teks, timing, kata, posisi, ukuran dan warna. Perubahan masuk history undo/redo dan tersimpan pada owner Story di `.captr`.
 
-Jangan memakai keberadaan preview subtitle atau klaim karaoke pada release note lama sebagai bukti caption final Story sudah masuk MP4.
+Caption hasil generate menyimpan snapshot transkrip per placement pada source clock, lalu dipetakan melalui trim/rate dan time map Record saat digambar. Caption manual memakai waktu Story. Renderer Canvas yang sama membakar caption untuk preview dan export MP4. Preview transkrip lama masih tersedia sampai caption final dibuat; gunakan panel Captions untuk menghasilkan caption yang ikut export.
 
 ## Pemakaian context agent
 
@@ -22,10 +22,7 @@ Agent dapat menerima transcript untuk merencanakan cut atau B-roll. Source trans
 
 ## Pekerjaan lanjutan
 
-- Editor segment/kata caption lokal Story dengan undo/redo.
-- Pemetaan caption mengikuti trim/rate dan nested Record clocks.
-- Burn-in melalui renderer bersama agar preview dan export setara.
-- QA hasil video dan round-trip metadata.
+- QA visual desktop hasil MP4 dan interaksi panel; round-trip metadata diuji otomatis.
 
 Lihat [roadmap finishing](../project/roadmap.md) dan [status fitur](../product/status.md).
 

@@ -1,24 +1,27 @@
 import {
 	CircleNotch,
 	ClosedCaptioning,
+	Desktop,
 	FilmStrip,
 	Image as ImageIcon,
 	Microphone,
 	MusicNote,
 	Plus,
+	SpeakerHigh,
 	TextT,
 	Trash,
 	VideoCamera,
 } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import type { AssetTranscript } from "@/core/timeline/transcriptTypes";
-import type { MediaAsset } from "@/core/timeline/types";
+import type { MediaAsset, RecordingPackage } from "@/core/timeline/types";
 import { localMediaUrl } from "@/recording/mediaProbe";
 import { AssetTranscriptDialog } from "./AssetTranscriptDialog";
 import { ASSET_DRAG_TYPE, beginTimelineDrag, endTimelineDrag } from "./timelineInteractions";
 
 export interface AssetCardProps {
 	asset: MediaAsset;
+	recordingPackage?: RecordingPackage;
 	sourcePath?: string;
 	audioPath?: string;
 	selected: boolean;
@@ -30,6 +33,7 @@ export interface AssetCardProps {
 }
 export function AssetCard({
 	asset,
+	recordingPackage,
 	sourcePath,
 	audioPath,
 	selected,
@@ -65,6 +69,7 @@ export function AssetCard({
 	useEffect(() => {
 		let current = true;
 		if (sourcePath && canHaveCaptions) {
+			setTranscript(null);
 			window.electronAPI
 				?.loadAssetTranscript?.(sourcePath)
 				.then((t) => {
@@ -264,7 +269,54 @@ export function AssetCard({
 					<Icon size={12} />
 					{asset.kind === "recording" ? (
 						<>
-							<Microphone size={12} />
+							<span
+								className="project-recording-components"
+								role="group"
+								aria-label="Recording contents"
+								style={{ display: "inline-flex", alignItems: "center", gap: 5 }}
+							>
+								{[
+									{
+										label: "Screen video",
+										Icon: Desktop,
+										active: Boolean(recordingPackage?.screen.path || sourcePath),
+									},
+									{
+										label: "Webcam video",
+										Icon: VideoCamera,
+										active: Boolean(recordingPackage?.webcam?.path),
+									},
+									{
+										label: "Microphone audio",
+										Icon: Microphone,
+										active: Boolean(recordingPackage?.microphone?.path),
+									},
+									{
+										label: "Internal audio",
+										Icon: SpeakerHigh,
+										active: Boolean(recordingPackage?.system?.path),
+									},
+									{
+										label: "Captions",
+										Icon: ClosedCaptioning,
+										active: Boolean(transcript),
+									},
+								].map(({ label, Icon: ComponentIcon, active }) => (
+									<span
+										key={label}
+										className={`project-recording-component ${active ? "is-active" : "is-missing"}`}
+										title={`${label}: ${active ? "available" : "not included"}`}
+										aria-label={`${label}: ${active ? "available" : "not included"}`}
+										style={{
+											display: "inline-flex",
+											color: active ? "var(--accent-color, #91aaff)" : "var(--muted-color, #818692)",
+											opacity: active ? 1 : 0.4,
+										}}
+									>
+										<ComponentIcon size={13} />
+									</span>
+								))}
+							</span>
 							Editable package
 						</>
 					) : asset.kind === "audio" ? (

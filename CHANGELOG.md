@@ -9,21 +9,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Implemented — Story ownership foundation (2026-10-10)
+---
 
-- Text/Shapes belong inline to each Story clip; independent Templates preserve reusable presets and unused legacy designs. New designs use finite five-second source extents with undoable extension.
-- Root and Artboard tracks/private media are authoritative. Assets contain reusable media and Recording sources; Story Media contains the active owner's private file media. Publish to Assets preserves source IDs and undoable references.
-- Shared Recording packages retain independent placement compositions. Preview/export use scoped resolution and existing source clocks; no source flattening.
-- Voiceover captures immutable originating Story/token/playhead/IDs and registers private source separately from placement. Deleted/stale/canceled takes reject with bounded cleanup. Screen Record remains global Assets-only.
-- V3 clone normalization and real bundle persistence retain all libraries including unplaced private sources, sidecars, captions metadata and current projections. Bounded manifest filenames preserve long/case/prefix-distinct Story IDs. Atomic ingress and project identity/path protections remain.
-- Legacy inherited Artboards preserve explicit transition overrides, including empty lists, through independent snapshot remapping. Dangling transitions and Story owner associations reject atomically without changing active project paths or source bytes.
-- Version remains `1.4.0-beta.1`; no release/version bump. [Verification](docs/superpowers/plans/2026-10-10-story-asset-ownership-verification.md) records approved task/whole-branch reviews, 224 passing final covering tests, exact baseline comparison and native gaps.
+## [1.4.0-beta.3] - 2026-10-18
 
-### Deferred finishing and verification
+### 🚀 Highlights
+- **Record Editor Frame Appearance Studio**: Dedicated "Appearance" section in the Record Editor sidebar for styling screen and webcam frames with rounded corners, padding, border styling, drop shadows, and visual theme presets.
+- **Rich Visual Style Presets**: Built-in visual cards for Brutalism, Claymorphism, Glassmorphism, Retro Arcade, Clean Minimal, and Modern Dark with live user preset management (save, rename, delete, import, export).
+- **Outward Border Expansion Geometry**: Fixed border thickness encroaching onto recordings by positioning borders outward on the canvas and casting shadows from the outer frame contour.
+- **Interactive Preview Zoom & Pan in Record Editor**: Smooth mouse wheel zooming (0.25x–5x) anchored to cursor, dedicated pan mode toggle (`Hand`), middle-click drag support, and 100% reset badge in the transport bar.
+- **Custom Numeric Micro-Steppers & Keyboard Stepping**: High-precision custom dark micro-steppers (`▲`/`▼`) with native spinner suppression, keyboard arrow stepping (`↑`/`↓` ±1, Shift: ±5), and hex color input.
+- **Centralized Feature Flags & Streamlined AI Surface**: Consolidated AI features behind `FEATURE_AI_ENABLED` toggle while AI workflows undergo architectural re-planning.
 
-- Native recorder/microphone/editor lifecycle QA remains pending. Automated lifecycle tests do not verify HUD/native interaction.
-- Caption editing/burn-in, real waveform/filmstrip, grouping, grading/masks, speed curves/tracking/proxies and authored trailing-blank duration control remain backlog; this foundation preserves caption metadata.
-- Task 8 and whole-branch reviews are approved after the focused migration fixes. Nine original full-suite failures and existing lint debt remain recorded; native QA is pending.
+### Added
+- **Record Editor Appearance Tab & Presets (`RecordingFrameAppearancePanel.tsx`)**:
+  - Direct frame styling for Screen recording and Webcam video frames.
+  - Visual preset gallery rendering live SVG previews for Brutalism, Claymorphism, Modern Dark, Glassmorphism, and more.
+  - User preset manager to save, rename, delete, import, and export custom JSON presets.
+  - Custom micro-stepper controls and keyboard shortcut stepping for pixel-perfect adjustments.
+- **Preview Zoom & Pan Controls in Record Editor (`RecordingCompositionEditor.tsx`)**:
+  - Smooth wheel zoom with cursor focal point anchoring.
+  - Pan mode toggle button and middle-click pan drag.
+  - 1-click zoom reset to 100% in transport bar.
+  - Synchronized overlay handles and live rendering during zoom/pan.
+- **Outward Border Expansion (`frameRenderer.ts`)**:
+  - Outward stroke placement (`x - b/2`, `y - b/2`, `w + b`, `h + b`) preserving the recorded video's active viewport without overlaying pixels.
+  - Frame drop shadow adjusted to cast from the outer border boundary.
+- **Central Feature Flags (`src/core/featureFlags.ts`)**:
+  - Clean `FEATURE_AI_ENABLED` configuration hiding unfinished AI buttons and drawers cleanly.
+
+### Changed
+- **Record Editor Layout**: Frame styling moved to its own dedicated sidebar tab alongside Scene, Cursor, and Layout.
+- **Hyperframe Studio**: Defaulted to Direct Source Code mode with CLI Agent drawer hidden until planned.
+
+### Fixed
+- Fixed border thickness covering recording media in Record Editor export and preview.
+- Fixed browser default number spinner arrows disrupting input styling in appearance panels.
+- Fixed canvas drag/pan state desynchronization in recording preview monitor.
+
+---
+
+## [1.4.0-beta.2] - 2026-10-17
+
+### 🚀 Highlights
+- **Interactive Transform Keyframe Engine**: Toggle keyframes on Position (X/Y), Scale (X/Y), and Rotation with diamond indicators (`◆`/`◇`) in the Inspector, visual keyframe diamonds on timeline clips, and auto-keyframing directly from the canvas gizmo.
+- **Live Canvas Transform Gizmo & Drag Sync**: Smoothly manipulate overlay objects in the video preview without position jumping or desynchronized bounding boxes.
+- **Unified Left Sidebar & Top Rail Navigation**: Replaced the separate 48px left rail with a clean, space-saving horizontal top bar inside the sidebar card header for switching between Assets, Shapes, Text Overlays, and Templates.
+- **Rich Shape & Highlight Studio**: Expanded shape library with visual SVG cards, blur/privacy masks, callouts, arrows, and granular controls for fill, stroke, corner radius, and opacity.
+- **Standardized Timeline Track Architecture**: Separated media and audio tracks with contextual track naming (`Shape`, `Shape 1`, `Track 1`, `Audio 1`, etc.).
+- **Studio Design System Custom Dark Scrollbars**: Sleek 6px custom scrollbars matching Captr Studio theme tokens across the Timeline, Inspector, Asset Grid, and Modal dialogs, eliminating stark Windows native scrollbar UI.
+- **Story Editor Finishing & Test Baseline Stabilization**: Complete Story-owned captions, shared preview/export burn-in, filmstrips, clip clipboard, and 1,670+ passing automated tests.
+
+### Added
+- **Visual Keyframe Engine**:
+  - Interactive diamond toggle buttons (`◆`/`◇`) for transform properties in `ProjectInspector`.
+  - Timeline keyframe glyphs rendering exact timestamp markers inside `TimelineClipItem`.
+  - Timeline toolbar keyframe navigation: toggle keyframe (`K`), jump to previous/next keyframe.
+  - Canvas gizmo interactions (drag, resize) that immediately create and update keyframes when transform keyframing is active.
+- **Shape & Highlight Library (`ShapeLibrary.tsx`)**:
+  - Visual SVG shape selector cards for Rectangle, Ellipse, Line, Arrow, Star, Callout Bubble, and Privacy Blur masks.
+  - Detailed shape attribute configuration panel with live preview of fill color, stroke color, stroke width, corner radius, opacity, and blur intensity.
+  - Direct 1-click addition onto timeline at playhead position.
+- **Custom Scrollbar System**:
+  - Global 6px custom scrollbars with `--scrollbar-thumb`, `--scrollbar-track`, and hover states.
+  - Suppressed default Windows native scrollbar buttons (`::-webkit-scrollbar-button { display: none !important; }`).
+- **Standardized Track Naming System**:
+  - Clean separation into visual media tracks and audio tracks without cluttered subtypes.
+  - Context-aware dynamic track names based on primary clip type (`Shape`, `Shape 1`, `Track 1`, `Audio 1`, etc.).
+
+### Changed
+- **Left Sidebar Layout**: Replaced the standalone 48px rail column with an integrated horizontal top navigation bar embedded in the sidebar card header, expanding available video preview workspace.
+- **Live Overlay Dragging**: Overhauled drag and resize physics in `StoryEditor` so overlay graphics and their selection bounding boxes translate simultaneously in real time without teleporting on mouse release.
+- **Story Finishing & Baseline**: Integrated Story-owned captions, placement source-clock mapping, independent Artboard anchors, shared Canvas burn-in, filmstrips, clip clipboard, and group/link selections.
+
+### Fixed
+- Fixed overlay bounding box desynchronization during live dragging on preview canvas.
+- Fixed stark white Windows scrollbars showing in dark mode UI on Windows.
+- Restored missing shadow direction label in `RecordingFrameAppearancePanel`.
+- Stabilized the automated baseline to 1,670+ passing tests across 238 test suites.
 
 ---
 

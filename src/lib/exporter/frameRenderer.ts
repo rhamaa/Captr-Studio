@@ -59,6 +59,14 @@ import {
 	getWebcamOverlaySizePx,
 } from "@/components/video-editor/webcamOverlay";
 import { getAssetPath, getExportableVideoUrl, getRenderableAssetUrl } from "@/lib/assetPath";
+import { drawPatternFrame } from "@/lib/dynamicBackground/patternRenderer";
+import {
+	DEFAULT_DYNAMIC_BACKGROUND_SETTINGS,
+	type DynamicBackgroundSettings,
+	getDynamicBackgroundFrameSettings,
+	isDynamicBackgroundWallpaper,
+	parseDynamicBackgroundSettings,
+} from "@/lib/dynamicBackground/settings";
 import { extensionHost } from "@/lib/extensions";
 import {
 	mapCursorToCanvasNormalized,
@@ -80,6 +88,7 @@ import {
 	getEffectiveVideoStreamDurationSeconds,
 } from "@/lib/mediaTiming";
 import { isVideoWallpaperSource } from "@/lib/wallpapers";
+import type { RecordingFrameAppearance, RecordingFrameAppearances } from "@/recording/schema";
 import {
 	type AnnotationRenderAssets,
 	destroyAnnotationAssets,
@@ -93,6 +102,9 @@ import { buildTemporalSamplePlanUs, getTemporalMotionBlurConfig } from "./tempor
 const TEMPORAL_ZOOM_MOTION_BLUR_ENABLED = false;
 
 interface FrameRenderConfig {
+	frameAppearances?: RecordingFrameAppearances;
+	/** Resolved defaults are not evidence of a persisted style on an older composition. */
+	legacyFrameAppearances?: boolean;
 	/** Evaluate animation on a canonical 60 Hz source clock, independent of seek history. */
 	projectClock?: boolean;
 	width: number;
@@ -278,6 +290,8 @@ export class FrameRenderer {
 	private maskGraphics: Graphics | null = null;
 	private zoomBlurFilter: ZoomBlurFilter | null = null;
 	private motionBlurFilter: MotionBlurFilter | null = null;
+	private backdropCanvas: HTMLCanvasElement | null = null;
+	private backdropCtx: CanvasRenderingContext2D | null = null;
 	private shadowCanvas: HTMLCanvasElement | null = null;
 	private shadowCtx: CanvasRenderingContext2D | null = null;
 	private compositeCanvas: HTMLCanvasElement | null = null;
@@ -285,6 +299,7 @@ export class FrameRenderer {
 	private temporalAccumulationCanvas: HTMLCanvasElement | null = null;
 	private temporalAccumulationCtx: CanvasRenderingContext2D | null = null;
 	private backgroundForwardFrameSource: ForwardFrameSource | null = null;
+	private backgroundDynamicSettings: DynamicBackgroundSettings | null = null;
 	private backgroundForwardFrameSourceUrl: string | null = null;
 	private backgroundForwardFrameDurationSec: number | null = null;
 	private backgroundDecodedFrame: VideoFrame | null = null;
@@ -615,7 +630,14 @@ export class FrameRenderer {
 	}
 
 	private async setupBackground(): Promise<void> {
-		const wallpaper = await this.resolveWallpaperForExport(this.config.wallpaper);
+		const configuredWallpaper = this.config.wallpaper ?? "";
+		const dynamicSettings = isDynamicBackgroundWallpaper(configuredWallpaper)
+			? (parseDynamicBackgroundSettings(configuredWallpaper) ??
+				DEFAULT_DYNAMIC_BACKGROUND_SETTINGS)
+			: null;
+		const wallpaper = dynamicSettings
+			? configuredWallpaper
+			: await this.resolveWallpaperForExport(configuredWallpaper);
 
 		// Create background canvas for separate rendering (not affected by zoom)
 		const bgCanvas = document.createElement("canvas");
@@ -628,6 +650,7 @@ export class FrameRenderer {
 		}
 
 		this.backgroundCtx = bgCtx;
+		this.backgroundDynamicSettings = null;
 		this.backgroundForwardFrameSource?.cancel();
 		void this.backgroundForwardFrameSource?.destroy();
 		this.backgroundForwardFrameSource = null;
@@ -646,6 +669,21 @@ export class FrameRenderer {
 		this.backgroundSeekPromise = null;
 
 		try {
+			if (dynamicSettings) {
+				this.backgroundDynamicSettings = dynamicSettings;
+				drawPatternFrame(
+					bgCtx,
+					getDynamicBackgroundFrameSettings(
+						dynamicSettings,
+						bgCanvas.width,
+						bgCanvas.height,
+						0,
+					),
+				);
+				this.backgroundSprite = bgCanvas;
+				return;
+			}
+
 			// Check for video wallpaper first
 			if (isVideoWallpaperSource(wallpaper)) {
 				let videoSrc = wallpaper;
@@ -873,6 +911,19 @@ export class FrameRenderer {
 	}
 
 	private async syncBackgroundFrame(timeSeconds: number): Promise<void> {
+		if (this.backgroundDynamicSettings && this.backgroundCtx) {
+			drawPatternFrame(
+				this.backgroundCtx,
+				getDynamicBackgroundFrameSettings(
+					this.backgroundDynamicSettings,
+					this.config.width,
+					this.config.height,
+					timeSeconds,
+				),
+			);
+			return;
+		}
+
 		if (this.backgroundForwardFrameSource) {
 			const duration = this.backgroundForwardFrameDurationSec;
 			const shouldLoop = Number.isFinite(duration) && (duration ?? 0) > 0;
@@ -1682,7 +1733,11 @@ export class FrameRenderer {
 		}
 
 		// Sync video wallpaper frame
-		if (this.backgroundForwardFrameSource || this.backgroundVideoElement) {
+		if (
+			this.backgroundDynamicSettings ||
+			this.backgroundForwardFrameSource ||
+			this.backgroundVideoElement
+		) {
 			await this.syncBackgroundFrame(Math.max(0, backgroundTimelineTimestamp / 1_000_000));
 		}
 
@@ -1959,7 +2014,10 @@ export class FrameRenderer {
 			height / BASE_PREVIEW_HEIGHT,
 		);
 
-		const scaledBorderRadius = borderRadius * canvasScaleFactor;
+		const scaledBorderRadius =
+			this.config.frameAppearances && !this.config.legacyFrameAppearances
+				? 0 // The shared compositor clips the inset media for explicit frame appearances.
+				: borderRadius * canvasScaleFactor;
 
 		this.maskGraphics.clear();
 		drawSquircleOnGraphics(this.maskGraphics, {
@@ -2156,7 +2214,11 @@ export class FrameRenderer {
 			await this.syncWebcamFrame(Math.max(0, this.currentVideoTime));
 		}
 
-		if (this.backgroundForwardFrameSource || this.backgroundVideoElement) {
+		if (
+			this.backgroundDynamicSettings ||
+			this.backgroundForwardFrameSource ||
+			this.backgroundVideoElement
+		) {
 			await this.syncBackgroundFrame(Math.max(0, backgroundTimelineTimestamp / 1_000_000));
 		}
 
@@ -2285,6 +2347,238 @@ export class FrameRenderer {
 		return centerSnapshot ?? lastSnapshot;
 	}
 
+	/** One frame path for both layers. Only backdrop sampling allocates, bounded to visible frame pixels. */
+	private drawAppearanceFrame(
+		ctx: CanvasRenderingContext2D,
+		outer: { x: number; y: number; width: number; height: number },
+		appearance: RecordingFrameAppearance,
+		drawMedia: (inner: { x: number; y: number; width: number; height: number }) => void,
+	): void {
+		const { x, y, width, height } = outer;
+		if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return;
+		const bounded = (value: number | undefined, min: number, max: number) =>
+			Math.max(
+				min,
+				Math.min(max, typeof value === "number" && Number.isFinite(value) ? value : 0),
+			);
+		const half = Math.min(width, height) / 2;
+		const padding = bounded(appearance.framePadding, 0, Math.max(0, half - 0.5));
+		const radius = bounded(appearance.cornerRadius, 0, half);
+		const border = bounded(appearance.borderWidth, 0, half);
+		const blur = bounded(appearance.backdropBlur, 0, Math.min(256, half));
+		const path = (rect: typeof outer, r: number) => {
+			ctx.beginPath();
+			ctx.roundRect(rect.x, rect.y, rect.width, rect.height, r);
+		};
+		// Invalid CSS colors keep the explicit fallback instead of leaking a previous layer's color.
+		const color = (value: string | undefined) =>
+			typeof value === "string" && value.trim() ? value : "#000000";
+		let backdrop: { x: number; y: number; width: number; height: number } | null = null;
+		if (blur > 0) {
+			const bx = Math.max(0, Math.floor(x)),
+				by = Math.max(0, Math.floor(y));
+			const bw = Math.min(ctx.canvas.width, Math.ceil(x + width)) - bx;
+			const bh = Math.min(ctx.canvas.height, Math.ceil(y + height)) - by;
+			if (bw > 0 && bh > 0) {
+				const canvas = this.backdropCanvas ?? document.createElement("canvas");
+				if (canvas.width !== bw || canvas.height !== bh) {
+					canvas.width = bw;
+					canvas.height = bh;
+				}
+				this.backdropCanvas = canvas;
+				const sampleCtx =
+					this.backdropCtx ?? configureHighQuality2DContext(canvas.getContext("2d"));
+				this.backdropCtx = sampleCtx;
+				if (sampleCtx) {
+					sampleCtx.clearRect(0, 0, bw, bh);
+					sampleCtx.drawImage(ctx.canvas, bx, by, bw, bh, 0, 0, bw, bh);
+					backdrop = { x: bx, y: by, width: bw, height: bh };
+				}
+			}
+		}
+		const shadow = appearance.shadow;
+		const shadowOpacity = bounded(shadow?.opacity, 0, 1);
+		const borderOpacity = bounded(appearance.borderOpacity, 0, 1);
+		const hasBorder = border > 0 && borderOpacity > 0;
+		const frameRect = hasBorder
+			? {
+					x: x - border,
+					y: y - border,
+					width: width + border * 2,
+					height: height + border * 2,
+				}
+			: outer;
+		const frameRadius = hasBorder ? (radius > 0 ? radius + border : 0) : radius;
+
+		if (shadowOpacity > 0) {
+			ctx.save();
+			// Exclude the silhouette itself: transparent padding must not receive a solid shadow fill.
+			ctx.beginPath();
+			ctx.rect(0, 0, ctx.canvas.width, ctx.canvas.height);
+			ctx.roundRect(frameRect.x, frameRect.y, frameRect.width, frameRect.height, frameRadius);
+			ctx.clip("evenodd");
+			ctx.globalAlpha *= shadowOpacity;
+			ctx.fillStyle = "#000000";
+			ctx.fillStyle = color(shadow?.color);
+			ctx.shadowColor = ctx.fillStyle as string;
+			ctx.shadowBlur = bounded(shadow?.blur, 0, Math.min(256, half));
+			ctx.shadowOffsetX = bounded(shadow?.offsetX, -width, width);
+			ctx.shadowOffsetY = bounded(shadow?.offsetY, -height, height);
+			path(frameRect, frameRadius);
+			ctx.fill();
+			ctx.restore();
+		}
+
+		if (hasBorder) {
+			ctx.save();
+			ctx.globalAlpha *= borderOpacity;
+			ctx.lineWidth = border;
+			ctx.strokeStyle = "#000000";
+			ctx.strokeStyle = color(appearance.borderColor);
+			path(
+				{
+					x: x - border / 2,
+					y: y - border / 2,
+					width: width + border,
+					height: height + border,
+				},
+				radius > 0 ? radius + border / 2 : 0,
+			);
+			ctx.stroke();
+			ctx.restore();
+		}
+
+		ctx.save();
+		path(outer, radius);
+		ctx.clip();
+		if (backdrop && this.backdropCanvas) {
+			ctx.save();
+			ctx.filter = `blur(${blur}px)`;
+			ctx.drawImage(
+				this.backdropCanvas,
+				backdrop.x,
+				backdrop.y,
+				backdrop.width,
+				backdrop.height,
+			);
+			ctx.restore();
+		}
+		const surfaceOpacity = bounded(appearance.surfaceOpacity, 0, 1);
+		if (surfaceOpacity > 0) {
+			ctx.save();
+			ctx.globalAlpha *= surfaceOpacity;
+			ctx.fillStyle = "#000000";
+			ctx.fillStyle = color(appearance.surfaceColor);
+			path(outer, radius);
+			ctx.fill();
+			ctx.restore();
+		}
+		const inner = {
+			x: x + padding,
+			y: y + padding,
+			width: width - padding * 2,
+			height: height - padding * 2,
+		};
+		const hasHeader =
+			Boolean(appearance.headerStyle) && appearance.headerStyle !== "none";
+		const headerHeight = hasHeader
+			? Math.min(32, Math.max(20, Math.round(Math.min(inner.width, inner.height) * 0.045)))
+			: 0;
+
+		if (hasHeader && appearance.headerStyle && appearance.headerStyle !== "none") {
+			this.drawWindowHeader(ctx, inner, headerHeight, appearance.headerStyle);
+		}
+
+		const mediaArea = {
+			x: inner.x,
+			y: inner.y + headerHeight,
+			width: inner.width,
+			height: inner.height - headerHeight,
+		};
+		ctx.save();
+		path(mediaArea, Math.max(0, radius - padding));
+		ctx.clip();
+		drawMedia(mediaArea);
+		ctx.restore();
+		ctx.restore();
+	}
+
+	private drawWindowHeader(
+		ctx: CanvasRenderingContext2D,
+		rect: { x: number; y: number; width: number; height: number },
+		headerHeight: number,
+		style: "macos" | "windows" | "linux",
+	): void {
+		const { x, y, width } = rect;
+		ctx.save();
+		// Header background
+		ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+		ctx.beginPath();
+		ctx.rect(x, y, width, headerHeight);
+		ctx.fill();
+
+		// Header bottom divider line
+		ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+		ctx.beginPath();
+		ctx.rect(x, y + headerHeight - 1, width, 1);
+		ctx.fill();
+
+		const centerY = y + headerHeight / 2;
+
+		if (style === "macos") {
+			const dotRadius = Math.max(3.5, Math.min(6, headerHeight * 0.2));
+			const gap = dotRadius * 2 + 7;
+			const startX = x + Math.max(12, headerHeight * 0.45);
+			const colors = ["#ff5f56", "#ffbd2e", "#27c93f"];
+			colors.forEach((c, idx) => {
+				ctx.beginPath();
+				ctx.ellipse(startX + idx * gap, centerY, dotRadius, dotRadius, 0, 0, Math.PI * 2);
+				ctx.fillStyle = c;
+				ctx.fill();
+			});
+		} else if (style === "windows") {
+			const glyphSize = Math.max(7, Math.min(10, headerHeight * 0.32));
+			const rightMargin = x + width - Math.max(16, headerHeight * 0.6);
+			const spacing = glyphSize * 2.2;
+			ctx.strokeStyle = "rgba(255, 255, 255, 0.75)";
+			ctx.lineWidth = 1.2;
+
+			// Close (X)
+			const closeX = rightMargin;
+			ctx.beginPath();
+			ctx.moveTo(closeX - glyphSize / 2, centerY - glyphSize / 2);
+			ctx.lineTo(closeX + glyphSize / 2, centerY + glyphSize / 2);
+			ctx.moveTo(closeX + glyphSize / 2, centerY - glyphSize / 2);
+			ctx.lineTo(closeX - glyphSize / 2, centerY + glyphSize / 2);
+			ctx.stroke();
+
+			// Maximize (square)
+			const maxSquareX = closeX - spacing;
+			ctx.beginPath();
+			ctx.rect(maxSquareX - glyphSize / 2, centerY - glyphSize / 2, glyphSize, glyphSize);
+			ctx.stroke();
+
+			// Minimize (dash)
+			const minDashX = maxSquareX - spacing;
+			ctx.beginPath();
+			ctx.moveTo(minDashX - glyphSize / 2, centerY);
+			ctx.lineTo(minDashX + glyphSize / 2, centerY);
+			ctx.stroke();
+		} else if (style === "linux") {
+			const dotRadius = Math.max(3, Math.min(5, headerHeight * 0.18));
+			const gap = dotRadius * 2 + 6;
+			const startX = x + Math.max(12, headerHeight * 0.45);
+			const dotColors = ["#6b7280", "#9ca3af", "#d1d5db"];
+			dotColors.forEach((c, idx) => {
+				ctx.beginPath();
+				ctx.ellipse(startX + idx * gap, centerY, dotRadius, dotRadius, 0, 0, Math.PI * 2);
+				ctx.fillStyle = c;
+				ctx.fill();
+			});
+		}
+		ctx.restore();
+	}
+
 	private compositeWithShadows(): void {
 		if (!this.compositeCanvas || !this.compositeCtx || !this.app) return;
 
@@ -2350,8 +2644,44 @@ export class FrameRenderer {
 			console.warn("[FrameRenderer] No background sprite found during compositing!");
 		}
 
-		// Draw video layer with shadows on top of background
-		if (
+		const windowAppearance = !this.config.legacyFrameAppearances
+			? this.config.frameAppearances?.window
+			: undefined;
+		if (windowAppearance && this.layoutCache) {
+			const mask = this.layoutCache.maskRect;
+			const scale = this.animationState.appliedScale || 1;
+			const source = {
+				x: mask.x * scale + this.animationState.x,
+				y: mask.y * scale + this.animationState.y,
+				width: mask.width * scale,
+				height: mask.height * scale,
+			};
+			const outer = {
+				x: screen.x + (source.x * screen.width) / w,
+				y: screen.y + (source.y * screen.height) / h,
+				width: (source.width * screen.width) / w,
+				height: (source.height * screen.height) / h,
+			};
+			ctx.save();
+			ctx.globalAlpha *= screen.opacity;
+			// Zoom moves the frame within the layout viewport; decoration must retain its bounds/corners.
+			drawSquircleOnCanvas(ctx, { ...screen, radius: screen.borderRadius });
+			ctx.clip();
+			this.drawAppearanceFrame(ctx, outer, windowAppearance, (inner) => {
+				ctx.drawImage(
+					videoCanvas,
+					source.x,
+					source.y,
+					source.width,
+					source.height,
+					inner.x,
+					inner.y,
+					inner.width,
+					inner.height,
+				);
+			});
+			ctx.restore();
+		} else if (
 			this.config.showShadow &&
 			this.config.shadowIntensity > 0 &&
 			this.shadowCanvas &&
@@ -2621,6 +2951,43 @@ export class FrameRenderer {
 			sourceWidth,
 			sourceHeight,
 		);
+		const webcamAppearance = !this.config.legacyFrameAppearances
+			? this.config.frameAppearances?.webcam
+			: undefined;
+		if (webcamAppearance) {
+			ctx.save();
+			ctx.globalAlpha *= opacity;
+			this.drawAppearanceFrame(
+				ctx,
+				{ x, y, width: size, height: webcamHeight },
+				webcamAppearance,
+				(inner) => {
+					// Center-cover inside the padded rectangle, preserving source crop and mirror behavior.
+					const cover = Math.max(inner.width / sw, inner.height / sh);
+					const cropWidth = inner.width / cover,
+						cropHeight = inner.height / cover;
+					ctx.save();
+					if (webcam.mirror) {
+						ctx.translate(inner.x * 2 + inner.width, 0);
+						ctx.scale(-1, 1);
+					}
+					ctx.drawImage(
+						webcamFrameSource,
+						sx + (sw - cropWidth) / 2,
+						sy + (sh - cropHeight) / 2,
+						cropWidth,
+						cropHeight,
+						inner.x,
+						inner.y,
+						inner.width,
+						inner.height,
+					);
+					ctx.restore();
+				},
+			);
+			ctx.restore();
+			return;
+		}
 		const coverScale = Math.max(size / sw, webcamHeight / sh);
 		const drawWidth = sw * coverScale;
 		const drawHeight = sh * coverScale;
@@ -2729,6 +3096,8 @@ export class FrameRenderer {
 			this.cursorOverlay.destroy();
 			this.cursorOverlay = null;
 		}
+		this.backdropCanvas = null;
+		this.backdropCtx = null;
 		this.shadowCanvas = null;
 		this.shadowCtx = null;
 		this.compositeCanvas = null;
@@ -2740,6 +3109,7 @@ export class FrameRenderer {
 		this.backgroundForwardFrameSource?.cancel();
 		void this.backgroundForwardFrameSource?.destroy();
 		this.backgroundForwardFrameSource = null;
+		this.backgroundDynamicSettings = null;
 		this.backgroundForwardFrameSourceUrl = null;
 		this.backgroundForwardFrameDurationSec = null;
 		this.lastSyncedBackgroundLoopTimeSec = null;

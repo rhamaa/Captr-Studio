@@ -101,6 +101,30 @@ export function addAnnotationKeyframe(
 	].sort((a, b) => a.timeMs - b.timeMs);
 }
 
+/** Store an explicit dragged position at the playhead, replacing a nearby position frame. */
+export function setAnnotationPositionKeyframe(
+	annotation: AnnotationRegion,
+	position: AnnotationRegion["position"],
+	timelineTimeMs: number,
+	id: string,
+): PropertyKeyframe[] {
+	const timeMs = getAnnotationLocalTime(annotation, timelineTimeMs);
+	const frame: PropertyKeyframe = {
+		id,
+		property: "position",
+		timeMs,
+		value: { x: position.x, y: position.y },
+		easing: "ease-in-out",
+	};
+	return [
+		...(annotation.keyframes ?? []).filter(
+			(existing) =>
+				existing.property !== "position" || Math.abs(existing.timeMs - timeMs) >= 1,
+		),
+		frame,
+	].sort((a, b) => a.timeMs - b.timeMs);
+}
+
 export function moveAnnotationKeyframe(
 	annotation: AnnotationRegion,
 	id: string,

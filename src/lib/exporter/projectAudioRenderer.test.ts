@@ -116,3 +116,26 @@ it("maps detected speech through stream offsets and speed", () => {
 		{ startMs: 1750, endMs: 3000 },
 	]);
 });
+
+it.each([
+	{ durationUs: 10_000, fadeInUs: 10_000, fadeOutUs: 10_000, expected: [.5, .005] },
+	{ durationUs: 5_000_000, fadeInUs: 1_000_000, fadeOutUs: 0, expected: [1, 5] },
+])("preserves fade envelope $durationUs/$fadeInUs/$fadeOutUs through the final sample",async({durationUs, fadeInUs, fadeOutUs, expected})=>{
+	const project=createTimelineProject("short-fade","Short fade"),clip=fixtureClip("short",{assetId:"voice"});
+	clip.sourceOutUs=durationUs;clip.fadeInUs=fadeInUs;clip.fadeOutUs=fadeOutUs;
+	project.tracks=[fixtureTrack("audio",[clip],"audio")];
+	project.assets=[{id:"voice",kind:"audio",name:"Voice",width:0,height:0,durationUs,source:{path:"voice.wav",durationUs,offsetUs:0}}];
+	const points:number[][]=[];
+	const samples = new Float32Array(Math.ceil(durationUs/1_000_000*48_000));
+	vi.spyOn(AudioProcessor.prototype,"decodeAudioFromUrl").mockResolvedValue({duration:durationUs/1_000_000,numberOfChannels:1} as AudioBuffer);
+	vi.spyOn(AudioProcessor.prototype,"stretchAudioBuffer").mockReturnValue({} as AudioBuffer);
+	vi.stubGlobal("window",{electronAPI:{getLocalMediaUrl:async()=>({success:true,url:"voice.wav"})}});
+	vi.stubGlobal("OfflineAudioContext",class {
+		destination={};
+		createBufferSource(){return {buffer:null,connect:()=>({connect(){}}),start(){}};}
+		createGain(){return {gain:{value:1,linearRampToValueAtTime:(gain:number,time:number)=>points.push([gain,time])}};}
+		async startRendering(){return {getChannelData:()=>samples};}
+	});
+	await renderProjectAudio(project);
+	expect(points).toContainEqual(expected);
+});

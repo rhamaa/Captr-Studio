@@ -1,6 +1,8 @@
 import {
 	ArrowLeft,
 	CursorClick,
+	Hand,
+	MagnifyingGlassMinus,
 	MagnifyingGlassPlus,
 	Palette,
 	Pause,
@@ -13,18 +15,41 @@ import {
 	SquaresFour,
 } from "@phosphor-icons/react";
 import { type ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+const MIN_RECORDING_PREVIEW_ZOOM = 0.25;
+const MAX_RECORDING_PREVIEW_ZOOM = 5;
+const RECORDING_PREVIEW_ZOOM_STEP = 1.2;
+
+interface RecordingPreviewViewport {
+	zoom: number;
+	x: number;
+	y: number;
+}
+
+interface RecordingPreviewPanStart {
+	pointerId: number;
+	startX: number;
+	startY: number;
+	originX: number;
+	originY: number;
+}
 import { ProjectPreview } from "@/components/editor/ProjectPreview";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { setAnnotationPositionKeyframe } from "@/components/video-editor/annotationKeyframes";
 import { SettingsPanel } from "@/components/video-editor/SettingsPanel";
+import { HelpPopover } from "@/components/ui/help-popover";
 import { ZOOM_DEPTH_OPTIONS } from "@/components/video-editor/settings/sections/ZoomItemSection";
 import {
 	buildAutoReframeSuggestions,
 	buildInteractionZoomSuggestions,
 } from "@/components/video-editor/timeline/zoomSuggestionUtils";
-import {
-	type AspectRatio,
-	getAspectRatioValue,
-	resolveAspectRatioCanvas,
-} from "@/utils/aspectRatioUtils";
+import { type AspectRatio, getAspectRatioValue } from "@/utils/aspectRatioUtils";
+import { RecordingFrameAppearancePanel } from "./RecordingFrameAppearancePanel";
 
 function formatTimecode(seconds: number): string {
 	const totalSecs = Math.max(0, seconds);
@@ -35,7 +60,9 @@ function formatTimecode(seconds: number): string {
 }
 
 import type {
+	AnnotationPosition,
 	AnnotationRegion,
+	AnnotationType,
 	EditorEffectSection,
 	LayoutRegion,
 	PlaybackSpeed,
@@ -48,20 +75,36 @@ import { localMediaUrl } from "../mediaProbe";
 import type { RecordComposition, RecordingPackage, RecordingSettings } from "../types";
 import { changeRecordingSettings, resolveRecordingSettings } from "./compositionAdapter";
 import { playbackOutputTimeUs } from "./playbackClock";
+import { RecordingOverlayHandles } from "./RecordingOverlayHandles";
+import {
+	type RecordingAppearanceTarget,
+	resolveRecordingFrameAppearanceTarget,
+} from "./recordingFrameAppearanceRouting";
 
 export interface RecordingCompositionEditorProps {
 	package: RecordingPackage;
 	composition: RecordComposition;
 	projectTitle?: string;
 	canvas?: { width: number; height: number; fps?: number };
-	aspectRatio?: AspectRatio;
 	clipTransform?: { x: number; y: number; scale: number; rotation: number; opacity: number };
-	onClipTransformChange?: (transform: { x: number; y: number; scale: number; rotation: number; opacity: number }) => void;
-	onAspectRatioChange?: (ratio: AspectRatio) => void;
+	onClipTransformChange?: (transform: {
+		x: number;
+		y: number;
+		scale: number;
+		rotation: number;
+		opacity: number;
+	}) => void;
 	onChange: (next: RecordComposition) => void;
 	onClose: () => void;
 }
 type PanelProps = ComponentProps<typeof SettingsPanel>;
+const RECORDING_OVERLAY_TYPES = [
+	{ label: "Text", type: "text" },
+	{ label: "Image", type: "image" },
+	{ label: "Arrow", type: "figure" },
+	{ label: "Blur", type: "blur" },
+] as const satisfies { label: string; type: AnnotationType }[];
+
 const settingCallbacks: Partial<Record<keyof RecordingSettings, keyof PanelProps>> = {
 	wallpaper: "onWallpaperChange",
 	shadowIntensity: "onShadowChange",
@@ -102,7 +145,10 @@ const settingCallbacks: Partial<Record<keyof RecordingSettings, keyof PanelProps
 	connectedZoomEasing: "onConnectedZoomEasingChange",
 };
 
-type RecordingSection = Extract<EditorEffectSection, "scene" | "cursor" | "layout">;
+type RecordingSection = Extract<
+	EditorEffectSection,
+	"scene" | "cursor" | "layout" | "appearance"
+>;
 
 const RECORDING_TABS: {
 	id: RecordingSection;
@@ -112,6 +158,7 @@ const RECORDING_TABS: {
 	{ id: "scene", label: "Scene", icon: Palette },
 	{ id: "cursor", label: "Cursor", icon: CursorClick },
 	{ id: "layout", label: "Layout", icon: SquaresFour },
+	{ id: "appearance", label: "Appearance", icon: Sparkle },
 ];
 
 /** Controlled effect editor. Project library, recording, persistence and export live outside. */
@@ -120,10 +167,8 @@ export function RecordingCompositionEditor({
 	composition,
 	projectTitle,
 	canvas: propCanvas,
-	aspectRatio: propAspectRatio,
 	clipTransform,
 	onClipTransformChange,
-	onAspectRatioChange,
 	onChange,
 	onClose,
 }: RecordingCompositionEditorProps) {
@@ -139,54 +184,173 @@ export function RecordingCompositionEditor({
 
 	const settings = useMemo(() => resolveRecordingSettings(pkg, composition), [pkg, composition]);
 
-	const initialAspectRatio: AspectRatio = useMemo(() => {
-		if (propAspectRatio) {
-			return propAspectRatio;
-		}
-		if (composition.settings?.aspectRatio) {
-			return composition.settings.aspectRatio as AspectRatio;
-		}
-		if (propCanvas) {
-			const { width, height } = propCanvas;
-			if (width === 1080 && height === 1920) return "9:16";
-			if (width === 1080 && height === 1080) return "1:1";
-			if (width === 1080 && height === 1350) return "4:5";
-			if (width === 1920 && height === 1080) return "16:9";
-			if (width === 1440 && height === 1080) return "4:3";
-			if (width === 1728 && height === 1080) return "16:10";
-			if (width === 1080 && height === 1728) return "10:16";
-		}
-		return "16:9";
-	}, [propAspectRatio, composition.settings?.aspectRatio, propCanvas]);
-
-	const [aspectRatio, setAspectRatio] = useState<AspectRatio>(initialAspectRatio);
-
-	useEffect(() => {
-		if (propAspectRatio) {
-			setAspectRatio(propAspectRatio);
-		}
-	}, [propAspectRatio]);
-
 	const previewCanvas = useMemo(
-		() =>
-			resolveAspectRatioCanvas(aspectRatio, propCanvas, {
-				width: pkg.width,
-				height: pkg.height,
-			}),
-		[aspectRatio, propCanvas, pkg.width, pkg.height],
+		() => ({
+			width: propCanvas?.width && propCanvas.width > 0 ? propCanvas.width : pkg.width,
+			height: propCanvas?.height && propCanvas.height > 0 ? propCanvas.height : pkg.height,
+			fps: propCanvas?.fps ?? 30,
+		}),
+		[propCanvas, pkg.width, pkg.height],
 	);
+	const aspectRatio = `${previewCanvas.width}:${previewCanvas.height}` as AspectRatio;
 
 	const [sourceUrl, setSourceUrl] = useState(""),
 		[playing, setPlaying] = useState(false),
 		[sourceSeconds, setSourceSeconds] = useState(0),
+		[overlayPositionPreview, setOverlayPositionPreview] = useState<{
+			id: string;
+			position: AnnotationPosition;
+			keyframeId: string;
+		} | null>(null),
 		[section, setSection] = useState<RecordingSection>("scene"),
 		[selectedZoomId, setSelectedZoomId] = useState<string | null>(null),
 		[selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null),
 		[selectedLayoutId, setSelectedLayoutId] = useState<string | null>(null),
 		[error, setError] = useState<string | null>(null);
+
+	const [previewViewport, setPreviewViewport] = useState<RecordingPreviewViewport>({
+		zoom: 1,
+		x: 0,
+		y: 0,
+	});
+	const [previewPanMode, setPreviewPanMode] = useState(false);
+	const [previewPanning, setPreviewPanning] = useState(false);
+	const previewPanStartRef = useRef<RecordingPreviewPanStart | null>(null);
+
+	const previewZoomed =
+		Math.abs(previewViewport.zoom - 1) > 0.001 ||
+		Math.abs(previewViewport.x) > 0.5 ||
+		Math.abs(previewViewport.y) > 0.5;
+
+	const previewTransformStyle: React.CSSProperties = {
+		transform: `translate3d(${previewViewport.x}px, ${previewViewport.y}px, 0) scale(${previewViewport.zoom})`,
+		transformOrigin: "center center",
+		willChange: "transform",
+		transition: previewPanning ? "none" : "transform 120ms ease-out",
+	};
+
+	const changePreviewZoom = useCallback((factor: number, anchor?: { x: number; y: number }) => {
+		setPreviewViewport((current) => {
+			const zoom = Math.min(
+				MAX_RECORDING_PREVIEW_ZOOM,
+				Math.max(MIN_RECORDING_PREVIEW_ZOOM, current.zoom * factor),
+			);
+			const zoomFactor = zoom / current.zoom;
+			const anchorX = anchor?.x ?? 0;
+			const anchorY = anchor?.y ?? 0;
+			return {
+				zoom,
+				x: anchorX - (anchorX - current.x) * zoomFactor,
+				y: anchorY - (anchorY - current.y) * zoomFactor,
+			};
+		});
+	}, []);
+
+	const handlePreviewWheel = useCallback(
+		(event: React.WheelEvent<HTMLDivElement>) => {
+			event.preventDefault();
+			const rect = event.currentTarget.getBoundingClientRect();
+			changePreviewZoom(Math.exp(-event.deltaY * 0.001), {
+				x: event.clientX - (rect.left + rect.width / 2),
+				y: event.clientY - (rect.top + rect.height / 2),
+			});
+		},
+		[changePreviewZoom],
+	);
+
+	const handlePreviewPanPointerDown = useCallback(
+		(event: React.PointerEvent<HTMLDivElement>) => {
+			if (event.button !== 0 && event.button !== 1) return;
+			event.preventDefault();
+			previewPanStartRef.current = {
+				pointerId: event.pointerId,
+				startX: event.clientX,
+				startY: event.clientY,
+				originX: previewViewport.x,
+				originY: previewViewport.y,
+			};
+			event.currentTarget.setPointerCapture(event.pointerId);
+			setPreviewPanning(true);
+		},
+		[previewViewport.x, previewViewport.y],
+	);
+
+	const handlePreviewPanPointerMove = useCallback(
+		(event: React.PointerEvent<HTMLDivElement>) => {
+			const panStart = previewPanStartRef.current;
+			if (!panStart || panStart.pointerId !== event.pointerId) return;
+			setPreviewViewport((current) => ({
+				...current,
+				x: panStart.originX + event.clientX - panStart.startX,
+				y: panStart.originY + event.clientY - panStart.startY,
+			}));
+		},
+		[],
+	);
+
+	const stopPreviewPan = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+		if (previewPanStartRef.current?.pointerId !== event.pointerId) return;
+		previewPanStartRef.current = null;
+		setPreviewPanning(false);
+	}, []);
+
+	const renderPreviewZoomControls = () => (
+		<div
+			className="story-preview-zoom-controls"
+			role="group"
+			aria-label="Preview zoom controls"
+		>
+			<button
+				type="button"
+				className="project-transport-extra-btn"
+				aria-label="Zoom out preview"
+				title="Zoom out preview"
+				disabled={previewViewport.zoom <= MIN_RECORDING_PREVIEW_ZOOM}
+				onClick={() => changePreviewZoom(1 / RECORDING_PREVIEW_ZOOM_STEP)}
+			>
+				<MagnifyingGlassMinus size={14} />
+			</button>
+			<button
+				type="button"
+				className="project-transport-extra-btn story-preview-zoom-level"
+				aria-label="Reset preview zoom"
+				title="Reset preview zoom and position"
+				onClick={() => setPreviewViewport({ zoom: 1, x: 0, y: 0 })}
+			>
+				{Math.round(previewViewport.zoom * 100)}%
+			</button>
+			<button
+				type="button"
+				className="project-transport-extra-btn"
+				aria-label="Zoom in preview"
+				title="Zoom in preview"
+				disabled={previewViewport.zoom >= MAX_RECORDING_PREVIEW_ZOOM}
+				onClick={() => changePreviewZoom(RECORDING_PREVIEW_ZOOM_STEP)}
+			>
+				<MagnifyingGlassPlus size={14} />
+			</button>
+			<button
+				type="button"
+				className={`project-transport-extra-btn ${previewPanMode ? "active" : ""}`}
+				aria-label="Pan preview"
+				aria-pressed={previewPanMode}
+				title={previewPanMode ? "Pan mode enabled: drag preview to move" : "Pan preview"}
+				onClick={() => {
+					setPreviewPanMode((enabled) => !enabled);
+					setPreviewPanning(false);
+					previewPanStartRef.current = null;
+				}}
+			>
+				<Hand size={14} />
+			</button>
+		</div>
+	);
 	const webcamPath = pkg.webcam?.path;
 	const [webcamPreview, setWebcamPreview] = useState<{ path: string; url: string } | null>(null);
 	const timeline = useRef<RecordingTimelineHandle>(null);
+	const pendingOverlayType = useRef<AnnotationType | null>(null);
+	const currentMs = Math.round(sourceSeconds * 1000),
+		durationMs = pkg.durationUs / 1000;
 	useEffect(() => {
 		let active = true;
 		void localMediaUrl(pkg.screen.path)
@@ -216,9 +380,36 @@ export function RecordingCompositionEditor({
 			active = false;
 		};
 	}, [webcamPath]);
+	const previewComposition = useMemo(() => {
+		if (!overlayPositionPreview) return composition;
+		const active = settings.annotationRegions.find(
+			(annotation) => annotation.id === overlayPositionPreview.id,
+		);
+		if (!active) return composition;
+		const keyframes = setAnnotationPositionKeyframe(
+			active,
+			overlayPositionPreview.position,
+			currentMs,
+			overlayPositionPreview.keyframeId,
+		);
+		return changeRecordingSettings(pkg, composition, {
+			annotationRegions: settings.annotationRegions.map((annotation) =>
+				annotation.id === active.id ? { ...annotation, keyframes } : annotation,
+			),
+		});
+	}, [composition, currentMs, overlayPositionPreview, pkg, settings.annotationRegions]);
 	const previewProject = useMemo(
-		() => recordingPreviewProject(pkg, composition, previewCanvas, currentTransform),
-		[pkg, composition, previewCanvas, currentTransform],
+		() => recordingPreviewProject(pkg, previewComposition, previewCanvas, currentTransform),
+		[pkg, previewComposition, previewCanvas, currentTransform],
+	);
+	const timelineAnnotations = useMemo(
+		() =>
+			settings.annotationRegions.map((annotation, index) =>
+				annotation.name?.trim()
+					? annotation
+					: { ...annotation, name: `Overlay ${index + 1}` },
+			),
+		[settings.annotationRegions],
 	);
 	const clipName = useMemo(() => {
 		const p = pkg.screen.path;
@@ -283,18 +474,68 @@ export function RecordingCompositionEditor({
 		});
 	const selectedZoom = settings.zoomRegions.find((z) => z.id === selectedZoomId),
 		selectedLayout = settings.layoutRegions.find((l) => l.id === selectedLayoutId);
+	const defaultAppearanceTarget = resolveRecordingFrameAppearanceTarget(
+		section,
+		selectedLayout ? (selectedLayout.preset ?? "bubble") : null,
+	);
+	const [activeAppearanceTarget, setActiveAppearanceTarget] =
+		useState<RecordingAppearanceTarget | null>(null);
+
+	useEffect(() => {
+		setActiveAppearanceTarget(null);
+	}, [section]);
+
+	const appearanceTarget = activeAppearanceTarget ?? defaultAppearanceTarget;
+	const presetLibrary =
+		typeof window !== "undefined" && window?.electronAPI?.recordFramePresets
+			? window.electronAPI.recordFramePresets
+			: {
+					list: async () => ({ success: true as const, value: [] }),
+					save: async (_name: string, app: any) => ({
+						success: true as const,
+						value: {
+							schemaVersion: 1 as const,
+							id: "fallback",
+							name: _name,
+							createdAt: new Date().toISOString(),
+							updatedAt: new Date().toISOString(),
+							appearance: app,
+						},
+					}),
+					rename: async (id: string, name: string) => ({
+						success: true as const,
+						value: {
+							schemaVersion: 1 as const,
+							id,
+							name,
+							createdAt: new Date().toISOString(),
+							updatedAt: new Date().toISOString(),
+							appearance: {} as any,
+						},
+					}),
+					delete: async (id: string) => ({ success: true as const, value: { id } }),
+					import: async () => ({ success: true as const, canceled: true as const }),
+					export: async () => ({ success: true as const, canceled: true as const }),
+				};
+	const recordingAppearanceContent = appearanceTarget ? (
+		<RecordingFrameAppearancePanel
+			target={appearanceTarget}
+			appearance={settings.frameAppearances[appearanceTarget]}
+			onChange={(target, appearance) =>
+				update({
+					frameAppearances: {
+						...settings.frameAppearances,
+						[target]: appearance,
+					},
+				})
+			}
+			onTargetChange={setActiveAppearanceTarget}
+			presetLibrary={presetLibrary}
+		/>
+	) : null;
 	const selectedAnnotation = settings.annotationRegions.find(
 		(a) => a.id === selectedAnnotationId,
 	);
-	const handleAspectRatioChange = useCallback(
-		(nextRatio: AspectRatio) => {
-			setAspectRatio(nextRatio);
-			update({ aspectRatio: nextRatio });
-			onAspectRatioChange?.(nextRatio);
-		},
-		[update, onAspectRatioChange],
-	);
-
 	const suggestZooms = () => {
 		const sourceAspectRatio = pkg.height > 0 ? pkg.width / pkg.height : 16 / 9;
 		const targetRatioValue = getAspectRatioValue(aspectRatio, sourceAspectRatio);
@@ -322,19 +563,28 @@ export function RecordingCompositionEditor({
 			})),
 		});
 	};
-	const addAnnotation = (startMs: number, endMs: number, trackIndex = 0) => {
+	const addAnnotation = (
+		startMs: number,
+		endMs: number,
+		trackIndex = 0,
+		type: AnnotationType = "text",
+	) => {
 		const id = crypto.randomUUID();
+		const number = settings.annotationRegions.length + 1;
+		const textContent = type === "text" ? "Text" : "";
 		update({
 			annotationRegions: [
 				...settings.annotationRegions,
 				{
 					id,
+					name: `Overlay ${number}`,
 					startMs,
 					endMs,
-					type: "text",
-					content: "Text",
+					type,
+					content: textContent,
+					textContent: type === "text" ? textContent : undefined,
 					position: { x: 50, y: 50 },
-					size: { width: 40, height: 15 },
+					size: type === "text" ? { width: 40, height: 15 } : { width: 25, height: 25 },
 					style: {
 						fontSize: 48,
 						fontFamily: "Inter",
@@ -346,6 +596,11 @@ export function RecordingCompositionEditor({
 						borderRadius: 0,
 						textAlign: "center",
 					},
+					figureData:
+						type === "figure"
+							? { arrowDirection: "right", color: "#ff4d6d", strokeWidth: 6 }
+							: undefined,
+					blurIntensity: type === "blur" ? 16 : undefined,
 					zIndex: settings.annotationRegions.length + 1,
 					trackIndex,
 				},
@@ -353,8 +608,10 @@ export function RecordingCompositionEditor({
 		});
 		setSelectedAnnotationId(id);
 	};
-	const currentMs = Math.round(sourceSeconds * 1000),
-		durationMs = pkg.durationUs / 1000;
+	const addOverlayAtTimelineSelection = useCallback((type: AnnotationType) => {
+		pendingOverlayType.current = type;
+		timeline.current?.addAnnotation();
+	}, []);
 
 	const handleCutAtPlayhead = useCallback(() => {
 		const startMs = Math.max(0, currentMs);
@@ -455,7 +712,7 @@ export function RecordingCompositionEditor({
 
 			if (e.key.toLowerCase() === "t" && !e.ctrlKey && !e.metaKey && !e.altKey) {
 				e.preventDefault();
-				timeline.current?.addAnnotation();
+				addOverlayAtTimelineSelection("text");
 				return;
 			}
 
@@ -504,6 +761,7 @@ export function RecordingCompositionEditor({
 		update,
 		handleAddZoomAtCurrent,
 		handleCutAtPlayhead,
+		addOverlayAtTimelineSelection,
 	]);
 	const addSpeed = (speed: PlaybackSpeed) => {
 		const startMs = Math.max(0, currentMs),
@@ -549,25 +807,13 @@ export function RecordingCompositionEditor({
 					</div>
 				</div>
 				<div className="recording-header-right">
-					<div className="recording-aspect-select-wrapper">
-						<select
-							className="recording-aspect-select"
-							value={aspectRatio}
-							onChange={(e) => handleAspectRatioChange(e.target.value as AspectRatio)}
-							title="Preview Aspect Ratio"
-							aria-label="Preview aspect ratio"
-						>
-							<option value="16:9">16:9 Landscape</option>
-							<option value="9:16">9:16 Shorts / Reels</option>
-							<option value="1:1">1:1 Square</option>
-							<option value="4:5">4:5 Portrait</option>
-							<option value="4:3">4:3 Standard</option>
-							<option value="16:10">16:10 Widescreen</option>
-							<option value="native">
-								Native ({pkg.width}×{pkg.height})
-							</option>
-						</select>
-					</div>
+					<span
+						className="recording-badge-meta"
+						aria-label="Canvas dimensions fixed"
+						title="Canvas dimensions are fixed by the current project"
+					>
+						{previewCanvas.width} × {previewCanvas.height}
+					</span>
 					<span className="recording-badge-meta">{(durationMs / 1000).toFixed(1)}s</span>
 				</div>
 			</header>
@@ -578,11 +824,26 @@ export function RecordingCompositionEditor({
 			)}
 			<div className="recording-editor-body">
 				<div className="recording-editor-monitor">
-					<div className="recording-preview-wrapper">
+					<div
+						className={`recording-preview-wrapper${previewZoomed ? " zoomed" : ""}${previewPanning ? " panning" : ""}`}
+						role="region"
+						aria-label="Recording preview monitor"
+						title="Scroll to zoom; use Pan preview to drag the canvas"
+						onWheel={handlePreviewWheel}
+						onPointerDown={(e) => {
+							if (e.button === 1) {
+								handlePreviewPanPointerDown(e);
+							}
+						}}
+						onPointerMove={handlePreviewPanPointerMove}
+						onPointerUp={stopPreviewPan}
+						onPointerCancel={stopPreviewPan}
+					>
 						<div
-							className="recording-preview-stage"
+							className={`recording-preview-stage${previewPanning ? " panning" : ""}`}
 							style={{
 								aspectRatio: `${previewCanvas.width} / ${previewCanvas.height}`,
+								...previewTransformStyle,
 							}}
 						>
 							<ProjectPreview
@@ -591,13 +852,49 @@ export function RecordingCompositionEditor({
 								playing={playing}
 								onError={setError}
 								selectedClipId="preview-clip"
-								onSelectClip={() => {}}
+								canTransformClip={(_clipId, assetKind) =>
+									assetKind === "text" ||
+									assetKind === "shape" ||
+									assetKind === "image"
+								}
 								onUpdateClipTransform={(_, nextTransform) => {
 									setCurrentTransform(nextTransform);
 									onClipTransformChange?.(nextTransform);
 								}}
 							/>
+							<RecordingOverlayHandles
+								annotations={settings.annotationRegions}
+								currentMs={currentMs}
+								playing={playing}
+								selectedAnnotationId={selectedAnnotationId}
+								onSelect={setSelectedAnnotationId}
+								onPreviewPosition={setOverlayPositionPreview}
+								onCommitPosition={(id, position, keyframeId) => {
+									const annotation = settings.annotationRegions.find(
+										(candidate) => candidate.id === id,
+									);
+									if (!annotation) return;
+									updateAnnotation(id, {
+										keyframes: setAnnotationPositionKeyframe(
+											annotation,
+											position,
+											currentMs,
+											keyframeId,
+										),
+									});
+								}}
+							/>
 						</div>
+						{previewPanMode && (
+							<div
+								className={`story-preview-pan-surface${previewPanning ? " panning" : ""}`}
+								aria-hidden="true"
+								onPointerDown={handlePreviewPanPointerDown}
+								onPointerMove={handlePreviewPanPointerMove}
+								onPointerUp={stopPreviewPan}
+								onPointerCancel={stopPreviewPan}
+							/>
+						)}
 					</div>
 					<div className="recording-editor-transport">
 						<div className="recording-transport-center">
@@ -651,6 +948,9 @@ export function RecordingCompositionEditor({
 									{formatTimecode(durationMs / 1000)}
 								</span>
 							</div>
+						</div>
+						<div className="recording-transport-extras">
+							{renderPreviewZoomControls()}
 						</div>
 					</div>
 				</div>
@@ -730,8 +1030,9 @@ export function RecordingCompositionEditor({
 							selected={settings.wallpaper}
 							onWallpaperChange={(path) => update({ wallpaper: path })}
 							activeEffectSection={section}
+							recordingAppearanceContent={recordingAppearanceContent}
 							aspectRatio={aspectRatio}
-							onAspectRatioChange={handleAspectRatioChange}
+							canvasDimensionsLocked
 							webcamPreviewSrc={
 								webcamPreview && webcamPreview.path === webcamPath
 									? webcamPreview.url
@@ -739,6 +1040,9 @@ export function RecordingCompositionEditor({
 							}
 							webcamPreviewCurrentTime={sourceSeconds}
 							webcamPreviewPlaying={playing}
+							scenePreviewSrc={sourceUrl || null}
+							scenePreviewCurrentTime={sourceSeconds}
+							scenePreviewPlaying={playing}
 							selectedZoomId={selectedZoomId}
 							selectedZoomDepth={selectedZoom?.depth}
 							selectedZoomMode={selectedZoom?.mode}
@@ -856,16 +1160,30 @@ export function RecordingCompositionEditor({
 							<span>Zoom</span>
 							<kbd className="recording-tb-kbd">Z</kbd>
 						</button>
-						<button
-							type="button"
-							className="recording-tb-btn"
-							onClick={() => timeline.current?.addAnnotation()}
-							title="Add text overlay (T)"
-						>
-							<Plus size={13} weight="bold" />
-							<span>Text</span>
-							<kbd className="recording-tb-kbd">T</kbd>
-						</button>
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<button
+									type="button"
+									className="recording-tb-btn"
+									aria-label="Add overlay"
+									title="Add overlay · T adds text"
+								>
+									<Plus size={13} weight="bold" />
+									<span>Overlay</span>
+									<kbd className="recording-tb-kbd">T</kbd>
+								</button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="start" aria-label="Overlay types">
+								{RECORDING_OVERLAY_TYPES.map(({ label, type }) => (
+									<DropdownMenuItem
+										key={type}
+										onSelect={() => addOverlayAtTimelineSelection(type)}
+									>
+										{label}
+									</DropdownMenuItem>
+								))}
+							</DropdownMenuContent>
+						</DropdownMenu>
 						<button
 							type="button"
 							className="recording-tb-btn"
@@ -894,10 +1212,10 @@ export function RecordingCompositionEditor({
 						</div>
 					</div>
 					<div className="recording-timeline-tools-right">
-						<span className="recording-tb-hint">
+						<HelpPopover label="Keyboard shortcuts">
 							<kbd>Space</kbd> Play · <kbd>S</kbd> Cut · <kbd>Z</kbd> Zoom ·{" "}
-							<kbd>T</kbd> Text · <kbd>Esc</kbd> Back
-						</span>
+							<kbd>T</kbd> Overlay · <kbd>Esc</kbd> Back
+						</HelpPopover>
 					</div>
 				</div>
 				{selectedZoom && (
@@ -1083,10 +1401,14 @@ export function RecordingCompositionEditor({
 					onLayoutDelete={(id) =>
 						update({ layoutRegions: settings.layoutRegions.filter((l) => l.id !== id) })
 					}
-					annotationRegions={settings.annotationRegions}
+					annotationRegions={timelineAnnotations}
 					selectedAnnotationId={selectedAnnotationId}
 					onSelectAnnotation={setSelectedAnnotationId}
-					onAnnotationAdded={(span, track) => addAnnotation(span.start, span.end, track)}
+					onAnnotationAdded={(span, track) => {
+						const type = pendingOverlayType.current ?? "text";
+						pendingOverlayType.current = null;
+						addAnnotation(span.start, span.end, track, type);
+					}}
 					onAnnotationSpanChange={(id, span, trackIndex) =>
 						updateAnnotation(id, { startMs: span.start, endMs: span.end, trackIndex })
 					}
@@ -1106,7 +1428,7 @@ export function RecordingCompositionEditor({
 				<span>{clipName}</span>
 				<span>{(durationMs / 1000).toFixed(2)}s duration</span>
 				<span>{settings.zoomRegions.length} zoom regions</span>
-				<span>{settings.annotationRegions.length} text overlays</span>
+				<span>{settings.annotationRegions.length} overlays</span>
 			</footer>
 		</section>
 	);

@@ -11,6 +11,8 @@ import type {
 import { localMediaUrl } from "@/recording/mediaProbe";
 import { FrameRenderer } from "./frameRenderer";
 import { LayerVideoSource } from "./layerVideoSource";
+import { drawStoryCaptions } from "./storyCaptionRenderer";
+import { drawStyledMedia } from "./clipVisualRenderer";
 
 type Direction = "left" | "right" | "up" | "down";
 
@@ -109,6 +111,9 @@ export class ProjectFrameRenderer {
 		if (!renderer) {
 			renderer = new FrameRenderer({
 				...settings,
+				legacyFrameAppearances: !(
+					composition.settings.frameAppearances ?? pkg.settings.frameAppearances
+				),
 				cursorTelemetry: settings.cursorTelemetry ?? undefined,
 				width,
 				height,
@@ -231,6 +236,15 @@ export class ProjectFrameRenderer {
 			if (stroke) ctx.strokeRect(x, y, shape.width, shape.height);
 			return;
 		}
+		if (shape.kind === "blur") {
+			const x = -assetWidth / 2, y = -assetHeight / 2;
+			if (style.fill) {
+				ctx.fillStyle = style.fill;
+				ctx.fillRect(x, y, shape.width, shape.height);
+			}
+			if (stroke) ctx.strokeRect(x, y, shape.width, shape.height);
+			return;
+		}
 		if (shape.kind === "ellipse") {
 			ctx.beginPath();
 			ctx.ellipse(0, 0, shape.width / 2, shape.height / 2, 0, 0, Math.PI * 2);
@@ -319,9 +333,7 @@ export class ProjectFrameRenderer {
 			? source.videoHeight
 			: source instanceof HTMLImageElement ? source.naturalHeight : source.height;
 		if (!sourceWidth || !sourceHeight) throw new Error(`No decoded frame for ${visual.clipId}`);
-		const ratio = Math.min(width / sourceWidth, height / sourceHeight);
-		const drawWidth = sourceWidth * ratio, drawHeight = sourceHeight * ratio;
-		ctx.drawImage(source, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+		drawStyledMedia(ctx,source,sourceWidth,sourceHeight,width,height,visual.clip.visualSettings);
 		ctx.restore();
 		return canvas;
 	}
@@ -420,9 +432,36 @@ export class ProjectFrameRenderer {
 				transitionClips.add(transition.toClipId);
 				continue;
 			}
+			const shape = visual.source.content?.kind === "shape"
+				? visual.source.content.shapeDefinition
+				: visual.source.media?.shapeDefinition;
+			if (visual.source.kind === "shape" && shape?.kind === "blur") {
+				const animated = this.animationTransform(visual, width, height);
+				const radius = shape.blurRadius ?? 16;
+				const ratio = Math.min(width / visual.source.width, height / visual.source.height);
+				const sw = shape.width * ratio * animated.scale;
+				const sh = shape.height * ratio * animated.scale;
+				const cx = width / 2 + animated.x;
+				const cy = height / 2 + animated.y;
+				const rad = (visual.transform.rotation * Math.PI) / 180;
+
+				ctx.save();
+				ctx.translate(cx, cy);
+				ctx.rotate(rad);
+				ctx.beginPath();
+				ctx.rect(-sw / 2, -sh / 2, sw, sh);
+				ctx.clip();
+				ctx.rotate(-rad);
+				ctx.translate(-cx, -cy);
+				ctx.filter = `blur(${radius}px)`;
+				ctx.drawImage(this.canvas, 0, 0);
+				ctx.filter = "none";
+				ctx.restore();
+			}
 			const layer = await this.visualLayer(visual, evaluation, continuousPlayback);
 			ctx.drawImage(layer, 0, 0);
 		}
+		drawStoryCaptions(ctx, evaluation.project, evaluation.timeUs);
 		return this.canvas;
 	}
 	destroy() {

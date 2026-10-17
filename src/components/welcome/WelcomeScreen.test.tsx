@@ -1,10 +1,16 @@
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it, vi } from "vitest";
+
 vi.mock("@/components/editor/useProjectMessages", () => ({
 	useProjectMessages: () => (key: string) => key,
 }));
+vi.mock("@/contexts/I18nContext", () => ({
+	useScopedT: () => (_key: string, fallback?: string) => fallback ?? _key,
+}));
+
 import { WelcomeScreen } from "./WelcomeScreen";
+
 const props = {
 	recentProjects: [],
 	onNewProject: () => {},
@@ -22,3 +28,9 @@ it("Home exposes New Open Refresh but no recorder and distinct states", () => {
 	);
 });
 
+it("Home does not expose the former background generator mini-app", () => {
+	const formerToolAction = { onOpenBackgroundGenerator: () => {} };
+	const html = renderToStaticMarkup(<WelcomeScreen {...props} {...formerToolAction} />);
+	expect(html).not.toContain("Loop Background Studio");
+	expect(html).not.toContain("Create seamless animated GIF backgrounds");
+});

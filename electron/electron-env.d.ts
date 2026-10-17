@@ -238,6 +238,44 @@ interface ProjectInspectionResult {
 
 interface Window {
 	electronAPI: {
+		recordFramePresets: {
+			list: () => Promise<
+				import("./ipc/register/recordFramePresets").RecordingFramePresetResult<
+					import("../src/recording/editor/recordingFramePresets").RecordingFramePreset[]
+				>
+			>;
+			save: (
+				name: string,
+				appearance: import("../src/recording/schema").RecordingFrameAppearance,
+			) => Promise<
+				import("./ipc/register/recordFramePresets").RecordingFramePresetResult<
+					import("../src/recording/editor/recordingFramePresets").RecordingFramePreset
+				>
+			>;
+			rename: (
+				id: string,
+				name: string,
+			) => Promise<
+				import("./ipc/register/recordFramePresets").RecordingFramePresetResult<
+					import("../src/recording/editor/recordingFramePresets").RecordingFramePreset
+				>
+			>;
+			delete: (id: string) => Promise<
+				import("./ipc/register/recordFramePresets").RecordingFramePresetResult<{
+					id: string;
+				}>
+			>;
+			import: () => Promise<
+				import("./ipc/register/recordFramePresets").RecordingFramePresetDialogResult<
+					import("../src/recording/editor/recordingFramePresets").RecordingFramePreset
+				>
+			>;
+			export: (id: string) => Promise<
+				import("./ipc/register/recordFramePresets").RecordingFramePresetDialogResult<{
+					exported: true;
+				}>
+			>;
+		};
 		showOpenDialog: (
 			options: import("electron").OpenDialogOptions,
 		) => Promise<import("electron").OpenDialogReturnValue>;

@@ -1,6 +1,9 @@
 import type { PointerEvent } from "react";
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { Diamond } from "@phosphor-icons/react";
+import { TimelineClipAudioPreview, TimelineFilmstrip } from "./TimelineSourcePreview";
 import { resolveClipSource } from "@/core/timeline/clipSource";
+import { relatedClipIds } from "@/core/timeline/editingCommands";
 import type { ProjectCommand } from "@/core/timeline/history";
 import { clipDurationUs, type TimelineClip, type TimelineProject } from "@/core/timeline/types";
 import {
@@ -14,52 +17,6 @@ import {
 	timeToPixels,
 } from "./timelineInteractions";
 
-function generateWaveformPath(
-	seedStr: string,
-	sourceInUs: number,
-	rate: number,
-	scale: number,
-	widthPx: number,
-	heightPx: number,
-): string {
-	let seed = 0;
-	for (let i = 0; i < seedStr.length; i++) {
-		seed = (seed * 31 + seedStr.charCodeAt(i)) & 0xffffffff;
-	}
-	const seedNorm = (Math.abs(seed) % 1000) / 1000;
-
-	const barWidth = 2;
-	const barGap = 1.5;
-	const step = barWidth + barGap;
-	const barCount = Math.floor(widthPx / step);
-	if (barCount <= 0) return "";
-
-	const centerY = heightPx / 2;
-	const maxBarHeight = heightPx - 14;
-	let path = "";
-
-	for (let i = 0; i < barCount; i++) {
-		const x = i * step;
-		const clipTimeUs = (x / scale) * 1_000_000;
-		const sourceTimeSec = (sourceInUs + clipTimeUs * rate) / 1_000_000;
-
-		const f1 = Math.sin(sourceTimeSec * 14.3 + seedNorm * 10);
-		const f2 = Math.sin(sourceTimeSec * 31.7 + seedNorm * 23);
-		const f3 = Math.sin(sourceTimeSec * 6.9 + seedNorm * 5);
-		const rhythm = (Math.sin(sourceTimeSec * 2.5) + 1) * 0.5;
-
-		const rawAmp =
-			(Math.abs(f1 * 0.5 + f2 * 0.3 + f3 * 0.2) * 0.8 + 0.15) * (0.35 + 0.65 * rhythm);
-		const amp = Math.min(1, Math.max(0.1, rawAmp));
-		const h = Math.max(3, Math.round(amp * maxBarHeight));
-		const y = Math.round(centerY - h / 2);
-
-		path += `M${x},${y}h${barWidth}v${h}h-${barWidth}Z `;
-	}
-
-	return path;
-}
-
 interface Props {
 	project: TimelineProject;
 	clip: TimelineClip;
@@ -70,6 +27,7 @@ interface Props {
 	locked: boolean;
 	onCommand: (command: ProjectCommand) => void;
 	onSelect: (ids: string[]) => void;
+	onSeek?: (timeUs: number) => void;
 	onOpenRecording: (id: string) => void;
 	snappingEnabled?: boolean;
 	onSnapChange?: (timeUs: number | null) => void;
@@ -84,6 +42,7 @@ export function TimelineClipItem({
 	locked,
 	onCommand,
 	onSelect,
+	onSeek,
 	onOpenRecording,
 	snappingEnabled = true,
 	onSnapChange,
@@ -100,7 +59,7 @@ export function TimelineClipItem({
 		event.stopPropagation();
 		if (locked) return;
 		event.currentTarget.setPointerCapture(event.pointerId);
-		onSelect([clip.id]);
+		onSelect(relatedClipIds(project,[clip.id]));
 		gesture.current = { startX: event.clientX, kind, deltaUs: 0 };
 	};
 	const move = (event: PointerEvent<HTMLSpanElement>) => {
@@ -131,17 +90,6 @@ export function TimelineClipItem({
 		if (current?.deltaUs) onCommand((p) => applyClipGesture(p, clip.id, current));
 	};
 	const clipWidthPx = Math.max(2, timeToPixels(clipDurationUs(shown), scale));
-	const waveformPath = useMemo(() => {
-		if (asset.kind !== "audio") return null;
-		return generateWaveformPath(
-			clip.assetId ?? clip.id,
-			shown.sourceInUs,
-			shown.rate,
-			scale,
-			clipWidthPx,
-			51,
-		);
-	}, [asset.kind, clip.assetId, clip.id, shown.sourceInUs, shown.rate, scale, clipWidthPx]);
 	return (
 		<div
 			role="button"
@@ -161,7 +109,7 @@ export function TimelineClipItem({
 					type: "clip",
 					id: clip.id,
 					durationUs: clipDurationUs(clip),
-					mediaKind: asset.kind === "audio" ? "audio" : "visual",
+					mediaKind: asset.kind === "audio" || clip.audioOnly ? "audio" : "visual",
 					pointerOffsetPx,
 				});
 				event.currentTarget.classList.add("dragging");
@@ -176,13 +124,14 @@ export function TimelineClipItem({
 				event.stopPropagation();
 				if (event.shiftKey || event.ctrlKey || event.metaKey) {
 					const currentSelection = selection ?? (selected ? [clip.id] : []);
+					const related = relatedClipIds(project,[clip.id]);
 					if (currentSelection.includes(clip.id)) {
-						onSelect(currentSelection.filter((id) => id !== clip.id));
+						onSelect(currentSelection.filter((id) => !related.includes(id)));
 					} else {
-						onSelect([...currentSelection, clip.id]);
+						onSelect([...new Set([...currentSelection, ...related])]);
 					}
 				} else {
-					onSelect([clip.id]);
+					onSelect(relatedClipIds(project,[clip.id]));
 				}
 			}}
 			onKeyDown={(event) => {
@@ -196,11 +145,8 @@ export function TimelineClipItem({
 				if (asset.kind === "recording") onOpenRecording(clip.id);
 			}}
 		>
-			{waveformPath && (
-				<svg className="project-clip-waveform" aria-hidden="true">
-					<path d={waveformPath} fill="currentColor" />
-				</svg>
-			)}
+			{(asset.kind === "audio" || clip.audioOnly) && <TimelineClipAudioPreview project={project} clip={shown} scale={scale}/>}
+			{!clip.audioOnly && (asset.kind === "video" || asset.kind === "recording") && <TimelineFilmstrip project={project} clip={shown} width={clipWidthPx}/>}
 			<span
 				className="project-trim-handle left"
 				role="slider"
@@ -226,15 +172,27 @@ export function TimelineClipItem({
 				{shown.rate !== 1 ? ` · ${shown.rate}×` : ""}
 			</span>
 			{shown.keyframes && shown.keyframes.length > 0 && (
-				<div className="project-clip-keyframes" aria-hidden="true">
-					{shown.keyframes.map((kf) => (
-						<span
-							key={kf.id}
-							className="project-clip-kf-marker"
-							style={{ left: timeToPixels((kf.timeMs * 1000) / shown.rate, scale) }}
-							title={`${kf.property} at ${(kf.timeMs / 1000).toFixed(2)}s`}
-						/>
-					))}
+				<div className="project-clip-keyframes" aria-label="Clip keyframes">
+					{shown.keyframes.map((kf) => {
+						const kfTimeUs = shown.startUs + Math.round((kf.timeMs * 1000) / shown.rate);
+						const isActive = Math.abs(playheadUs - kfTimeUs) <= 50_000;
+						return (
+							<button
+								key={kf.id}
+								type="button"
+								className={`project-clip-kf-marker ${isActive ? "active" : ""}`}
+								style={{ left: timeToPixels((kf.timeMs * 1000) / shown.rate, scale) }}
+								title={`${kf.property} at ${(kf.timeMs / 1000).toFixed(2)}s (Click to seek)`}
+								aria-label={`${kf.property} keyframe at ${(kf.timeMs / 1000).toFixed(2)}s`}
+								onClick={(e) => {
+									e.stopPropagation();
+									onSeek?.(kfTimeUs);
+								}}
+							>
+								<Diamond size={8} weight="fill" />
+							</button>
+						);
+					})}
 				</div>
 			)}
 			<span

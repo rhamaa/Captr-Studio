@@ -60,6 +60,7 @@ export type EditorEffectSection =
 	| "cursor"
 	| "webcam"
 	| "layout"
+	| "appearance"
 	| "settings"
 	| "zoom"
 	| "frame"

@@ -14,34 +14,34 @@ import {
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentDiffSummary } from "@/core/timeline/agentPayload";
-import {
-	addTextOverlay,
-	removeTrack,
-	reorderTrack,
-	updateTrack,
-} from "@/core/timeline/commands";
 import { addClipTransition, getMaxClipTransitionDurationUs } from "@/core/timeline/clipTransitions";
+import { addTextOverlay, removeTrack, reorderTrack, updateTrack } from "@/core/timeline/commands";
 import type { ProjectCommand } from "@/core/timeline/history";
 import { createAndPlaceShape } from "@/core/timeline/shapeCommands";
-import { clipDurationUs, projectDurationUs, type ShapeDefinition, type TimelineProject } from "@/core/timeline/types";
+import {
+	clipDurationUs,
+	projectDurationUs,
+	type ShapeDefinition,
+	type TimelineProject,
+} from "@/core/timeline/types";
 import { TimelineClipItem } from "./TimelineClipItem";
-import { TimelineTransitionItem } from "./TimelineTransitionItem";
 import { TimelineToolbar } from "./TimelineToolbar";
-import { useProjectMessages } from "./useProjectMessages";
+import { TimelineTransitionItem } from "./TimelineTransitionItem";
 import {
 	ASSET_DRAG_TYPE,
 	applyTimelineDrop,
 	CLIP_DRAG_TYPE,
 	getTimelineDrag,
 	pixelsToTime,
+	resolveTimelineDropTarget,
 	snapTimelineTimeWithDetails,
 	timelineActionCommand,
 	timelineDropDetails,
 	timelineDropStartUs,
-	resolveTimelineDropTarget,
 	timelineTracksInDisplayOrder,
 	timeToPixels,
 } from "./timelineInteractions";
+import { useProjectMessages } from "./useProjectMessages";
 export interface ProjectTimelineProps {
 	project: TimelineProject;
 	selection: string[];
@@ -104,10 +104,10 @@ export function ProjectTimeline({
 	} | null>(null);
 	const specDurationUs = speculativeProject ? projectDurationUs(speculativeProject) : 0;
 	const duration = Math.max(
-		20_000_000,
-		projectDurationUs(project) + 10_000_000,
-		specDurationUs + 10_000_000,
-	),
+			20_000_000,
+			projectDurationUs(project) + 10_000_000,
+			specDurationUs + 10_000_000,
+		),
 		width = timeToPixels(duration, scale);
 	const tickSeconds = scale < 20 ? 10 : scale < 50 ? 5 : scale < 110 ? 2 : 1;
 	const selectedTrack = project.tracks.find((t) => t.clips.some((c) => selection.includes(c.id)));
@@ -120,8 +120,14 @@ export function ProjectTimeline({
 	const extraVisualTracks = speculativeExtraTracks.filter((t) => t.kind === "visual");
 	const extraAudioTracks = speculativeExtraTracks.filter((t) => t.kind === "audio");
 
-	const visualTracks = [...displayTracks.filter((track) => track.kind === "visual"), ...extraVisualTracks];
-	const audioTracks = [...displayTracks.filter((track) => track.kind === "audio"), ...extraAudioTracks];
+	const visualTracks = [
+		...displayTracks.filter((track) => track.kind === "visual"),
+		...extraVisualTracks,
+	];
+	const audioTracks = [
+		...displayTracks.filter((track) => track.kind === "audio"),
+		...extraAudioTracks,
+	];
 	const timelineRows = [...visualTracks, null, ...audioTracks];
 
 	const handleZoomToFit = useCallback(() => {
@@ -441,7 +447,12 @@ export function ProjectTimeline({
 					{timelineRows.map((track) => {
 						if (!track) {
 							return (
-								<div className="project-track-group-divider" role="separator" aria-label="Audio tracks" key="track-kind-divider">
+								<div
+									className="project-track-group-divider"
+									role="separator"
+									aria-label="Audio tracks"
+									key="track-kind-divider"
+								>
 									<span className="project-track-group-divider-label">AUDIO</span>
 									<span className="project-track-group-divider-line" />
 								</div>
@@ -451,301 +462,262 @@ export function ProjectTimeline({
 						const peerIndex = peerTracks.findIndex((entry) => entry.id === track.id);
 						const isDraftTrack = !project.tracks.some((t) => t.id === track.id);
 						return (
-						<div
-							className={`project-track-row ${track.kind} ${track.locked ? "locked" : ""}`}
-							key={track.id}
-							data-track-id={track.id}
-							data-track-kind={track.kind}
-						>
-							<div className="project-track-heading">
-								<div className="project-track-heading-top">
-									{editingTrackId === track.id ? (
-										<input
-											className="project-track-name-input"
-											autoFocus
-											value={editingTrackName}
-											onChange={(e) => setEditingTrackName(e.target.value)}
-											onBlur={() => commitRenameTrack(track.id, track.name)}
-											onKeyDown={(e) => {
-												if (e.key === "Enter")
-													commitRenameTrack(track.id, track.name);
-												if (e.key === "Escape") cancelRenameTrack();
-											}}
-										/>
-									) : (
-										<span
-											className="project-track-title"
-											title={isDraftTrack ? "Speculative draft track from AI edits" : "Double-click to rename"}
-											onDoubleClick={() =>
-												!isDraftTrack &&
-												!track.locked &&
-												startRenameTrack(track.id, track.name)
-											}
-										>
-											{track.name}
-											{isDraftTrack && <span className="project-clip-ghost-badge ml-1.5 inline-flex">✨ Draft</span>}
-										</span>
-									)}
-									<div className="project-track-reorder-group">
-										<button
-											className="project-track-mini-btn"
-											disabled={isDraftTrack || peerIndex === 0}
-											title="Move track up"
-											aria-label={`Move ${track.name} up`}
-											onClick={() => handleMoveTrack(track.id, "up")}
-										>
-											<CaretUp size={11} />
-										</button>
-										<button
-											className="project-track-mini-btn"
-											disabled={isDraftTrack || peerIndex === peerTracks.length - 1}
-											title="Move track down"
-											aria-label={`Move ${track.name} down`}
-											onClick={() => handleMoveTrack(track.id, "down")}
-										>
-											<CaretDown size={11} />
-										</button>
-									</div>
-								</div>
-								<div className="project-track-controls">
-									<button
-										aria-label={`${track.muted ? "Unmute" : "Mute"} ${track.name}`}
-										title={track.muted ? "Unmute track" : "Mute track"}
-										className={track.muted ? "active" : ""}
-										disabled={isDraftTrack}
-										onClick={() =>
-											!isDraftTrack &&
-											onCommand((p) =>
-												updateTrack(p, track.id, { muted: !track.muted }),
-											)
-										}
-									>
-										{track.muted ? (
-											<VolumeX size={13} />
+							<div
+								className={`project-track-row ${track.kind} ${track.locked ? "locked" : ""}`}
+								key={track.id}
+								data-track-id={track.id}
+								data-track-kind={track.kind}
+							>
+								<div className="project-track-heading">
+									<div className="project-track-heading-top">
+										{editingTrackId === track.id ? (
+											<input
+												className="project-track-name-input"
+												autoFocus
+												value={editingTrackName}
+												onChange={(e) =>
+													setEditingTrackName(e.target.value)
+												}
+												onBlur={() =>
+													commitRenameTrack(track.id, track.name)
+												}
+												onKeyDown={(e) => {
+													if (e.key === "Enter")
+														commitRenameTrack(track.id, track.name);
+													if (e.key === "Escape") cancelRenameTrack();
+												}}
+											/>
 										) : (
-											<Volume2 size={13} />
+											<span
+												className="project-track-title"
+												title={
+													isDraftTrack
+														? "Speculative draft track from AI edits"
+														: "Double-click to rename"
+												}
+												onDoubleClick={() =>
+													!isDraftTrack &&
+													!track.locked &&
+													startRenameTrack(track.id, track.name)
+												}
+											>
+												{track.name}
+												{isDraftTrack && (
+													<span className="project-clip-ghost-badge ml-1.5 inline-flex">
+														✨ Draft
+													</span>
+												)}
+											</span>
 										)}
-									</button>
-									{track.kind === "visual" && (
+										<div className="project-track-reorder-group">
+											<button
+												className="project-track-mini-btn"
+												disabled={isDraftTrack || peerIndex === 0}
+												title="Move track up"
+												aria-label={`Move ${track.name} up`}
+												onClick={() => handleMoveTrack(track.id, "up")}
+											>
+												<CaretUp size={11} />
+											</button>
+											<button
+												className="project-track-mini-btn"
+												disabled={
+													isDraftTrack ||
+													peerIndex === peerTracks.length - 1
+												}
+												title="Move track down"
+												aria-label={`Move ${track.name} down`}
+												onClick={() => handleMoveTrack(track.id, "down")}
+											>
+												<CaretDown size={11} />
+											</button>
+										</div>
+									</div>
+									<div className="project-track-controls">
 										<button
-											aria-label={`${track.hidden ? "Show" : "Hide"} ${track.name}`}
-											title={track.hidden ? "Show track" : "Hide track"}
-											className={track.hidden ? "active" : ""}
+											aria-label={`${track.muted ? "Unmute" : "Mute"} ${track.name}`}
+											title={track.muted ? "Unmute track" : "Mute track"}
+											className={track.muted ? "active" : ""}
 											disabled={isDraftTrack}
 											onClick={() =>
 												!isDraftTrack &&
 												onCommand((p) =>
 													updateTrack(p, track.id, {
-														hidden: !track.hidden,
+														muted: !track.muted,
 													}),
 												)
 											}
 										>
-											{track.hidden ? (
-												<EyeOff size={13} />
+											{track.muted ? (
+												<VolumeX size={13} />
 											) : (
-												<Eye size={13} />
+												<Volume2 size={13} />
 											)}
 										</button>
-									)}
-									<button
-										aria-label={`${track.locked ? "Unlock" : "Lock"} ${track.name}`}
-										title={track.locked ? "Unlock track" : "Lock track"}
-										className={track.locked ? "active" : ""}
-										disabled={isDraftTrack}
-										onClick={() =>
-											!isDraftTrack &&
-											onCommand((p) =>
-												updateTrack(p, track.id, { locked: !track.locked }),
-											)
-										}
-									>
-										{track.locked ? (
-											<LockKeyhole size={13} />
-										) : (
-											<UnlockKeyhole size={13} />
+										{track.kind === "visual" && (
+											<button
+												aria-label={`${track.hidden ? "Show" : "Hide"} ${track.name}`}
+												title={track.hidden ? "Show track" : "Hide track"}
+												className={track.hidden ? "active" : ""}
+												disabled={isDraftTrack}
+												onClick={() =>
+													!isDraftTrack &&
+													onCommand((p) =>
+														updateTrack(p, track.id, {
+															hidden: !track.hidden,
+														}),
+													)
+												}
+											>
+												{track.hidden ? (
+													<EyeOff size={13} />
+												) : (
+													<Eye size={13} />
+												)}
+											</button>
 										)}
-									</button>
-									<button
-										className="project-track-delete-btn"
-										disabled={isDraftTrack || track.locked || project.tracks.length <= 1}
-										title={
-											isDraftTrack
-												? "Draft track cannot be deleted directly"
-												: project.tracks.length <= 1
-													? "Cannot delete the only track"
-													: track.locked
-														? "Track is locked"
-														: "Delete track"
-										}
-										aria-label={`Delete ${track.name}`}
-										onClick={() => !isDraftTrack && handleDeleteTrack(track)}
-									>
-										<Trash size={13} />
-									</button>
+										<button
+											aria-label={`${track.locked ? "Unlock" : "Lock"} ${track.name}`}
+											title={track.locked ? "Unlock track" : "Lock track"}
+											className={track.locked ? "active" : ""}
+											disabled={isDraftTrack}
+											onClick={() =>
+												!isDraftTrack &&
+												onCommand((p) =>
+													updateTrack(p, track.id, {
+														locked: !track.locked,
+													}),
+												)
+											}
+										>
+											{track.locked ? (
+												<LockKeyhole size={13} />
+											) : (
+												<UnlockKeyhole size={13} />
+											)}
+										</button>
+										<button
+											className="project-track-delete-btn"
+											disabled={
+												isDraftTrack ||
+												track.locked ||
+												project.tracks.length <= 1
+											}
+											title={
+												isDraftTrack
+													? "Draft track cannot be deleted directly"
+													: project.tracks.length <= 1
+														? "Cannot delete the only track"
+														: track.locked
+															? "Track is locked"
+															: "Delete track"
+											}
+											aria-label={`Delete ${track.name}`}
+											onClick={() =>
+												!isDraftTrack && handleDeleteTrack(track)
+											}
+										>
+											<Trash size={13} />
+										</button>
+									</div>
 								</div>
-							</div>
-							<div
-								className="project-track-lane"
-								style={{
-									width,
-									backgroundSize: `${timeToPixels(tickSeconds * 1_000_000, scale)}px 100%`,
-								}}
-								onPointerDown={(event) => {
-									if (event.target === event.currentTarget) {
-										onSelect([]);
-										event.currentTarget.setPointerCapture(event.pointerId);
-										const rect = event.currentTarget.getBoundingClientRect();
-										const rawTime = Math.max(
-											0,
-											pixelsToTime(event.clientX - rect.left, scale),
-										);
-										if (snappingEnabled && !event.shiftKey) {
-											const snap = snapTimelineTimeWithDetails(
-												rawTime,
-												project,
-												playheadUs,
-												scale,
-												{
-													includePlayhead: false,
-													enabled: true,
-												},
+								<div
+									className="project-track-lane"
+									style={{
+										width,
+										backgroundSize: `${timeToPixels(tickSeconds * 1_000_000, scale)}px 100%`,
+									}}
+									onPointerDown={(event) => {
+										if (event.target === event.currentTarget) {
+											onSelect([]);
+											event.currentTarget.setPointerCapture(event.pointerId);
+											const rect =
+												event.currentTarget.getBoundingClientRect();
+											const rawTime = Math.max(
+												0,
+												pixelsToTime(event.clientX - rect.left, scale),
 											);
-											setSnapGuideUs(
-												snap.snapped ? (snap.snapPointUs ?? null) : null,
+											if (snappingEnabled && !event.shiftKey) {
+												const snap = snapTimelineTimeWithDetails(
+													rawTime,
+													project,
+													playheadUs,
+													scale,
+													{
+														includePlayhead: false,
+														enabled: true,
+													},
+												);
+												setSnapGuideUs(
+													snap.snapped
+														? (snap.snapPointUs ?? null)
+														: null,
+												);
+												onSeek(snap.timeUs);
+											} else {
+												setSnapGuideUs(null);
+												onSeek(rawTime);
+											}
+										}
+									}}
+									onPointerMove={(event) => {
+										if (
+											event.buttons === 1 &&
+											event.target === event.currentTarget
+										) {
+											const rect =
+												event.currentTarget.getBoundingClientRect();
+											const rawTime = Math.max(
+												0,
+												pixelsToTime(event.clientX - rect.left, scale),
 											);
-											onSeek(snap.timeUs);
-										} else {
+											if (snappingEnabled && !event.shiftKey) {
+												const snap = snapTimelineTimeWithDetails(
+													rawTime,
+													project,
+													playheadUs,
+													scale,
+													{
+														includePlayhead: false,
+														enabled: true,
+													},
+												);
+												setSnapGuideUs(
+													snap.snapped
+														? (snap.snapPointUs ?? null)
+														: null,
+												);
+												onSeek(snap.timeUs);
+											} else {
+												setSnapGuideUs(null);
+												onSeek(rawTime);
+											}
+										}
+									}}
+									onPointerUp={(event) => {
+										if (event.target === event.currentTarget) {
 											setSnapGuideUs(null);
-											onSeek(rawTime);
+											try {
+												event.currentTarget.releasePointerCapture(
+													event.pointerId,
+												);
+											} catch {
+												// Pointer capture already released
+											}
 										}
-									}
-								}}
-								onPointerMove={(event) => {
-									if (
-										event.buttons === 1 &&
-										event.target === event.currentTarget
-									) {
-										const rect = event.currentTarget.getBoundingClientRect();
-										const rawTime = Math.max(
-											0,
-											pixelsToTime(event.clientX - rect.left, scale),
-										);
-										if (snappingEnabled && !event.shiftKey) {
-											const snap = snapTimelineTimeWithDetails(
-												rawTime,
-												project,
-												playheadUs,
-												scale,
-												{
-													includePlayhead: false,
-													enabled: true,
-												},
-											);
-											setSnapGuideUs(
-												snap.snapped ? (snap.snapPointUs ?? null) : null,
-											);
-											onSeek(snap.timeUs);
-										} else {
+									}}
+									onDragOver={(event) => {
+										const drag = getTimelineDrag();
+										if (!drag) {
+											setDropPreview(null);
 											setSnapGuideUs(null);
-											onSeek(rawTime);
+											return;
 										}
-									}
-								}}
-								onPointerUp={(event) => {
-									if (event.target === event.currentTarget) {
-										setSnapGuideUs(null);
-										try {
-											event.currentTarget.releasePointerCapture(
-												event.pointerId,
-											);
-										} catch {
-											// Pointer capture already released
-										}
-									}
-								}}
-								onDragOver={(event) => {
-									const drag = getTimelineDrag();
-									if (!drag) {
-										setDropPreview(null);
-										setSnapGuideUs(null);
-										return;
-									}
-									event.preventDefault();
-									event.dataTransfer.dropEffect =
-										drag.type === "clip" ? "move" : "copy";
-									const rect = event.currentTarget.getBoundingClientRect();
-									const snapDetails = timelineDropDetails(
-										event.clientX,
-										rect.left,
-										drag.pointerOffsetPx,
-										project,
-										playheadUs,
-										scale,
-										{
-											durationUs: drag.durationUs,
-											excludedClipId:
-												drag.type === "clip" ? drag.id : undefined,
-											enabled: snappingEnabled,
-										},
-									);
-									const startUs = snapDetails.timeUs;
-									const request = {
-										type: drag.type,
-										id: drag.id,
-										preferredTrackId: track.id,
-										startUs,
-										durationUs: drag.durationUs,
-									};
-									const target = resolveTimelineDropTarget(project, request);
-									const previewTrackId = target.trackId ?? track.id;
-									setSnapGuideUs(
-										snapDetails.snapped
-											? (snapDetails.snapPointUs ?? null)
-											: null,
-									);
-									const invalid = target.blocked;
-									setDropPreview((current) =>
-										current?.trackId === previewTrackId &&
-										current.startUs === startUs &&
-										current.invalid === invalid &&
-										current.willCreateTrack === target.createTrack
-											? current
-											: {
-													trackId: previewTrackId,
-													startUs,
-													durationUs: drag.durationUs,
-													mediaKind: target.kind,
-													invalid,
-													willCreateTrack: target.createTrack,
-												},
-									);
-								}}
-								onDragLeave={(event) => {
-									if (
-										event.relatedTarget instanceof Node &&
-										event.currentTarget.contains(event.relatedTarget)
-									)
-										return;
-									setDropPreview(null);
-									setSnapGuideUs(null);
-								}}
-								onDrop={(event) => {
-									event.preventDefault();
-									setDropPreview(null);
-									setSnapGuideUs(null);
-									const clipId = event.dataTransfer.getData(CLIP_DRAG_TYPE),
-										assetId = event.dataTransfer.getData(ASSET_DRAG_TYPE),
-										drag = getTimelineDrag();
-									if (
-										!drag ||
-										(drag.type === "clip"
-											? drag.id !== clipId
-											: drag.id !== assetId)
-									)
-										return;
-									const rect = event.currentTarget.getBoundingClientRect(),
-										startUs = timelineDropStartUs(
+										event.preventDefault();
+										event.dataTransfer.dropEffect =
+											drag.type === "clip" ? "move" : "copy";
+										const rect = event.currentTarget.getBoundingClientRect();
+										const snapDetails = timelineDropDetails(
 											event.clientX,
 											rect.left,
 											drag.pointerOffsetPx,
@@ -754,179 +726,305 @@ export function ProjectTimeline({
 											scale,
 											{
 												durationUs: drag.durationUs,
-												excludedClipId: clipId || undefined,
+												excludedClipId:
+													drag.type === "clip" ? drag.id : undefined,
 												enabled: snappingEnabled,
 											},
 										);
-									const request = {
-										type: drag.type,
-										id: drag.id,
-										preferredTrackId: track.id,
-										startUs,
-										durationUs: drag.durationUs,
-									};
-									if (resolveTimelineDropTarget(project, request).blocked) return;
-									onCommand((p) =>
-										applyTimelineDrop(p, request, {
-											trackId: crypto.randomUUID(),
-											clipId: clipId || crypto.randomUUID(),
-											compositionId: crypto.randomUUID(),
-										}),
-									);
-								}}
-							>
-								{!track.clips.length && (
-									<span className="project-track-empty">
-										{track.kind === "visual"
-											? "Drag video, images, text or recordings here"
-											: "Drag audio here"}
-									</span>
-								)}
-								{track.clips.map((clip) => (
-									<TimelineClipItem
-										key={clip.id}
-										project={project}
-										clip={clip}
-										scale={scale}
-										playheadUs={playheadUs}
-										selected={selection.includes(clip.id)}
-										selection={selection}
-										locked={track.locked}
-										snappingEnabled={snappingEnabled}
-										onSnapChange={setSnapGuideUs}
-										onCommand={onCommand}
-										onSelect={onSelect}
-										onOpenRecording={onOpenRecording}
-									/>
-								))}
-								{(() => {
-									const speculativeTrack = speculativeProject?.tracks.find((t) => t.id === track.id);
-									if (!speculativeTrack) return null;
-									const ghostAddedClips = speculativeTrack.clips.filter(
-										(sc) => !track.clips.some((c) => c.id === sc.id),
-									);
-									const ghostModifiedClips = speculativeTrack.clips.filter((sc) => {
-										const orig = track.clips.find((c) => c.id === sc.id);
-										return (
-											orig &&
-											(orig.startUs !== sc.startUs ||
-												orig.sourceInUs !== sc.sourceInUs ||
-												orig.sourceOutUs !== sc.sourceOutUs)
+										const startUs = snapDetails.timeUs;
+										const request = {
+											type: drag.type,
+											id: drag.id,
+											preferredTrackId: track.id,
+											startUs,
+											durationUs: drag.durationUs,
+										};
+										const target = resolveTimelineDropTarget(project, request);
+										const previewTrackId = target.trackId ?? track.id;
+										setSnapGuideUs(
+											snapDetails.snapped
+												? (snapDetails.snapPointUs ?? null)
+												: null,
 										);
-									});
-									const pendingRemovedIds = new Set(
-										track.clips
-											.filter((c) => !speculativeTrack.clips.some((sc) => sc.id === c.id))
-											.map((c) => c.id),
-									);
-									return (
-										<>
-											{ghostAddedClips.map((sc) => (
-												<div
-													key={`ghost-add-${sc.id}`}
-													className="project-clip-ghost project-clip-ghost-added"
-													style={{
-														left: timeToPixels(sc.startUs, scale),
-														width: Math.max(20, timeToPixels(clipDurationUs(sc), scale)),
-													}}
-													title={`Ghost added clip (${(clipDurationUs(sc) / 1_000_000).toFixed(1)}s)`}
-												>
-													<span className="project-clip-ghost-badge">✨ +Ghost</span>
-													<span className="project-clip-ghost-dur">
-														{(clipDurationUs(sc) / 1_000_000).toFixed(1)}s
-													</span>
-												</div>
-											))}
-											{ghostModifiedClips.map((sc) => (
-												<div
-													key={`ghost-mod-${sc.id}`}
-													className="project-clip-ghost project-clip-ghost-modified"
-													style={{
-														left: timeToPixels(sc.startUs, scale),
-														width: Math.max(20, timeToPixels(clipDurationUs(sc), scale)),
-													}}
-													title={`Ghost modified (${(clipDurationUs(sc) / 1_000_000).toFixed(1)}s)`}
-												>
-													<span className="project-clip-ghost-badge">✨ Draft Cut</span>
-													<span className="project-clip-ghost-dur">
-														{(clipDurationUs(sc) / 1_000_000).toFixed(1)}s
-													</span>
-												</div>
-											))}
-											{track.clips
-												.filter((c) => pendingRemovedIds.has(c.id))
-												.map((c) => (
+										const invalid = target.blocked;
+										setDropPreview((current) =>
+											current?.trackId === previewTrackId &&
+											current.startUs === startUs &&
+											current.invalid === invalid &&
+											current.willCreateTrack === target.createTrack
+												? current
+												: {
+														trackId: previewTrackId,
+														startUs,
+														durationUs: drag.durationUs,
+														mediaKind: target.kind,
+														invalid,
+														willCreateTrack: target.createTrack,
+													},
+										);
+									}}
+									onDragLeave={(event) => {
+										if (
+											event.relatedTarget instanceof Node &&
+											event.currentTarget.contains(event.relatedTarget)
+										)
+											return;
+										setDropPreview(null);
+										setSnapGuideUs(null);
+									}}
+									onDrop={(event) => {
+										event.preventDefault();
+										setDropPreview(null);
+										setSnapGuideUs(null);
+										const clipId = event.dataTransfer.getData(CLIP_DRAG_TYPE),
+											assetId = event.dataTransfer.getData(ASSET_DRAG_TYPE),
+											drag = getTimelineDrag();
+										if (
+											!drag ||
+											(drag.type === "clip"
+												? drag.id !== clipId
+												: drag.id !== assetId)
+										)
+											return;
+										const rect = event.currentTarget.getBoundingClientRect(),
+											startUs = timelineDropStartUs(
+												event.clientX,
+												rect.left,
+												drag.pointerOffsetPx,
+												project,
+												playheadUs,
+												scale,
+												{
+													durationUs: drag.durationUs,
+													excludedClipId: clipId || undefined,
+													enabled: snappingEnabled,
+												},
+											);
+										const request = {
+											type: drag.type,
+											id: drag.id,
+											preferredTrackId: track.id,
+											startUs,
+											durationUs: drag.durationUs,
+										};
+										if (resolveTimelineDropTarget(project, request).blocked)
+											return;
+										onCommand((p) =>
+											applyTimelineDrop(p, request, {
+												trackId: crypto.randomUUID(),
+												clipId: clipId || crypto.randomUUID(),
+												compositionId: crypto.randomUUID(),
+											}),
+										);
+									}}
+								>
+									{!track.clips.length && (
+										<span className="project-track-empty">
+											{track.kind === "visual"
+												? "Drag media here (video, images, shapes, text)"
+												: "Drag audio here"}
+										</span>
+									)}
+									{track.clips.map((clip) => (
+										<TimelineClipItem
+											key={clip.id}
+											project={project}
+											clip={clip}
+											scale={scale}
+											playheadUs={playheadUs}
+											selected={selection.includes(clip.id)}
+											selection={selection}
+											locked={track.locked}
+											snappingEnabled={snappingEnabled}
+											onSnapChange={setSnapGuideUs}
+											onCommand={onCommand}
+											onSelect={onSelect}
+											onSeek={onSeek}
+											onOpenRecording={onOpenRecording}
+										/>
+									))}
+									{(() => {
+										const speculativeTrack = speculativeProject?.tracks.find(
+											(t) => t.id === track.id,
+										);
+										if (!speculativeTrack) return null;
+										const ghostAddedClips = speculativeTrack.clips.filter(
+											(sc) => !track.clips.some((c) => c.id === sc.id),
+										);
+										const ghostModifiedClips = speculativeTrack.clips.filter(
+											(sc) => {
+												const orig = track.clips.find(
+													(c) => c.id === sc.id,
+												);
+												return (
+													orig &&
+													(orig.startUs !== sc.startUs ||
+														orig.sourceInUs !== sc.sourceInUs ||
+														orig.sourceOutUs !== sc.sourceOutUs)
+												);
+											},
+										);
+										const pendingRemovedIds = new Set(
+											track.clips
+												.filter(
+													(c) =>
+														!speculativeTrack.clips.some(
+															(sc) => sc.id === c.id,
+														),
+												)
+												.map((c) => c.id),
+										);
+										return (
+											<>
+												{ghostAddedClips.map((sc) => (
 													<div
-														key={`ghost-del-${c.id}`}
-														className="project-clip-ghost-pending-removal"
+														key={`ghost-add-${sc.id}`}
+														className="project-clip-ghost project-clip-ghost-added"
 														style={{
-															left: timeToPixels(c.startUs, scale),
-															width: Math.max(20, timeToPixels(clipDurationUs(c), scale)),
+															left: timeToPixels(sc.startUs, scale),
+															width: Math.max(
+																20,
+																timeToPixels(
+																	clipDurationUs(sc),
+																	scale,
+																),
+															),
 														}}
-														title={`Pending removal: ${c.id}`}
+														title={`Ghost added clip (${(clipDurationUs(sc) / 1_000_000).toFixed(1)}s)`}
 													>
-														<span>Will Delete</span>
+														<span className="project-clip-ghost-badge">
+															✨ +Ghost
+														</span>
+														<span className="project-clip-ghost-dur">
+															{(
+																clipDurationUs(sc) / 1_000_000
+															).toFixed(1)}
+															s
+														</span>
 													</div>
 												))}
-										</>
-									);
-								})()}
-				{eligibleTimelineTransitions(project, track.id).map(({ transition, boundaryUs, maximumDurationUs }) => (
-					<TimelineTransitionItem
-						key={transition.id}
-						transition={transition}
-						boundaryUs={boundaryUs}
-						maximumDurationUs={maximumDurationUs}
-						scale={scale}
-						selected={selectedTransitionId === transition.id}
-						locked={track.locked || track.kind !== "visual"}
-						snappingEnabled={snappingEnabled}
-						onSelect={() => onSelectTransition(transition.id)}
-						onCommand={onCommand}
-					/>
-				))}
-				{eligibleTransitionBoundaries(project, track.id).map(({ fromClipId, toClipId, boundaryUs }) => (
-					<button
-						key={`${fromClipId}:${toClipId}`}
-						type="button"
-						className="project-transition-add"
-						style={{ left: timeToPixels(boundaryUs, scale) }}
-						aria-label={m("addTransition")}
-						title={m("addTransition")}
-						onPointerDown={(event) => event.stopPropagation()}
-						onClick={(event) => {
-							event.stopPropagation();
-							const id = crypto.randomUUID();
-							onCommand(transitionPlacementCommand(fromClipId, toClipId, id));
-							onSelectTransition(id);
-						}}
-					>
-						+
-					</button>
-				))}
-								{dropPreview?.trackId === track.id && (
-									<div
-										className={`project-drop-preview ${dropPreview.mediaKind} ${dropPreview.invalid ? "invalid" : ""} ${dropPreview.willCreateTrack ? "new-track" : ""}`}
-										style={{
-										left: timeToPixels(dropPreview.startUs, scale),
-										width: Math.max(
-											8,
-											timeToPixels(dropPreview.durationUs, scale),
+												{ghostModifiedClips.map((sc) => (
+													<div
+														key={`ghost-mod-${sc.id}`}
+														className="project-clip-ghost project-clip-ghost-modified"
+														style={{
+															left: timeToPixels(sc.startUs, scale),
+															width: Math.max(
+																20,
+																timeToPixels(
+																	clipDurationUs(sc),
+																	scale,
+																),
+															),
+														}}
+														title={`Ghost modified (${(clipDurationUs(sc) / 1_000_000).toFixed(1)}s)`}
+													>
+														<span className="project-clip-ghost-badge">
+															✨ Draft Cut
+														</span>
+														<span className="project-clip-ghost-dur">
+															{(
+																clipDurationUs(sc) / 1_000_000
+															).toFixed(1)}
+															s
+														</span>
+													</div>
+												))}
+												{track.clips
+													.filter((c) => pendingRemovedIds.has(c.id))
+													.map((c) => (
+														<div
+															key={`ghost-del-${c.id}`}
+															className="project-clip-ghost-pending-removal"
+															style={{
+																left: timeToPixels(
+																	c.startUs,
+																	scale,
+																),
+																width: Math.max(
+																	20,
+																	timeToPixels(
+																		clipDurationUs(c),
+																		scale,
+																	),
+																),
+															}}
+															title={`Pending removal: ${c.id}`}
+														>
+															<span>Will Delete</span>
+														</div>
+													))}
+											</>
+										);
+									})()}
+									{eligibleTimelineTransitions(project, track.id).map(
+										({ transition, boundaryUs, maximumDurationUs }) => (
+											<TimelineTransitionItem
+												key={transition.id}
+												transition={transition}
+												boundaryUs={boundaryUs}
+												maximumDurationUs={maximumDurationUs}
+												scale={scale}
+												selected={selectedTransitionId === transition.id}
+												locked={track.locked || track.kind !== "visual"}
+												snappingEnabled={snappingEnabled}
+												onSelect={() => onSelectTransition(transition.id)}
+												onCommand={onCommand}
+											/>
 										),
-									}}
-										aria-label={
-											dropPreview.willCreateTrack
-											? `New ${dropPreview.mediaKind} track will be created`
-											: `Place on ${dropPreview.mediaKind} track`
-										}
-									>
-										{dropPreview.willCreateTrack && (
-											<span className="project-drop-preview-label">New track</span>
-										)}
-									</div>
-								)}
+									)}
+									{eligibleTransitionBoundaries(project, track.id).map(
+										({ fromClipId, toClipId, boundaryUs }) => (
+											<button
+												key={`${fromClipId}:${toClipId}`}
+												type="button"
+												className="project-transition-add"
+												style={{ left: timeToPixels(boundaryUs, scale) }}
+												aria-label={m("addTransition")}
+												title={m("addTransition")}
+												onPointerDown={(event) => event.stopPropagation()}
+												onClick={(event) => {
+													event.stopPropagation();
+													const id = crypto.randomUUID();
+													onCommand(
+														transitionPlacementCommand(
+															fromClipId,
+															toClipId,
+															id,
+														),
+													);
+													onSelectTransition(id);
+												}}
+											>
+												+
+											</button>
+										),
+									)}
+									{dropPreview?.trackId === track.id && (
+										<div
+											className={`project-drop-preview ${dropPreview.mediaKind} ${dropPreview.invalid ? "invalid" : ""} ${dropPreview.willCreateTrack ? "new-track" : ""}`}
+											style={{
+												left: timeToPixels(dropPreview.startUs, scale),
+												width: Math.max(
+													8,
+													timeToPixels(dropPreview.durationUs, scale),
+												),
+											}}
+											aria-label={
+												dropPreview.willCreateTrack
+													? `New ${dropPreview.mediaKind} track will be created`
+													: `Place on ${dropPreview.mediaKind} track`
+											}
+										>
+											{dropPreview.willCreateTrack && (
+												<span className="project-drop-preview-label">
+													New track
+												</span>
+											)}
+										</div>
+									)}
+								</div>
 							</div>
-						</div>
 						);
 					})}
 					{snapGuideUs !== null && (
@@ -958,10 +1056,38 @@ export function shapePlacementCommand(
 	ids: { assetId?: string; clipId: string; trackId: string },
 ): ProjectCommand {
 	const definitions: Record<ShapeDefinition["kind"], ShapeDefinition> = {
-		rectangle: { kind: "rectangle", width: 360, height: 220, style: { fill: "#6387ff", stroke: null } },
-		ellipse: { kind: "ellipse", width: 260, height: 180, style: { fill: "#6387ff", stroke: null } },
-		line: { kind: "line", from: { x: 0, y: 0 }, to: { x: 360, y: 220 }, style: { stroke: { color: "#6387ff", width: 8 } } },
-		arrow: { kind: "arrow", from: { x: 0, y: 110 }, to: { x: 360, y: 110 }, headLength: 32, style: { stroke: { color: "#6387ff", width: 8 } } },
+		rectangle: {
+			kind: "rectangle",
+			width: 360,
+			height: 220,
+			style: { fill: "#6387ff", stroke: null },
+		},
+		ellipse: {
+			kind: "ellipse",
+			width: 260,
+			height: 180,
+			style: { fill: "#6387ff", stroke: null },
+		},
+		line: {
+			kind: "line",
+			from: { x: 0, y: 0 },
+			to: { x: 360, y: 220 },
+			style: { stroke: { color: "#6387ff", width: 8 } },
+		},
+		arrow: {
+			kind: "arrow",
+			from: { x: 0, y: 110 },
+			to: { x: 360, y: 110 },
+			headLength: 32,
+			style: { stroke: { color: "#6387ff", width: 8 } },
+		},
+		blur: {
+			kind: "blur",
+			width: 360,
+			height: 220,
+			blurRadius: 15,
+			style: { fill: null, stroke: null },
+		},
 	};
 	const definition = structuredClone(definitions[kind]);
 	return (project) => createAndPlaceShape(project, definition, startUs, ids);
@@ -973,15 +1099,21 @@ export function transitionPlacementCommand(
 	transitionId: string,
 ): ProjectCommand {
 	return (project) => {
-		const track = project.tracks.find((item) => item.clips.some((clip) => clip.id === fromClipId));
+		const track = project.tracks.find((item) =>
+			item.clips.some((clip) => clip.id === fromClipId),
+		);
 		if (!track) throw new Error("Transition clip not found");
-		return addClipTransition(project, {
-			trackId: track.id,
-			fromClipId,
-			toClipId,
-			preset: { kind: "cross-dissolve" },
-			easing: "ease-in-out",
-		}, transitionId);
+		return addClipTransition(
+			project,
+			{
+				trackId: track.id,
+				fromClipId,
+				toClipId,
+				preset: { kind: "cross-dissolve" },
+				easing: "ease-in-out",
+			},
+			transitionId,
+		);
 	};
 }
 
@@ -992,11 +1124,27 @@ export function eligibleTransitionBoundaries(project: TimelineProject, trackId: 
 	return clips.slice(0, -1).flatMap((from, index) => {
 		const to = clips[index + 1]!;
 		if (from.startUs + clipDurationUs(from) !== to.startUs) return [];
-		if ((project.clipTransitions ?? []).some((item) => item.trackId === track.id && item.fromClipId === from.id && item.toClipId === to.id)) return [];
+		if (
+			(project.clipTransitions ?? []).some(
+				(item) =>
+					item.trackId === track.id &&
+					item.fromClipId === from.id &&
+					item.toClipId === to.id,
+			)
+		)
+			return [];
 		try {
 			const maximumDurationUs = getMaxClipTransitionDurationUs(project, from.id, to.id);
 			return maximumDurationUs > 0
-				? [{ trackId: track.id, fromClipId: from.id, toClipId: to.id, boundaryUs: to.startUs, maximumDurationUs }]
+				? [
+						{
+							trackId: track.id,
+							fromClipId: from.id,
+							toClipId: to.id,
+							boundaryUs: to.startUs,
+							maximumDurationUs,
+						},
+					]
 				: [];
 		} catch {
 			return [];
@@ -1011,10 +1159,22 @@ export function eligibleTimelineTransitions(project: TimelineProject, trackId: s
 	return (project.clipTransitions ?? []).flatMap((transition) => {
 		if (transition.trackId !== track.id) return [];
 		const index = clips.findIndex((clip) => clip.id === transition.fromClipId);
-		const from = clips[index], to = clips[index + 1];
-		if (!from || !to || to.id !== transition.toClipId || from.startUs + clipDurationUs(from) !== to.startUs) return [];
+		const from = clips[index],
+			to = clips[index + 1];
+		if (
+			!from ||
+			!to ||
+			to.id !== transition.toClipId ||
+			from.startUs + clipDurationUs(from) !== to.startUs
+		)
+			return [];
 		try {
-			const maximumDurationUs = getMaxClipTransitionDurationUs(project, from.id, to.id, transition.id);
+			const maximumDurationUs = getMaxClipTransitionDurationUs(
+				project,
+				from.id,
+				to.id,
+				transition.id,
+			);
 			if (transition.durationUs > maximumDurationUs) return [];
 			return [{ transition, boundaryUs: to.startUs, maximumDurationUs }];
 		} catch {

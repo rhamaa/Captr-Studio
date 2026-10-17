@@ -1,5 +1,14 @@
+import {
+	ArrowClockwise,
+	FolderOpen,
+	Gear,
+	Minus,
+	Package,
+	Plus,
+	Square,
+	X,
+} from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
-import { ArrowClockwise, FolderOpen, Plus, Minus, Square, X, Gear, Package } from "@phosphor-icons/react";
 import { CaptrLogo } from "@/components/brand/CaptrLogo";
 import { useProjectMessages } from "@/components/editor/useProjectMessages";
 import type { ProjectLibraryEntry } from "@/components/video-editor/ProjectBrowserDialog";

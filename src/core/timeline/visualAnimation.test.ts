@@ -17,7 +17,12 @@ it("retains a resolved inline descriptor without registering a media asset", () 
 	expect(project.assets).toEqual([]);
 });
 
-function projectWithTransition(fromRate = 1, toRate = 1) {
+function projectWithTransition(
+	fromRate = 1,
+	toRate = 1,
+	handles = { tailUs: 2_000_000, headUs: 2_000_000 },
+	durationUs = 1_000_000,
+) {
 	let project = createTimelineProject("sample-project", "Sampling");
 	for (const id of ["outgoing", "incoming"])
 		project = registerMedia(project, {
@@ -33,9 +38,9 @@ function projectWithTransition(fromRate = 1, toRate = 1) {
 	project = placeAsset(project, "incoming", "visual-1", 8_000_000, { clipId: "in" });
 	const outgoing = project.tracks[0]!.clips[0]!,
 		incoming = project.tracks[0]!.clips[1]!;
-	outgoing.sourceOutUs = 6_000_000;
+	outgoing.sourceOutUs = 8_000_000 - handles.tailUs;
 	outgoing.rate = fromRate;
-	incoming.sourceInUs = 2_000_000;
+	incoming.sourceInUs = handles.headUs;
 	incoming.rate = toRate;
 	incoming.startUs = outgoing.startUs + clipDurationUs(outgoing);
 	project = addClipTransition(
@@ -46,7 +51,7 @@ function projectWithTransition(fromRate = 1, toRate = 1) {
 			toClipId: "in",
 			preset: { kind: "cross-dissolve" },
 			easing: "linear",
-			durationUs: 1_000_000,
+			durationUs,
 		},
 		"transition",
 	);
@@ -68,7 +73,8 @@ describe("deterministic visual animation sampling", () => {
 	});
 
 	it("sampleClipTransition_isCorrectAtStartMiddleAndEnd", () => {
-		const project = projectWithTransition(), transition = project.clipTransitions![0]!;
+		const project = projectWithTransition(1, 1, { tailUs: 2_000_000, headUs: 2_000_000 });
+		const transition = project.clipTransitions![0]!;
 		expect(sampleClipTransition(project, transition, 5_500_000)?.progress).toBe(0);
 		expect(sampleClipTransition(project, transition, 6_000_000)?.progress).toBe(0.5);
 		expect(sampleClipTransition(project, transition, 6_499_999)?.progress).toBeCloseTo(0.999999);
@@ -76,12 +82,30 @@ describe("deterministic visual animation sampling", () => {
 	});
 
 	it("sampleClipTransition_mapsBothHandleSamplesThroughRate", () => {
-		const project = projectWithTransition(2, 0.5), transition = project.clipTransitions![0]!;
+		const project = projectWithTransition(2, 0.5, { tailUs: 2_000_000, headUs: 2_000_000 });
+		const transition = project.clipTransitions![0]!;
 		const sample = sampleClipTransition(project, transition, 2_750_000)!;
 		expect(sample.outgoing.compositionUs).toBe(5_500_000);
 		expect(sample.incoming.compositionUs).toBe(1_875_000);
 		expect(sample.outgoing.sourceUs).toBe(5_500_000);
 		expect(sample.incoming.sourceUs).toBe(1_875_000);
+	});
+
+	it("holds first and last valid source frames when a transition has no source handles", () => {
+		const project = projectWithTransition(1, 1, { tailUs: 0, headUs: 0 }, 500_000);
+		const transition = project.clipTransitions![0]!;
+		const sample = sampleClipTransition(project, transition, 8_000_000)!;
+		expect(sample.outgoing.sourceUs).toBe(7_999_999);
+		expect(sample.incoming.sourceUs).toBe(0);
+	});
+
+	it("uses available handles before holding their media edges", () => {
+		const project = projectWithTransition(1, 1, { tailUs: 100_000, headUs: 50_000 }, 500_000);
+		const transition = project.clipTransitions![0]!;
+		const beforeCut = sampleClipTransition(project, transition, 7_875_000)!;
+		const afterCut = sampleClipTransition(project, transition, 8_149_999)!;
+		expect(beforeCut.incoming.sourceUs).toBe(25_000);
+		expect(afterCut.outgoing.sourceUs).toBe(7_999_999);
 	});
 
 	it("maps Record transition samples through the composition source clock", () => {
@@ -133,6 +157,45 @@ describe("deterministic visual animation sampling", () => {
 		expect(sample.outgoing.sourceUs).toBe(9_000_000);
 		expect(sample.incoming.compositionUs).toBe(1_000_000);
 		expect(sample.incoming.sourceUs).toBe(2_000_000);
+	});
+
+	it("holds the first and last recording frames when composition handles are exhausted", () => {
+		let project = registerRecording(createTimelineProject("record-edge-hold", "Record edge hold"), {
+			captureId: "take",
+			name: "Take",
+			durationUs: 10_000_000,
+			width: 1920,
+			height: 1080,
+			screen: { path: "take.mp4", durationUs: 10_000_000, offsetUs: 0 },
+			settings: {},
+		}, { assetId: "recording", packageId: "package" });
+		project = placeAsset(project, "recording", "visual-1", 0, {
+			clipId: "out",
+			compositionId: "out-composition",
+		});
+		project = placeAsset(project, "recording", "visual-1", 10_000_000, {
+			clipId: "in",
+			compositionId: "in-composition",
+		});
+		for (const composition of project.compositions) {
+			composition.durationUs = 10_000_000;
+			composition.timeMap = [
+				{ outputStartUs: 0, outputEndUs: 10_000_000, sourceStartUs: 0, rate: 1 },
+			];
+		}
+		const transition = {
+			trackId: "visual-1",
+			fromClipId: "out",
+			toClipId: "in",
+			preset: { kind: "cross-dissolve" } as const,
+			easing: "linear" as const,
+		};
+		project.tracks[0]!.clips[0]!.sourceOutUs = 10_000_000;
+		project.tracks[0]!.clips[1]!.sourceInUs = 0;
+		project = addClipTransition(project, transition, "record-edge-hold");
+		const sample = sampleClipTransition(project, project.clipTransitions![0]!, 10_000_000)!;
+		expect(sample.outgoing.recording?.screenUs).toBe(9_999_999);
+		expect(sample.incoming.recording?.screenUs).toBe(0);
 	});
 
 	it("sampleComponentAnimation_returnsStableProgressAtRandomSeek", () => {

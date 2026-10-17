@@ -1,4 +1,6 @@
 import { resolveClipSource } from "./clipSource";
+import { validateCaptionSettings } from "./storyCaptions";
+import { validateClipVisualSettings } from "./clipVisualSettings";
 import { getStoryProject } from "./storyOwnership";
 import {
 	clipDurationUs,
@@ -144,7 +146,8 @@ function clipKeyframes(value: unknown) {
 			requireValue(
 				Array.isArray(kf.bezier) &&
 					kf.bezier.length === 4 &&
-					kf.bezier.every((n: unknown) => typeof n === "number" && Number.isFinite(n)),
+					kf.bezier.every((n: unknown) => typeof n === "number" && Number.isFinite(n)) &&
+					kf.bezier[0]>=0 && kf.bezier[0]<=1 && kf.bezier[2]>=0 && kf.bezier[2]<=1,
 				"Invalid keyframe bezier",
 			);
 		}
@@ -197,7 +200,11 @@ function shapeAsset(asset: MediaAsset) {
 			!asset.packageId,
 		"Invalid pathless shape asset",
 	);
-	if (definition.kind === "rectangle" || definition.kind === "ellipse") {
+	if (
+		definition.kind === "rectangle" ||
+		definition.kind === "ellipse" ||
+		definition.kind === "blur"
+	) {
 		requireValue(
 			positive(definition.width) &&
 				positive(definition.height) &&
@@ -205,6 +212,9 @@ function shapeAsset(asset: MediaAsset) {
 				asset.height === Math.ceil(definition.height),
 			"Invalid shape geometry dimensions",
 		);
+		if (definition.kind === "blur" && definition.blurRadius !== undefined) {
+			requireValue(positive(definition.blurRadius), "Invalid shape blur radius");
+		}
 		shapeStyle(definition.style);
 		return;
 	}
@@ -286,7 +296,11 @@ function inlineContent(value: StoryClipContent, width: number, height: number) {
 		);
 		requireValue(!("text" in value), "Unexpected inline text");
 		const definition = value.shapeDefinition;
-		if (definition.kind === "rectangle" || definition.kind === "ellipse") {
+		if (
+			definition.kind === "rectangle" ||
+			definition.kind === "ellipse" ||
+			definition.kind === "blur"
+		) {
 			width = Math.ceil(definition.width);
 			height = Math.ceil(definition.height);
 		} else if (definition.kind === "line" || definition.kind === "arrow") {
@@ -374,6 +388,7 @@ export function validateStoryPresentation(owner: {
 				requireValue(typeof subtitles[key] === "string", `Invalid Story subtitles ${key}`);
 		if (subtitles.fontSize !== undefined)
 			requireValue(positive(subtitles.fontSize), "Invalid Story subtitle font size");
+		validateCaptionSettings(subtitles as unknown as import("../story/storyTypes").StorySubtitleSettings);
 	}
 }
 
@@ -554,7 +569,7 @@ export function validateTimelineProject(
 				if (options.mode === "canonical" || c.content !== undefined)
 					requireValue(c.text === undefined, "Unexpected legacy clip text overlay");
 				requireValue(
-					(t.kind === "audio") === (a.kind === "audio"),
+					(t.kind === "audio") === (a.kind === "audio" || c.audioOnly === true),
 					"Incompatible asset track",
 				);
 				const composition = c.compositionId
@@ -613,6 +628,15 @@ export function validateTimelineProject(
 					"Invalid clip transform/gain",
 				);
 				clipKeyframes(c.keyframes);
+				if(c.visualSettings!==undefined){
+					requireValue(t.kind==="visual"&&["video","image","recording"].includes(a.kind),"Visual settings require a media placement");
+					validateClipVisualSettings(c.visualSettings);
+				}
+				for (const relation of [c.groupId,c.linkId])
+					if(relation!==undefined)requireValue(typeof relation==="string"&&/^[a-zA-Z0-9_-]+$/.test(relation),"Invalid clip relation");
+				for(const flag of [c.audioOnly,c.audioMuted])if(flag!==undefined)requireValue(typeof flag==="boolean","Invalid clip audio routing");
+				if(c.audioOnly)requireValue(["video","recording"].includes(a.kind),"Audio-only placement requires video or recording");
+				for(const fade of [c.fadeInUs,c.fadeOutUs])if(fade!==undefined)requireValue(integer(fade),"Invalid clip fade");
 				if (c.componentAnimation !== undefined) {
 					requireValue(
 						t.kind === "visual" && a.kind !== "audio",
@@ -687,34 +711,13 @@ export function validateTimelineProject(
 				const track = view.tracks.find((candidate) => candidate.id === transition.trackId)!;
 				const from = track.clips.find((clip) => clip.id === transition.fromClipId)!;
 				const to = track.clips.find((clip) => clip.id === transition.toClipId)!;
-				const fromAsset = resolveClipSource(view, from);
-				const toAsset = resolveClipSource(view, to);
-				const fromComposition = from.compositionId
-					? view.compositions.find((composition) => composition.id === from.compositionId)
-					: undefined;
-				const outgoingTailUs =
-					!fromAsset.content && (fromAsset.kind === "shape" || fromAsset.kind === "image")
-						? Number.POSITIVE_INFINITY
-						: Math.max(
-								0,
-								((fromComposition?.durationUs ?? fromAsset.durationUs) -
-									from.sourceOutUs) /
-									from.rate,
-							);
-				const incomingHeadUs =
-					!toAsset.content && (toAsset.kind === "shape" || toAsset.kind === "image")
-						? Number.POSITIVE_INFINITY
-						: to.sourceInUs / to.rate;
 				const boundaryUs = to.startUs;
-				let maximumUs = Math.min(
-					outgoingTailUs,
-					incomingHeadUs,
+				let maximumUs = Math.floor(2 * Math.min(
+					clipDurationUs(from),
+					clipDurationUs(to),
 					boundaryUs,
 					Math.max(0, projectEndUs - boundaryUs),
-				);
-				maximumUs = Number.isFinite(maximumUs)
-					? Math.max(0, Math.floor(maximumUs * 2))
-					: Number.MAX_SAFE_INTEGER;
+				));
 				for (const other of view.clipTransitions) {
 					if (other.id === transition.id || other.trackId !== transition.trackId)
 						continue;
@@ -728,7 +731,7 @@ export function validateTimelineProject(
 				}
 				requireValue(
 					transition.durationUs <= maximumUs,
-					"Transition exceeds available source handles or overlaps an adjacent transition",
+					"Transition exceeds adjacent clip bounds or overlaps an adjacent transition",
 				);
 			}
 		}

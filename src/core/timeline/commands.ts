@@ -4,6 +4,7 @@ import {
 	createRecordingPackage,
 } from "../../recording/packageAdapter";
 import { resolveMediaAsset } from "./clipSource";
+import { relatedClipIds } from "./editingCommands";
 import { reconcileClipTransitions } from "./clipTransitions";
 import { getStoryProject, listStoryScopes, refreshStoryProjections } from "./storyOwnership";
 import {
@@ -32,7 +33,7 @@ export function createTimelineProject(projectId: string, title: string): Timelin
 		tracks: [
 			{
 				id: "visual-1",
-				name: "Video 1",
+				name: "Track 1",
 				kind: "visual",
 				locked: false,
 				muted: false,
@@ -59,6 +60,12 @@ function edit(project: TimelineProject, update: (next: TimelineProject) => void)
 	reconcileClipTransitions(next);
 	next.updatedAt = new Date().toISOString();
 	return validateTimelineProject(refreshStoryProjections(next));
+}
+function cloneCaptionAnchors(project:TimelineProject,from:string,to:string) {
+	const cues=project.subtitles?.segments;
+	if(!cues)return;
+	let id=Math.max(-1,...cues.map(c=>c.id))+1;
+	cues.push(...cues.filter(c=>c.clipId===from).map(c=>({...structuredClone(c),id:id++,clipId:to})));
 }
 
 function clampEdgeAnimation(clip: TimelineClip, edge: "enter" | "exit", maxDurationUs: number) {
@@ -159,7 +166,7 @@ export function addTextOverlay(
 	const overlay = structuredClone(DEFAULT_TEXT_OVERLAY),
 		durationUs = 5_000_000,
 		number =
-			p.tracks.filter((t) => t.kind === "visual" && /^Text(?: \d+)?$/.test(t.name)).length +
+			p.tracks.filter((t) => t.kind === "visual" && /^Track(?: \d+)?$/i.test(t.name)).length +
 			1;
 	const clip: TimelineClip = {
 		id: ids.clipId,
@@ -174,7 +181,7 @@ export function addTextOverlay(
 	};
 	const newTrack = {
 		id: ids.trackId,
-		name: `Text ${number}`,
+		name: `Track ${number}`,
 		kind: "visual" as const,
 		locked: false,
 		muted: false,
@@ -202,6 +209,7 @@ export function removeClip(p: TimelineProject, id: string) {
 	return edit(p, (n) => {
 		const { track: t, clip } = find(n, id);
 		t.clips = t.clips.filter((c) => c.id !== id);
+		if(n.subtitles?.segments)n.subtitles.segments=n.subtitles.segments.filter(c=>c.clipId!==id);
 		if (
 			clip.compositionId &&
 			!n.tracks.some((t) => t.clips.some((c) => c.compositionId === clip.compositionId))
@@ -280,6 +288,10 @@ export function setClipRate(p: TimelineProject, id: string, rate: number) {
 export function moveClip(p: TimelineProject, id: string, trackId: string, startUs: number) {
 	return edit(p, (n) => {
 		const { track: t, clip } = find(n, id);
+		const delta = startUs - clip.startUs;
+		for (const relatedId of relatedClipIds(n, [id])) {
+			if (relatedId !== id) find(n, relatedId).clip.startUs += delta;
+		}
 		t.clips = t.clips.filter((c) => c.id !== id);
 		clip.startUs = startUs;
 		track(n, trackId).clips.push(clip);
@@ -342,6 +354,7 @@ export function splitClip(
 			right.compositionId = ids.rightCompositionId;
 		}
 		t.clips.push(right);
+		cloneCaptionAnchors(n,id,right.id);
 	});
 }
 export function duplicateClip(
@@ -353,6 +366,8 @@ export function duplicateClip(
 	return edit(p, (n) => {
 		const { track: t, clip } = find(n, id),
 			copy = { ...structuredClone(clip), id: ids.clipId, startUs };
+		delete copy.groupId;
+		delete copy.linkId;
 		if (clip.compositionId) {
 			if (!ids.compositionId) throw new Error("Composition ID required");
 			const e = n.compositions.find((e) => e.id === clip.compositionId)!;
@@ -360,6 +375,7 @@ export function duplicateClip(
 			copy.compositionId = ids.compositionId;
 		}
 		t.clips.push(copy);
+		cloneCaptionAnchors(n,id,copy.id);
 	});
 }
 export function updateComposition(p: TimelineProject, id: string, value: RecordComposition) {
@@ -448,18 +464,35 @@ export function updateTrack(
 		Object.assign(t, patch);
 	});
 }
-export function addTrack(p: TimelineProject, id: string, kind: "visual" | "audio") {
-	return edit(p, (n) =>
+export function addTrack(
+	p: TimelineProject,
+	id: string,
+	kind: "visual" | "audio",
+	customName?: string,
+) {
+	return edit(p, (n) => {
+		let name = customName;
+		if (!name) {
+			if (kind === "visual") {
+				const count =
+					n.tracks.filter((t) => t.kind === "visual" && /^Track(?: \d+)?$/i.test(t.name)).length + 1;
+				name = `Track ${count}`;
+			} else {
+				const count =
+					n.tracks.filter((t) => t.kind === "audio" && /^Audio(?: \d+)?$/i.test(t.name)).length + 1;
+				name = `Audio ${count}`;
+			}
+		}
 		n.tracks.push({
 			id,
-			name: kind === "visual" ? "Video" : "Audio",
+			name,
 			kind,
 			locked: false,
 			muted: false,
 			hidden: false,
 			clips: [],
-		}),
-	);
+		});
+	});
 }
 export function removeTrack(p: TimelineProject, id: string): TimelineProject {
 	return edit(p, (n) => {

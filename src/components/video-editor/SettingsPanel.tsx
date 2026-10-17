@@ -90,6 +90,7 @@ import {
 interface SettingsPanelProps {
 	className?: string;
 	style?: React.CSSProperties;
+	recordingAppearanceContent?: React.ReactNode;
 	panelMode?: "editor" | "background";
 	activeEffectSection?: EditorEffectSection;
 	recordToolsEnabled?: boolean;
@@ -211,6 +212,9 @@ interface SettingsPanelProps {
 	webcamPreviewSrc?: string | null;
 	webcamPreviewCurrentTime?: number;
 	webcamPreviewPlaying?: boolean;
+	scenePreviewSrc?: string | null;
+	scenePreviewCurrentTime?: number;
+	scenePreviewPlaying?: boolean;
 	onWebcamChange?: (webcam: WebcamOverlaySettings) => void;
 	onUploadWebcam?: () => void;
 	onClearWebcam?: () => void;
@@ -222,6 +226,7 @@ interface SettingsPanelProps {
 	onCropChange?: (region: CropRegion) => void;
 	aspectRatio: AspectRatio;
 	onAspectRatioChange?: (ratio: AspectRatio) => void;
+	canvasDimensionsLocked?: boolean;
 	selectedAnnotationId?: string | null;
 	annotationRegions?: AnnotationRegion[];
 	onAnnotationContentChange?: (id: string, content: string) => void;
@@ -247,6 +252,7 @@ interface SettingsPanelProps {
 export function SettingsPanel({
 	className,
 	style,
+	recordingAppearanceContent,
 	panelMode = "editor",
 	activeEffectSection: activeEffectSectionProp,
 	recordToolsEnabled = true,
@@ -349,6 +355,9 @@ export function SettingsPanel({
 	webcamPreviewSrc = null,
 	webcamPreviewCurrentTime = 0,
 	webcamPreviewPlaying = false,
+	scenePreviewSrc = null,
+	scenePreviewCurrentTime = 0,
+	scenePreviewPlaying = false,
 	onWebcamChange,
 	onUploadWebcam,
 	onClearWebcam,
@@ -360,6 +369,7 @@ export function SettingsPanel({
 	onCropChange,
 	aspectRatio,
 	onAspectRatioChange,
+	canvasDimensionsLocked = false,
 	selectedAnnotationId,
 	annotationRegions = [],
 	onAnnotationContentChange,
@@ -784,8 +794,12 @@ export function SettingsPanel({
 			onFrameChange={onFrameChange}
 			cropRegion={cropRegion}
 			onCropChange={onCropChange}
+			previewSrc={scenePreviewSrc}
+			previewCurrentTime={scenePreviewCurrentTime}
+			previewPlaying={scenePreviewPlaying}
 			aspectRatio={aspectRatio}
 			onAspectRatioChange={onAspectRatioChange}
+			canvasDimensionsLocked={canvasDimensionsLocked}
 			initialEditorPreferences={initialEditorPreferences}
 			builtInWallpapers={builtInWallpapers}
 			builtInWallpaperPaths={builtInWallpaperPaths}
@@ -805,7 +819,7 @@ export function SettingsPanel({
 
 	if (isBackgroundPanel) {
 		return (
-			<div className="flex-[2] w-[332px] min-w-[280px] max-w-[332px] bg-editor-panel rounded-2xl flex flex-col shadow-xl h-full overflow-hidden">
+			<div className={cn("captr-docked-panel flex flex-col h-full overflow-hidden", className ?? "flex-[2] w-[332px] max-w-full")} style={style}>
 				<div
 					className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 pb-0"
 					style={{ scrollbarGutter: "stable" }}
@@ -847,6 +861,7 @@ export function SettingsPanel({
 						onClipTransitionInDurationChange={onClipTransitionInDurationChange}
 						aspectRatio={aspectRatio}
 						onAspectRatioChange={onAspectRatioChange}
+						canvasDimensionsLocked={canvasDimensionsLocked}
 						padding={padding}
 						onPaddingChange={onPaddingChange}
 						borderRadius={borderRadius}
@@ -914,6 +929,8 @@ export function SettingsPanel({
 				);
 			case "scene":
 				return sceneSectionContent;
+			case "appearance":
+				return recordingAppearanceContent ?? null;
 			case "zoom":
 				return (
 					<ZoomItemSection
@@ -958,42 +975,44 @@ export function SettingsPanel({
 			case "layout":
 				return (
 					<RecordLayoutSection
-						selectedLayoutId={selectedLayoutId}
-						selectedLayoutPreset={selectedLayoutPreset}
-						selectedLayoutTransitionMs={selectedLayoutTransitionMs}
-						selectedLayoutEasing={selectedLayoutEasing}
-						selectedLayoutCameraSettings={selectedLayoutCameraSettings}
-						onLayoutPresetChange={onLayoutPresetChange}
-						onLayoutCameraSettingsChange={onLayoutCameraSettingsChange}
-						onLayoutTransitionChange={onLayoutTransitionChange}
-						onLayoutEasingChange={onLayoutEasingChange}
-						webcam={webcam}
-						cameraSettings={
-							<WebcamSection
-								webcam={webcam}
-								webcamPreviewSrc={webcamPreviewSrc}
-								webcamPreviewCurrentTime={webcamPreviewCurrentTime}
-								webcamPreviewPlaying={webcamPreviewPlaying}
-								onUploadWebcam={onUploadWebcam}
-								onClearWebcam={onClearWebcam}
-								resetWebcamSection={resetWebcamSection}
-								updateWebcam={updateWebcam}
-								applyWebcamPositionPreset={applyWebcamPositionPreset}
-								webcamCrop={webcamCrop}
-								webcamPositionPreset={webcamPositionPreset}
-								webcamPositionX={webcamPositionX}
-								webcamPositionY={webcamPositionY}
-								webcamFileName={webcamFileName}
-								renderExtensionPanelsForSections={renderExtensionPanelsForSections}
-								tSettings={tSettings}
-								t={t}
-								embeddedInLayout
-							/>
-						}
-						tSettings={tSettings}
-						t={t}
-					/>
-				);
+							selectedLayoutId={selectedLayoutId}
+							selectedLayoutPreset={selectedLayoutPreset}
+							selectedLayoutTransitionMs={selectedLayoutTransitionMs}
+							selectedLayoutEasing={selectedLayoutEasing}
+							selectedLayoutCameraSettings={selectedLayoutCameraSettings}
+							onLayoutPresetChange={onLayoutPresetChange}
+							onLayoutCameraSettingsChange={onLayoutCameraSettingsChange}
+							onLayoutTransitionChange={onLayoutTransitionChange}
+							onLayoutEasingChange={onLayoutEasingChange}
+							webcam={webcam}
+							cameraSettings={
+								<WebcamSection
+									webcam={webcam}
+									webcamPreviewSrc={webcamPreviewSrc}
+									webcamPreviewCurrentTime={webcamPreviewCurrentTime}
+									webcamPreviewPlaying={webcamPreviewPlaying}
+									onUploadWebcam={onUploadWebcam}
+									onClearWebcam={onClearWebcam}
+									resetWebcamSection={resetWebcamSection}
+									updateWebcam={updateWebcam}
+									applyWebcamPositionPreset={applyWebcamPositionPreset}
+									webcamCrop={webcamCrop}
+									webcamPositionPreset={webcamPositionPreset}
+									webcamPositionX={webcamPositionX}
+									webcamPositionY={webcamPositionY}
+									webcamFileName={webcamFileName}
+									renderExtensionPanelsForSections={
+										renderExtensionPanelsForSections
+									}
+									tSettings={tSettings}
+									t={t}
+									embeddedInLayout
+								/>
+							}
+							tSettings={tSettings}
+							t={t}
+						/>
+					);
 			case "audio":
 				return (
 					<AudioTrackSection
@@ -1077,8 +1096,8 @@ export function SettingsPanel({
 	return (
 		<div
 			className={cn(
-				"bg-editor-panel rounded-2xl flex flex-col shadow-xl h-full overflow-hidden",
-				className ?? "flex-[2] w-[332px] min-w-[280px] max-w-[332px]",
+				"captr-docked-panel flex flex-col h-full overflow-hidden",
+				className ?? "flex-[2] w-[332px] max-w-full",
 			)}
 			style={style}
 		>

@@ -4,6 +4,7 @@ import {
 	moveAnnotationKeyframe,
 	normalizePropertyKeyframes,
 	sampleAnnotationTransform,
+	setAnnotationPositionKeyframe,
 } from "./annotationKeyframes";
 import { type AnnotationRegion, DEFAULT_ANNOTATION_STYLE } from "./types";
 
@@ -54,6 +55,33 @@ describe("annotation keyframe contract", () => {
 	it("captures an interpolated value without snapping back to the base property", () => {
 		const keyframes = addAnnotationKeyframe(annotation, "opacity", 6000, "middle");
 		expect(keyframes.find((frame) => frame.id === "middle")?.value).toBeCloseTo(0.5);
+	});
+	it("stores a dragged position at the playhead and replaces a position keyframe at that time", () => {
+		const withPosition = setAnnotationPositionKeyframe(
+			annotation,
+			{ x: 12, y: 34 },
+			6000,
+			"drag",
+		);
+		expect(withPosition.find((frame) => frame.id === "drag")).toMatchObject({
+			property: "position",
+			timeMs: 1000,
+			value: { x: 12, y: 34 },
+		});
+
+		const movedAgain = setAnnotationPositionKeyframe(
+			{ ...annotation, keyframes: withPosition },
+			{ x: 20, y: 40 },
+			6000,
+			"drag-again",
+		);
+		expect(movedAgain.filter((frame) => frame.property === "position")).toEqual([
+			expect.objectContaining({
+				id: "drag-again",
+				timeMs: 1000,
+				value: { x: 20, y: 40 },
+			}),
+		]);
 	});
 	it("moves stored keyframes using timeline coordinates and clamps to the layer", () => {
 		const moved = moveAnnotationKeyframe(annotation, "b", 15000);

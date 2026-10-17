@@ -1,16 +1,20 @@
 import { resolveClipSource, resolveMediaAsset } from "@/core/timeline/clipSource";
 import {
+	addClipKeyframe,
 	addTrack,
 	duplicateClip,
 	moveClip,
 	placeAsset,
 	removeClip,
+	removeClipKeyframe,
 	rippleRemoveClips,
 	setClipRate,
 	splitClip,
 	trimClip,
 } from "@/core/timeline/commands";
 import type { ProjectCommand } from "@/core/timeline/history";
+import { relatedClipIds } from "@/core/timeline/editingCommands";
+import type { KeyframeProperty } from "@/components/video-editor/types";
 import { clipDurationUs, type TimelineProject, type TimelineTrack } from "@/core/timeline/types";
 export const ASSET_DRAG_TYPE = "application/x-captr-asset";
 export const CLIP_DRAG_TYPE = "application/x-captr-clip";
@@ -279,7 +283,27 @@ export function applyTimelineDrop(
 	const target = resolveTimelineDropTarget(project, request);
 	if (target.blocked) throw new Error("Cannot drop on a locked track");
 	const trackId = target.createTrack ? ids.trackId : target.trackId!;
-	const next = target.createTrack ? addTrack(project, trackId, target.kind) : project;
+	let customName: string | undefined;
+	if (target.createTrack && target.kind === "visual") {
+		let isShape = false;
+		if (request.type === "asset") {
+			const asset = resolveMediaAsset(project, request.id);
+			isShape = asset?.kind === "shape";
+		} else {
+			const clip = project.tracks.flatMap((t) => t.clips).find((c) => c.id === request.id);
+			if (clip) {
+				const source = resolveClipSource(project, clip);
+				isShape = source?.kind === "shape";
+			}
+		}
+		if (isShape) {
+			const shapeTracks = project.tracks.filter(
+				(t) => t.kind === "visual" && /^Shape(?: \d+)?$/i.test(t.name),
+			);
+			customName = shapeTracks.length === 0 ? "Shape" : `Shape ${shapeTracks.length}`;
+		}
+	}
+	const next = target.createTrack ? addTrack(project, trackId, target.kind, customName) : project;
 	return request.type === "asset"
 		? placeAsset(next, request.id, trackId, request.startUs, ids)
 		: moveClip(next, request.id, trackId, request.startUs);
@@ -298,6 +322,8 @@ export function applyClipGesture(
 	const owner = project.tracks.find((t) => t.clips.some((c) => c.id === clipId));
 	const clip = owner?.clips.find((c) => c.id === clipId);
 	if (!clip || !owner) throw new Error("Clip not found");
+	if(gesture.kind === "move" && relatedClipIds(project,[clipId]).length>1)
+		return moveClip(project,clipId,gesture.trackId ?? owner.id,Math.max(0,clip.startUs+gesture.deltaUs));
 
 	const targetTrackId = gesture.trackId ?? owner.id;
 	const targetTrack = project.tracks.find((t) => t.id === targetTrackId);
@@ -376,7 +402,7 @@ export function findClipsAtPlayhead(project: TimelineProject, playheadUs: number
 		.filter((c) => c.startUs < playheadUs && playheadUs < c.startUs + clipDurationUs(c))
 		.map((c) => c.id);
 }
-export type TimelineAction = "split" | "delete" | "duplicate" | "rate" | "ripple-delete";
+export type TimelineAction = "split" | "delete" | "duplicate" | "rate" | "ripple-delete" | "keyframe";
 export function timelineActionCommand(
 	action: TimelineAction,
 	selection: string[],
@@ -399,12 +425,63 @@ export function timelineActionCommand(
 			if (targetIds.length === 0) {
 				return project;
 			}
+		} else if (action === "keyframe") {
+			const selectedUnderPlayhead = selection.filter((id) => {
+				const c = project.tracks.flatMap((t) => t.clips).find((clip) => clip.id === id);
+				return c && playheadUs >= c.startUs && playheadUs <= c.startUs + clipDurationUs(c);
+			});
+			if (selectedUnderPlayhead.length > 0) {
+				targetIds = selectedUnderPlayhead;
+			} else {
+				const underPlayhead = findClipsAtPlayhead(project, playheadUs);
+				targetIds = underPlayhead.length > 0 ? [underPlayhead[0]] : [];
+			}
+			if (targetIds.length === 0) {
+				return project;
+			}
 		} else {
 			targetIds = selection;
 		}
 
 		if (action === "ripple-delete") {
 			return rippleRemoveClips(project, targetIds);
+		}
+
+		if (action === "keyframe") {
+			return targetIds.reduce((p, id) => {
+				const clip = p.tracks.flatMap((t) => t.clips).find((c) => c.id === id);
+				if (!clip) return p;
+				const localMs = Math.round(Math.max(0, (playheadUs - clip.startUs) / 1000));
+				const existingKfs = clip.keyframes?.filter((k) => Math.abs(k.timeMs - localMs) <= 50) ?? [];
+				if (existingKfs.length > 0) {
+					let next = p;
+					for (const kf of existingKfs) {
+						next = removeClipKeyframe(next, id, kf.id);
+					}
+					return next;
+				}
+				const animatedProps = new Set<KeyframeProperty>(
+					clip.keyframes?.map((k) => k.property) ?? [],
+				);
+				if (animatedProps.size === 0) {
+					animatedProps.add("position");
+				}
+				let next = p;
+				for (const prop of animatedProps) {
+					const value =
+						prop === "position"
+							? { x: clip.transform.x, y: clip.transform.y }
+							: clip.transform[prop as "scale" | "rotation" | "opacity"];
+					next = addClipKeyframe(next, id, {
+						id: `kf_${crypto.randomUUID()}`,
+						timeMs: localMs,
+						property: prop,
+						value,
+						easing: "ease-in-out",
+					});
+				}
+				return next;
+			}, project);
 		}
 
 		return targetIds.reduce((p, id, index) => {

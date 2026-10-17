@@ -176,6 +176,18 @@ function settleNativeVideoExportPendingRequests(
 }
 
 contextBridge.exposeInMainWorld("electronAPI", {
+	recordFramePresets: {
+		list: () => ipcRenderer.invoke("record-frame-presets:list"),
+		save: (
+			name: string,
+			appearance: import("../src/recording/schema").RecordingFrameAppearance,
+		) => ipcRenderer.invoke("record-frame-presets:save", name, appearance),
+		rename: (id: string, name: string) =>
+			ipcRenderer.invoke("record-frame-presets:rename", id, name),
+		delete: (id: string) => ipcRenderer.invoke("record-frame-presets:delete", id),
+		import: () => ipcRenderer.invoke("record-frame-presets:import"),
+		export: (id: string) => ipcRenderer.invoke("record-frame-presets:export", id),
+	},
 	showOpenDialog: (options: Electron.OpenDialogOptions) =>
 		ipcRenderer.invoke("show-open-dialog", options),
 	showSaveDialog: (options: Electron.SaveDialogOptions) =>
@@ -1195,10 +1207,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		ipcRenderer.invoke("terminal:write", sessionId, data) as Promise<boolean>,
 	killTerminal: (sessionId: string) =>
 		ipcRenderer.invoke("terminal:kill", sessionId) as Promise<boolean>,
-	openExternalTerminal: (cwd?: string) =>
-		ipcRenderer.invoke("terminal:open-external", cwd) as Promise<{ success: boolean; error?: string }>,
-	openInCodeEditor: (cwd?: string) =>
-		ipcRenderer.invoke("terminal:open-code", cwd) as Promise<{ success: boolean; error?: string }>,
+	openExternalTerminal: (cwd?: string) => ipcRenderer.invoke("terminal:open-external", cwd) as Promise<{ success: boolean; error?: string }>,
+	openInCodeEditor: (cwd?: string) => ipcRenderer.invoke("terminal:open-code", cwd) as Promise<{ success: boolean; error?: string }>,
 	onTerminalData: (callback: (payload: { sessionId: string; data: string }) => void) => {
 		const listener = (_event: Electron.IpcRendererEvent, payload: { sessionId: string; data: string }) =>
 			callback(payload);

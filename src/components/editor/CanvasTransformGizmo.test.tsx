@@ -6,6 +6,7 @@ import { ownershipFixture } from "@/core/timeline/storyOwnership.fixtures";
 import type { TimelineProject } from "@/core/timeline/types";
 import { CanvasTransformGizmo } from "./CanvasTransformGizmo";
 import {
+	applyLiveTransform,
 	calculateResizeScale,
 	calculateRotationAngle,
 	getActiveVisualClipsBounds,
@@ -104,6 +105,34 @@ describe("CanvasTransformGizmo", () => {
 		expect(html).toContain("cursor-nwse-resize");
 	});
 
+	it("keeps overlays transformable while excluding the locked source clip", () => {
+		const project = structuredClone(mockProject);
+		project.tracks[0]!.clips.push({
+			...project.tracks[0]!.clips[0]!,
+			id: "clip_source",
+		});
+		const canTransformClip = (clipId: string) => clipId !== "clip_source";
+		const sourceHtml = renderToStaticMarkup(
+			createElement(CanvasTransformGizmo, {
+				project,
+				timeUs: 1_000_000,
+				selectedClipId: "clip_source",
+				canTransformClip,
+			}),
+		);
+		const overlayHtml = renderToStaticMarkup(
+			createElement(CanvasTransformGizmo, {
+				project,
+				timeUs: 1_000_000,
+				selectedClipId: "clip_text",
+				canTransformClip,
+			}),
+		);
+
+		expect(sourceHtml).not.toContain("Drag to reposition overlay");
+		expect(overlayHtml).toContain("Drag to reposition overlay");
+	});
+
 	it("correctly identifies active bounds and hit tests canvas coordinates", () => {
 		const bounds = getActiveVisualClipsBounds(mockProject, 1_000_000);
 		expect(bounds).toHaveLength(1);
@@ -148,5 +177,46 @@ describe("CanvasTransformGizmo", () => {
 			}),
 		);
 		expect(html2).toContain("cursor-move");
+	});
+
+	it("accepts onLiveTransform and renders transform controls with live callback", () => {
+		const onLiveTransform = () => {};
+		const html = renderToStaticMarkup(
+			createElement(CanvasTransformGizmo, {
+				project: mockProject,
+				timeUs: 1_000_000,
+				selectedClipId: "clip_text",
+				onLiveTransform,
+			}),
+		);
+		expect(html).toContain("cursor-move");
+		expect(html).toContain("Drag to reposition overlay");
+	});
+
+	it("applyLiveTransform overrides target clip transform without mutating original project", () => {
+		const originalTransform = { ...mockProject.tracks[0]!.clips[0]!.transform };
+		const liveTransform = { x: 250, y: -180, scale: 2.0, rotation: 45, opacity: 0.8 };
+
+		// When override is null, returns original project reference
+		const noChange = applyLiveTransform(mockProject, null);
+		expect(noChange).toBe(mockProject);
+
+		// When clipId does not exist, returns original project reference
+		const noMatch = applyLiveTransform(mockProject, {
+			clipId: "nonexistent",
+			transform: liveTransform,
+		});
+		expect(noMatch).toBe(mockProject);
+
+		// When clipId matches, overrides target clip transform
+		const updated = applyLiveTransform(mockProject, {
+			clipId: "clip_text",
+			transform: liveTransform,
+		});
+		expect(updated).not.toBe(mockProject);
+		expect(updated.tracks[0]!.clips[0]!.transform).toEqual(liveTransform);
+
+		// Original project remains untouched (immutability guarantee)
+		expect(mockProject.tracks[0]!.clips[0]!.transform).toEqual(originalTransform);
 	});
 });

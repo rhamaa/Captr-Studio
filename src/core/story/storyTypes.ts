@@ -1,5 +1,6 @@
 import type { RepurposeAspectRatio, RepurposeArtboardFraming } from "../timeline/repurposeTypes";
 import type { ClipTransition, PrivateMediaAsset, TimelineTrack } from "../timeline/types";
+import type { TranscriptSegment } from "../timeline/transcriptTypes";
 
 export interface StoryCanvasSettings {
 	width: number;
@@ -14,6 +15,15 @@ export interface StorySubtitleSettings {
 	primaryColor?: string;
 	secondaryColor?: string;
 	fontSize?: number;
+	position?: "top" | "center" | "bottom";
+	backgroundColor?: string;
+	highlightWords?: boolean;
+	segments?: StoryCaptionSegment[];
+}
+
+export interface StoryCaptionSegment extends TranscriptSegment {
+	/** With clipId, timestamps use the original media clock and follow placement edits. */
+	clipId?: string;
 }
 
 /**

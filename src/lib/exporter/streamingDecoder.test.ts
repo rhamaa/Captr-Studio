@@ -63,13 +63,13 @@ describe("StreamingVideoDecoder local media loading", () => {
 		});
 	});
 
-	it("loads loopback media-server URLs directly into WebDemuxer", async () => {
+	it("rebases stored loopback media URLs onto the current media-server port", async () => {
 		const decoder = new StreamingVideoDecoder();
 		await decoder.loadMetadata("http://127.0.0.1:43123/video?path=%2Ftmp%2Fcapture.mp4");
 
 		expect((window as any).electronAPI.readLocalFile).not.toHaveBeenCalled();
 		expect(mockDemuxerLoad).toHaveBeenCalledWith(
-			"http://127.0.0.1:43123/video?path=%2Ftmp%2Fcapture.mp4",
+			"http://127.0.0.1:4321/video?path=%2Ftmp%2Fcapture.mp4",
 		);
 	});
 

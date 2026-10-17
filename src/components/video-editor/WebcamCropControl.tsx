@@ -7,11 +7,11 @@ import { normalizeWebcamCropRegion } from "./webcamOverlay";
 type CropHandle = "move" | "nw" | "ne" | "sw" | "se";
 
 const HANDLE_LABELS: Record<CropHandle, string> = {
-	move: "Move webcam crop",
-	nw: "Resize webcam crop from top left",
-	ne: "Resize webcam crop from top right",
-	sw: "Resize webcam crop from bottom left",
-	se: "Resize webcam crop from bottom right",
+	move: "Move crop selection",
+	nw: "Resize crop selection from top left",
+	ne: "Resize crop selection from top right",
+	sw: "Resize crop selection from bottom left",
+	se: "Resize crop selection from bottom right",
 };
 
 interface WebcamCropControlProps {
@@ -22,6 +22,7 @@ interface WebcamCropControlProps {
 	previewCurrentTime?: number;
 	previewPlaying?: boolean;
 	previewTimeOffsetMs?: number | null;
+	syncAspectRatio?: boolean;
 	onCropChange: (cropRegion: CropRegion, cropAspectRatio: number) => void;
 }
 
@@ -148,6 +149,7 @@ export function WebcamCropControl({
 	previewCurrentTime = 0,
 	previewPlaying = false,
 	previewTimeOffsetMs = 0,
+	syncAspectRatio = true,
 	onCropChange,
 }: WebcamCropControlProps) {
 	const containerRef = useRef<HTMLDivElement | null>(null);
@@ -241,7 +243,7 @@ export function WebcamCropControl({
 	}, [syncPreviewMedia]);
 
 	useEffect(() => {
-		if (!hasPreviewFrame || !previewFrame) {
+		if (!syncAspectRatio || !hasPreviewFrame || !previewFrame) {
 			return;
 		}
 
@@ -264,6 +266,7 @@ export function WebcamCropControl({
 		onCropChange,
 		previewAspectRatio,
 		previewFrame,
+		syncAspectRatio,
 	]);
 
 	const commitVisualCrop = (nextVisualCrop: CropRegion, immediate = false) => {

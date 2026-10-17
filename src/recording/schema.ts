@@ -49,6 +49,32 @@ export type {
 	ZoomTransitionEasing,
 };
 
+export type WindowHeaderStyle = "none" | "macos" | "windows" | "linux";
+
+export interface RecordingFrameAppearance {
+	framePadding: number;
+	borderWidth: number;
+	borderColor: string;
+	borderOpacity: number;
+	cornerRadius: number;
+	surfaceColor: string;
+	surfaceOpacity: number;
+	backdropBlur: number;
+	headerStyle?: WindowHeaderStyle;
+	shadow: {
+		color: string;
+		opacity: number;
+		blur: number;
+		offsetX: number;
+		offsetY: number;
+	};
+}
+
+export interface RecordingFrameAppearances {
+	window: RecordingFrameAppearance;
+	webcam: RecordingFrameAppearance;
+}
+
 export interface RecordingEffectSettings {
 	videoPath?: string;
 	webcamPath?: string | null;
@@ -60,6 +86,7 @@ export interface RecordingEffectSettings {
 	shadowIntensity: number;
 	backgroundBlur: number;
 	borderRadius: number;
+	frameAppearances?: RecordingFrameAppearances;
 	padding: Padding;
 	cropRegion?: { x: number; y: number; width: number; height: number };
 	zoomRegions: ZoomRegion[];
@@ -471,6 +498,85 @@ export const recordMetadataGuards = {
 	zoomRegion: isZoomRegion,
 };
 
+function isNonNegativeNumber(value: unknown): value is number {
+	return isFiniteNumber(value) && value >= 0;
+}
+
+function isOpacity(value: unknown): value is number {
+	return isNonNegativeNumber(value) && value <= 1;
+}
+
+function isAppearanceColor(value: unknown): value is string {
+	return isString(value) && value.trim().length > 0;
+}
+
+function isWindowHeaderStyle(value: unknown): value is WindowHeaderStyle {
+	return value === "none" || value === "macos" || value === "windows" || value === "linux";
+}
+
+export function isValidRecordingFrameAppearance(value: unknown): value is RecordingFrameAppearance {
+	if (!isObjectRecord(value) || !isObjectRecord(value.shadow)) return false;
+	return (
+		isNonNegativeNumber(value.framePadding) &&
+		isNonNegativeNumber(value.borderWidth) &&
+		isAppearanceColor(value.borderColor) &&
+		isOpacity(value.borderOpacity) &&
+		isNonNegativeNumber(value.cornerRadius) &&
+		isAppearanceColor(value.surfaceColor) &&
+		isOpacity(value.surfaceOpacity) &&
+		isNonNegativeNumber(value.backdropBlur) &&
+		isOptional(value.headerStyle, isWindowHeaderStyle) &&
+		isAppearanceColor(value.shadow.color) &&
+		isOpacity(value.shadow.opacity) &&
+		isNonNegativeNumber(value.shadow.blur) &&
+		isFiniteNumber(value.shadow.offsetX) &&
+		isFiniteNumber(value.shadow.offsetY)
+	);
+}
+
+function isRecordingFrameAppearances(value: unknown): value is RecordingFrameAppearances {
+	return isObjectRecord(value) &&
+		isValidRecordingFrameAppearance(value.window) &&
+		isValidRecordingFrameAppearance(value.webcam);
+}
+
+/** Resolve a fresh appearance snapshot without rewriting legacy composition data. */
+export function resolveRecordingFrameAppearances(
+	settings: Partial<RecordingEffectSettings>,
+): RecordingFrameAppearances {
+	const defaults = createDefaultRecordingSettings();
+	const resolve = (
+		appearance: RecordingFrameAppearance | undefined,
+		cornerRadius: number,
+		shadowOpacity: number,
+	): RecordingFrameAppearance => ({
+		framePadding: appearance?.framePadding ?? 0,
+		borderWidth: appearance?.borderWidth ?? 0,
+		borderColor: appearance?.borderColor ?? "#000000",
+		borderOpacity: appearance?.borderOpacity ?? 0,
+		cornerRadius: appearance?.cornerRadius ?? cornerRadius,
+		surfaceColor: appearance?.surfaceColor ?? "#000000",
+		surfaceOpacity: appearance?.surfaceOpacity ?? 0,
+		backdropBlur: appearance?.backdropBlur ?? 0,
+		headerStyle: appearance?.headerStyle ?? "none",
+		shadow: {
+			color: appearance?.shadow?.color ?? "#000000",
+			opacity: appearance?.shadow?.opacity ?? shadowOpacity,
+			blur: appearance?.shadow?.blur ?? 0,
+			offsetX: appearance?.shadow?.offsetX ?? 0,
+			offsetY: appearance?.shadow?.offsetY ?? 0,
+		},
+	});
+	return {
+		window: resolve(settings.frameAppearances?.window, settings.borderRadius ?? defaults.borderRadius, 0),
+		webcam: resolve(
+			settings.frameAppearances?.webcam,
+			settings.webcam?.cornerRadius ?? defaults.webcam.cornerRadius,
+			settings.webcam?.shadow ?? defaults.webcam.shadow,
+		),
+	};
+}
+
 /** Runtime schema check for the Record slide's canonical persisted metadata. */
 export function isValidRecordingSettings(value: unknown): value is RecordingEffectSettings {
 	if (!isObjectRecord(value)) return false;
@@ -487,6 +593,7 @@ export function isValidRecordingSettings(value: unknown): value is RecordingEffe
 		isFiniteNumber(value.shadowIntensity) &&
 		isFiniteNumber(value.backgroundBlur) &&
 		isFiniteNumber(value.borderRadius) &&
+		isOptional(value.frameAppearances, isRecordingFrameAppearances) &&
 		isPadding(value.padding) &&
 		isOptional(value.cropRegion, isCropRegion) &&
 		isArrayOf(value.zoomRegions, isZoomRegion) &&

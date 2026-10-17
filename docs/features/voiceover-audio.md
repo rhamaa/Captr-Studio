@@ -26,5 +26,5 @@ Preview/export memakai audio plan scoped dan source clocks yang sama dengan eval
 
 ## Batas verifikasi
 
-Held save/probe, stale completion, source retention, undo/redo, dan rejection diuji otomatis. Mendengar hasil nyata, microphone capture, serta Finish/Discard/Stay melalui Home/Open/New/window close masih [QA native pending](../project/verification.md). Waveform Story masih sintetis.
+Held save/probe, stale completion, source retention, undo/redo, dan rejection diuji otomatis. Mendengar hasil nyata, microphone capture, serta Finish/Discard/Stay melalui Home/Open/New/window close masih [QA native pending](../project/verification.md). Waveform file audio Story memakai peak sumber asli. Inspector memiliki fade in/out; renderer audio bersama menerapkan envelope yang sama untuk preview dan export.
 

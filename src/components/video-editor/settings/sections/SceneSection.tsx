@@ -2,7 +2,17 @@ import { UploadSimple as Upload, X } from "@phosphor-icons/react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ColorPicker } from "@/components/ui/color-picker";
 import { Switch } from "@/components/ui/switch";
+import { DynamicPatternCanvas } from "@/components/video-editor/DynamicPatternCanvas";
+import { WebcamCropControl } from "@/components/video-editor/WebcamCropControl";
+import {
+	DEFAULT_DYNAMIC_BACKGROUND_SETTINGS,
+	type DynamicBackgroundPattern,
+	type DynamicBackgroundSettings,
+	parseDynamicBackgroundSettings,
+	serializeDynamicBackgroundSettings,
+} from "@/lib/dynamicBackground/settings";
 import type { FrameInstance } from "@/lib/extensions";
 import { cn } from "@/lib/utils";
 import { BUILT_IN_WALLPAPERS, isVideoWallpaperSource } from "@/lib/wallpapers";
@@ -12,7 +22,12 @@ import { SliderControl } from "../../SliderControl";
 import type { CropRegion, Padding } from "../../types";
 import { SectionLabel } from "../components/SettingsSectionLabel";
 import { WallpaperVideoPreview } from "../components/WallpaperVideoPreview";
-import { BackgroundTab, GRADIENTS, isHexWallpaper, WallpaperTile } from "../utils/wallpaperUtils";
+import {
+	BackgroundTab,
+	GRADIENTS,
+	getBackgroundTabForWallpaper,
+	WallpaperTile,
+} from "../utils/wallpaperUtils";
 
 const DEFAULT_PADDING: Padding = {
 	top: 50,
@@ -37,8 +52,12 @@ export interface SceneSectionProps {
 	onFrameChange?: (frame: string | null) => void;
 	cropRegion?: CropRegion;
 	onCropChange?: (crop: CropRegion) => void;
+	previewSrc?: string | null;
+	previewCurrentTime?: number;
+	previewPlaying?: boolean;
 	aspectRatio?: AspectRatio;
 	onAspectRatioChange?: (ratio: AspectRatio) => void;
+	canvasDimensionsLocked?: boolean;
 	initialEditorPreferences: EditorPreferences;
 	builtInWallpapers: Array<{ id: string; label: string; publicPath: string }>;
 	builtInWallpaperPaths: string[];
@@ -73,8 +92,12 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 	onFrameChange,
 	cropRegion,
 	onCropChange,
+	previewSrc = null,
+	previewCurrentTime = 0,
+	previewPlaying = false,
 	aspectRatio,
 	onAspectRatioChange,
+	canvasDimensionsLocked = false,
 	initialEditorPreferences,
 	builtInWallpapers,
 	builtInWallpaperPaths,
@@ -100,11 +123,17 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 	});
 
 	const [backgroundTab, setBackgroundTab] = useState<BackgroundTab>(() => {
-		if (selected.startsWith("#") || isHexWallpaper(selected)) return "color";
-		if (selected.startsWith("linear-gradient")) return "gradient";
-		if (isVideoWallpaperSource(selected)) return "video";
-		return "image";
+		return getBackgroundTabForWallpaper(selected);
 	});
+	const dynamicSettings =
+		parseDynamicBackgroundSettings(selected) ?? DEFAULT_DYNAMIC_BACKGROUND_SETTINGS;
+	const updateDynamicSetting = <K extends keyof DynamicBackgroundSettings>(
+		key: K,
+		value: DynamicBackgroundSettings[K],
+	) =>
+		onWallpaperChange?.(
+			serializeDynamicBackgroundSettings({ ...dynamicSettings, [key]: value }),
+		);
 
 	const removeBackgroundStateRef = useRef<{
 		aspectRatio?: AspectRatio;
@@ -116,7 +145,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 			padding.bottom === 0 &&
 			padding.left === 0 &&
 			padding.right === 0 &&
-			(aspectRatio === "native" || !aspectRatio),
+			(aspectRatio === "native" || !aspectRatio || canvasDimensionsLocked),
 	);
 
 	useEffect(() => {
@@ -341,25 +370,6 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 	const cropRight = Math.round((1 - crop.x - crop.width) * 100);
 	const isCropped = cropTop > 0 || cropBottom > 0 || cropLeft > 0 || cropRight > 0;
 
-	const setCropInset = (side: "top" | "bottom" | "left" | "right", pct: number) => {
-		const val = Math.max(0, Math.min(50, pct)) / 100;
-		let { x, y, width, height } = crop;
-		if (side === "top") {
-			const bottomInset = 1 - y - height;
-			y = val;
-			height = Math.max(0.1, 1 - y - bottomInset);
-		} else if (side === "bottom") {
-			height = Math.max(0.1, 1 - y - val);
-		} else if (side === "left") {
-			const rightInset = 1 - x - width;
-			x = val;
-			width = Math.max(0.1, 1 - x - rightInset);
-		} else if (side === "right") {
-			width = Math.max(0.1, 1 - x - val);
-		}
-		onCropChange?.({ x, y, width, height });
-	};
-
 	const resetBackgroundSection = () => {
 		onWallpaperChange?.(initialEditorPreferences.wallpaper);
 		onBackgroundBlurChange?.(initialEditorPreferences.backgroundBlur);
@@ -478,7 +488,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 			{/* Tab Switcher */}
 			<div className="w-full">
 				<LayoutGroup id="scene-background-picker-switcher">
-					<div className="grid h-8 w-full grid-cols-4 rounded-full border border-foreground/10 bg-foreground/[0.04] p-1">
+					<div className="grid h-8 w-full grid-cols-5 rounded-full border border-foreground/10 bg-foreground/[0.04] p-1">
 						{(
 							[
 								{ value: "image", label: tSettings("background.image", "Image") },
@@ -487,6 +497,10 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 								{
 									value: "gradient",
 									label: tSettings("background.gradient", "Gradient"),
+								},
+								{
+									value: "dynamic",
+									label: tSettings("background.dynamic", "Dynamic"),
 								},
 							] as const
 						).map((option) => {
@@ -642,17 +656,14 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 
 							{backgroundTab === "color" && (
 								<div className="flex flex-col gap-2">
-									<div className="flex items-center gap-2">
-										<input
-											type="color"
-											value={selected.startsWith("#") ? selected : "#000000"}
-											onChange={(e) => onWallpaperChange?.(e.target.value)}
-											className="h-7 w-10 cursor-pointer rounded-lg border border-foreground/10 bg-transparent p-0.5"
-										/>
-										<span className="text-[11px] font-mono text-muted-foreground uppercase">
-											{selected.startsWith("#") ? selected : "#000000"}
-										</span>
-									</div>
+									<ColorPicker
+										label={tSettings(
+											"background.colorValue",
+											"Background color",
+										)}
+										value={selected.startsWith("#") ? selected : "#000000"}
+										onChange={(color) => onWallpaperChange?.(color)}
+									/>
 									<div className="grid grid-cols-4 gap-2">
 										{visibleColorPalette.map((color) => {
 											const isSelected =
@@ -697,6 +708,144 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 											/>
 										);
 									})}
+								</div>
+							)}
+
+							{backgroundTab === "dynamic" && (
+								<div className="space-y-3">
+									<div className="grid grid-cols-3 gap-2">
+										{(
+											[
+												{ id: "dot-noise", label: "Dot Noise" },
+												{ id: "film-grain", label: "Film Grain" },
+												{ id: "orbit", label: "Orbit" },
+											] as const
+										).map((pattern) => {
+											const isSelected =
+												dynamicSettings.pattern === pattern.id;
+											return (
+												<button
+													key={pattern.id}
+													type="button"
+													aria-pressed={isSelected}
+													aria-label="Dynamic background pattern"
+													onClick={() =>
+														updateDynamicSetting(
+															"pattern",
+															pattern.id as DynamicBackgroundPattern,
+														)
+													}
+													className={cn(
+														"overflow-hidden rounded-[10px] border text-left transition-colors",
+														isSelected
+															? "border-[#6FA8FF]"
+															: "border-foreground/10 hover:border-foreground/30",
+													)}
+												>
+													<DynamicPatternCanvas
+														settings={{
+															...dynamicSettings,
+															pattern: pattern.id,
+														}}
+														className="aspect-square w-full object-cover"
+													/>
+													<span className="block px-2 py-1 text-[9px] font-medium text-muted-foreground">
+														{pattern.label}
+													</span>
+												</button>
+											);
+										})}
+									</div>
+									<div className="grid grid-cols-2 gap-2">
+										<div className="flex items-center justify-between gap-1.5 rounded-lg border border-foreground/10 px-2 py-1.5 text-[10px]">
+											<span className="truncate">
+												{tSettings("background.baseColor", "Base color")}
+											</span>
+											<ColorPicker
+												label={tSettings(
+													"background.baseColor",
+													"Base color",
+												)}
+												value={dynamicSettings.backgroundColor}
+												onChange={(color) =>
+													updateDynamicSetting("backgroundColor", color)
+												}
+												compact
+											/>
+										</div>
+										<div className="flex items-center justify-between gap-1.5 rounded-lg border border-foreground/10 px-2 py-1.5 text-[10px]">
+											<span className="truncate">
+												{tSettings(
+													"background.accentColor",
+													"Accent color",
+												)}
+											</span>
+											<ColorPicker
+												label={tSettings(
+													"background.accentColor",
+													"Accent color",
+												)}
+												value={dynamicSettings.accentColor}
+												onChange={(color) =>
+													updateDynamicSetting("accentColor", color)
+												}
+												compact
+											/>
+										</div>
+									</div>
+									{(
+										[
+											{
+												key: "density",
+												label: "Density",
+												min: 0.05,
+												max: 1.5,
+												step: 0.05,
+											},
+											{
+												key: "scale",
+												label: "Scale",
+												min: 0.25,
+												max: 3,
+												step: 0.05,
+											},
+											{
+												key: "speed",
+												label: "Speed",
+												min: 1,
+												max: 4,
+												step: 1,
+											},
+											{
+												key: "durationSeconds",
+												label: "Loop duration",
+												min: 1,
+												max: 10,
+												step: 1,
+											},
+										] as const
+									).map((control) => (
+										<SliderControl
+											key={control.key}
+											label={control.label}
+											ariaLabel={`Dynamic background ${control.label.toLowerCase()}`}
+											value={dynamicSettings[control.key]}
+											defaultValue={
+												DEFAULT_DYNAMIC_BACKGROUND_SETTINGS[control.key]
+											}
+											min={control.min}
+											max={control.max}
+											step={control.step}
+											onChange={(value) =>
+												updateDynamicSetting(control.key, value)
+											}
+											formatValue={(value) => String(value)}
+											parseInput={(text) => {
+												const value = Number.parseFloat(text);
+												return Number.isFinite(value) ? value : null;
+											}}
+										/>
+									))}
 								</div>
 							)}
 						</motion.div>
@@ -894,7 +1043,7 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 			{/* Crop Section */}
 			<section className="flex flex-col gap-2 pt-2 border-t border-foreground/[0.06]">
 				<div className="flex items-center justify-between gap-3">
-					<SectionLabel>{tSettings("sections.crop", "Crop Inset")}</SectionLabel>
+					<SectionLabel>{tSettings("sections.crop", "Crop")}</SectionLabel>
 					{isCropped && (
 						<button
 							type="button"
@@ -905,52 +1054,14 @@ export const SceneSection: React.FC<SceneSectionProps> = ({
 						</button>
 					)}
 				</div>
-				<div className="flex flex-col gap-1.5">
-					<SliderControl
-						label={tSettings("crop.top", "Top")}
-						value={cropTop}
-						defaultValue={0}
-						min={0}
-						max={50}
-						step={1}
-						onChange={(v: number) => setCropInset("top", v)}
-						formatValue={(v: number) => `${Math.round(v)}%`}
-						parseInput={(text: string) => parseFloat(text.replace(/%$/, "")) || 0}
-					/>
-					<SliderControl
-						label={tSettings("crop.bottom", "Bottom")}
-						value={cropBottom}
-						defaultValue={0}
-						min={0}
-						max={50}
-						step={1}
-						onChange={(v: number) => setCropInset("bottom", v)}
-						formatValue={(v: number) => `${Math.round(v)}%`}
-						parseInput={(text: string) => parseFloat(text.replace(/%$/, "")) || 0}
-					/>
-					<SliderControl
-						label={tSettings("crop.left", "Left")}
-						value={cropLeft}
-						defaultValue={0}
-						min={0}
-						max={50}
-						step={1}
-						onChange={(v: number) => setCropInset("left", v)}
-						formatValue={(v: number) => `${Math.round(v)}%`}
-						parseInput={(text: string) => parseFloat(text.replace(/%$/, "")) || 0}
-					/>
-					<SliderControl
-						label={tSettings("crop.right", "Right")}
-						value={cropRight}
-						defaultValue={0}
-						min={0}
-						max={50}
-						step={1}
-						onChange={(v: number) => setCropInset("right", v)}
-						formatValue={(v: number) => `${Math.round(v)}%`}
-						parseInput={(text: string) => parseFloat(text.replace(/%$/, "")) || 0}
-					/>
-				</div>
+				<WebcamCropControl
+					cropRegion={crop}
+					previewSrc={previewSrc}
+					previewCurrentTime={previewCurrentTime}
+					previewPlaying={previewPlaying}
+					syncAspectRatio={false}
+					onCropChange={(nextCrop) => onCropChange?.(nextCrop)}
+				/>
 			</section>
 
 			{/* Extension Panels (if any) */}

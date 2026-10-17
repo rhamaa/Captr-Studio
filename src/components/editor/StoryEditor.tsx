@@ -3,6 +3,7 @@ import {
 	CaretRight,
 	CornersOut,
 	GridFour,
+	Hand,
 	MagnifyingGlassMinus,
 	MagnifyingGlassPlus,
 	Pause,
@@ -18,15 +19,16 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { AgentDiffSummary } from "@/core/timeline/agentPayload";
 import { resolveMediaAsset } from "@/core/timeline/clipSource";
 import {
+	addClipKeyframe,
 	addTextOverlay,
 	placeAsset,
 	removeAsset,
 	updateClip,
-	updateProjectCanvas,
 	updateProjectTerminalConfig,
 } from "@/core/timeline/commands";
 import { applyDesignTemplate } from "@/core/timeline/designTemplateCommands";
 import type { ProjectCommand } from "@/core/timeline/history";
+import { createAndPlaceShape } from "@/core/timeline/shapeCommands";
 import { publishStoryMedia, removeStoryMedia } from "@/core/timeline/storyMediaCommands";
 import type { StoryEditContext } from "@/core/timeline/storyOwnership";
 import type { AssetTranscript } from "@/core/timeline/transcriptTypes";
@@ -45,9 +47,67 @@ import { ProjectPreview } from "./ProjectPreview";
 import { ProjectTimeline, shapePlacementCommand } from "./ProjectTimeline";
 import { ProjectToolRail } from "./ProjectToolRail";
 import { ProjectWelcome } from "./ProjectWelcome";
+import { fitPreviewCanvasToBounds, type PreviewCanvasBounds } from "./previewCanvasSizing";
+import { ShapeLibrary } from "./ShapeLibrary";
+import { StoryCaptionPanel } from "./StoryCaptionPanel";
+import { StoryEditingToolbar } from "./StoryEditingToolbar";
 import { timelineActionCommand } from "./timelineInteractions";
 import type { ProjectController } from "./useProjectController";
 import { useProjectMessages } from "./useProjectMessages";
+
+const MIN_STORY_PREVIEW_ZOOM = 0.25;
+const MAX_STORY_PREVIEW_ZOOM = 5;
+const STORY_PREVIEW_ZOOM_STEP = 1.2;
+
+interface StoryPreviewViewport {
+	zoom: number;
+	x: number;
+	y: number;
+}
+
+interface StoryPreviewPanStart {
+	pointerId: number;
+	startX: number;
+	startY: number;
+	originX: number;
+	originY: number;
+}
+
+function observePreviewFrameSize(
+	stage: HTMLDivElement,
+	canvas: PreviewCanvasBounds,
+	onResize: (size: PreviewCanvasBounds) => void,
+): () => void {
+	const measure = (contentBounds?: PreviewCanvasBounds) => {
+		const style = window.getComputedStyle(stage);
+		const bounds = contentBounds ?? {
+			width:
+				stage.clientWidth -
+				Number.parseFloat(style.paddingLeft || "0") -
+				Number.parseFloat(style.paddingRight || "0"),
+			height:
+				stage.clientHeight -
+				Number.parseFloat(style.paddingTop || "0") -
+				Number.parseFloat(style.paddingBottom || "0"),
+		};
+		onResize(fitPreviewCanvasToBounds(bounds, canvas));
+	};
+
+	measure();
+	if (typeof ResizeObserver !== "undefined") {
+		const observer = new ResizeObserver(([entry]) => {
+			if (entry) {
+				measure({ width: entry.contentRect.width, height: entry.contentRect.height });
+			}
+		});
+		observer.observe(stage);
+		return () => observer.disconnect();
+	}
+
+	const handleWindowResize = () => measure();
+	window.addEventListener("resize", handleWindowResize);
+	return () => window.removeEventListener("resize", handleWindowResize);
+}
 
 export interface StoryEditorProps {
 	storyProject: TimelineProject;
@@ -158,6 +218,7 @@ export function StoryEditor({
 }: StoryEditorProps) {
 	const m = useProjectMessages();
 	const internalPreviewStage = useRef<HTMLDivElement>(null);
+	const fullscreenPreviewStage = useRef<HTMLDivElement>(null);
 	const previewStage = previewStageRef ?? internalPreviewStage;
 
 	const selection = controller.snapshot.selection;
@@ -165,68 +226,204 @@ export function StoryEditor({
 	const selectedAssetId = controller.snapshot.selectedAssetId;
 	const openingKey = controller.snapshot.openingKey;
 	const durationUs = projectDurationUs(storyProject);
+	const canvasAspectRatioLabel = useMemo(() => {
+		let width = Math.round(storyProject.canvas.width);
+		let height = Math.round(storyProject.canvas.height);
+		let a = width;
+		let b = height;
+		while (b !== 0) [a, b] = [b, a % b];
+		const divisor = Math.max(1, a);
+		const ratio = `${width / divisor}:${height / divisor}`;
+		const presets: Record<string, string> = {
+			"16:9": "16:9 Landscape",
+			"9:16": "9:16 Shorts/Reels",
+			"1:1": "1:1 Square",
+			"4:5": "4:5 Portrait",
+			"4:3": "4:3 Standard",
+			"16:10": "16:10 Widescreen",
+			"10:16": "10:16 Portrait",
+			"21:9": "21:9 Ultrawide",
+		};
+		return presets[ratio] ?? `${ratio} Custom`;
+	}, [storyProject.canvas.height, storyProject.canvas.width]);
 
 	const [selectedTransitionId, setSelectedTransitionId] = useState<string | null>(null);
 	const [terminalOpen, setTerminalOpen] = useState(false);
+	const [sidebarTab, setSidebarTab] = useState<"assets" | "shapes">("assets");
+	const [captionsOpen, setCaptionsOpen] = useState(false);
 	const [loopPlayback, setLoopPlayback] = useState(false);
 	const [showGridGuide, setShowGridGuide] = useState(false);
 	const [fullscreenPreview, setFullscreenPreview] = useState(false);
+	const [previewFrameSize, setPreviewFrameSize] = useState<PreviewCanvasBounds>({
+		width: 0,
+		height: 0,
+	});
+	const [fullscreenFrameSize, setFullscreenFrameSize] = useState<PreviewCanvasBounds>({
+		width: 0,
+		height: 0,
+	});
+	const [previewViewport, setPreviewViewport] = useState<StoryPreviewViewport>({
+		zoom: 1,
+		x: 0,
+		y: 0,
+	});
+	const [previewPanMode, setPreviewPanMode] = useState(false);
+	const [previewPanning, setPreviewPanning] = useState(false);
+	const previewPanStartRef = useRef<StoryPreviewPanStart | null>(null);
+	const previewZoomed =
+		Math.abs(previewViewport.zoom - 1) > 0.001 ||
+		Math.abs(previewViewport.x) > 0.5 ||
+		Math.abs(previewViewport.y) > 0.5;
+	const previewTransformStyle: React.CSSProperties = {
+		transform: `translate3d(${previewViewport.x}px, ${previewViewport.y}px, 0) scale(${previewViewport.zoom})`,
+		transformOrigin: "center center",
+		willChange: "transform",
+		transition: previewPanning ? "none" : "transform 120ms ease-out",
+	};
+	const canvasWidth = storyProject.canvas.width;
+	const canvasHeight = storyProject.canvas.height;
 
-	const ZOOM_PRESETS = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0] as const;
-	const [previewZoom, setPreviewZoom] = useState<"fit" | number>("fit");
-	const [previewPan, setPreviewPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-	const [isPanning, setIsPanning] = useState(false);
-	const panDragRef = useRef<{
-		startX: number;
-		startY: number;
-		initialPanX: number;
-		initialPanY: number;
-	} | null>(null);
+	useEffect(() => {
+		const stage = previewStage.current;
+		if (!stage) return;
+		return observePreviewFrameSize(
+			stage,
+			{ width: canvasWidth, height: canvasHeight },
+			(size) =>
+				setPreviewFrameSize((current) =>
+					current.width === size.width && current.height === size.height ? current : size,
+				),
+		);
+	}, [canvasHeight, canvasWidth, previewStage]);
 
-	const handleStageWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-		if (e.ctrlKey || e.metaKey) {
-			e.preventDefault();
-			const delta = e.deltaY < 0 ? 0.1 : -0.1;
-			setPreviewZoom((current) => {
-				const cur = current === "fit" ? 1.0 : current;
-				const next = Math.max(0.25, Math.min(4.0, Math.round((cur + delta) * 10) / 10));
-				return next;
-			});
-		}
+	useEffect(() => {
+		if (!fullscreenPreview) return;
+		const stage = fullscreenPreviewStage.current;
+		if (!stage) return;
+		return observePreviewFrameSize(
+			stage,
+			{ width: canvasWidth, height: canvasHeight },
+			(size) =>
+				setFullscreenFrameSize((current) =>
+					current.width === size.width && current.height === size.height ? current : size,
+				),
+		);
+	}, [canvasHeight, canvasWidth, fullscreenPreview]);
+
+	useEffect(() => {
+		setPreviewViewport({ zoom: 1, x: 0, y: 0 });
+		setPreviewPanMode(false);
+		setPreviewPanning(false);
+		previewPanStartRef.current = null;
+	}, [storyId, storyProject.canvas.height, storyProject.canvas.width, storyProject.projectId]);
+
+	const changePreviewZoom = (factor: number, anchor?: { x: number; y: number }) => {
+		setPreviewViewport((current) => {
+			const zoom = Math.min(
+				MAX_STORY_PREVIEW_ZOOM,
+				Math.max(MIN_STORY_PREVIEW_ZOOM, current.zoom * factor),
+			);
+			const zoomFactor = zoom / current.zoom;
+			const anchorX = anchor?.x ?? 0;
+			const anchorY = anchor?.y ?? 0;
+			return {
+				zoom,
+				x: anchorX - (anchorX - current.x) * zoomFactor,
+				y: anchorY - (anchorY - current.y) * zoomFactor,
+			};
+		});
 	};
 
-	const handleStagePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-		if (e.button === 1 || (e.button === 0 && e.shiftKey && previewZoom !== "fit")) {
-			e.preventDefault();
-			panDragRef.current = {
-				startX: e.clientX,
-				startY: e.clientY,
-				initialPanX: previewPan.x,
-				initialPanY: previewPan.y,
-			};
-			setIsPanning(true);
-
-			const onPointerMove = (ev: PointerEvent) => {
-				if (!panDragRef.current) return;
-				const dx = ev.clientX - panDragRef.current.startX;
-				const dy = ev.clientY - panDragRef.current.startY;
-				setPreviewPan({
-					x: panDragRef.current.initialPanX + dx,
-					y: panDragRef.current.initialPanY + dy,
-				});
-			};
-
-			const onPointerUp = () => {
-				window.removeEventListener("pointermove", onPointerMove);
-				window.removeEventListener("pointerup", onPointerUp);
-				panDragRef.current = null;
-				setIsPanning(false);
-			};
-
-			window.addEventListener("pointermove", onPointerMove);
-			window.addEventListener("pointerup", onPointerUp);
-		}
+	const handlePreviewWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+		event.preventDefault();
+		const rect = event.currentTarget.getBoundingClientRect();
+		changePreviewZoom(Math.exp(-event.deltaY * 0.001), {
+			x: event.clientX - (rect.left + rect.width / 2),
+			y: event.clientY - (rect.top + rect.height / 2),
+		});
 	};
+
+	const handlePreviewPanPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+		if (event.button !== 0) return;
+		event.preventDefault();
+		previewPanStartRef.current = {
+			pointerId: event.pointerId,
+			startX: event.clientX,
+			startY: event.clientY,
+			originX: previewViewport.x,
+			originY: previewViewport.y,
+		};
+		event.currentTarget.setPointerCapture(event.pointerId);
+		setPreviewPanning(true);
+	};
+
+	const handlePreviewPanPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+		const panStart = previewPanStartRef.current;
+		if (!panStart || panStart.pointerId !== event.pointerId) return;
+		setPreviewViewport((current) => ({
+			...current,
+			x: panStart.originX + event.clientX - panStart.startX,
+			y: panStart.originY + event.clientY - panStart.startY,
+		}));
+	};
+
+	const stopPreviewPan = (event: React.PointerEvent<HTMLDivElement>) => {
+		if (previewPanStartRef.current?.pointerId !== event.pointerId) return;
+		previewPanStartRef.current = null;
+		setPreviewPanning(false);
+	};
+
+	const renderPreviewZoomControls = () => (
+		<div
+			className="story-preview-zoom-controls"
+			role="group"
+			aria-label="Preview zoom controls"
+		>
+			<button
+				type="button"
+				className="project-transport-extra-btn"
+				aria-label="Zoom out preview"
+				title="Zoom out preview"
+				disabled={previewViewport.zoom <= MIN_STORY_PREVIEW_ZOOM}
+				onClick={() => changePreviewZoom(1 / STORY_PREVIEW_ZOOM_STEP)}
+			>
+				<MagnifyingGlassMinus size={14} />
+			</button>
+			<button
+				type="button"
+				className="project-transport-extra-btn story-preview-zoom-level"
+				aria-label="Reset preview zoom"
+				title="Reset preview zoom and position"
+				onClick={() => setPreviewViewport({ zoom: 1, x: 0, y: 0 })}
+			>
+				{Math.round(previewViewport.zoom * 100)}%
+			</button>
+			<button
+				type="button"
+				className="project-transport-extra-btn"
+				aria-label="Zoom in preview"
+				title="Zoom in preview"
+				disabled={previewViewport.zoom >= MAX_STORY_PREVIEW_ZOOM}
+				onClick={() => changePreviewZoom(STORY_PREVIEW_ZOOM_STEP)}
+			>
+				<MagnifyingGlassPlus size={14} />
+			</button>
+			<button
+				type="button"
+				className={`project-transport-extra-btn ${previewPanMode ? "active" : ""}`}
+				aria-label="Pan preview"
+				aria-pressed={previewPanMode}
+				title={previewPanMode ? "Pan mode enabled: drag preview to move" : "Pan preview"}
+				onClick={() => {
+					setPreviewPanMode((enabled) => !enabled);
+					setPreviewPanning(false);
+					previewPanStartRef.current = null;
+				}}
+			>
+				<Hand size={14} />
+			</button>
+		</div>
+	);
 
 	const handleDropAssetOnCanvas = (assetId: string, canvasX: number, canvasY: number) => {
 		try {
@@ -339,6 +536,11 @@ export function StoryEditor({
 				}
 				return;
 			}
+			if (e.key.toLowerCase() === "k" && !e.ctrlKey && !e.metaKey) {
+				e.preventDefault();
+				onCommand(timelineActionCommand("keyframe", selection, playheadUs));
+				return;
+			}
 			if (e.key.toLowerCase() === "f" && !e.ctrlKey && !e.metaKey) {
 				e.preventDefault();
 				setFullscreenPreview((v) => !v);
@@ -405,12 +607,25 @@ export function StoryEditor({
 		);
 	}, [rootProject.packages, sourceAsset]);
 
+	const sourcePackage = useMemo(() => {
+		if (!sourceAsset?.packageId) return null;
+		return rootProject.packages.find((pkg) => pkg.id === sourceAsset.packageId) ?? null;
+	}, [rootProject.packages, sourceAsset]);
+
 	const addShape = (kind: ShapeDefinition["kind"]) => {
 		const ids = {
 			clipId: crypto.randomUUID(),
 			trackId: crypto.randomUUID(),
 		};
 		onCommand(shapePlacementCommand(kind, playheadUs, ids), [ids.clipId]);
+	};
+
+	const addCustomShape = (shape: ShapeDefinition) => {
+		const ids = {
+			clipId: crypto.randomUUID(),
+			trackId: crypto.randomUUID(),
+		};
+		onCommand((p) => createAndPlaceShape(p, shape, playheadUs, ids), [ids.clipId]);
 	};
 
 	const addToTimeline = (assetId: string) => {
@@ -441,74 +656,95 @@ export function StoryEditor({
 		}
 	};
 
+	const toolRail = (
+		<ProjectToolRail
+			activeTab={sidebarTab}
+			onSelectTab={setSidebarTab}
+			onAddShape={addShape}
+			templates={rootProject.designTemplates ?? []}
+			onAddText={() => {
+				const clipId = crypto.randomUUID();
+				onCommand(
+					(p) =>
+						addTextOverlay(p, playheadUs, {
+							clipId,
+							trackId: crypto.randomUUID(),
+						}),
+					[clipId],
+				);
+			}}
+			onApplyTemplate={(id) => {
+				const clipId = crypto.randomUUID();
+				onCommand(
+					(p) =>
+						applyDesignTemplate(p, id, playheadUs, {
+							clipId,
+							trackId: crypto.randomUUID(),
+						}),
+					[clipId],
+				);
+			}}
+		/>
+	);
+
 	return (
 		<>
 			<div className={`project-workspace ${copilotOpen ? "with-copilot" : ""}`}>
-				<ProjectToolRail onAddShape={addShape} />
-				<AssetLibrary
-					storyAssets={storyProject.localAssets ?? []}
-					templates={rootProject.designTemplates ?? []}
-					onCreateText={() => {
-						const clipId = crypto.randomUUID();
-						onCommand(
-							(p) =>
-								addTextOverlay(p, playheadUs, {
-									clipId,
-									trackId: crypto.randomUUID(),
-								}),
-							[clipId],
-						);
-					}}
-					onCreateShape={addShape}
-					onApplyTemplate={(id) => {
-						const clipId = crypto.randomUUID();
-						onCommand(
-							(p) =>
-								applyDesignTemplate(p, id, playheadUs, {
-									clipId,
-									trackId: crypto.randomUUID(),
-								}),
-							[clipId],
-						);
-					}}
-					onPublish={(id) =>
-						onProjectCommand?.((root) =>
-							publishStoryMedia(
-								root,
+				{sidebarTab === "assets" ? (
+					<AssetLibrary
+						toolRail={toolRail}
+						activeTab={sidebarTab}
+						onSelectTab={setSidebarTab}
+						storyAssets={storyProject.localAssets ?? []}
+						onPublish={(id) =>
+							onProjectCommand?.((root) =>
+								publishStoryMedia(
+									root,
+									storyId
+										? { kind: "artboard", artboardId: storyId }
+										: { kind: "root" },
+									id,
+								),
+							)
+						}
+						onRemoveStoryMedia={(id) =>
+							onProjectCommand?.((root) =>
+								removeStoryMedia(
+									root,
+									storyId
+										? { kind: "artboard", artboardId: storyId }
+										: { kind: "root" },
+									id,
+								),
+							)
+						}
+						assets={rootProject.assets}
+						packages={rootProject.packages}
+						selectedAssetId={selectedAssetId}
+						onImport={(paths) => onImportMedia?.(paths)}
+						onRecord={() => onStartRecord?.()}
+						onRecordAudio={() => onOpenAudioRecorder?.()}
+						onPreview={(id) => {
+							setPlaying(false);
+							controller.preview(
+								id,
 								storyId
 									? { kind: "artboard", artboardId: storyId }
 									: { kind: "root" },
-								id,
-							),
-						)
-					}
-					onRemoveStoryMedia={(id) =>
-						onProjectCommand?.((root) =>
-							removeStoryMedia(
-								root,
-								storyId
-									? { kind: "artboard", artboardId: storyId }
-									: { kind: "root" },
-								id,
-							),
-						)
-					}
-					assets={rootProject.assets}
-					packages={rootProject.packages}
-					selectedAssetId={selectedAssetId}
-					onImport={(paths) => onImportMedia?.(paths)}
-					onRecord={() => onStartRecord?.()}
-					onRecordAudio={() => onOpenAudioRecorder?.()}
-					onPreview={(id) => {
-						setPlaying(false);
-						controller.preview(
-							id,
-							storyId ? { kind: "artboard", artboardId: storyId } : { kind: "root" },
-						);
-					}}
-					onPlace={addToTimeline}
-					onRemove={(id) => onProjectCommand?.((root) => removeAsset(root, id))}
-				/>
+							);
+						}}
+						onPlace={addToTimeline}
+						onRemove={(id) => onProjectCommand?.((root) => removeAsset(root, id))}
+					/>
+				) : (
+					<ShapeLibrary
+						toolRail={toolRail}
+						activeTab={sidebarTab}
+						onSelectTab={setSidebarTab}
+						onAddShape={addCustomShape}
+						onClose={() => setSidebarTab("assets")}
+					/>
+				)}
 				<section className="project-preview-panel">
 					<header className="project-panel-header">
 						<h2>
@@ -519,154 +755,13 @@ export function StoryEditor({
 									: m("preview")}
 						</h2>
 						<div className="flex items-center gap-2">
-							<select
-								aria-label="Canvas Aspect Ratio"
-								value={
-									[
-										{ w: 1920, h: 1080, id: "16:9" },
-										{ w: 1080, h: 1920, id: "9:16" },
-										{ w: 1080, h: 1080, id: "1:1" },
-										{ w: 1080, h: 1350, id: "4:5" },
-										{ w: 2560, h: 1080, id: "21:9" },
-									].find(
-										(p) =>
-											p.w === storyProject.canvas.width &&
-											p.h === storyProject.canvas.height,
-									)?.id ?? "custom"
-								}
-								onChange={(e) => {
-									const map: Record<string, [number, number]> = {
-										"16:9": [1920, 1080],
-										"9:16": [1080, 1920],
-										"1:1": [1080, 1080],
-										"4:5": [1080, 1350],
-										"21:9": [2560, 1080],
-									};
-									const val = map[e.target.value];
-									if (val) {
-										onCommand((p) =>
-											updateProjectCanvas(p, {
-												width: val[0],
-												height: val[1],
-											}),
-										);
-									}
-								}}
-								className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-white/90 font-medium focus:outline-none cursor-pointer"
+							<span
+								aria-label="Canvas aspect ratio, fixed"
+								title="Canvas dimensions are fixed by the current project"
+								className="bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-white/90 font-medium select-none"
 							>
-								<option value="16:9" className="bg-[#12141a]">
-									16:9 Landscape
-								</option>
-								<option value="9:16" className="bg-[#12141a]">
-									9:16 Shorts/Reels
-								</option>
-								<option value="1:1" className="bg-[#12141a]">
-									1:1 Square
-								</option>
-								<option value="4:5" className="bg-[#12141a]">
-									4:5 Portrait
-								</option>
-								<option value="21:9" className="bg-[#12141a]">
-									21:9 Ultrawide
-								</option>
-								<option value="custom" className="bg-[#12141a]">
-									Custom
-								</option>
-							</select>
-							<div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded px-1.5 py-0.5 text-[10px]">
-								<button
-									type="button"
-									title="Zoom Out"
-									aria-label="Zoom Out"
-									className="text-zinc-400 hover:text-white transition-colors cursor-pointer"
-									onClick={() => {
-										setPreviewZoom((current) => {
-											const cur = current === "fit" ? 1.0 : current;
-											const lower = [...ZOOM_PRESETS]
-												.reverse()
-												.find((p) => p < cur);
-											return lower ?? ZOOM_PRESETS[0];
-										});
-									}}
-								>
-									<MagnifyingGlassMinus size={12} />
-								</button>
-								<select
-									aria-label="Preview Zoom"
-									value={
-										typeof previewZoom === "number"
-											? String(previewZoom)
-											: "fit"
-									}
-									onChange={(e) => {
-										const val = e.target.value;
-										if (val === "fit") {
-											setPreviewZoom("fit");
-											setPreviewPan({ x: 0, y: 0 });
-										} else {
-											setPreviewZoom(Number(val));
-										}
-									}}
-									className="bg-transparent text-white/90 font-medium focus:outline-none cursor-pointer text-[10px]"
-								>
-									<option value="fit" className="bg-[#12141a]">
-										Fit
-									</option>
-									<option value="0.25" className="bg-[#12141a]">
-										25%
-									</option>
-									<option value="0.5" className="bg-[#12141a]">
-										50%
-									</option>
-									<option value="0.75" className="bg-[#12141a]">
-										75%
-									</option>
-									<option value="1" className="bg-[#12141a]">
-										100%
-									</option>
-									<option value="1.25" className="bg-[#12141a]">
-										125%
-									</option>
-									<option value="1.5" className="bg-[#12141a]">
-										150%
-									</option>
-									<option value="2" className="bg-[#12141a]">
-										200%
-									</option>
-									<option value="3" className="bg-[#12141a]">
-										300%
-									</option>
-								</select>
-								<button
-									type="button"
-									title="Zoom In"
-									aria-label="Zoom In"
-									className="text-zinc-400 hover:text-white transition-colors cursor-pointer"
-									onClick={() => {
-										setPreviewZoom((current) => {
-											const cur = current === "fit" ? 1.0 : current;
-											const higher = ZOOM_PRESETS.find((p) => p > cur);
-											return higher ?? ZOOM_PRESETS[ZOOM_PRESETS.length - 1];
-										});
-									}}
-								>
-									<MagnifyingGlassPlus size={12} />
-								</button>
-								{previewZoom !== "fit" && (
-									<button
-										type="button"
-										title="Reset Zoom to Fit"
-										aria-label="Reset Zoom to Fit"
-										className="text-primary hover:underline ml-1 font-semibold"
-										onClick={() => {
-											setPreviewZoom("fit");
-											setPreviewPan({ x: 0, y: 0 });
-										}}
-									>
-										Reset
-									</button>
-								)}
-							</div>
+								{canvasAspectRatioLabel}
+							</span>
 							<span>
 								{storyProject.canvas.width} × {storyProject.canvas.height}
 							</span>
@@ -689,34 +784,32 @@ export function StoryEditor({
 						)}
 					</header>
 					<div
-						className={`project-preview-stage ${isPanning ? "panning" : previewZoom !== "fit" ? "zoomed" : ""}`}
+						className={`project-preview-stage${previewZoomed ? " zoomed" : ""}${previewPanning ? " panning" : ""}`}
 						ref={previewStage}
-						onWheel={handleStageWheel}
-						onPointerDown={handleStagePointerDown}
+						role="region"
+						aria-label="Story video preview canvas"
+						title="Scroll to zoom; use Pan preview to drag the canvas"
+						onWheel={handlePreviewWheel}
 					>
 						<div
 							className="project-preview-zoom-wrapper"
 							style={{
-								transform:
-									previewZoom === "fit"
-										? "none"
-										: `translate3d(${previewPan.x}px, ${previewPan.y}px, 0) scale(${previewZoom})`,
-								transformOrigin: "center center",
 								aspectRatio: `${storyProject.canvas.width} / ${storyProject.canvas.height}`,
-								maxHeight: previewZoom === "fit" ? "100%" : undefined,
-								maxWidth: previewZoom === "fit" ? "100%" : undefined,
+								maxHeight: "100%",
+								maxWidth: "100%",
 								width:
-									previewZoom === "fit"
-										? "100%"
-										: `${storyProject.canvas.width}px`,
+									previewFrameSize.width > 0
+										? `${previewFrameSize.width}px`
+										: "100%",
 								height:
-									previewZoom === "fit"
-										? "100%"
-										: `${storyProject.canvas.height}px`,
+									previewFrameSize.height > 0
+										? `${previewFrameSize.height}px`
+										: "100%",
 								display: "flex",
 								alignItems: "center",
 								justifyContent: "center",
 								position: "relative",
+								...previewTransformStyle,
 							}}
 						>
 							{sourceAsset ? (
@@ -724,6 +817,7 @@ export function StoryEditor({
 									key={sourceAsset.id}
 									asset={sourceAsset}
 									path={sourcePath ?? ""}
+									recordingPackage={sourcePackage ?? undefined}
 									onError={onError}
 								/>
 							) : durationUs > 0 ? (
@@ -734,6 +828,11 @@ export function StoryEditor({
 									playing={playing && !editingClipId}
 									onError={onError}
 									selectedClipId={selection[0] ?? null}
+									canTransformClip={(_clipId, assetKind) =>
+										assetKind === "text" ||
+										assetKind === "shape" ||
+										assetKind === "image"
+									}
 									onSelectClip={(clipId) => {
 										const currentSelected = selection[0] ?? "";
 										if (currentSelected !== (clipId ?? "")) {
@@ -741,9 +840,49 @@ export function StoryEditor({
 										}
 									}}
 									onUpdateClipTransform={(clipId, transform) => {
-										onCommand((p: TimelineProject) =>
-											updateClip(p, clipId, { transform }),
-										);
+										onCommand((p: TimelineProject) => {
+											let next = updateClip(p, clipId, { transform });
+											const clip = next.tracks
+												.flatMap((t) => t.clips)
+												.find((c) => c.id === clipId);
+											if (clip && clip.keyframes && clip.keyframes.length > 0) {
+												const localMs = Math.round(
+													Math.max(0, (playheadUs - clip.startUs) / 1000),
+												);
+												const hasPosKf = clip.keyframes.some((k) => k.property === "position");
+												const hasScaleKf = clip.keyframes.some((k) => k.property === "scale");
+												const hasRotKf = clip.keyframes.some((k) => k.property === "rotation");
+
+												if (hasPosKf || transform.x !== 0 || transform.y !== 0) {
+													next = addClipKeyframe(next, clipId, {
+														id: `kf_${crypto.randomUUID()}`,
+														timeMs: localMs,
+														property: "position",
+														value: { x: transform.x, y: transform.y },
+														easing: "ease-in-out",
+													});
+												}
+												if (hasScaleKf || transform.scale !== 1) {
+													next = addClipKeyframe(next, clipId, {
+														id: `kf_${crypto.randomUUID()}`,
+														timeMs: localMs,
+														property: "scale",
+														value: transform.scale,
+														easing: "ease-in-out",
+													});
+												}
+												if (hasRotKf || transform.rotation !== 0) {
+													next = addClipKeyframe(next, clipId, {
+														id: `kf_${crypto.randomUUID()}`,
+														timeMs: localMs,
+														property: "rotation",
+														value: transform.rotation,
+														easing: "ease-in-out",
+													});
+												}
+											}
+											return next;
+										});
 									}}
 									onDropAsset={handleDropAssetOnCanvas}
 								/>
@@ -771,6 +910,16 @@ export function StoryEditor({
 								</div>
 							)}
 						</div>
+						{previewPanMode && (
+							<div
+								className={`story-preview-pan-surface${previewPanning ? " panning" : ""}`}
+								aria-hidden="true"
+								onPointerDown={handlePreviewPanPointerDown}
+								onPointerMove={handlePreviewPanPointerMove}
+								onPointerUp={stopPreviewPan}
+								onPointerCancel={stopPreviewPan}
+							/>
+						)}
 					</div>
 					<div className="project-preview-transport">
 						<div className="project-transport-timecode">
@@ -862,6 +1011,7 @@ export function StoryEditor({
 							</button>
 						</div>
 						<div className="project-transport-extras">
+							{renderPreviewZoomControls()}
 							<button
 								type="button"
 								className={`project-transport-extra-btn ${loopPlayback ? "active" : ""}`}
@@ -897,14 +1047,26 @@ export function StoryEditor({
 						</div>
 					</div>
 				</section>
-				<ProjectInspector
-					project={storyProject}
-					selection={selection}
-					selectedTransitionId={selectedTransitionId}
-					playheadUs={playheadUs}
-					onCommand={onCommand}
-					onOpenRecording={setEditingClipId}
-				/>
+				{captionsOpen ? (
+					<StoryCaptionPanel
+						key={`${openingKey}-${storyId ?? "root"}`}
+						project={storyProject}
+						transcripts={transcripts}
+						playheadUs={playheadUs}
+						onCommand={onCommand}
+						onSeek={(time) => controller.seek(time, durationUs)}
+						onClose={() => setCaptionsOpen(false)}
+					/>
+				) : (
+					<ProjectInspector
+						project={storyProject}
+						selection={selection}
+						selectedTransitionId={selectedTransitionId}
+						playheadUs={playheadUs}
+						onCommand={onCommand}
+						onOpenRecording={setEditingClipId}
+					/>
+				)}
 				{copilotOpen && (
 					<CopilotSidebar
 						editContext={editContext}
@@ -923,6 +1085,13 @@ export function StoryEditor({
 					/>
 				)}
 			</div>
+			<StoryEditingToolbar
+				key={`tools-${openingKey}-${storyId ?? "root"}`}
+				project={storyProject}
+				selection={selection}
+				playheadUs={playheadUs}
+				onCommand={onCommand}
+			/>
 			<ProjectTimeline
 				project={storyProject}
 				selection={selection}
@@ -971,6 +1140,13 @@ export function StoryEditor({
 				<div className="flex items-center gap-4">
 					<span>{busy ? "Importing media…" : `${rootProject.assets.length} assets`}</span>
 					<span>{storyProject.canvas.fps} fps</span>
+					<button
+						type="button"
+						onClick={() => setCaptionsOpen((v) => !v)}
+						aria-pressed={captionsOpen}
+					>
+						Captions
+					</button>
 				</div>
 				<button
 					type="button"
@@ -993,23 +1169,58 @@ export function StoryEditor({
 							{storyName || "Story Preview"} ({storyProject.canvas.width} ×{" "}
 							{storyProject.canvas.height})
 						</span>
-						<button
-							type="button"
-							onClick={() => setFullscreenPreview(false)}
-							className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-							title="Exit Fullscreen (Esc / F)"
-						>
-							<X size={18} />
-						</button>
+						<div className="flex items-center gap-2">
+							{renderPreviewZoomControls()}
+							<button
+								type="button"
+								onClick={() => setFullscreenPreview(false)}
+								className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+								title="Exit Fullscreen (Esc / F)"
+							>
+								<X size={18} />
+							</button>
+						</div>
 					</div>
-					<div className="flex-1 flex items-center justify-center p-4 min-h-0">
-						<ProjectPreview
-							key={`fullscreen-${openingKey}-${storyId ?? "root"}`}
-							project={storyProject}
-							timeUs={Math.min(playheadUs, Math.max(0, durationUs - 1))}
-							playing={playing && !editingClipId}
-							onError={onError}
-						/>
+					<div
+						className={`story-preview-fullscreen-stage${previewZoomed ? " zoomed" : ""}${previewPanning ? " panning" : ""}`}
+						ref={fullscreenPreviewStage}
+						role="region"
+						aria-label="Fullscreen story video preview canvas"
+						onWheel={handlePreviewWheel}
+					>
+						<div
+							className="story-preview-fullscreen-viewport"
+							style={{
+								aspectRatio: `${storyProject.canvas.width} / ${storyProject.canvas.height}`,
+								width:
+									fullscreenFrameSize.width > 0
+										? `${fullscreenFrameSize.width}px`
+										: "100%",
+								height:
+									fullscreenFrameSize.height > 0
+										? `${fullscreenFrameSize.height}px`
+										: "100%",
+								...previewTransformStyle,
+							}}
+						>
+							<ProjectPreview
+								key={`fullscreen-${openingKey}-${storyId ?? "root"}`}
+								project={storyProject}
+								timeUs={Math.min(playheadUs, Math.max(0, durationUs - 1))}
+								playing={playing && !editingClipId}
+								onError={onError}
+							/>
+						</div>
+						{previewPanMode && (
+							<div
+								className={`story-preview-pan-surface${previewPanning ? " panning" : ""}`}
+								aria-hidden="true"
+								onPointerDown={handlePreviewPanPointerDown}
+								onPointerMove={handlePreviewPanPointerMove}
+								onPointerUp={stopPreviewPan}
+								onPointerCancel={stopPreviewPan}
+							/>
+						)}
 					</div>
 				</div>
 			)}

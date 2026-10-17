@@ -5,6 +5,7 @@ import {
 	type SpeechInterval,
 } from "@/components/video-editor/audio/audioDucking";
 import { buildProjectAudioPlan, type ProjectAudioSegment } from "@/core/timeline/audioPlan";
+import { fadeGain } from "@/core/timeline/audioFades";
 import { projectDurationUs, type TimelineProject } from "@/core/timeline/types";
 import { localMediaUrl } from "@/recording/mediaProbe";
 import { AudioProcessor } from "./audioEncoder";
@@ -127,17 +128,38 @@ export async function renderProjectAudio(
 					source.gain * (source.normalize ? (normalizations.get(source.path) ?? 1) : 1);
 				node.buffer = stretched;
 				gain.gain.value = baseGain;
-				if (source.ducking?.enabled) {
-					for (let ms = start / 1000; ms < end / 1000; ms += 20)
-						gain.gain.setValueAtTime(
+				if (source.ducking?.enabled || source.fade) {
+					const points = new Set([start, end]);
+					if (source.fade) {
+						const f = source.fade, d = f.endUs - f.startUs;
+						const a = Math.min(d, f.inUs), b = Math.min(d, f.outUs);
+						for (const t of [f.startUs + a, f.endUs - b, ...(a + b > d ? [f.startUs + d * a / (a + b)] : [])])
+							if (t > start && t < end) points.add(t);
+					}
+					if (source.ducking?.enabled) for (let t = start + 20_000; t < end; t += 20_000) points.add(t);
+					for (const timeUs of [...points].sort((a, b) => a - b)) {
+						const ms = timeUs / 1000;
+						gain.gain.linearRampToValueAtTime(
 							baseGain *
-								computeDuckingGain(
-									ms,
-									speech.get(source.clipId) ?? [],
-									source.ducking,
-								),
+								(source.fade
+									? timeUs === source.fade.endUs && source.fade.outUs === 0 ? 1 : fadeGain(
+											ms * 1000,
+											source.fade.startUs,
+											source.fade.endUs,
+											source.fade.inUs,
+											source.fade.outUs,
+										)
+									: 1) *
+								(source.ducking?.enabled
+									? computeDuckingGain(
+											ms,
+											speech.get(source.clipId) ?? [],
+											source.ducking,
+										)
+									: 1),
 							(ms * 1000 - beginUs) / 1_000_000,
 						);
+					}
 				}
 				node.connect(gain).connect(context.destination);
 				node.start((start - beginUs) / 1_000_000);

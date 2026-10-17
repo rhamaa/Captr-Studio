@@ -18,11 +18,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { HyperframeComposition } from "@/core/story/storyTypes";
 import type { TimelineProject } from "@/core/timeline/types";
 import { buildProjectMediaUrlMap, preprocessHyperframeHtml } from "@/components/hyperframe/HyperframeEditor";
+import { FEATURE_AI_ENABLED } from "@/core/featureFlags";
 
 export interface HyperframeEditorDrawerProps {
 	hyperframe: HyperframeComposition;
 	project: TimelineProject;
 	projectTitle?: string;
+	enableAIAgent?: boolean;
 	onUpdate: (updated: Partial<HyperframeComposition>) => void;
 	onClose: () => void;
 }
@@ -59,6 +61,7 @@ export function HyperframeEditorDrawer({
 	hyperframe,
 	project,
 	projectTitle,
+	enableAIAgent = FEATURE_AI_ENABLED,
 	onUpdate,
 	onClose,
 }: HyperframeEditorDrawerProps) {
@@ -67,7 +70,9 @@ export function HyperframeEditorDrawer({
 	const logsEndRef = useRef<HTMLDivElement | null>(null);
 
 	// Tabs: "agent" | "code"
-	const [activeTab, setActiveTab] = useState<"agent" | "code">("agent");
+	const [activeTab, setActiveTab] = useState<"agent" | "code">(
+		enableAIAgent ? "agent" : "code",
+	);
 
 	// Playback & Scrubber
 	const [currentTimeSec, setCurrentTimeSec] = useState(0);
@@ -499,36 +504,38 @@ export function HyperframeEditorDrawer({
 					{/* Right Panel: AI Agent & Code Editor Drawer */}
 					<aside className="flex w-[480px] shrink-0 flex-col bg-[#1C1F26]">
 						{/* Tab Switcher */}
-						<div className="flex border-b border-[#343A46] bg-[#15171C] p-2 gap-1.5">
-							<button
-								type="button"
-								onClick={() => setActiveTab("agent")}
-								className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition ${
-									activeTab === "agent"
-										? "border border-[#A879F5]/40 bg-[#A879F5]/15 text-white shadow-sm"
-										: "text-[#A8AFBD] hover:text-white"
-								}`}
-							>
-								<Robot size={16} weight="bold" className="text-[#A879F5]" />
-								<span>CLI Agent</span>
-							</button>
+						{enableAIAgent ? (
+							<div className="flex border-b border-[#343A46] bg-[#15171C] p-2 gap-1.5">
+								<button
+									type="button"
+									onClick={() => setActiveTab("agent")}
+									className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition ${
+										activeTab === "agent"
+											? "border border-[#A879F5]/40 bg-[#A879F5]/15 text-white shadow-sm"
+											: "text-[#A8AFBD] hover:text-white"
+									}`}
+								>
+									<Robot size={16} weight="bold" className="text-[#A879F5]" />
+									<span>CLI Agent</span>
+								</button>
 
-							<button
-								type="button"
-								onClick={() => setActiveTab("code")}
-								className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition ${
-									activeTab === "code"
-										? "border border-[#6FA8FF]/40 bg-[#6FA8FF]/15 text-white shadow-sm"
-										: "text-[#A8AFBD] hover:text-white"
-								}`}
-							>
-								<Code size={16} weight="bold" className="text-[#6FA8FF]" />
-								<span>Source Code</span>
-							</button>
-						</div>
+								<button
+									type="button"
+									onClick={() => setActiveTab("code")}
+									className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition ${
+										activeTab === "code"
+											? "border border-[#6FA8FF]/40 bg-[#6FA8FF]/15 text-white shadow-sm"
+											: "text-[#A8AFBD] hover:text-white"
+									}`}
+								>
+									<Code size={16} weight="bold" className="text-[#6FA8FF]" />
+									<span>Source Code</span>
+								</button>
+							</div>
+						) : null}
 
 						{/* Tab 1: AI Agent Bar */}
-						{activeTab === "agent" && (
+						{enableAIAgent && activeTab === "agent" && (
 							<div className="flex flex-1 flex-col overflow-y-auto p-4 space-y-4">
 								{/* Agent Selector Card */}
 								<div className="rounded-xl border border-[#343A46] bg-[#15171C] p-3.5 space-y-3">

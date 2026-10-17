@@ -76,27 +76,27 @@
 }
 
 .ibActive {
-	color: #3d8bff;
+	color: var(--captr-blue);
 }
 
 .ibActive:hover {
-	color: #62a4ff;
+	color: var(--captr-blue);
 }
 
 .ibRed {
-	color: #f43f5e;
+	color: var(--captr-red);
 }
 
 .ibRed:hover {
-	color: #ff5a75;
+	color: var(--captr-red);
 }
 
 .ibGreen {
-	color: #34d399;
+	color: var(--captr-green);
 }
 
 .ibGreen:hover {
-	color: #4eeeb0;
+	color: var(--captr-green);
 }
 
 .menuCard {
@@ -142,6 +142,12 @@
 	border-radius: 10px;
 }
 
+.menuCard::-webkit-scrollbar-button {
+	display: none !important;
+	width: 0 !important;
+	height: 0 !important;
+}
+
 .ddLabel {
 	font-size: 9px;
 	font-weight: 600;
@@ -182,11 +188,11 @@
 	align-items: center;
 	gap: 11px;
 	min-width: 238px;
-	color: #eeeef2;
+	color: hsl(var(--foreground));
 }
 
 .finalizingSpin {
-	color: #3d8bff;
+	color: var(--captr-blue);
 	animation: finalizingSpin 0.9s linear infinite;
 }
 
@@ -200,7 +206,7 @@
 }
 
 .finalizingCopy small {
-	color: #8a8a96;
+	color: hsl(var(--muted-foreground));
 	font-size: 10px;
 	font-weight: 600;
 }
@@ -220,8 +226,8 @@
 	height: 46px;
 	border-radius: 50%;
 	border: none;
-	background: #f43f5e;
-	color: #fff;
+	background: var(--captr-red);
+	color: hsl(var(--primary-foreground));
 	cursor: pointer;
 	display: inline-flex;
 	align-items: center;
@@ -232,7 +238,7 @@
 }
 
 .recBtn:hover {
-	background: #ff5a75;
+	background: var(--captr-red);
 	box-shadow: 0 0 0 6px rgba(244, 63, 94, 0.15);
 }
 
@@ -242,12 +248,12 @@
 }
 
 .recBtn:disabled:hover {
-	background: #f43f5e;
+	background: var(--captr-red);
 	box-shadow: none;
 }
 
 .recBtnStarting {
-	background: #e11d48;
+	background: var(--captr-red);
 	cursor: wait;
 	box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.25);
 }
@@ -325,6 +331,6 @@
 }
 
 .micSelect option {
-	background-color: #1a1a22;
-	color: #eeeef2;
+	background-color: hsl(var(--editor-panel));
+	color: hsl(var(--foreground));
 }
