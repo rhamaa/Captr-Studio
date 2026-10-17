@@ -1255,13 +1255,13 @@
 	box-shadow: none;
 }
 .recording-editor-header {
-	height: 38px;
+	height: 40px;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	border-bottom: 1px solid var(--line);
-	background: hsl(var(--background));
-	padding: 0 12px;
+	background: hsl(var(--editor-panel));
+	padding: 0 14px;
 	flex-shrink: 0;
 }
 .recording-header-left {
@@ -1273,11 +1273,11 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 5px;
-	height: 25px;
-	padding: 0 8px;
-	background: hsl(var(--editor-panel));
-	border: 1px solid hsl(var(--border));
-	border-radius: 4px;
+	height: 26px;
+	padding: 0 9px;
+	background: hsl(var(--editor-surface));
+	border: 1px solid var(--line);
+	border-radius: 5px;
 	color: hsl(var(--foreground));
 	font-size: 11px;
 	font-weight: 500;
@@ -1285,24 +1285,25 @@
 	transition: all 0.15s ease;
 }
 .recording-back-button:hover {
-	background: hsl(var(--editor-surface));
-	border-color: hsl(var(--border));
+	background: hsl(var(--editor-surface-alt));
+	border-color: rgba(111, 168, 255, 0.35);
 	color: hsl(var(--foreground));
 }
 .recording-kbd {
 	font-size: 9px;
 	font-family: inherit;
 	padding: 1px 4px;
-	background: hsl(var(--background));
-	border: 1px solid hsl(var(--border));
+	background: hsl(var(--editor-panel));
+	border: 1px solid var(--line);
 	border-radius: 3px;
 	color: hsl(var(--muted-foreground));
 	margin-left: 2px;
 	line-height: 1;
 }
 .recording-header-sep {
-	color: hsl(var(--primary-foreground));
+	color: hsl(var(--muted-foreground));
 	font-size: 12px;
+	opacity: 0.6;
 }
 .recording-breadcrumb-project {
 	color: hsl(var(--muted-foreground));
@@ -1330,11 +1331,12 @@
 	white-space: nowrap;
 	font-size: 10px;
 	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-	color: hsl(var(--muted-foreground));
-	background: hsl(var(--editor-panel));
-	border: 1px solid hsl(var(--border));
-	padding: 1px 6px;
+	color: var(--captr-blue);
+	background: hsl(var(--editor-surface));
+	border: 1px solid rgba(111, 168, 255, 0.25);
+	padding: 2px 7px;
 	border-radius: 4px;
+	font-weight: 500;
 }
 .recording-header-right {
 	display: flex;
@@ -1345,9 +1347,9 @@
 	font-size: 10px;
 	font-weight: 500;
 	color: hsl(var(--muted-foreground));
-	background: hsl(var(--editor-panel));
-	border: 1px solid hsl(var(--border));
-	padding: 2px 7px;
+	background: hsl(var(--editor-surface));
+	border: 1px solid var(--line);
+	padding: 2px 8px;
 	border-radius: 4px;
 }
 .recording-aspect-select-wrapper {
@@ -1355,10 +1357,10 @@
 	align-items: center;
 }
 .recording-aspect-select {
-	height: 22px;
-	padding: 0 6px;
-	background: hsl(var(--editor-panel));
-	border: 1px solid hsl(var(--border));
+	height: 24px;
+	padding: 0 8px;
+	background: hsl(var(--editor-surface));
+	border: 1px solid var(--line);
 	border-radius: 4px;
 	color: hsl(var(--foreground));
 	font-size: 10px;
@@ -1368,12 +1370,11 @@
 	transition: all 0.15s ease;
 }
 .recording-aspect-select:hover {
-	background: hsl(var(--editor-surface));
-	border-color: hsl(var(--border));
-	color: hsl(var(--foreground));
+	background: hsl(var(--editor-surface-alt));
+	border-color: rgba(111, 168, 255, 0.3);
 }
 .recording-aspect-select:focus {
-	border-color: #6366f1;
+	border-color: var(--captr-blue);
 }
 .recording-editor-body {
 	flex: 1;
@@ -1403,8 +1404,8 @@
 	align-items: center;
 	justify-content: center;
 	overflow: hidden;
-	padding: 16px;
-	background: radial-gradient(ellipse at center, hsl(var(--editor-panel)) 0%, hsl(var(--background)) 75%);
+	padding: 20px;
+	background: radial-gradient(ellipse at center, rgba(28, 32, 44, 0.45) 0%, hsl(var(--background)) 80%);
 }
 .recording-preview-stage {
 	max-width: 100%;
@@ -1413,9 +1414,10 @@
 	align-items: center;
 	justify-content: center;
 	box-shadow:
-		0 16px 40px rgba(0, 0, 0, 0.55),
-		0 2px 8px rgba(0, 0, 0, 0.4);
-	border-radius: 6px;
+		0 20px 48px rgba(0, 0, 0, 0.65),
+		0 2px 10px rgba(0, 0, 0, 0.4);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 8px;
 	overflow: hidden;
 	background: hsl(var(--background));
 	position: relative;
@@ -1431,18 +1433,18 @@
 	max-width: 100%;
 	max-height: 100%;
 	box-shadow:
-		0 16px 40px rgba(0, 0, 0, 0.55),
-		0 2px 8px rgba(0, 0, 0, 0.4);
-	border-radius: 4px;
+		0 20px 48px rgba(0, 0, 0, 0.65),
+		0 2px 10px rgba(0, 0, 0, 0.4);
+	border-radius: 6px;
 	overflow: hidden;
 }
 .recording-editor-transport {
-	height: 44px;
+	height: 48px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: 0 12px;
-	background: hsl(var(--background));
+	padding: 0 14px;
+	background: hsl(var(--editor-panel));
 	border-top: 1px solid var(--line);
 	flex-shrink: 0;
 }
@@ -1450,45 +1452,47 @@
 .recording-transport-left {
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	gap: 8px;
 }
 .recording-step-button {
-	width: 26px;
-	height: 26px;
+	width: 28px;
+	height: 28px;
 	padding: 0;
-	border-radius: 4px;
+	border-radius: 6px;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	background: transparent;
+	background: hsl(var(--editor-surface));
 	color: hsl(var(--muted-foreground));
-	border: 1px solid transparent;
+	border: 1px solid var(--line);
 	cursor: pointer;
 	transition: all 0.15s ease;
 }
 .recording-step-button:hover {
-	background: hsl(var(--editor-surface));
+	background: hsl(var(--editor-surface-alt));
 	color: hsl(var(--foreground));
-	border-color: hsl(var(--border));
+	border-color: rgba(111, 168, 255, 0.3);
 }
 .recording-play-button {
-	width: 30px;
-	height: 30px;
+	width: 34px;
+	height: 34px;
 	padding: 0;
 	border-radius: 50%;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	background: #e8e8ea;
-	color: hsl(var(--primary-foreground));
+	background: #ffffff;
+	color: #0b0d13;
 	border: none;
 	cursor: pointer;
 	transition: all 0.15s ease;
 	flex-shrink: 0;
+	box-shadow: 0 0 14px rgba(255, 255, 255, 0.25);
 }
 .recording-play-button:hover {
 	background: #ffffff;
-	transform: scale(1.04);
+	transform: scale(1.06);
+	box-shadow: 0 0 20px rgba(255, 255, 255, 0.45);
 }
 .recording-timecode {
 	display: flex;
@@ -1498,17 +1502,18 @@
 	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 	font-variant-numeric: tabular-nums;
 	margin-left: 6px;
-	padding: 3px 8px;
-	background: hsl(var(--background));
-	border: 1px solid hsl(var(--border));
-	border-radius: 4px;
+	padding: 4px 9px;
+	background: hsl(var(--editor-surface));
+	border: 1px solid var(--line);
+	border-radius: 6px;
 }
 .recording-time-current {
 	color: hsl(var(--foreground));
 	font-weight: 600;
 }
 .recording-time-sep {
-	color: hsl(var(--primary-foreground));
+	color: hsl(var(--muted-foreground));
+	opacity: 0.6;
 }
 .recording-time-total {
 	color: hsl(var(--muted-foreground));
@@ -1520,15 +1525,16 @@
 	display: flex;
 	flex-direction: column;
 	border: none;
+	border-left: 1px solid var(--line);
 	border-radius: 0;
-	background: hsl(var(--background));
+	background: hsl(var(--editor-panel));
 }
 .recording-section-tabs {
 	display: flex;
 	align-items: center;
 	gap: 3px;
-	padding: 7px 8px;
-	background: hsl(var(--editor-panel));
+	padding: 6px 8px;
+	background: hsl(var(--editor-surface));
 	border-bottom: 1px solid var(--line);
 	flex-shrink: 0;
 	overflow-x: auto;
@@ -1542,7 +1548,7 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 5px;
-	padding: 5px 8px;
+	padding: 5px 9px;
 	border-radius: 5px;
 	font-size: 11px;
 	font-weight: 500;
@@ -1560,10 +1566,11 @@
 }
 .recording-section-tab-btn.active,
 .recording-section-tab-btn[aria-pressed="true"] {
-	background: rgba(111, 168, 255, 0.14);
+	background: hsl(var(--editor-panel));
 	color: var(--captr-blue);
-	border-color: rgba(111, 168, 255, 0.3);
+	border-color: rgba(111, 168, 255, 0.35);
 	font-weight: 600;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 .recording-settings-scroll {
 	flex: 1;
@@ -1604,6 +1611,7 @@
 	gap: 8px;
 	padding: 12px 14px;
 	color: hsl(var(--foreground));
+	background: hsl(var(--editor-surface));
 	border-bottom: 1px solid var(--line);
 	font-size: 11px;
 }
@@ -1619,6 +1627,7 @@
 }
 .recording-motion-control input[type="range"] {
 	flex: 1;
+	accent-color: var(--captr-blue);
 }
 .recording-composition-editor > .relative {
 	max-height: 240px;
@@ -1634,7 +1643,7 @@
 	border-top: 1px solid var(--line);
 	border-radius: 0;
 	margin: 0;
-	background: hsl(var(--background));
+	background: hsl(var(--editor-panel));
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
@@ -1651,8 +1660,8 @@
 	align-items: center;
 	justify-content: space-between;
 	padding: 0 10px;
-	background: hsl(var(--background));
-	border-bottom: 1px solid hsl(var(--border));
+	background: hsl(var(--editor-surface));
+	border-bottom: 1px solid var(--line);
 	user-select: none;
 	z-index: 2;
 }
@@ -1670,21 +1679,21 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 5px;
-	height: 24px;
-	padding: 0 7px;
+	height: 25px;
+	padding: 0 8px;
 	font-size: 11px;
 	font-weight: 500;
-	color: hsl(var(--muted-foreground));
+	color: hsl(var(--foreground));
 	background: hsl(var(--editor-panel));
-	border: 1px solid hsl(var(--border));
+	border: 1px solid var(--line);
 	border-radius: 4px;
 	cursor: pointer;
 	white-space: nowrap;
 	transition: all 0.15s ease;
 }
 .recording-tb-btn:hover {
-	background: hsl(var(--editor-surface));
-	border-color: hsl(var(--border));
+	background: hsl(var(--editor-surface-alt));
+	border-color: rgba(111, 168, 255, 0.35);
 	color: hsl(var(--foreground));
 }
 .recording-tb-btn-cut {
@@ -1701,16 +1710,17 @@
 	font-size: 9px;
 	font-weight: 600;
 	font-family: inherit;
-	background: rgba(255, 255, 255, 0.08);
+	background: hsl(var(--editor-surface));
 	color: hsl(var(--muted-foreground));
+	border: 1px solid var(--line);
 	border-radius: 3px;
 	padding: 1px 4px;
 	line-height: 1;
 }
 .recording-tb-separator {
 	width: 1px;
-	height: 14px;
-	background: hsl(var(--editor-surface));
+	height: 16px;
+	background: var(--line);
 	margin: 0 3px;
 }
 .recording-speed-wrapper {
@@ -1718,24 +1728,23 @@
 	display: inline-flex;
 }
 .recording-speed-select {
-	height: 24px;
-	padding: 0 6px;
+	height: 25px;
+	padding: 0 7px;
 	font-size: 11px;
 	background: hsl(var(--editor-panel));
-	border: 1px solid hsl(var(--border));
-	color: hsl(var(--muted-foreground));
+	border: 1px solid var(--line);
+	color: hsl(var(--foreground));
 	border-radius: 4px;
 	cursor: pointer;
 	outline: none;
 	transition: all 0.15s ease;
 }
 .recording-speed-select:hover {
-	background: hsl(var(--editor-surface));
-	border-color: hsl(var(--border));
-	color: hsl(var(--foreground));
+	background: hsl(var(--editor-surface-alt));
+	border-color: rgba(111, 168, 255, 0.3);
 }
 .recording-speed-select:focus {
-	border-color: var(--project-accent);
+	border-color: var(--captr-blue);
 }
 .recording-tb-hint {
 	font-size: 10px;
@@ -1748,7 +1757,7 @@
 	font-size: 9px;
 	font-family: inherit;
 	background: hsl(var(--editor-panel));
-	border: 1px solid hsl(var(--border));
+	border: 1px solid var(--line);
 	color: hsl(var(--muted-foreground));
 	padding: 1px 4px;
 	border-radius: 3px;
@@ -1763,8 +1772,58 @@
 	color: hsl(var(--muted-foreground));
 	font-size: 10px;
 	flex-shrink: 0;
-	background: hsl(var(--background));
-	border-top: 1px solid hsl(var(--border));
+	background: hsl(var(--editor-panel));
+	border-top: 1px solid var(--line);
+}
+
+/* Dedicated Recording Frame Appearance styles */
+.recording-frame-appearance {
+	padding: 2px;
+}
+.recording-frame-appearance input[type="text"],
+.recording-frame-appearance input[type="number"],
+.recording-frame-appearance select {
+	background: hsl(var(--editor-surface));
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	color: hsl(var(--foreground));
+	font-size: 11px;
+	padding: 5px 8px;
+	transition: all 0.15s ease;
+	outline: none;
+}
+.recording-frame-appearance input[type="text"]:focus,
+.recording-frame-appearance input[type="number"]:focus,
+.recording-frame-appearance select:focus {
+	border-color: var(--captr-blue);
+	box-shadow: 0 0 0 1px rgba(111, 168, 255, 0.25);
+}
+.recording-frame-appearance button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: hsl(var(--editor-surface));
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	color: hsl(var(--foreground));
+	font-size: 11px;
+	font-weight: 500;
+	padding: 6px 10px;
+	cursor: pointer;
+	transition: all 0.15s ease;
+	line-height: 1.2;
+}
+.recording-frame-appearance button:hover:not(:disabled) {
+	background: hsl(var(--editor-surface-alt));
+	border-color: rgba(111, 168, 255, 0.35);
+	color: hsl(var(--foreground));
+}
+.recording-frame-appearance button:disabled {
+	opacity: 0.35;
+	cursor: not-allowed;
+}
+.recording-frame-appearance input[type="range"] {
+	accent-color: var(--captr-blue);
 }
 @media (max-width: 1150px) {
 	.project-workspace {
