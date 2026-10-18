@@ -1,4 +1,5 @@
 import {
+	Cpu as CpuIcon,
 	Desktop as DesktopIcon,
 	Folder as FolderIcon,
 	FolderOpen as FolderOpenIcon,
@@ -22,11 +23,14 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useI18n } from "@/contexts/I18nContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import type { GlobalAiSettings } from "@/core/timeline/aiTypes";
 import type { AppLocale } from "@/i18n/config";
 import { SUPPORTED_LOCALES } from "@/i18n/config";
+import { getGlobalAiSettings, saveGlobalAiSettings } from "@/lib/appSettings";
 
 const LOCALE_LABELS: Record<string, string> = {
 	en: "English",
@@ -60,13 +64,23 @@ export function AppSettingsDialog({
 	const [projectsDir, setProjectsDir] = useState<string>("");
 	const [recordingsDir, setRecordingsDir] = useState<string>("");
 	const [activeTab, setActiveTab] = useState(defaultTab);
+	const [aiSettings, setAiSettings] = useState<GlobalAiSettings>(getGlobalAiSettings);
 
 	useEffect(() => {
 		if (open) {
 			setActiveTab(defaultTab);
 			void loadDirectories();
+			setAiSettings(getGlobalAiSettings());
 		}
 	}, [open, defaultTab]);
+
+	const handleAiSettingChange = <K extends keyof GlobalAiSettings>(
+		key: K,
+		value: GlobalAiSettings[K],
+	) => {
+		const updated = saveGlobalAiSettings({ [key]: value });
+		setAiSettings(updated);
+	};
 
 	const loadDirectories = async () => {
 		try {
@@ -161,6 +175,13 @@ export function AppSettingsDialog({
 								{t("settings.shortcuts", "Shortcuts")}
 							</TabsTrigger>
 							<TabsTrigger
+								value="ai"
+								className="data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-1 py-2 text-xs font-semibold gap-2 border-b-2 border-transparent transition-all"
+							>
+								<CpuIcon className="w-4 h-4" />
+								{t("settings.ai", "AI Harness & Models")}
+							</TabsTrigger>
+							<TabsTrigger
 								value="terminal"
 								className="data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-1 py-2 text-xs font-semibold gap-2 border-b-2 border-transparent transition-all"
 							>
@@ -177,7 +198,9 @@ export function AppSettingsDialog({
 						</TabsList>
 					</div>
 
-					<div className={`p-6 ${activeTab === "terminal" ? "p-4 max-h-[600px]" : "max-h-[480px]"} overflow-y-auto`}>
+					<div
+						className={`p-6 ${activeTab === "terminal" ? "p-4 max-h-[600px]" : "max-h-[480px]"} overflow-y-auto`}
+					>
 						{/* GENERAL TAB */}
 						<TabsContent value="general" className="mt-0 space-y-6">
 							<div>
@@ -436,6 +459,244 @@ export function AppSettingsDialog({
 									<kbd className="px-2 py-0.5 rounded bg-foreground/10 text-[11px] font-mono font-semibold">
 										Ctrl + E
 									</kbd>
+								</div>
+							</div>
+						</TabsContent>
+
+						{/* AI HARNESS & MODELS TAB */}
+						<TabsContent value="ai" className="mt-0 space-y-6">
+							<div>
+								<h3 className="text-sm font-semibold text-foreground mb-1">
+									{t("settings.aiHarnessTitle", "AI Harness & Orchestration")}
+								</h3>
+								<p className="text-xs text-muted-foreground mb-4">
+									{t(
+										"settings.aiHarnessDesc",
+										"Configure the local CLI runner, model parameters, and speculative preview.",
+									)}
+								</p>
+
+								<div className="space-y-4">
+									{/* Preferred Runner */}
+									<div>
+										<label
+											htmlFor="ai-preferred-runner"
+											className="block text-xs font-medium text-foreground mb-1.5"
+										>
+											{t("settings.aiRunner", "Preferred Runner")}
+										</label>
+										<select
+											id="ai-preferred-runner"
+											name="preferredRunner"
+											value={aiSettings.preferredRunner}
+											onChange={(e) =>
+												handleAiSettingChange(
+													"preferredRunner",
+													e.target
+														.value as GlobalAiSettings["preferredRunner"],
+												)
+											}
+											className="w-full h-9 px-3 rounded-lg border border-foreground/15 bg-background text-foreground text-xs font-medium outline-none focus:border-primary transition-colors cursor-pointer"
+										>
+											<option
+												value="agy"
+												className="bg-editor-dialog text-foreground"
+											>
+												Antigravity CLI (Default)
+											</option>
+											<option
+												value="opencode"
+												className="bg-editor-dialog text-foreground"
+											>
+												OpenCode Interpreter
+											</option>
+											<option
+												value="hermes"
+												className="bg-editor-dialog text-foreground"
+											>
+												Hermes Agent
+											</option>
+											<option
+												value="cursor"
+												className="bg-editor-dialog text-foreground"
+											>
+												Cursor CLI
+											</option>
+											<option
+												value="custom"
+												className="bg-editor-dialog text-foreground"
+											>
+												Custom CLI / Binary
+											</option>
+										</select>
+										<p className="text-[11px] text-muted-foreground mt-1">
+											{t(
+												"settings.aiRunnerDesc",
+												"The harness executable invoked for multimodal timeline edits.",
+											)}
+										</p>
+									</div>
+
+									{/* Custom CLI Path (Visible when runner is 'custom') */}
+									{aiSettings.preferredRunner === "custom" && (
+										<div>
+											<label
+												htmlFor="ai-custom-runner-path"
+												className="block text-xs font-medium text-foreground mb-1.5"
+											>
+												{t(
+													"settings.aiCustomRunnerPath",
+													"Custom CLI Executable Path",
+												)}
+											</label>
+											<input
+												id="ai-custom-runner-path"
+												type="text"
+												name="customRunnerPath"
+												value={aiSettings.customRunnerPath ?? ""}
+												onChange={(e) =>
+													handleAiSettingChange(
+														"customRunnerPath",
+														e.target.value,
+													)
+												}
+												placeholder="C:\tools\agent.exe or /usr/local/bin/agent"
+												className="w-full h-9 px-3 rounded-lg border border-foreground/15 bg-foreground/[0.03] text-foreground text-xs font-mono outline-none focus:border-primary transition-colors"
+											/>
+											<p className="text-[11px] text-muted-foreground mt-1">
+												{t(
+													"settings.aiCustomRunnerPathDesc",
+													"Absolute filesystem path to the agent binary.",
+												)}
+											</p>
+										</div>
+									)}
+
+									{/* Default Model */}
+									<div>
+										<label
+											htmlFor="ai-default-model"
+											className="block text-xs font-medium text-foreground mb-1.5"
+										>
+											{t("settings.aiDefaultModel", "Default Model")}
+										</label>
+										<input
+											id="ai-default-model"
+											type="text"
+											name="defaultModel"
+											value={aiSettings.defaultModel}
+											onChange={(e) =>
+												handleAiSettingChange(
+													"defaultModel",
+													e.target.value,
+												)
+											}
+											placeholder="gemini-1.5-pro"
+											className="w-full h-9 px-3 rounded-lg border border-foreground/15 bg-foreground/[0.03] text-foreground text-xs font-mono outline-none focus:border-primary transition-colors"
+										/>
+										<p className="text-[11px] text-muted-foreground mt-1">
+											{t(
+												"settings.aiDefaultModelDesc",
+												"Model identifier passed to the runner (e.g. gemini-1.5-pro, claude-3-5-sonnet, gpt-4o).",
+											)}
+										</p>
+									</div>
+
+									{/* MCP Server Port */}
+									<div>
+										<label
+											htmlFor="ai-mcp-port"
+											className="block text-xs font-medium text-foreground mb-1.5"
+										>
+											{t("settings.aiMcpPort", "MCP Server Port")}
+										</label>
+										<input
+											id="ai-mcp-port"
+											type="number"
+											name="mcpServerPort"
+											min={1024}
+											max={65535}
+											value={aiSettings.mcpServerPort}
+											onChange={(e) =>
+												handleAiSettingChange(
+													"mcpServerPort",
+													parseInt(e.target.value, 10) || 4040,
+												)
+											}
+											className="w-40 h-9 px-3 rounded-lg border border-foreground/15 bg-foreground/[0.03] text-foreground text-xs font-mono outline-none focus:border-primary transition-colors"
+										/>
+										<p className="text-[11px] text-muted-foreground mt-1">
+											{t(
+												"settings.aiMcpPortDesc",
+												"Local WebSocket/HTTP port for Model Context Protocol communication (default 4040).",
+											)}
+										</p>
+									</div>
+
+									{/* Toggle Options: Ghost Preview & Auto-MCP Server */}
+									<div className="pt-2 border-t border-foreground/5 space-y-3">
+										<div className="flex items-center justify-between">
+											<div>
+												<label
+													htmlFor="ai-ghost-preview"
+													className="text-xs font-medium text-foreground block cursor-pointer"
+												>
+													{t(
+														"settings.aiGhostPreview",
+														"Speculative Ghost Preview",
+													)}
+												</label>
+												<p className="text-[11px] text-muted-foreground">
+													{t(
+														"settings.aiGhostPreviewDesc",
+														"Render tentative AI modifications as non-destructive ghost clips before accepting.",
+													)}
+												</p>
+											</div>
+											<Switch
+												id="ai-ghost-preview"
+												name="enableGhostPreview"
+												checked={aiSettings.enableGhostPreview}
+												onCheckedChange={(checked) =>
+													handleAiSettingChange(
+														"enableGhostPreview",
+														checked,
+													)
+												}
+											/>
+										</div>
+
+										<div className="flex items-center justify-between">
+											<div>
+												<label
+													htmlFor="ai-auto-mcp"
+													className="text-xs font-medium text-foreground block cursor-pointer"
+												>
+													{t(
+														"settings.aiAutoMcp",
+														"Auto-start MCP Server",
+													)}
+												</label>
+												<p className="text-[11px] text-muted-foreground">
+													{t(
+														"settings.aiAutoMcpDesc",
+														"Automatically launch the background MCP daemon when Captr Studio starts.",
+													)}
+												</p>
+											</div>
+											<Switch
+												id="ai-auto-mcp"
+												name="enableAutoMcpServer"
+												checked={aiSettings.enableAutoMcpServer}
+												onCheckedChange={(checked) =>
+													handleAiSettingChange(
+														"enableAutoMcpServer",
+														checked,
+													)
+												}
+											/>
+										</div>
+									</div>
 								</div>
 							</div>
 						</TabsContent>
