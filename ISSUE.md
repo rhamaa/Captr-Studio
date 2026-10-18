@@ -1,5 +1,16 @@
 # Issue Log & Regression Checklist
 
+## AI Custom Harness & Context Synchronization — 18 Oktober 2026
+
+- **Verifikasi akhir:** Seluruh **74 tes AI & Editor** lulus 100% di 7 test suite, `npx tsc --noEmit` exit code 0 tanpa type error, dan `npx graft build` terindeks bersih (5.517 nodes, 13.860 edges).
+- **Arsitektur Lean & Non-Redundant:** Engine AI Captr Studio hanya membaca konfigurasi konteks dari project `.captr` dan memutasi metadata project di memori via `ProjectController.execute` tanpa memanipulasi file media atau membuat proxy sintetis redundant.
+- **Surface Awareness Real-Time:** `activeSurfaceState` di MCP server dan UI mengenali context editing aktif secara presisi (`story-editor`, `record-editor`, `caption-editor`, `artboard`, `voiceover`, atau `home`).
+- **Graceful Closed-Project MCP Handling:** `get_project_context` pada MCP mengembalikan response valid `{ isProjectOpen: false, activeView: "home", availableActions: [...] }` saat project belum dibuka tanpa melempar exception.
+- **Native Custom Harness UI:**
+  - Floating Spotlight Command Bar (`Ctrl+K` atau tombol AI di top bar navbar) dengan active surface badge dan action pills kontekstual adaptif (`Auto-Zoom to Clicks`, `Style: Brutalism`, `Remove Silence`, `Fix Typos`, `Repurpose 9:16 Shorts`).
+  - Speculative Ghost Preview Drawer di pojok kanan bawah yang menampilkan ringkasan diff (klip ditambah/dihapus/diubah) dengan aksi *Accept Changes (`Enter`)* dan *Discard (`Esc`)*.
+- **Hierarchical Settings:** Tab preferensi global `AI Harness & Models` di `AppSettingsDialog` (pilihan runner: `agy`, `opencode`, `hermes`, `cursor`, `custom`, model default, MCP port, custom CLI path, ghost preview toggle) dan override per-project di `.captr` via `aiConfig`.
+
 ## Story Editor finishing — 17 Oktober 2026
 
 - **Verifikasi akhir:** seluruh **1.657 tes di 236 file lulus**, TypeScript exit 0, diff whitespace bersih dan graft berhasil dibangun. Run sandbox sebelumnya 1.638/1.657 dengan 19 kegagalan terkait loopback/hardlink/junction; suite yang sama di luar sandbox lulus utuh. Ini verifikasi otomatis, bukan QA perangkat native.

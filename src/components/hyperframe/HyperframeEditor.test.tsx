@@ -282,6 +282,7 @@ describe("HyperframeEditor", () => {
 				project: mockProject,
 				onUpdate: vi.fn(),
 				onClose: vi.fn(),
+				enableAIAgent: false,
 			}),
 		);
 
