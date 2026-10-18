@@ -1186,20 +1186,22 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				</details>
 				<span className="project-toolbar-separator" />
 				<button
+					className="project-header-icon-button"
 					aria-label="Undo"
 					title="Undo (Ctrl+Z)"
 					disabled={!state.canUndo}
 					onClick={() => controller.undo()}
 				>
-					<ArrowCounterClockwise size={17} />
+					<ArrowCounterClockwise size={16} />
 				</button>
 				<button
+					className="project-header-icon-button"
 					aria-label="Redo"
 					title="Redo (Ctrl+Shift+Z)"
 					disabled={!state.canRedo}
 					onClick={() => controller.redo()}
 				>
-					<ArrowClockwise size={17} />
+					<ArrowClockwise size={16} />
 				</button>
 				<button
 					className="project-title"
@@ -1250,7 +1252,10 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					Export
 				</button>
 				{exportProgress !== null && (
-					<button onClick={() => exportAbort.current?.abort()}>
+					<button
+						className="project-export-cancel-button"
+						onClick={() => exportAbort.current?.abort()}
+					>
 						Cancel {Math.round(exportProgress)}%
 					</button>
 				)}
@@ -1272,7 +1277,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 							setActiveArtboardId(null);
 						})}
 					>
-						<SquaresFour size={16} weight="bold" />
+						<SquaresFour size={15} weight="bold" />
 						Artboards
 					</button>
 				)}
@@ -1283,7 +1288,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 					}
 					onClick={() => void startRecord()}
 				>
-					<VideoCamera size={17} />
+					<VideoCamera size={16} />
 					{m("record")}
 				</button>
 				{FEATURE_AI_ENABLED && (
@@ -1297,24 +1302,26 @@ export function ProjectEditor(props: ProjectEditorProps) {
 							setAiCommandBarOpen((v) => !v);
 						}}
 					>
-						<Sparkle size={15} weight="fill" />
+						<Sparkle size={14} weight="fill" />
 						<span>AI Editor</span>
 					</button>
 				)}
 				<button
+					className="project-header-icon-button"
 					aria-label="Save project"
 					title="Save project (Ctrl+S)"
 					disabled={state.saving}
 					onClick={() => void save()}
 				>
-					<FloppyDisk size={18} />
+					<FloppyDisk size={16} />
 				</button>
 				<button
+					className="project-header-icon-button"
 					aria-label="Keyboard shortcuts"
 					title="Keyboard shortcuts (? / Ctrl+/)"
 					onClick={() => openConfig()}
 				>
-					<Keyboard size={18} />
+					<Keyboard size={16} />
 				</button>
 				{window.electronAPI && (
 					<div className="project-window-controls">
@@ -1322,19 +1329,19 @@ export function ProjectEditor(props: ProjectEditorProps) {
 							aria-label="Minimize window"
 							onClick={() => void window.electronAPI.minimizeWindow()}
 						>
-							<Minus size={17} />
+							<Minus size={15} />
 						</button>
 						<button
 							aria-label="Maximize window"
 							onClick={() => void window.electronAPI.maximizeWindow()}
 						>
-							<Square size={15} />
+							<Square size={13} />
 						</button>
 						<button
 							aria-label="Close window"
 							onClick={() => void window.electronAPI.closeWindow()}
 						>
-							<X size={17} />
+							<X size={15} />
 						</button>
 					</div>
 				)}
