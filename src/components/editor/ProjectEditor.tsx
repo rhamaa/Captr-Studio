@@ -57,6 +57,18 @@ import { type ProjectController, useProjectController } from "./useProjectContro
 import { useProjectMessages } from "./useProjectMessages";
 import { useRecordingAssets } from "./useRecordingAssets";
 import { FEATURE_AI_ENABLED } from "@/core/featureFlags";
+import { AiCommandBar } from "./AiCommandBar";
+import { AiSpeculativeDrawer } from "./AiSpeculativeDrawer";
+import type { ActiveSurface } from "@/core/timeline/aiTypes";
+import {
+	applyAppearancePreset,
+	applyAutoZoomToClicks,
+	applyRemoveSilence,
+	applySetFrameAppearance,
+	applySplitClip,
+	summarizeProjectDiff,
+} from "@/core/timeline/agentTools";
+import { getGlobalAiSettings } from "@/lib/appSettings";
 import "./projectEditor.css";
 import type { RecordingSessionData } from "../../../electron/ipc/types";
 import { AudioRecorderDialog } from "./AudioRecorderDialog";
@@ -160,6 +172,9 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	} | null>(null);
 	const [editPlan, setEditPlan] = useState<EditPlan | null>(null);
 	const [transcripts, setTranscripts] = useState<Record<string, AssetTranscript>>({});
+	const [aiCommandBarOpen, setAiCommandBarOpen] = useState(false);
+	const [aiExecutingAction, setAiExecutingAction] = useState(false);
+	const [aiCommandError, setAiCommandError] = useState<string | null>(null);
 	const scope = useMemo(
 		() =>
 			activeArtboardId
@@ -901,6 +916,197 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				(c) => c.id === editedClip?.compositionId,
 			) ?? state.project.compositions.find((c) => c.id === editedClip?.compositionId),
 		pkg = state.project.packages.find((p) => p.id === composition?.packageId);
+
+	const activeSurface = useMemo<ActiveSurface>(() => {
+		if (editingClipId && composition && pkg) {
+			return {
+				kind: "record-editor",
+				recordingAssetId: editedClip?.assetId ?? "",
+				packageId: pkg.id,
+				activeTab: "appearance",
+				currentAppearancePreset: "default",
+				outwardBorderWidth: composition.settings?.windowAppearance?.borderWidth ?? 0,
+			};
+		}
+		if (activeArtboardId && activeArtboard) {
+			const ratio = activeArtboard.aspectRatio;
+			const aspectRatio: "16:9" | "9:16" | "1:1" | "4:5" =
+				ratio === "9:16" || ratio === "1:1" || ratio === "4:5" ? ratio : "16:9";
+			return {
+				kind: "artboard-canvas",
+				artboardId: activeArtboardId,
+				aspectRatio,
+			};
+		}
+		return {
+			kind: "story-editor",
+			selectedClipIds: state.selection ?? [],
+			playheadUs: state.playheadUs,
+			zoomScale: scale,
+		};
+	}, [
+		editingClipId,
+		composition,
+		pkg,
+		editedClip?.assetId,
+		activeArtboardId,
+		activeArtboard,
+		state.selection,
+		state.playheadUs,
+		scale,
+	]);
+
+	// Sync active surface to local MCP server
+	useEffect(() => {
+		if (!window.electronAPI?.syncActiveSurface) return;
+		void window.electronAPI.syncActiveSurface(activeSurface);
+	}, [activeSurface]);
+
+	// Global hotkey Ctrl+K / Cmd+K to toggle AI Command Bar
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+				e.preventDefault();
+				setAiCommandBarOpen((open) => !open);
+			}
+		};
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, []);
+
+	const handleExecuteAiAction = async (toolName: string, actionId?: string) => {
+		setAiExecutingAction(true);
+		setAiCommandError(null);
+		try {
+			if (activeSurface.kind === "record-editor" && composition) {
+				if (actionId === "frame-appearance-brutalism") {
+					const updated = applyAppearancePreset(activeProject, composition.id, "brutalism");
+					const diff = summarizeProjectDiff(activeProject, updated);
+					setSpeculativeDraft({ project: updated, diff, context: editContext });
+					setAiCommandBarOpen(false);
+					return;
+				}
+				if (actionId === "frame-appearance-glass") {
+					const updated = applyAppearancePreset(activeProject, composition.id, "glassmorphism");
+					const diff = summarizeProjectDiff(activeProject, updated);
+					setSpeculativeDraft({ project: updated, diff, context: editContext });
+					setAiCommandBarOpen(false);
+					return;
+				}
+				if (actionId === "frame-border-outward") {
+					const currentBorder = composition.settings?.windowAppearance?.borderWidth ?? 0;
+					const updated = applySetFrameAppearance(activeProject, composition.id, "window", {
+						borderWidth: currentBorder + 4,
+					});
+					const diff = summarizeProjectDiff(activeProject, updated);
+					setSpeculativeDraft({ project: updated, diff, context: editContext });
+					setAiCommandBarOpen(false);
+					return;
+				}
+				if (actionId === "auto-zoom-clicks" && editedClip) {
+					const clicks: number[] =
+						(pkg?.diagnostics as any)?.cursorClickTimestampsUs ?? [1_000_000, 3_000_000];
+					const updated = applyAutoZoomToClicks(activeProject, editedClip.id, clicks, {
+						zoomScale: 1.35,
+					});
+					const diff = summarizeProjectDiff(activeProject, updated);
+					setSpeculativeDraft({ project: updated, diff, context: editContext });
+					setAiCommandBarOpen(false);
+					return;
+				}
+			}
+
+			if (toolName === "remove_silence") {
+				const res = applyRemoveSilence(activeProject, transcripts, { minDurationMs: 800 });
+				const diff = summarizeProjectDiff(activeProject, res.project);
+				setSpeculativeDraft({ project: res.project, diff, context: editContext });
+				setAiCommandBarOpen(false);
+				return;
+			}
+
+			if (toolName === "split_clip") {
+				const targetClip = activeProject.tracks
+					.flatMap((t) => t.clips)
+					.find(
+						(c) =>
+							state.playheadUs >= c.startUs &&
+							state.playheadUs <= c.startUs + clipDurationUs(c),
+					);
+				if (!targetClip) {
+					setAiCommandError("Move playhead over a clip to split");
+					return;
+				}
+				const res = applySplitClip(activeProject, targetClip.id, state.playheadUs);
+				const diff = summarizeProjectDiff(activeProject, res.project);
+				setSpeculativeDraft({ project: res.project, diff, context: editContext });
+				setAiCommandBarOpen(false);
+				return;
+			}
+
+			// If CLI runner is available, trigger agent task
+			if (window.electronAPI?.runAgentTask) {
+				const settings = getGlobalAiSettings();
+				const res = await window.electronAPI.runAgentTask({
+					agentId: settings.preferredRunner || "agy",
+					customCommand: settings.customRunnerPath,
+					userPrompt: `Execute ${toolName} on current editing surface`,
+					project: activeProject,
+					transcripts,
+					editContext,
+				});
+				if (res.success && res.project && res.diff) {
+					setSpeculativeDraft({
+						project: res.project,
+						diff: res.diff,
+						context: res.context ?? editContext,
+					});
+					setAiCommandBarOpen(false);
+				} else if (!res.success) {
+					setAiCommandError(res.error || "Agent task failed");
+				}
+			}
+		} catch (err) {
+			setAiCommandError(err instanceof Error ? err.message : String(err));
+		} finally {
+			setAiExecutingAction(false);
+		}
+	};
+
+	const handleSubmitAiPrompt = async (promptText: string) => {
+		if (!promptText.trim()) return;
+		setAiExecutingAction(true);
+		setAiCommandError(null);
+		try {
+			if (window.electronAPI?.runAgentTask) {
+				const settings = getGlobalAiSettings();
+				const res = await window.electronAPI.runAgentTask({
+					agentId: settings.preferredRunner || "agy",
+					customCommand: settings.customRunnerPath,
+					userPrompt: promptText.trim(),
+					project: activeProject,
+					transcripts,
+					editContext,
+				});
+				if (res.success && res.project && res.diff) {
+					setSpeculativeDraft({
+						project: res.project,
+						diff: res.diff,
+						context: res.context ?? editContext,
+					});
+					setAiCommandBarOpen(false);
+				} else if (!res.success) {
+					setAiCommandError(res.error || "Agent task failed");
+				}
+			} else {
+				setAiCommandError("AI Agent runner is not available in this environment");
+			}
+		} catch (err) {
+			setAiCommandError(err instanceof Error ? err.message : String(err));
+		} finally {
+			setAiExecutingAction(false);
+		}
+	};
+
 	return (
 		<main
 			className="project-editor dark"
@@ -1080,12 +1286,12 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				{FEATURE_AI_ENABLED && (
 					<button
 						type="button"
-						className={`project-ai-assist-button ${copilotOpen ? "active" : ""}`}
-						aria-label="AI Editor Copilot"
-						title="Toggle AI Editor Copilot Sidebar (Claude, Antigravity, MCP)"
+						className={`project-ai-assist-button ${aiCommandBarOpen ? "active" : ""}`}
+						aria-label="AI Command Bar"
+						title="Toggle AI Command Bar (Ctrl+K)"
 						disabled={state.saving || state.navigationPending || busy}
 						onClick={() => {
-							setCopilotOpen((v) => !v);
+							setAiCommandBarOpen((v) => !v);
 						}}
 					>
 						<Sparkle size={15} weight="fill" />
@@ -1350,6 +1556,27 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						if (recording) beginAudioCapture();
 					}}
 					onClose={closeAudioRecorder}
+				/>
+			)}
+			{FEATURE_AI_ENABLED && (
+				<AiCommandBar
+					open={aiCommandBarOpen}
+					onClose={() => {
+						setAiCommandBarOpen(false);
+						setAiCommandError(null);
+					}}
+					activeSurface={activeSurface}
+					onExecuteAction={handleExecuteAiAction}
+					onSubmitPrompt={handleSubmitAiPrompt}
+					isProcessing={aiExecutingAction}
+					error={aiCommandError}
+				/>
+			)}
+			{speculativeDraft && (
+				<AiSpeculativeDrawer
+					diff={speculativeDraft.diff}
+					onApplyDraft={() => handleApplyDraft(speculativeDraft.project)}
+					onDiscardDraft={handleDiscardDraft}
 				/>
 			)}
 			<Toaster />
