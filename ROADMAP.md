@@ -18,6 +18,7 @@ Dokumen ini memetakan visi, arsitektur, dan tahapan pengembangan **Captr Studio*
 | 10 Oktober 2026 | Audit gap Story Editor: subtitle final/export, waveform nyata, filmstrip, workflow clip, audio finishing, compositing, color, keyframe graph, retiming, dan proxy. | Audit berbasis kode; belum QA interaksi native. |
 | 10 Oktober 2026 | Kontrak Artboard → Story → placement Record → Record Editor; Assets global hanya untuk source media reusable, desain lokal dimiliki Story. | Diimplementasikan; automated evidence dan native gap di issue #12. |
 | 17 Oktober 2026 | Stabilisasi, caption final/burn-in, waveform nyata/filmstrip, clipboard/group/link/detach/fade, crop/mask/grading/Bezier. | Implementasi unreleased; pengujian otomatis dan QA native dibedakan di laporan verifikasi. |
+| 18 Oktober 2026 | AI Custom Harness (`Ctrl+K` Spotlight palette), Speculative Ghost Preview Drawer, deep surface awareness (6 editor contexts), pure metadata mutations via `ProjectController.execute`, hierarchical runner settings, dan closed-project graceful MCP handling. | Terimplementasi penuh dan terverifikasi di ISSUE.md (74/74 tes lulus). |
 
 **Urutan TODO pengembangan; tanpa estimasi tanggal selesai:**
 

@@ -1,30 +1,70 @@
-# AI Copilot dan agent CLI
+# AI Custom Harness dan Context-Aware Editing Engine
 
-Copilot membantu menyusun rencana dan draft editing menggunakan agent CLI yang tersedia di komputer pengguna. Sidebar dapat menampilkan context playhead, pilihan clip, Artboard aktif, log proses, dan draft timeline.
+Captr Studio menyediakan arsitektur integrasi AI yang dirancang khusus untuk alur kerja video editing: **Custom Harness UI** berbasis Spotlight (`Ctrl+K`), **Surface Awareness** yang mendalam, dan **MCP (Model Context Protocol) Server** lokal untuk runner eksternal.
 
-## Workflow editing
+Seluruh operasi AI bekerja dengan prinsip **arsitektur non-redundant**: AI membaca konfigurasi konteks dari file `.captr`, lalu mengubah metadata project di memori via `ProjectController.execute` secara atomik dan memiliki riwayat *undo/redo*, tanpa memanipulasi file media asli atau merender proxy video sintetis.
 
-1. Pilih Story dan agent yang terdeteksi oleh aplikasi.
-2. Beri instruksi; gunakan mention media bila diperlukan.
-3. Periksa plan atau speculative draft/ghost clips.
-4. Terima perubahan melalui command/history atau tolak draft.
-5. Batalkan proses bila perlu melalui kontrol runner.
+---
 
-Ada jalur sidebar/runner UI dan jalur external terminal melalui MCP. Dukungan CLI bergantung registry/deteksi lokal serta tool yang benar-benar terpasang; dokumentasi tidak mematok versi model milik provider luar.
+## 1. Antarmuka Pengguna: Custom Harness UI
 
-## Context yang dibawa
+### Floating Command Bar (`Ctrl+K` / `Cmd+K`)
+Command palette melayang bergaya Spotlight yang dapat dipanggil dari mana saja di dalam editor:
+- **Active Surface Badge:** Menampilkan lokasi kerja pengguna secara presisi (contoh: `Record Editor • Framing & Appearance`, `Story Timeline • 2 clips selected`, `Caption Editor`, atau `Artboard Canvas`).
+- **Contextual Action Pills:** Tombol aksi cepat cerdas yang beradaptasi secara dinamis dengan surface yang aktif:
+  - Di *Record Editor*: `Auto-Zoom to Clicks`, `Style: Brutalism`, `Style: Claymorphism`, `Style: Glassmorphism`, dsb.
+  - Di *Story Timeline*: `Remove Silence`, `Apply Dynamic Cuts`, dsb.
+  - Di *Caption Editor*: `Fix Typos & Timing`, `Generate Captions`, dsb.
+  - Di *Artboard Canvas*: `Repurpose 9:16 Shorts`, `Batch Layout`, dsb.
+- **Natural Language Input:** Pengguna dapat mengetikkan instruksi khusus dalam bahasa alami.
+- **Navigasi Keyboard Penuh:** Gunakan panah `↑`/`↓` untuk memilih pill, `Enter` untuk mengeksekusi, dan `Esc` untuk menutup.
 
-Context dapat mencakup sequence, source metadata, transcript, recording metadata, playhead, selection, Artboard, dan catatan whiteboard sesuai endpoint. Prompt/agent menerima data yang dilampirkan pada workflow tersebut; inferensi memakai konfigurasi CLI/provider pengguna.
+### Speculative Ghost Preview Drawer
+Ketika AI mengajukan draf rencana pengeditan:
+- Kotak melayang muncul di pojok kanan bawah menampilkan ringkasan perbedaan (jumlah klip ditambah, dihapus, atau diubah, serta perubahan durasi timeline).
+- Garis waktu merender **Ghost Clips** spekulatif sehingga pengguna dapat langsung meninjau hasil editing sebelum berkomitmen.
+- **Accept Changes (`Enter`):** Mengesahkan draf ke dalam project utama via satu transaksi undoable command.
+- **Discard (`Esc`):** Menolak draf dan mengembalikan kanvas ke state sebelumnya tanpa jejak.
 
-Setiap proposal editing Story membawa scope, projectId, generation, dan revision. Pergantian Story/project atau edit lebih baru dapat membuat proposal lama tidak valid. Reject stale context bersifat atomik; aplikasi tidak mencoba owner lain sebagai fallback.
+---
 
-## Ghost preview
+## 2. Surface Awareness Real-Time
 
-Ghost clips dan draft tracks menunjukkan perubahan sebelum commit. Accept memasukkan perubahan ke history root project dengan batas Story aktif. Reject menghapus rancangan tanpa mengubah canonical timeline.
+Aplikasi secara proaktif menyinkronkan state navigasi UI ke layer MCP dan core harness (`ActiveSurface`):
+1. **`record-editor`**: Mendeteksi asset recording aktif, tab aktif (`appearance`, `scene`, `cursor`, `layout`), dan konfigurasi framing.
+2. **`story-editor`**: Mendeteksi klip yang sedang dipilih, posisi playhead, dan trek timeline aktif.
+3. **`caption-editor`**: Mendeteksi segmen subtitle aktif dan kata-kata transkrip.
+4. **`artboard`**: Mendeteksi kanvas multi-aspek yang sedang difokuskan (16:9, 9:16, 1:1, 4:5).
+5. **`voiceover`**: Mendeteksi sesi perekaman suara dan trek audio narasi.
+6. **`home`**: Mendeteksi kondisi saat pengguna berada di layar depan / belum membuka project.
 
-Konfigurasi terminal adalah command tingkat project yang terpisah dari edit Story. Jalur scoped tidak boleh menyalin seluruh catalog global/private sibling dari draft secara bebas.
+---
 
-## Batas produk
+## 3. Integrasi CLI Runner & Terminal Eksternal
 
-Agent bukan bukti fitur finishing sudah tersedia. Permintaan speed curve, caption burn-in, atau masking harus mengikuti tool/model yang sudah diimplementasikan. Lihat [status fitur](../product/status.md) dan [MCP/context](../architecture/agent-mcp.md).
+Captr Studio memisahkan layer reasoning AI dari UI aplikasi:
+- **Terminal Runner:** Mengakses LLM/Agent menggunakan tool CLI pilihan pengguna di terminal lokal (`agy` / Antigravity, `opencode`, `hermes`, `cursor`, `claude`, atau custom CLI).
+- **Local MCP Server:** Menjalankan server MCP lokal pada port terkonfigurasi (default: `4040`).
+- **Graceful Closed-Project Handling:** Jika agent eksternal memanggil `get_project_context` saat project belum dibuka, MCP server merespons dengan JSON terstruktur `{ isProjectOpen: false, activeView: "home", availableActions: [...] }` tanpa crash.
+
+---
+
+## 4. Konfigurasi Hierarkis
+
+1. **Global App Preferences (`AppSettingsDialog` > AI Harness & Models):**
+   - **Preferred Runner:** Memilih runner utama (`agy`, `opencode`, `hermes`, `cursor`, `custom`).
+   - **Custom CLI Path:** Path absolut executable jika menggunakan runner kustom.
+   - **Default Model:** Model LLM default (misal: `gemini-1.5-pro`, `claude-3-5-sonnet`, `gpt-4o`).
+   - **MCP Server Port:** Port listener local MCP server.
+   - **Ghost Preview:** Toggle untuk mengaktifkan/menonaktifkan pratinjau spekulatif sebelum commit.
+2. **Project-Level Override (`project.json` di dalam `.captr`):**
+   - Konfigurasi `aiConfig` opsional di tingkat project untuk menentukan model override atau persona instruksi khusus project tersebut.
+
+---
+
+## 5. Batas Desain & Keamanan
+
+- Semua mutasi project harus mematuhi validasi V3 schema dan melewati `ProjectController.execute`.
+- AI tidak diperkenankan menghapus atau menimpa aset media mentah di direktori `assets/<assetId>/`.
+- Timeline preview dan proses export video MP4 mengevaluasi state project yang sama, menjamin hasil *What You See Is What You Get*.
 

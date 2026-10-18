@@ -23,7 +23,7 @@
 
 Captr Studio combines:
 1. **Dynamic Screen Experience**: Smooth spring-damper cursor physics, Catmull-Rom spline curves, interactive click ripples, automatic zoom suggestions, and 3D perspective tilt.
-2. **Autonomous AI Video Editor Assistant**: Direct CLI integration with local and cloud LLM agents (Antigravity `agy`, Claude Code, Cursor, Gemini CLI, Ollama, OpenCode, Aider) to intelligently layout projects, cut dead air, and craft B-Roll.
+2. **AI Custom Harness & Context-Aware Editing Engine**: Spotlight command palette (`Ctrl+K`), deep surface awareness across 6 editor views, and direct CLI bridge to local/cloud agents (Antigravity `agy`, OpenCode, Hermes, Cursor, Claude Code) with pure `.captr` metadata mutations and zero redundant media proxies.
 3. **Hyperframe Motion Graphics B-Roll Engine**: Programmatic HTML/CSS/Canvas kinetic typography, stat counters, animated quote callouts, and audio-reactive sound effect overlays.
 4. **Offline Speech-to-Text & Karaoke Subtitles**: Integrated `whisper.cpp` engine for privacy-preserving, high-accuracy subtitle generation with word-level highlight animations.
 5. **Multi-Artboard Repurpose Hub**: Inverted workspace to reframe, preview, and batch export 9:16 vertical shorts, 1:1 square feeds, 16:9 landscape videos, and 4:5 portrait posts from one unified timeline.
@@ -32,18 +32,13 @@ Captr Studio combines:
 
 ## ✨ Core Features & Capabilities
 
-### 🤖 1. Autonomous AI Video Editor Assistant
-- **Direct CLI Agent Bridge**: Bridge to your favorite coding and agent CLIs without API lock-in. Works natively with:
-  - **Antigravity CLI (`agy`)**: High-speed deep agentic workspace reasoning.
-  - **Claude Code (`claude`)**: Anthropic's flagship agent CLI.
-  - **Cursor CLI (`cursor`)**: Editor-integrated agent actions.
-  - **Gemini CLI (`gemini`)**: Google Gemini Pro reasoning.
-  - **Ollama (`ollama`)**: 100% private local open-weights LLMs.
-  - **OpenCode & Aider (`opencode`, `aider`)**: Open source pair programming CLIs.
-- **Context-Aware `@Asset` Tagging**: Type `@` in the prompt to seamlessly attach project assets with exact duration, resolution, transcript sidecars, and subtitle metadata into the agent's context.
-- **Two-Stage Execution Pipeline**: Agent generates structured action plans and motion script definitions before applying changes to the timeline.
-- **Headless Auto-Approve Flags**: Runs non-interactively with `--dangerously-skip-permissions` and `-y` for seamless automation.
-- **Live Terminal Console**: Real-time stdio streaming with color-coded execution logs and instant abort controls.
+### 🤖 1. AI Custom Harness & Context-Aware Editing Engine
+- **Floating Spotlight Command Palette (`Ctrl+K` / `Cmd+K`)**: Instant modal command bar with active surface badge and dynamic contextual action pills (`Auto-Zoom to Clicks`, `Style: Brutalism`, `Remove Silence`, `Fix Typos`, `Repurpose 9:16 Shorts`).
+- **Deep Surface Awareness**: Real-time context tracking across 6 distinct editing surfaces: Record Editor, Story Timeline, Caption Editor, Artboards, Voiceover, and Home.
+- **Speculative Ghost Preview Drawer**: Review proposed editing diffs directly on canvas and timeline before committing. Accept (`Enter`) or Discard (`Esc`) with one keystroke.
+- **Pure `.captr` Metadata Mutation Architecture**: AI operations mutate in-memory project configurations atomically through `ProjectController.execute` commands without touching raw media files or creating redundant proxy videos.
+- **Direct CLI Runner Bridge & Local MCP Server**: Connect your favorite terminal CLI runner (`agy`, `opencode`, `hermes`, `cursor`, `claude`) to Captr Studio via local Model Context Protocol (port `4040`). Gracefully handles closed-project state without crashes.
+- **Hierarchical AI Configuration**: Manage global defaults in Preferences (`AI Harness & Models`) with granular per-project `aiConfig` overrides stored directly in `.captr`.
 
 ### ⚡ 2. Hyperframe Motion Graphics B-Roll Engine
 - **Programmatic Motion Graphics**: Renders code-driven HTML5, CSS3, and Canvas visual graphics directly on top of video sequences.

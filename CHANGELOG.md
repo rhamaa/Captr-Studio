@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🚀 Highlights
+- **AI Custom Harness & Floating Command Bar (`Ctrl+K`)**: Re-architected Captr Studio's AI interaction layer into a sleek Spotlight command palette with deep real-time surface awareness, dynamic contextual action pills, and speculative ghost previews.
+- **Deep Surface-Aware Editing Engine**: Live synchronization across 6 editor surfaces (`record-editor`, `story-editor`, `caption-editor`, `artboard`, `voiceover`, and `home`). Contextual actions adapt automatically to the active view.
+- **Speculative Ghost Preview Drawer**: Non-destructive floating preview drawer displaying diff summaries with one-stroke *Accept Changes (`Enter`)* and *Discard (`Esc`)* shortcuts.
+- **Pure `.captr` Metadata Mutation Architecture**: AI operations mutate in-memory project configurations via `ProjectController.execute` commands without generating redundant synthetic video proxies or touching source media files.
+- **Hierarchical AI Configuration**: Global Preferences tab (`AI Harness & Models`) supporting multiple CLI runners (`agy`, `opencode`, `hermes`, `cursor`, `custom`) alongside backward-compatible per-project `aiConfig` overrides inside `.captr` files.
+- **Graceful Closed-Project MCP Handling**: External AI runners connecting via MCP can safely query project context at any time without exception crashes when no project is loaded.
+
+### Added
+- **AI Custom Harness UI (`AiCommandBar.tsx` & `AiSpeculativeDrawer.tsx`)**:
+  - Global `Ctrl+K` / `Cmd+K` hotkey and top bar AI button.
+  - Active surface badge identifying current context and selected assets/clips.
+  - Contextual action pills: `Auto-Zoom to Clicks`, `Style: Brutalism`, `Style: Claymorphism`, `Remove Silence`, `Fix Typos`, `Repurpose 9:16 Shorts`, and custom text prompts.
+  - Floating speculative diff drawer with clip addition/removal/modification counts and duration deltas.
+- **Record Editor Metadata Mutation Tools (`agentTools.ts` & `mcpServer.ts`)**:
+  - `set_frame_appearance`: direct window and webcam frame styling.
+  - `apply_appearance_preset`: one-click application of curated visual looks (Brutalism, Claymorphism, Glassmorphism, Retro Arcade, Clean Minimal, Modern Dark).
+  - `auto_zoom_to_clicks`: automatic generation of smooth cubic-Bezier scale keyframes around recorded mouse click coordinates.
+- **Global AI Preferences Tab (`AppSettingsDialog.tsx` & `appSettings.ts`)**:
+  - Form controls for Preferred Runner (`agy`, `opencode`, `hermes`, `cursor`, `custom`).
+  - Custom CLI executable path, default model selection, local MCP server port (default `4040`), and Ghost Preview toggle.
+  - Dual persistence (electron-store + localStorage fallback).
+- **Project Schema AI Configuration (`aiTypes.ts` & `types.ts`)**:
+  - Optional `aiConfig?: ProjectAiConfig` field on `TimelineProject` preserving project-specific model and persona overrides.
+- **Real-Time Surface IPC (`agent.ts`, `preload.ts`, & `mcpServer.ts`)**:
+  - IPC channel `agent:sync-surface` synchronizing renderer surface changes to the main process and MCP server state.
+
+### Changed
+- Re-enabled AI features under `FEATURE_AI_ENABLED = true` with the new lean custom harness replacing legacy modal overlays.
+- MCP tool `get_project_context` now returns full `CaptrAppContext` with dynamic accelerators when open, and graceful `{ isProjectOpen: false, activeView: "home" }` when closed.
+
 ---
 
 ## [1.4.0-beta.3] - 2026-10-18
