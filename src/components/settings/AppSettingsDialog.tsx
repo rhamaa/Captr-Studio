@@ -319,7 +319,7 @@ export function AppSettingsDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent
 				className={`transition-all duration-200 ${
-					activeTab === "terminal" ? "max-w-4xl" : "max-w-2xl"
+					activeTab === "terminal" ? "w-[95vw] max-w-5xl" : "w-[94vw] max-w-4xl"
 				} bg-editor-dialog border border-foreground/10 text-foreground shadow-2xl p-0 overflow-hidden rounded-2xl`}
 			>
 				<DialogHeader className="px-6 pt-6 pb-2 border-b border-foreground/5 bg-foreground/[0.02]">
@@ -342,8 +342,8 @@ export function AppSettingsDialog({
 				</DialogHeader>
 
 				<Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-					<div className="px-6 border-b border-foreground/5 bg-foreground/[0.01]">
-						<TabsList className="bg-transparent h-11 p-0 gap-6 border-0">
+					<div className="px-6 border-b border-foreground/5 bg-foreground/[0.01] overflow-x-auto no-scrollbar">
+						<TabsList className="bg-transparent h-11 p-0 gap-4 sm:gap-6 border-0 whitespace-nowrap min-w-max">
 							<TabsTrigger
 								value="general"
 								className="data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-1 py-2 text-xs font-semibold gap-2 border-b-2 border-transparent transition-all"
@@ -390,7 +390,7 @@ export function AppSettingsDialog({
 					</div>
 
 					<div
-						className={`p-6 ${activeTab === "terminal" ? "p-4 max-h-[600px]" : "max-h-[480px]"} overflow-y-auto`}
+						className={`p-6 ${activeTab === "terminal" ? "p-4 max-h-[720px]" : "max-h-[80vh] min-h-[520px]"} overflow-y-auto`}
 					>
 						{/* GENERAL TAB */}
 						<TabsContent value="general" className="mt-0 space-y-6">
@@ -838,7 +838,7 @@ export function AppSettingsDialog({
 												size="sm"
 												onClick={() => void handleFetchModels()}
 												disabled={isFetchingModels}
-												className="h-8 px-2.5 text-xs gap-1.5 rounded-lg border-foreground/15 hover:bg-foreground/5 text-foreground"
+												className="h-8 px-2.5 text-xs gap-1.5 rounded-lg border-foreground/15 hover:bg-foreground/5 text-foreground shrink-0"
 												title="Jalankan /model pada CLI provider untuk memeriksa model yang tersedia"
 											>
 												<ArrowsClockwiseIcon
@@ -1024,13 +1024,13 @@ export function AppSettingsDialog({
 													</p>
 												</div>
 											</div>
-											<span className="text-[11px] font-mono px-2 py-0.5 rounded bg-foreground/5 text-muted-foreground">
+											<span className="text-[11px] font-mono px-2.5 py-0.5 rounded-md bg-foreground/5 text-muted-foreground shrink-0 border border-foreground/5">
 												{aiSettings.preferredRunner} • {aiSettings.defaultModel}
 											</span>
 										</div>
 
 										{/* Chat Log Window */}
-										<div className="rounded-xl border border-foreground/10 bg-black/25 p-3 min-h-[90px] max-h-[160px] overflow-y-auto space-y-2 text-xs font-mono">
+										<div className="rounded-xl border border-foreground/10 bg-black/25 p-3.5 min-h-[110px] max-h-[220px] overflow-y-auto space-y-2 text-xs font-mono">
 											{testChatMessages.length === 0 ? (
 												<div className="flex items-center justify-center h-full py-4 text-muted-foreground text-[11px] italic">
 													Pilih provider di atas dan kirim pesan tes untuk memverifikasi respon CLI.
@@ -1084,7 +1084,7 @@ export function AppSettingsDialog({
 												size="sm"
 												onClick={() => void handleRunTestConnection()}
 												disabled={isTestingConnection || !testPrompt.trim()}
-												className="h-9 px-3.5 gap-1.5 rounded-lg text-xs font-medium"
+												className="h-9 px-4 gap-1.5 rounded-lg text-xs font-medium shrink-0"
 											>
 												{isTestingConnection ? (
 													<>
@@ -1102,7 +1102,7 @@ export function AppSettingsDialog({
 									</div>
 
 									{/* Save Configuration Action Bar */}
-									<div className="pt-4 border-t border-foreground/10 flex items-center justify-between">
+									<div className="pt-4 border-t border-foreground/10 flex items-center justify-between gap-4">
 										<div className="flex items-center gap-2">
 											{saveStatus === "saved" ? (
 												<div className="flex items-center gap-1.5 text-xs text-green-500 font-medium">
@@ -1123,7 +1123,7 @@ export function AppSettingsDialog({
 											variant="default"
 											size="sm"
 											onClick={handleSaveAiSettings}
-											className="h-9 px-4 gap-2 rounded-lg text-xs font-semibold shadow-sm"
+											className="h-9 px-4 gap-2 rounded-lg text-xs font-semibold shadow-sm shrink-0"
 										>
 											{saveStatus === "saved" ? (
 												<>

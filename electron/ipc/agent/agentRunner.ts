@@ -51,6 +51,38 @@ export interface RunAgentTaskResult {
 
 let activeProcess: ChildProcess | null = null;
 
+/**
+ * Resolves spawn execution options for Windows and POSIX.
+ * On Windows, native .exe executables must run with shell: false so that Node.js
+ * uses Win32 CreateProcess argument formatting, preserving quotes and avoiding
+ * cmd.exe token splitting (e.g. unexpected argument on commas/spaces).
+ * Only Windows batch files (.cmd / .bat) require shell: true.
+ */
+export function getSpawnExecutionOptions(
+	command: string,
+	args: string[],
+): { shell: boolean; args: string[] } {
+	const isWindows = process.platform === "win32";
+	const isBatch =
+		isWindows &&
+		(command.toLowerCase().endsWith(".cmd") ||
+			command.toLowerCase().endsWith(".bat"));
+
+	if (!isBatch) {
+		return { shell: false, args };
+	}
+
+	// For Windows batch files executed through cmd.exe, wrap arguments containing whitespace/delimiters
+	const safeArgs = args.map((arg) => {
+		if (/[\s,;=]/.test(arg) && !arg.startsWith('"') && !arg.endsWith('"')) {
+			return `"${arg.replace(/"/g, '""')}"`;
+		}
+		return arg;
+	});
+
+	return { shell: true, args: safeArgs };
+}
+
 export function formatAgentTaskPrompt(userPrompt: string, draftFilePath: string): string {
 	return `You are editing a Captr Studio video timeline project.
 The current project state is stored in: "${draftFilePath}".
@@ -194,10 +226,9 @@ export async function runAgentTask(
 
 		log(`[Captr Studio] Launching agent: ${command} in ${tempDir}...\n`);
 
-		// Windows: If command is an .exe, run without cmd.exe shell so arguments aren't broken
-		const useShell = process.platform === "win32" && !command.toLowerCase().endsWith(".exe");
+		const { shell: useShell, args: safeArgs } = getSpawnExecutionOptions(command, args);
 
-		const child = spawn(command, args, {
+		const child = spawn(command, safeArgs, {
 			cwd: tempDir,
 			shell: useShell,
 			stdio: ["ignore", "pipe", "pipe"],
@@ -404,14 +435,16 @@ export async function testAgentConnection(
 		params.model,
 	);
 
+	const { shell: useShell, args: safeArgs } = getSpawnExecutionOptions(command, args);
+
 	return new Promise((resolve) => {
 		let stdout = "";
 		let stderr = "";
 		let killed = false;
 
-		const proc = spawn(command, args, {
+		const proc = spawn(command, safeArgs, {
 			env: getAugmentedEnv(),
-			shell: process.platform === "win32",
+			shell: useShell,
 			windowsHide: true,
 		});
 
@@ -496,6 +529,29 @@ export function parseModelsFromOutput(output: string): string[] {
 		const trimmed = line.trim();
 		if (!trimmed) continue;
 
+		// Table or first-token pattern (e.g. "gemini-3.8-flash-high\tGemini 3.8 Flash (High)" or "openrouter/openai/gpt-4o")
+		const firstToken = trimmed.split(/[\t\s]+/)[0];
+		if (
+			firstToken &&
+			/^[a-zA-Z0-9_\-./]+$/.test(firstToken) &&
+			!firstToken.toLowerCase().includes("http") &&
+			![
+				"model",
+				"models",
+				"default",
+				"current",
+				"available",
+				"provider",
+				"select",
+				"fetching",
+			].includes(firstToken.toLowerCase())
+		) {
+			const tokenMatches = firstToken.match(modelTokenRegex);
+			if (tokenMatches && tokenMatches[0] === firstToken) {
+				found.add(firstToken);
+			}
+		}
+
 		// Bullet point pattern like "- claude-3-5-sonnet: ..." or "* gemini-2.0-flash"
 		const bulletMatch = trimmed.match(/^[-*#\d.>|]\s*([a-zA-Z0-9_\-./:]+)/);
 		if (
@@ -517,6 +573,7 @@ export function parseModelsFromOutput(output: string): string[] {
 					"available",
 					"provider",
 					"select",
+					"fetching",
 				].includes(candidate.toLowerCase())
 			) {
 				found.add(candidate);
@@ -538,6 +595,7 @@ export function parseModelsFromOutput(output: string): string[] {
 						"available",
 						"provider",
 						"select",
+						"fetching",
 					].includes(cleaned.toLowerCase())
 				) {
 					found.add(cleaned);
@@ -550,7 +608,7 @@ export function parseModelsFromOutput(output: string): string[] {
 }
 
 /**
- * Fetches available models from a CLI provider by invoking it with `/model` or runner-specific model command.
+ * Fetches available models from a CLI provider by invoking it with `models` or `/model`.
  */
 export async function fetchAgentModels(
 	params: FetchAgentModelsParams,
@@ -572,7 +630,11 @@ export async function fetchAgentModels(
 	}
 
 	let args: string[];
-	if (params.agentId === "opencode") {
+	if (
+		params.agentId === "agy" ||
+		params.agentId === "opencode" ||
+		params.agentId === "hermes"
+	) {
 		args = ["models"];
 	} else {
 		args = buildAgentCommandArgs(
@@ -583,14 +645,19 @@ export async function fetchAgentModels(
 		);
 	}
 
+	const { shell: useShell, args: safeArgs } = getSpawnExecutionOptions(
+		command,
+		args,
+	);
+
 	return new Promise((resolve) => {
 		let stdout = "";
 		let stderr = "";
 		let killed = false;
 
-		const proc = spawn(command, args, {
+		const proc = spawn(command, safeArgs, {
 			env: getAugmentedEnv(),
-			shell: process.platform === "win32",
+			shell: useShell,
 			windowsHide: true,
 		});
 
