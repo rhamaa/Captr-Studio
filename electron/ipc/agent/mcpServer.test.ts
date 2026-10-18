@@ -9,6 +9,7 @@ import {
 	executeMcpToolCall as executeCapturedMcpToolCall,
 	getMcpServerInfo,
 	handleJsonRpcMessage,
+	setMcpActiveSurface,
 	setMcpProjectContext,
 	startMcpServer,
 	stopMcpServer,
@@ -54,7 +55,7 @@ describe("mcpServer", () => {
 		};
 	}
 
-	const executeMcpToolCall = (name: string, args: Record<string, unknown>) =>
+	const executeMcpToolCall = (name: string, args: Record<string, unknown> = {}) =>
 		executeCapturedMcpToolCall(name, { editContext: createMockContext().editContext, ...args });
 
 	beforeAll(async () => {
@@ -240,5 +241,86 @@ describe("mcpServer", () => {
 		expect(sseText).toContain('"id":99');
 
 		controller.abort();
+	});
+
+	it("returns clean context object when no project is open instead of throwing error", async () => {
+		setMcpProjectContext({ project: null, editContext: null, transcripts: {} } as any);
+		const result = await executeCapturedMcpToolCall("get_project_context");
+		expect(result.isError).toBeFalsy();
+		const parsed = JSON.parse(result.text);
+		expect(parsed.isProjectOpen).toBe(false);
+		expect(parsed.activeView).toBe("home");
+		expect(parsed.activeSurface).toEqual({ kind: "none" });
+		expect(parsed.availableActions).toContain("create_project");
+		expect(parsed.availableActions).toContain("list_recent_projects");
+		expect(parsed.availableActions).toContain("import_screen_recording");
+	});
+
+	it("returns activeSurface and contextual accelerators when project is open in record-editor", async () => {
+		setMcpProjectContext(createMockContext());
+		setMcpActiveSurface({
+			kind: "record-editor",
+			recordingAssetId: "asset-rec-1",
+			packageId: "pkg-1",
+			activeTab: "appearance",
+			outwardBorderWidth: 4,
+		});
+		const result = await executeMcpToolCall("get_project_context");
+		expect(result.isError).toBeFalsy();
+		const parsed = JSON.parse(result.text);
+		expect(parsed.isProjectOpen).toBe(true);
+		expect(parsed.activeView).toBe("editor");
+		expect(parsed.activeSurface.kind).toBe("record-editor");
+		expect(parsed.availableAccelerators.some((a: any) => a.id === "auto-zoom-clicks")).toBe(true);
+		expect(parsed.availableAccelerators.some((a: any) => a.id === "frame-appearance-brutalism")).toBe(true);
+		expect(parsed.availableAccelerators.some((a: any) => a.id === "frame-appearance-glass")).toBe(true);
+		expect(parsed.availableAccelerators.some((a: any) => a.id === "frame-border-outward")).toBe(true);
+	});
+
+	it("returns contextual accelerators for story-editor, caption-editor, and artboard-canvas", async () => {
+		setMcpProjectContext(createMockContext());
+
+		// story-editor
+		setMcpActiveSurface({
+			kind: "story-editor",
+			selectedClipIds: ["c1"],
+			playheadUs: 2_000_000,
+		});
+		let result = await executeMcpToolCall("get_project_context");
+		let parsed = JSON.parse(result.text);
+		expect(parsed.activeSurface.kind).toBe("story-editor");
+		expect(parsed.availableAccelerators.map((a: any) => a.id)).toEqual([
+			"remove-silence",
+			"split-clip",
+			"add-broll",
+		]);
+
+		// caption-editor
+		setMcpActiveSurface({
+			kind: "caption-editor",
+			selectedSegmentIndex: 0,
+		});
+		result = await executeMcpToolCall("get_project_context");
+		parsed = JSON.parse(result.text);
+		expect(parsed.activeSurface.kind).toBe("caption-editor");
+		expect(parsed.availableAccelerators.map((a: any) => a.id)).toEqual([
+			"fix-typos",
+			"split-short-lines",
+			"sync-timing",
+		]);
+
+		// artboard-canvas
+		setMcpActiveSurface({
+			kind: "artboard-canvas",
+			artboardId: "ab-1",
+			aspectRatio: "9:16",
+		});
+		result = await executeMcpToolCall("get_project_context");
+		parsed = JSON.parse(result.text);
+		expect(parsed.activeSurface.kind).toBe("artboard-canvas");
+		expect(parsed.availableAccelerators.map((a: any) => a.id)).toEqual([
+			"repurpose-shorts-9-16",
+			"auto-center-webcam",
+		]);
 	});
 });

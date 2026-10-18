@@ -18,8 +18,13 @@ import {
 	sameStoryEditContext,
 } from "../../../src/core/timeline/storyOwnership";
 import type { AssetTranscript } from "../../../src/core/timeline/transcriptTypes";
-import type { TimelineProject } from "../../../src/core/timeline/types";
+import { projectDurationUs, type TimelineProject } from "../../../src/core/timeline/types";
 import { validateTimelineProject } from "../../../src/core/timeline/validation";
+import type {
+	ActiveSurface,
+	CaptrAppContext,
+	ContextualAccelerator,
+} from "../../../src/core/timeline/aiTypes";
 
 export interface ActiveProjectContext {
 	editContext: StoryEditContext;
@@ -48,6 +53,137 @@ let activeContext: ActiveProjectContext | null = null;
 let speculativeProject: TimelineProject | null = null;
 let speculativeContext: StoryEditContext | undefined;
 let activePlan: EditPlan | null = null;
+let activeSurfaceState: ActiveSurface = { kind: "none" };
+
+export function setMcpActiveSurface(surface: ActiveSurface): void {
+	activeSurfaceState = surface;
+}
+
+export function getMcpActiveSurface(): ActiveSurface {
+	return activeSurfaceState;
+}
+
+export function getAcceleratorsForSurface(surface: ActiveSurface): ContextualAccelerator[] {
+	switch (surface.kind) {
+		case "record-editor":
+			return [
+				{
+					id: "auto-zoom-clicks",
+					label: "Auto-Zoom to Clicks",
+					description: "Automatically add zoom keyframes to cursor click events",
+					toolName: "auto_zoom_clicks",
+				},
+				{
+					id: "frame-appearance-brutalism",
+					label: "Style: Brutalism",
+					description: "Apply neo-brutalism frame styling with high contrast borders",
+					toolName: "set_frame_appearance",
+				},
+				{
+					id: "frame-appearance-glass",
+					label: "Style: Glassmorphism",
+					description: "Apply frosted glass translucent styling to window frame",
+					toolName: "set_frame_appearance",
+				},
+				{
+					id: "frame-border-outward",
+					label: "Outward Border +4px",
+					description: "Increase outward border padding by 4px",
+					toolName: "set_frame_appearance",
+				},
+			];
+		case "story-editor":
+			return [
+				{
+					id: "remove-silence",
+					label: "Remove Silence",
+					description: "Remove pauses and silent gaps from timeline clips",
+					toolName: "remove_silence",
+				},
+				{
+					id: "split-clip",
+					label: "Split Clip",
+					description: "Split clip at current playhead position",
+					toolName: "split_clip",
+				},
+				{
+					id: "add-broll",
+					label: "Add B-Roll Card",
+					description: "Insert B-Roll graphic or callout card at current timestamp",
+					toolName: "add_broll_or_overlay",
+				},
+			];
+		case "caption-editor":
+			return [
+				{
+					id: "fix-typos",
+					label: "Fix Typos with AI",
+					description: "Correct grammar and spelling errors across transcript segments",
+					toolName: "fix_caption_typos",
+				},
+				{
+					id: "split-short-lines",
+					label: "Split into Short Lines",
+					description: "Format captions into 2-4 word punchy lines for readability",
+					toolName: "split_caption_lines",
+				},
+				{
+					id: "sync-timing",
+					label: "Sync Word Timestamps",
+					description: "Re-align word timestamps with speech audio",
+					toolName: "sync_caption_timing",
+				},
+			];
+		case "artboard-canvas":
+			return [
+				{
+					id: "repurpose-shorts-9-16",
+					label: "Repurpose 9:16 Shorts",
+					description: "Generate 9:16 vertical short format from main sequence",
+					toolName: "repurpose_aspect_ratio",
+				},
+				{
+					id: "auto-center-webcam",
+					label: "Auto-Center Webcam & Screen",
+					description: "Center webcam overlay and content for social formats",
+					toolName: "auto_center_webcam",
+				},
+			];
+		default:
+			return [];
+	}
+}
+
+function computeTelemetrySummary(
+	project: TimelineProject,
+	transcripts: Record<string, AssetTranscript> = {},
+) {
+	let transcriptWordCount = 0;
+	for (const t of Object.values(transcripts)) {
+		if (t && Array.isArray(t.segments)) {
+			for (const seg of t.segments) {
+				if (Array.isArray(seg.words)) {
+					transcriptWordCount += seg.words.length;
+				} else if (typeof seg.text === "string") {
+					transcriptWordCount += seg.text.trim().split(/\s+/).filter(Boolean).length;
+				}
+			}
+		}
+	}
+
+	const hasCursorClicks = (project.packages ?? []).some((pkg) => {
+		const clicks = (pkg.diagnostics as any)?.cursorClickCount;
+		return typeof clicks === "number" && clicks > 0;
+	});
+
+	const totalDurationUs = projectDurationUs(project);
+
+	return {
+		transcriptWordCount,
+		hasCursorClicks,
+		totalDurationUs,
+	};
+}
 
 interface SseSession {
 	id: string;
@@ -56,7 +192,12 @@ interface SseSession {
 
 const sseSessions = new Map<string, SseSession>();
 
-export function setMcpProjectContext(context: ActiveProjectContext): void {
+export function setMcpProjectContext(context: ActiveProjectContext | null): void {
+	if (!context || !context.project) {
+		clearSpeculativeProject();
+		activeContext = context ? structuredClone(context) : null;
+		return;
+	}
 	if (speculativeContext) {
 		let current = sameStoryEditContext(speculativeContext, context.editContext);
 		if (current) {
@@ -300,6 +441,25 @@ export async function executeMcpToolCall(
 	name: string,
 	args: Record<string, any> = {},
 ): Promise<{ text: string; isError?: boolean }> {
+	if (name === "get_project_context" && (!activeContext || !activeContext.project)) {
+		return {
+			text: JSON.stringify(
+				{
+					isProjectOpen: false,
+					activeView: "home",
+					activeSurface: { kind: "none" },
+					availableActions: [
+						"create_project",
+						"list_recent_projects",
+						"import_screen_recording",
+					],
+				},
+				null,
+				2,
+			),
+		};
+	}
+
 	if (!activeContext || !activeContext.project) {
 		return {
 			text: "Error: No active Captr Studio project open. Open a project first.",
@@ -342,8 +502,20 @@ export async function executeMcpToolCall(
 				activeArtboardId: activeContext.activeArtboardId,
 				editContext: activeContext.editContext,
 			});
+			const accelerators = getAcceleratorsForSurface(activeSurfaceState);
+			const fullContext: CaptrAppContext & typeof summary = {
+				...summary,
+				isProjectOpen: true,
+				projectId: baseProject.projectId,
+				projectTitle: baseProject.title,
+				projectPath: (baseProject as any).projectPath ?? null,
+				activeView: "editor" as const,
+				activeSurface: activeSurfaceState,
+				availableAccelerators: accelerators,
+				telemetrySummary: computeTelemetrySummary(baseProject, activeContext.transcripts),
+			};
 			return {
-				text: JSON.stringify(summary, null, 2),
+				text: JSON.stringify(fullContext, null, 2),
 			};
 		}
 

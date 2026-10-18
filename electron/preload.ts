@@ -1089,6 +1089,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	stopMcpServer: () => ipcRenderer.invoke("agent:stop-mcp-server"),
 	syncProjectContext: (context: import("./ipc/agent/mcpServer").ActiveProjectContext) =>
 		ipcRenderer.invoke("agent:sync-project-context", context),
+	syncActiveSurface: (surface: import("../src/core/timeline/aiTypes").ActiveSurface) =>
+		ipcRenderer.invoke("agent:sync-surface", surface),
 	clearSpeculativeEdits: () => ipcRenderer.invoke("agent:clear-speculative"),
 	onAgentSpeculativePreview: (
 		callback: Parameters<NonNullable<Window["electronAPI"]["onAgentSpeculativePreview"]>>[0],

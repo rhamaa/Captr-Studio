@@ -16,10 +16,12 @@ import {
 	type ActiveProjectContext,
 	clearSpeculativeProject,
 	getMcpServerInfo,
+	setMcpActiveSurface,
 	setMcpProjectContext,
 	startMcpServer,
 	stopMcpServer,
 } from "../agent/mcpServer";
+import type { ActiveSurface } from "../../../src/core/timeline/aiTypes";
 
 export function registerAgentHandlers() {
 	// Auto-start local MCP server on app initialization
@@ -58,6 +60,11 @@ export function registerAgentHandlers() {
 			throw new Error("Invalid Story edit context identity");
 		}
 		setMcpProjectContext(context);
+		return { success: true };
+	});
+
+	ipcMain.handle("agent:sync-surface", (_, surface: ActiveSurface) => {
+		setMcpActiveSurface(surface);
 		return { success: true };
 	});
 

@@ -1078,6 +1078,9 @@ interface Window {
 		syncProjectContext?: (
 			context: import("./ipc/agent/mcpServer").ActiveProjectContext,
 		) => Promise<{ success: boolean }>;
+		syncActiveSurface?: (
+			surface: import("../src/core/timeline/aiTypes").ActiveSurface,
+		) => Promise<{ success: boolean }>;
 		clearSpeculativeEdits?: () => Promise<{ success: boolean }>;
 		onAgentSpeculativePreview?: (
 			callback: (
