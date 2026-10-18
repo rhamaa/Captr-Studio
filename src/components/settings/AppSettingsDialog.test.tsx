@@ -16,11 +16,6 @@ vi.mock("@/contexts/ThemeContext", () => ({
 	useTheme: () => ({ preference: "dark", setPreference: () => {} }),
 }));
 
-// Terminal component uses xterm which touches DOM APIs.
-vi.mock("@/components/terminal/ProjectTerminal", () => ({
-	ProjectTerminal: () => createElement("div", { "data-testid": "project-terminal" }),
-}));
-
 // Mock DialogPortal from Radix UI to render inline for static markup evaluation in node.
 vi.mock("@radix-ui/react-dialog", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("@radix-ui/react-dialog")>();
@@ -212,6 +207,28 @@ describe("AppSettingsDialog & AI Settings", () => {
 			// Test connection section should be present
 			expect(html).toContain("Test Provider Connection");
 			expect(html).toContain("Halo, tes koneksi Captr Studio");
+		});
+
+		it("renders tabs and excludes the legacy Terminal / Dev tab", () => {
+			const html = renderToStaticMarkup(
+				createElement(
+					I18nProvider,
+					null,
+					createElement(AppSettingsDialog, {
+						open: true,
+						defaultTab: "general",
+						onOpenChange: vi.fn(),
+					}),
+				),
+			);
+
+			expect(html).toContain("General");
+			expect(html).toContain("Storage &amp; Folders");
+			expect(html).toContain("Shortcuts");
+			expect(html).toContain("AI Harness &amp; Models");
+			expect(html).toContain("About");
+			expect(html).not.toContain("Terminal / Dev");
+			expect(html).not.toContain('value="terminal"');
 		});
 	});
 });
