@@ -1,3 +1,4 @@
+import { resolveRecordingFrameAppearances, type RecordingFrameAppearance } from "@/recording/schema";
 import { summarizeProjectDiff } from "./agentPayload";
 import { resolveClipSource, resolveMediaAsset } from "./clipSource";
 import { addTextOverlay, placeAsset, splitClip, trimClip, updateTextOverlay } from "./commands";
@@ -5,7 +6,7 @@ import { extendInlineClip } from "./designTemplateCommands";
 import { createAndPlaceShape } from "./shapeCommands";
 import { refreshStoryProjections, type StoryEditContext } from "./storyOwnership";
 import type { AssetTranscript } from "./transcriptTypes";
-import type { ShapeDefinition, TimelineClip, TimelineProject } from "./types";
+import type { PropertyKeyframe, ShapeDefinition, TimelineClip, TimelineProject } from "./types";
 import { clipDurationUs, projectDurationUs } from "./types";
 import { validateTimelineProject } from "./validation";
 
@@ -502,6 +503,291 @@ export function applyAddBRollOrOverlay(
 		clipId,
 		trackId: targetTrackId,
 	};
+}
+
+export function applySetFrameAppearance(
+	project: TimelineProject,
+	compositionId: string,
+	target: "window" | "webcam",
+	patch: Partial<RecordingFrameAppearance>,
+): TimelineProject {
+	const current = structuredClone(project);
+	const comp = current.compositions.find((c) => c.id === compositionId);
+	if (!comp) {
+		throw new Error(`Composition with id "${compositionId}" not found in project`);
+	}
+
+	const fallbackAppearances = resolveRecordingFrameAppearances(comp.settings);
+	const baseAppearance: RecordingFrameAppearance =
+		target === "webcam"
+			? comp.settings.webcamAppearance ??
+			  comp.settings.frameAppearances?.webcam ??
+			  fallbackAppearances.webcam
+			: comp.settings.windowAppearance ??
+			  comp.settings.frameAppearances?.window ??
+			  fallbackAppearances.window;
+
+	const merged: RecordingFrameAppearance = {
+		...baseAppearance,
+		...patch,
+		shadow: {
+			...baseAppearance.shadow,
+			...(patch.shadow ?? {}),
+		},
+	};
+
+	if (target === "webcam") {
+		comp.settings.webcamAppearance = merged;
+		if (!comp.settings.frameAppearances) {
+			comp.settings.frameAppearances = fallbackAppearances;
+		}
+		comp.settings.frameAppearances.webcam = structuredClone(merged);
+	} else {
+		comp.settings.windowAppearance = merged;
+		if (!comp.settings.frameAppearances) {
+			comp.settings.frameAppearances = fallbackAppearances;
+		}
+		comp.settings.frameAppearances.window = structuredClone(merged);
+	}
+
+	current.updatedAt = new Date().toISOString();
+	return validateTimelineProject(current);
+}
+
+export type AppearancePresetName =
+	| "brutalism"
+	| "claymorphism"
+	| "glassmorphism"
+	| "modern-dark"
+	| "clean-minimal"
+	| "retro-arcade";
+
+export const APPEARANCE_PRESETS: Record<AppearancePresetName, RecordingFrameAppearance> = {
+	brutalism: {
+		framePadding: 0,
+		borderWidth: 4,
+		borderColor: "#000000",
+		borderOpacity: 1,
+		cornerRadius: 0,
+		surfaceColor: "#ffffff",
+		surfaceOpacity: 1,
+		backdropBlur: 0,
+		headerStyle: "none",
+		shadow: {
+			color: "#000000",
+			opacity: 1,
+			blur: 0,
+			offsetX: 6,
+			offsetY: 6,
+		},
+	},
+	claymorphism: {
+		framePadding: 0,
+		borderWidth: 2,
+		borderColor: "#ffffff",
+		borderOpacity: 0.35,
+		cornerRadius: 22,
+		surfaceColor: "#334155",
+		surfaceOpacity: 0.95,
+		backdropBlur: 14,
+		headerStyle: "none",
+		shadow: {
+			color: "#0f172a",
+			opacity: 0.6,
+			blur: 28,
+			offsetX: 0,
+			offsetY: 12,
+		},
+	},
+	glassmorphism: {
+		framePadding: 0,
+		borderWidth: 1.5,
+		borderColor: "#ffffff",
+		borderOpacity: 0.25,
+		cornerRadius: 16,
+		surfaceColor: "#ffffff",
+		surfaceOpacity: 0.08,
+		backdropBlur: 20,
+		headerStyle: "none",
+		shadow: {
+			color: "#3b82f6",
+			opacity: 0.35,
+			blur: 36,
+			offsetX: 0,
+			offsetY: 8,
+		},
+	},
+	"modern-dark": {
+		framePadding: 0,
+		borderWidth: 1,
+		borderColor: "#3a3a44",
+		borderOpacity: 0.6,
+		cornerRadius: 12,
+		surfaceColor: "#1e1e24",
+		surfaceOpacity: 1,
+		backdropBlur: 0,
+		headerStyle: "macos",
+		shadow: {
+			color: "#000000",
+			opacity: 0.45,
+			blur: 32,
+			offsetX: 0,
+			offsetY: 12,
+		},
+	},
+	"clean-minimal": {
+		framePadding: 0,
+		borderWidth: 0,
+		borderColor: "#000000",
+		borderOpacity: 0,
+		cornerRadius: 14,
+		surfaceColor: "#000000",
+		surfaceOpacity: 0,
+		backdropBlur: 0,
+		headerStyle: "none",
+		shadow: {
+			color: "#000000",
+			opacity: 0.5,
+			blur: 36,
+			offsetX: 0,
+			offsetY: 14,
+		},
+	},
+	"retro-arcade": {
+		framePadding: 0,
+		borderWidth: 3,
+		borderColor: "#ff007f",
+		borderOpacity: 0.95,
+		cornerRadius: 6,
+		surfaceColor: "#180828",
+		surfaceOpacity: 0.95,
+		backdropBlur: 0,
+		headerStyle: "none",
+		shadow: {
+			color: "#00f0ff",
+			opacity: 0.7,
+			blur: 20,
+			offsetX: 4,
+			offsetY: 4,
+		},
+	},
+};
+
+export function applyAppearancePreset(
+	project: TimelineProject,
+	compositionId: string,
+	presetName: AppearancePresetName,
+): TimelineProject {
+	const preset = APPEARANCE_PRESETS[presetName];
+	if (!preset) {
+		throw new Error(`Unknown appearance preset: "${presetName}"`);
+	}
+	return applySetFrameAppearance(project, compositionId, "window", structuredClone(preset));
+}
+
+export interface AutoZoomOptions {
+	zoomScale?: number;
+	scale?: number;
+	durationUs?: number;
+}
+
+export function applyAutoZoomToClicks(
+	project: TimelineProject,
+	clipId: string,
+	clickTimestampsUs: number[],
+	options: AutoZoomOptions = {},
+): TimelineProject {
+	const current = structuredClone(project);
+	let targetClip: TimelineClip | undefined;
+	for (const track of current.tracks) {
+		const found = track.clips.find((c) => c.id === clipId);
+		if (found) {
+			targetClip = found;
+			break;
+		}
+	}
+
+	if (!targetClip) {
+		throw new Error(`Clip with id "${clipId}" not found in project`);
+	}
+
+	if (!clickTimestampsUs || clickTimestampsUs.length === 0) {
+		return current;
+	}
+
+	const zoomScale = options.zoomScale ?? options.scale ?? 1.35;
+	const baseScale = targetClip.transform?.scale ?? 1.0;
+	const totalWindowUs = options.durationUs ?? 800_000;
+	const halfWindowMs = Math.round(totalWindowUs / 2 / 1000);
+	const clipDurUs = clipDurationUs(targetClip);
+	const clipDurMs = Math.round(clipDurUs / 1000);
+
+	const otherKeyframes = (targetClip.keyframes ?? []).filter((k) => k.property !== "scale");
+	const newScaleKeyframes: PropertyKeyframe[] = [];
+
+	const sortedClicks = [...clickTimestampsUs].sort((a, b) => a - b);
+
+	for (const clickUs of sortedClicks) {
+		const relUs =
+			targetClip.startUs > 0 && clickUs >= targetClip.startUs
+				? clickUs - targetClip.startUs
+				: clickUs;
+
+		if (relUs < 0 || relUs > clipDurUs) {
+			continue;
+		}
+
+		const clickMs = Math.round(relUs / 1000);
+		const startMs = Math.max(0, clickMs - halfWindowMs);
+		const endMs = Math.min(clipDurMs, clickMs + halfWindowMs);
+
+		if (startMs < clickMs) {
+			newScaleKeyframes.push({
+				id: `kf-scale-${startMs}-${Math.random().toString(36).slice(2, 7)}`,
+				timeMs: startMs,
+				property: "scale",
+				value: baseScale,
+				easing: "ease-in-out",
+			});
+		}
+
+		newScaleKeyframes.push({
+			id: `kf-scale-${clickMs}-${Math.random().toString(36).slice(2, 7)}`,
+			timeMs: clickMs,
+			property: "scale",
+			value: zoomScale,
+			easing: "ease-in-out",
+		});
+
+		if (endMs > clickMs) {
+			newScaleKeyframes.push({
+				id: `kf-scale-${endMs}-${Math.random().toString(36).slice(2, 7)}`,
+				timeMs: endMs,
+				property: "scale",
+				value: baseScale,
+				easing: "ease-in-out",
+			});
+		}
+	}
+
+	const byTimeMs = new Map<number, PropertyKeyframe>();
+	for (const kf of newScaleKeyframes) {
+		const existing = byTimeMs.get(kf.timeMs);
+		if (!existing || (kf.value as number) > (existing.value as number)) {
+			byTimeMs.set(kf.timeMs, kf);
+		}
+	}
+
+	const sortedScaleKeyframes = Array.from(byTimeMs.values()).sort(
+		(a, b) => a.timeMs - b.timeMs,
+	);
+
+	targetClip.keyframes = [...otherKeyframes, ...sortedScaleKeyframes].sort(
+		(a, b) => a.timeMs - b.timeMs,
+	);
+
+	current.updatedAt = new Date().toISOString();
+	return validateTimelineProject(current);
 }
 
 export { summarizeProjectDiff };

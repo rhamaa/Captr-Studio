@@ -38,8 +38,43 @@ describe("mcpServer", () => {
 				offsetUs: 0,
 			},
 		};
+		project.packages = [
+			{
+				id: "pkg-1",
+				captureId: "cap-1",
+				schemaVersion: 1,
+				width: 1920,
+				height: 1080,
+				durationUs: 10_000_000,
+				screen: { path: "assets/pkg-1/screen.mp4", durationUs: 10_000_000, offsetUs: 0 },
+				settings: {},
+			},
+		];
+		const recAsset: MediaAsset = {
+			id: "rec1",
+			kind: "recording",
+			name: "Recording.mp4",
+			durationUs: 10_000_000,
+			width: 1920,
+			height: 1080,
+			packageId: "pkg-1",
+		};
 		project = registerMedia(project, asset);
+		project = registerMedia(project, recAsset);
 		project = placeAsset(project, "a1", "visual-1", 0, { clipId: "c1" });
+		project.tracks.push({
+			id: "visual-2",
+			name: "Track 2",
+			kind: "visual",
+			locked: false,
+			muted: false,
+			hidden: false,
+			clips: [],
+		});
+		project = placeAsset(project, "rec1", "visual-2", 0, {
+			clipId: "c-rec-1",
+			compositionId: "comp-1",
+		});
 		return {
 			editContext: {
 				scope: { kind: "root" as const },
@@ -79,7 +114,7 @@ describe("mcpServer", () => {
 		expect(res.result.capabilities.tools).toBeDefined();
 	});
 
-	it("handles tools/list and returns all 8 required tools", () => {
+	it("handles tools/list and returns all 11 required tools", () => {
 		const res = handleJsonRpcMessage({
 			jsonrpc: "2.0",
 			id: 2,
@@ -95,7 +130,10 @@ describe("mcpServer", () => {
 		expect(toolNames).toContain("add_broll_or_overlay");
 		expect(toolNames).toContain("preview_speculative_edits");
 		expect(toolNames).toContain("commit_edits");
-		expect(toolNames.length).toBe(8);
+		expect(toolNames).toContain("set_frame_appearance");
+		expect(toolNames).toContain("apply_appearance_preset");
+		expect(toolNames).toContain("auto_zoom_to_clicks");
+		expect(toolNames.length).toBe(11);
 		for (const tool of res.result.tools) {
 			if (tool.name !== "get_project_context")
 				expect(tool.inputSchema.required).toContain("editContext");
@@ -153,7 +191,7 @@ describe("mcpServer", () => {
 		expect(response.status).toBe(200);
 		const data = await response.json();
 		expect(data.id).toBe(42);
-		expect(data.result.tools.length).toBe(8);
+		expect(data.result.tools.length).toBe(11);
 	});
 
 	it("executes trim_clip with second-based arguments", async () => {
@@ -179,6 +217,42 @@ describe("mcpServer", () => {
 		const parsed = JSON.parse(res.text);
 		expect(parsed.success).toBe(true);
 		expect(parsed.clipId).toBeDefined();
+	});
+
+	it("executes set_frame_appearance tool", async () => {
+		const res = await executeMcpToolCall("set_frame_appearance", {
+			compositionId: "comp-1",
+			target: "window",
+			appearancePatch: { borderWidth: 4, borderColor: "#000000" },
+		});
+		expect(res.isError).toBeFalsy();
+		const parsed = JSON.parse(res.text);
+		expect(parsed.success).toBe(true);
+		expect(parsed.compositionId).toBe("comp-1");
+		expect(parsed.target).toBe("window");
+	});
+
+	it("executes apply_appearance_preset tool", async () => {
+		const res = await executeMcpToolCall("apply_appearance_preset", {
+			compositionId: "comp-1",
+			presetName: "brutalism",
+		});
+		expect(res.isError).toBeFalsy();
+		const parsed = JSON.parse(res.text);
+		expect(parsed.success).toBe(true);
+		expect(parsed.presetName).toBe("brutalism");
+	});
+
+	it("executes auto_zoom_to_clicks tool", async () => {
+		const res = await executeMcpToolCall("auto_zoom_to_clicks", {
+			clipId: "c1",
+			clickTimestampsUs: [1_000_000, 3_000_000],
+			zoomScale: 1.35,
+		});
+		expect(res.isError).toBeFalsy();
+		const parsed = JSON.parse(res.text);
+		expect(parsed.success).toBe(true);
+		expect(parsed.keyframesCount).toBeGreaterThan(0);
 	});
 
 	it("previews and commits without replacing the authoritative renderer context", async () => {

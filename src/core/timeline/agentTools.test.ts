@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
 	applyAddBRollOrOverlay,
+	applyAppearancePreset,
+	applyAutoZoomToClicks,
 	applyRemoveSilence,
+	applySetFrameAppearance,
 	applySplitClip,
 	applyTrimClip,
 	formatProjectContext,
@@ -10,7 +13,7 @@ import { createTimelineProject, placeAsset, registerMedia } from "./commands";
 import { getStoryEditProject } from "./storyOwnership";
 import { ownershipFixture } from "./storyOwnership.fixtures";
 import type { AssetTranscript } from "./transcriptTypes";
-import type { MediaAsset } from "./types";
+import type { MediaAsset, RecordingPackage, RecordComposition } from "./types";
 
 describe("agentTools", () => {
 	it("creates scoped Shape output inline with no media allocation", () => {
@@ -183,5 +186,106 @@ describe("agentTools", () => {
 		expect(clip.assetId).toBeUndefined();
 		expect(clip.sourceOutUs).toBe(3_000_000);
 		expect(res.project.assets).toEqual(project.assets);
+	});
+
+	function createProjectWithRecordingComposition() {
+		let project = createTimelineProject("proj-rec", "Record Project");
+		const pkg: RecordingPackage = {
+			id: "package-1",
+			captureId: "capture-1",
+			schemaVersion: 1,
+			width: 1920,
+			height: 1080,
+			durationUs: 10_000_000,
+			screen: { path: "assets/pkg-1/screen.mp4", durationUs: 10_000_000, offsetUs: 0 },
+			settings: {},
+		};
+		const asset: MediaAsset = {
+			id: "asset-rec-1",
+			kind: "recording",
+			name: "Screen Recording",
+			durationUs: 10_000_000,
+			width: 1920,
+			height: 1080,
+			packageId: "package-1",
+		};
+		project = {
+			...project,
+			packages: [pkg],
+		};
+		project = registerMedia(project, asset);
+		project = placeAsset(project, "asset-rec-1", "visual-1", 0, {
+			clipId: "clip-1",
+			compositionId: "composition-1",
+		});
+		return project;
+	}
+
+	it("applies frame appearance patch to window and webcam without modifying media files", () => {
+		const project = createProjectWithRecordingComposition();
+		const updated = applySetFrameAppearance(project, "composition-1", "window", {
+			borderWidth: 6,
+			borderColor: "#ff0000",
+			cornerRadius: 16,
+		});
+		const comp = updated.compositions.find((c) => c.id === "composition-1");
+		expect(comp?.settings.windowAppearance?.borderWidth).toBe(6);
+		expect(comp?.settings.windowAppearance?.borderColor).toBe("#ff0000");
+		expect(comp?.settings.windowAppearance?.cornerRadius).toBe(16);
+		expect(comp?.settings.frameAppearances?.window.borderWidth).toBe(6);
+
+		const updatedWebcam = applySetFrameAppearance(updated, "composition-1", "webcam", {
+			borderWidth: 3,
+			borderColor: "#00ff00",
+		});
+		const compWebcam = updatedWebcam.compositions.find((c) => c.id === "composition-1");
+		expect(compWebcam?.settings.webcamAppearance?.borderWidth).toBe(3);
+		expect(compWebcam?.settings.webcamAppearance?.borderColor).toBe("#00ff00");
+	});
+
+	it("throws when applying frame appearance to non-existent composition", () => {
+		const project = createProjectWithRecordingComposition();
+		expect(() =>
+			applySetFrameAppearance(project, "non-existent-comp", "window", { borderWidth: 4 }),
+		).toThrow(/not found/i);
+	});
+
+	it("applies frame appearance preset to project composition without modifying media files", () => {
+		const project = createProjectWithRecordingComposition();
+		const updated = applyAppearancePreset(project, "composition-1", "brutalism");
+		const comp = updated.compositions.find((c) => c.id === "composition-1");
+		expect(comp?.settings.windowAppearance?.borderWidth).toBe(4);
+		expect(comp?.settings.windowAppearance?.borderColor).toBe("#000000");
+		expect(comp?.settings.windowAppearance?.cornerRadius).toBe(0);
+
+		const glassUpdated = applyAppearancePreset(project, "composition-1", "glassmorphism");
+		const glassComp = glassUpdated.compositions.find((c) => c.id === "composition-1");
+		expect(glassComp?.settings.windowAppearance?.backdropBlur).toBe(20);
+		expect(glassComp?.settings.windowAppearance?.borderWidth).toBe(1.5);
+	});
+
+	it("generates auto-zoom keyframes from cursor clicks metadata", () => {
+		const project = createProjectWithRecordingComposition();
+		const clickTimestampsUs = [1_000_000, 3_000_000];
+		const updated = applyAutoZoomToClicks(project, "clip-1", clickTimestampsUs, { scale: 1.5 });
+		const clip = updated.tracks[0].clips.find((c) => c.id === "clip-1");
+		expect(clip?.keyframes?.length).toBeGreaterThan(0);
+		const peakKeyframes = clip?.keyframes?.filter((k) => k.value === 1.5);
+		expect(peakKeyframes?.length).toBe(2);
+		expect(clip?.keyframes?.every((k) => k.property === "scale")).toBe(true);
+	});
+
+	it("handles auto-zoom with empty click timestamps gracefully", () => {
+		const project = createProjectWithRecordingComposition();
+		const updated = applyAutoZoomToClicks(project, "clip-1", []);
+		const clip = updated.tracks[0].clips.find((c) => c.id === "clip-1");
+		expect(clip?.keyframes ?? []).toHaveLength(0);
+	});
+
+	it("throws when applying auto-zoom to non-existent clip", () => {
+		const project = createProjectWithRecordingComposition();
+		expect(() =>
+			applyAutoZoomToClicks(project, "non-existent-clip", [1_000_000]),
+		).toThrow(/not found/i);
 	});
 });

@@ -1,7 +1,12 @@
 import type { ProjectEditorState } from "@/components/video-editor/projectNormalization";
-import type { RecordingEffectSettings } from "@/recording/schema";
+import type { RecordingEffectSettings, RecordingFrameAppearance } from "@/recording/schema";
 
-export type RecordingSettings = Omit<Partial<ProjectEditorState>, keyof RecordingEffectSettings> & Partial<RecordingEffectSettings> & { sourceAudioSettings?:Record<string,{volume:number;normalize:boolean}> };
+export type RecordingSettings = Omit<Partial<ProjectEditorState>, keyof RecordingEffectSettings> &
+	Partial<RecordingEffectSettings> & {
+		sourceAudioSettings?: Record<string, { volume: number; normalize: boolean }>;
+		windowAppearance?: RecordingFrameAppearance;
+		webcamAppearance?: RecordingFrameAppearance;
+	};
 export interface MediaSource { path: string; durationUs: number; offsetUs: number }
 export interface RecordingPackage {
  id: string; captureId: string; schemaVersion: 1; durationUs: number; width: number; height: number;

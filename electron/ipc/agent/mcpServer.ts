@@ -2,13 +2,17 @@ import http from "node:http";
 import { BrowserWindow } from "electron";
 import {
 	applyAddBRollOrOverlay,
+	applyAppearancePreset,
+	applyAutoZoomToClicks,
 	applyRemoveSilence,
+	applySetFrameAppearance,
 	applySplitClip,
 	applyTrimClip,
 	type BRollOrOverlaySpec,
 	formatProjectContext,
 	summarizeProjectDiff,
 } from "../../../src/core/timeline/agentTools";
+import type { RecordingFrameAppearance } from "../../../src/recording/schema";
 import {
 	applyStoryCommand,
 	getStoryEditProject,
@@ -71,7 +75,7 @@ export function getAcceleratorsForSurface(surface: ActiveSurface): ContextualAcc
 					id: "auto-zoom-clicks",
 					label: "Auto-Zoom to Clicks",
 					description: "Automatically add zoom keyframes to cursor click events",
-					toolName: "auto_zoom_clicks",
+					toolName: "auto_zoom_to_clicks",
 				},
 				{
 					id: "frame-appearance-brutalism",
@@ -435,6 +439,84 @@ const MCP_TOOLS = [
 			},
 		},
 	},
+	{
+		name: "set_frame_appearance",
+		description:
+			"Sets or patches frame appearance (borders, padding, shadow, corner radius, surface color/opacity) for window or webcam recording frames in a composition.",
+		inputSchema: {
+			type: "object",
+			required: ["compositionId", "target", "appearancePatch", "editContext"],
+			properties: {
+				compositionId: { type: "string", description: "ID of the composition" },
+				target: {
+					type: "string",
+					enum: ["window", "webcam"],
+					description: "Target frame to customize",
+				},
+				appearancePatch: {
+					type: "object",
+					description: "Partial frame appearance settings to apply",
+				},
+				editContext: {
+					type: "object",
+					description: "Captured Story editContext from get_project_context",
+				},
+			},
+		},
+	},
+	{
+		name: "apply_appearance_preset",
+		description:
+			"Applies a pre-styled visual frame appearance preset (brutalism, claymorphism, glassmorphism, modern-dark, clean-minimal, retro-arcade) to a composition.",
+		inputSchema: {
+			type: "object",
+			required: ["compositionId", "presetName", "editContext"],
+			properties: {
+				compositionId: { type: "string", description: "ID of the composition" },
+				presetName: {
+					type: "string",
+					enum: [
+						"brutalism",
+						"claymorphism",
+						"glassmorphism",
+						"modern-dark",
+						"clean-minimal",
+						"retro-arcade",
+					],
+					description: "Name of the visual preset to apply",
+				},
+				editContext: {
+					type: "object",
+					description: "Captured Story editContext from get_project_context",
+				},
+			},
+		},
+	},
+	{
+		name: "auto_zoom_to_clicks",
+		description:
+			"Automatically generates scale keyframes around mouse click timestamps to focus viewer attention on user interactions.",
+		inputSchema: {
+			type: "object",
+			required: ["clipId", "clickTimestampsUs", "editContext"],
+			properties: {
+				clipId: { type: "string", description: "ID of the clip to apply zoom keyframes to" },
+				clickTimestampsUs: {
+					type: "array",
+					items: { type: "number" },
+					description: "Array of mouse click timestamps in microseconds",
+				},
+				zoomScale: {
+					type: "number",
+					description: "Target zoom scale factor at click peaks (e.g. 1.35 or 1.5)",
+				},
+				editContext: {
+					type: "object",
+					description: "Captured Story editContext from get_project_context",
+				},
+			},
+		},
+	},
 ];
 
 export async function executeMcpToolCall(
@@ -743,6 +825,115 @@ export async function executeMcpToolCall(
 			} catch (err) {
 				return {
 					text: `Speculative preview failed: ${err instanceof Error ? err.message : String(err)}`,
+					isError: true,
+				};
+			}
+		}
+
+		case "set_frame_appearance": {
+			const compositionId = String(args.compositionId);
+			const target = args.target === "webcam" ? "webcam" : "window";
+			const appearancePatch = (args.appearancePatch ?? {}) as Partial<RecordingFrameAppearance>;
+			try {
+				const updated = applySetFrameAppearance(
+					baseProject,
+					compositionId,
+					target,
+					appearancePatch,
+				);
+				propose(updated);
+				const diff = summarizeProjectDiff(
+					getStoryEditProject(activeContext.project, proposalContext.scope),
+					getStoryEditProject(speculativeProject!, proposalContext.scope),
+				);
+				broadcastToRenderers("agent:speculative-preview", {
+					project: getStoryEditProject(speculativeProject!, proposalContext.scope),
+					context: proposalContext,
+					diff,
+				});
+				return {
+					text: JSON.stringify({
+						success: true,
+						compositionId,
+						target,
+					}),
+				};
+			} catch (err) {
+				return {
+					text: `Set frame appearance failed: ${err instanceof Error ? err.message : String(err)}`,
+					isError: true,
+				};
+			}
+		}
+
+		case "apply_appearance_preset": {
+			const compositionId = String(args.compositionId);
+			const presetName = String(args.presetName) as any;
+			try {
+				const updated = applyAppearancePreset(baseProject, compositionId, presetName);
+				propose(updated);
+				const diff = summarizeProjectDiff(
+					getStoryEditProject(activeContext.project, proposalContext.scope),
+					getStoryEditProject(speculativeProject!, proposalContext.scope),
+				);
+				broadcastToRenderers("agent:speculative-preview", {
+					project: getStoryEditProject(speculativeProject!, proposalContext.scope),
+					context: proposalContext,
+					diff,
+				});
+				return {
+					text: JSON.stringify({
+						success: true,
+						compositionId,
+						presetName,
+					}),
+				};
+			} catch (err) {
+				return {
+					text: `Apply appearance preset failed: ${err instanceof Error ? err.message : String(err)}`,
+					isError: true,
+				};
+			}
+		}
+
+		case "auto_zoom_to_clicks": {
+			const clipId = String(args.clipId);
+			const clickTimestampsUs = Array.isArray(args.clickTimestampsUs)
+				? args.clickTimestampsUs.map(Number)
+				: [];
+			const zoomScale =
+				typeof args.zoomScale === "number"
+					? args.zoomScale
+					: typeof args.scale === "number"
+						? args.scale
+						: undefined;
+			try {
+				const updated = applyAutoZoomToClicks(baseProject, clipId, clickTimestampsUs, {
+					zoomScale,
+				});
+				propose(updated);
+				const diff = summarizeProjectDiff(
+					getStoryEditProject(activeContext.project, proposalContext.scope),
+					getStoryEditProject(speculativeProject!, proposalContext.scope),
+				);
+				broadcastToRenderers("agent:speculative-preview", {
+					project: getStoryEditProject(speculativeProject!, proposalContext.scope),
+					context: proposalContext,
+					diff,
+				});
+				return {
+					text: JSON.stringify({
+						success: true,
+						clipId,
+						keyframesCount:
+							updated.tracks
+								.flatMap((t) => t.clips)
+								.find((c) => c.id === clipId)?.keyframes?.length ?? 0,
+					}),
+				};
+			} catch (err) {
+				return {
+					text: `Auto-zoom to clicks failed: ${err instanceof Error ? err.message : String(err)}`,
 					isError: true,
 				};
 			}
