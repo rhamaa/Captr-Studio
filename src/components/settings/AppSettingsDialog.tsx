@@ -1,5 +1,11 @@
 import {
+	ArrowsClockwise as ArrowsClockwiseIcon,
+	CircleNotch as CircleNotchIcon,
+	Code as CodeIcon,
+	CodeSimple as CodeSimpleIcon,
+	Compass as CompassIcon,
 	Cpu as CpuIcon,
+	Cube as CubeIcon,
 	Desktop as DesktopIcon,
 	Folder as FolderIcon,
 	FolderOpen as FolderOpenIcon,
@@ -7,10 +13,16 @@ import {
 	Globe as GlobeIcon,
 	Info as InfoIcon,
 	Keyboard as KeyboardIcon,
+	Lightning as LightningIcon,
 	Moon as MoonIcon,
 	Palette as PaletteIcon,
+	PaperPlaneRight as PaperPlaneRightIcon,
+	Plugs as PlugsIcon,
+	Robot as RobotIcon,
+	Sparkle as SparkleIcon,
 	Sun as SunIcon,
 	Terminal as TerminalIcon,
+	Wrench as WrenchIcon,
 } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { CaptrLogo } from "@/components/brand/CaptrLogo";
@@ -45,6 +57,34 @@ const LOCALE_LABELS: Record<string, string> = {
 	"zh-TW": "繁體中文",
 };
 
+const AI_PROVIDERS = [
+	{ id: "agy", name: "Antigravity", command: "agy", icon: SparkleIcon },
+	{ id: "claude", name: "Claude Code", command: "claude", icon: CpuIcon },
+	{ id: "opencode", name: "OpenCode", command: "opencode", icon: TerminalIcon },
+	{ id: "cursor", name: "Cursor", command: "cursor", icon: CompassIcon },
+	{ id: "codex", name: "Codex", command: "codex", icon: CodeIcon },
+	{ id: "devin", name: "Devin", command: "devin", icon: RobotIcon },
+	{ id: "hermes", name: "Hermes", command: "hermes", icon: LightningIcon },
+	{ id: "cline", name: "Cline", command: "cline", icon: CodeSimpleIcon },
+	{ id: "kiro", name: "Kiro", command: "kiro", icon: CubeIcon },
+	{ id: "trae", name: "Trae", command: "trae", icon: PlugsIcon },
+	{ id: "custom", name: "Custom CLI", command: "", icon: WrenchIcon },
+] as const;
+
+const RUNNER_MODEL_PRESETS: Record<string, string[]> = {
+	agy: ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash", "claude-3-5-sonnet"],
+	claude: ["claude-3-5-sonnet", "claude-3-5-haiku", "claude-3-opus"],
+	opencode: ["gpt-4o", "claude-3-5-sonnet", "gemini-1.5-pro", "deepseek-chat"],
+	cursor: ["claude-3-5-sonnet", "gpt-4o", "cursor-small"],
+	codex: ["o1-preview", "o1-mini", "gpt-4o"],
+	devin: ["devin-standard", "gpt-4o"],
+	hermes: ["hermes-3-llama-3.1-8b", "hermes-3-llama-3.1-70b"],
+	cline: ["claude-3-5-sonnet", "gpt-4o", "gemini-1.5-pro"],
+	kiro: ["claude-3-5-sonnet", "gpt-4o"],
+	trae: ["claude-3-5-sonnet", "gpt-4o"],
+	custom: [],
+};
+
 interface AppSettingsDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -65,12 +105,37 @@ export function AppSettingsDialog({
 	const [recordingsDir, setRecordingsDir] = useState<string>("");
 	const [activeTab, setActiveTab] = useState(defaultTab);
 	const [aiSettings, setAiSettings] = useState<GlobalAiSettings>(getGlobalAiSettings);
+	const [detectedAgents, setDetectedAgents] = useState<
+		Array<{ id: string; name: string; command: string; available: boolean; executablePath?: string }>
+	>([]);
+	const [isScanningAgents, setIsScanningAgents] = useState(false);
+	const [testPrompt, setTestPrompt] = useState("Halo, tes koneksi Captr Studio");
+	const [isTestingConnection, setIsTestingConnection] = useState(false);
+	const [testChatMessages, setTestChatMessages] = useState<
+		Array<{ sender: "user" | "agent"; text: string; latencyMs?: number; isError?: boolean }>
+	>([]);
+
+	const scanAvailableAgents = async () => {
+		if (!window.electronAPI?.getAvailableAgents) return;
+		setIsScanningAgents(true);
+		try {
+			const res = await window.electronAPI.getAvailableAgents();
+			if (Array.isArray(res)) {
+				setDetectedAgents(res);
+			}
+		} catch (err) {
+			console.warn("Failed to detect CLI agents:", err);
+		} finally {
+			setIsScanningAgents(false);
+		}
+	};
 
 	useEffect(() => {
 		if (open) {
 			setActiveTab(defaultTab);
 			void loadDirectories();
 			setAiSettings(getGlobalAiSettings());
+			void scanAvailableAgents();
 		}
 	}, [open, defaultTab]);
 
@@ -80,6 +145,73 @@ export function AppSettingsDialog({
 	) => {
 		const updated = saveGlobalAiSettings({ [key]: value });
 		setAiSettings(updated);
+	};
+
+	const handleSelectRunner = (runnerId: string) => {
+		handleAiSettingChange("preferredRunner", runnerId as any);
+		const presets = RUNNER_MODEL_PRESETS[runnerId];
+		if (presets && presets.length > 0 && !presets.includes(aiSettings.defaultModel)) {
+			handleAiSettingChange("defaultModel", presets[0]);
+		}
+	};
+
+	const handleRunTestConnection = async () => {
+		const prompt = testPrompt.trim();
+		if (!prompt || isTestingConnection) return;
+		setIsTestingConnection(true);
+		setTestChatMessages((prev) => [...prev, { sender: "user", text: prompt }]);
+
+		try {
+			if (window.electronAPI?.testAgentConnection) {
+				const res = await window.electronAPI.testAgentConnection({
+					agentId: aiSettings.preferredRunner,
+					customCommand: aiSettings.customRunnerPath,
+					model: aiSettings.defaultModel,
+					prompt,
+				});
+				if (res.success) {
+					setTestChatMessages((prev) => [
+						...prev,
+						{
+							sender: "agent",
+							text: res.response || "Koneksi berhasil.",
+							latencyMs: res.latencyMs,
+							isError: false,
+						},
+					]);
+				} else {
+					setTestChatMessages((prev) => [
+						...prev,
+						{
+							sender: "agent",
+							text: res.error || "Gagal menghubungi CLI provider.",
+							latencyMs: res.latencyMs,
+							isError: true,
+						},
+					]);
+				}
+			} else {
+				setTestChatMessages((prev) => [
+					...prev,
+					{
+						sender: "agent",
+						text: "Electron API testAgentConnection tidak tersedia di environment ini.",
+						isError: true,
+					},
+				]);
+			}
+		} catch (err) {
+			setTestChatMessages((prev) => [
+				...prev,
+				{
+					sender: "agent",
+					text: err instanceof Error ? err.message : String(err),
+					isError: true,
+				},
+			]);
+		} finally {
+			setIsTestingConnection(false);
+		}
 	};
 
 	const loadDirectories = async () => {
@@ -477,64 +609,116 @@ export function AppSettingsDialog({
 								</p>
 
 								<div className="space-y-4">
-									{/* Preferred Runner */}
+									{/* Preferred Runner - Icon-based Cards & Auto-Detection */}
 									<div>
-										<label
-											htmlFor="ai-preferred-runner"
-											className="block text-xs font-medium text-foreground mb-1.5"
-										>
-											{t("settings.aiRunner", "Preferred Runner")}
-										</label>
+										<div className="flex items-center justify-between mb-2">
+											<div>
+												<label className="block text-xs font-semibold text-foreground">
+													{t("settings.aiRunner", "AI Providers")}
+												</label>
+												<p className="text-[11px] text-muted-foreground">
+													{t(
+														"settings.aiRunnerDesc",
+														"Pilih provider CLI yang terpasang di perangkat Anda sebagai engine AI.",
+													)}
+												</p>
+											</div>
+											<Button
+												type="button"
+												variant="outline"
+												size="sm"
+												onClick={() => void scanAvailableAgents()}
+												disabled={isScanningAgents}
+												className="h-7 px-2.5 gap-1.5 rounded-lg border-foreground/15 text-[11px] font-medium"
+											>
+												<ArrowsClockwiseIcon
+													className={`w-3.5 h-3.5 ${
+														isScanningAgents ? "animate-spin text-primary" : ""
+													}`}
+												/>
+												{isScanningAgents
+													? t("settings.scanning", "Scanning...")
+													: t("settings.scanTools", "Detect Tools")}
+											</Button>
+										</div>
+
+										{/* Hidden accessible select to preserve form/test compatibility */}
 										<select
 											id="ai-preferred-runner"
 											name="preferredRunner"
 											value={aiSettings.preferredRunner}
-											onChange={(e) =>
-												handleAiSettingChange(
-													"preferredRunner",
-													e.target
-														.value as GlobalAiSettings["preferredRunner"],
-												)
-											}
-											className="w-full h-9 px-3 rounded-lg border border-foreground/15 bg-background text-foreground text-xs font-medium outline-none focus:border-primary transition-colors cursor-pointer"
+											onChange={(e) => handleSelectRunner(e.target.value)}
+											className="sr-only"
+											tabIndex={-1}
+											aria-hidden="true"
 										>
-											<option
-												value="agy"
-												className="bg-editor-dialog text-foreground"
-											>
-												Antigravity CLI (Default)
-											</option>
-											<option
-												value="opencode"
-												className="bg-editor-dialog text-foreground"
-											>
-												OpenCode Interpreter
-											</option>
-											<option
-												value="hermes"
-												className="bg-editor-dialog text-foreground"
-											>
-												Hermes Agent
-											</option>
-											<option
-												value="cursor"
-												className="bg-editor-dialog text-foreground"
-											>
-												Cursor CLI
-											</option>
-											<option
-												value="custom"
-												className="bg-editor-dialog text-foreground"
-											>
-												Custom CLI / Binary
-											</option>
+											{AI_PROVIDERS.map((p) => (
+												<option key={p.id} value={p.id}>
+													{p.name}
+												</option>
+											))}
 										</select>
-										<p className="text-[11px] text-muted-foreground mt-1">
-											{t(
-												"settings.aiRunnerDesc",
-												"The harness executable invoked for multimodal timeline edits.",
-											)}
-										</p>
+
+										{/* Provider Cards Grid with Icons */}
+										<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+											{AI_PROVIDERS.map((provider) => {
+												const isSelected =
+													aiSettings.preferredRunner === provider.id;
+												const isAvailable = detectedAgents.some(
+													(a) => a.id === provider.id && a.available,
+												);
+												const IconComponent = provider.icon;
+												return (
+													<button
+														key={provider.id}
+														type="button"
+														data-runner={provider.id}
+														onClick={() => handleSelectRunner(provider.id)}
+														className={`flex flex-col items-start p-2.5 rounded-xl border text-left transition-all relative ${
+															isSelected
+																? "border-primary bg-primary/10 text-foreground shadow-sm ring-1 ring-primary/40"
+																: "border-foreground/15 bg-foreground/[0.02] text-foreground/80 hover:bg-foreground/[0.05] hover:border-foreground/30"
+														}`}
+													>
+														<div className="flex items-center justify-between w-full mb-1.5">
+															<div
+																className={`p-1.5 rounded-lg ${
+																	isSelected
+																		? "bg-primary/20 text-primary"
+																		: "bg-foreground/10 text-foreground/70"
+																}`}
+															>
+																<IconComponent className="w-4 h-4" />
+															</div>
+															{provider.id !== "custom" && (
+																<span
+																	className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+																		isAvailable
+																			? "bg-emerald-500/15 text-emerald-400"
+																			: "bg-foreground/5 text-muted-foreground"
+																	}`}
+																>
+																	<span
+																		className={`w-1.5 h-1.5 rounded-full ${
+																			isAvailable
+																				? "bg-emerald-500"
+																				: "bg-foreground/30"
+																		}`}
+																	/>
+																	{isAvailable ? "Ready" : "Not found"}
+																</span>
+															)}
+														</div>
+														<span className="text-xs font-semibold leading-tight line-clamp-1">
+															{provider.name}
+														</span>
+														<span className="text-[10px] text-muted-foreground mt-0.5 font-mono">
+															{provider.command || "custom path"}
+														</span>
+													</button>
+												);
+											})}
+										</div>
 									</div>
 
 									{/* Custom CLI Path (Visible when runner is 'custom') */}
@@ -572,7 +756,7 @@ export function AppSettingsDialog({
 										</div>
 									)}
 
-									{/* Default Model */}
+									{/* Default Model with Dynamic Presets */}
 									<div>
 										<label
 											htmlFor="ai-default-model"
@@ -580,20 +764,57 @@ export function AppSettingsDialog({
 										>
 											{t("settings.aiDefaultModel", "Default Model")}
 										</label>
-										<input
-											id="ai-default-model"
-											type="text"
-											name="defaultModel"
-											value={aiSettings.defaultModel}
-											onChange={(e) =>
-												handleAiSettingChange(
-													"defaultModel",
-													e.target.value,
-												)
-											}
-											placeholder="gemini-1.5-pro"
-											className="w-full h-9 px-3 rounded-lg border border-foreground/15 bg-foreground/[0.03] text-foreground text-xs font-mono outline-none focus:border-primary transition-colors"
-										/>
+										<div className="flex items-center gap-2">
+											{RUNNER_MODEL_PRESETS[aiSettings.preferredRunner]?.length > 0 && (
+												<select
+													value={
+														RUNNER_MODEL_PRESETS[
+															aiSettings.preferredRunner
+														].includes(aiSettings.defaultModel)
+															? aiSettings.defaultModel
+															: "custom"
+													}
+													onChange={(e) => {
+														if (e.target.value !== "custom") {
+															handleAiSettingChange("defaultModel", e.target.value);
+														}
+													}}
+													className="h-9 px-3 rounded-lg border border-foreground/15 bg-background text-foreground text-xs font-medium outline-none focus:border-primary transition-colors cursor-pointer"
+												>
+													{RUNNER_MODEL_PRESETS[
+														aiSettings.preferredRunner
+													].map((m) => (
+														<option
+															key={m}
+															value={m}
+															className="bg-editor-dialog text-foreground"
+														>
+															{m}
+														</option>
+													))}
+													<option
+														value="custom"
+														className="bg-editor-dialog text-foreground"
+													>
+														Custom model...
+													</option>
+												</select>
+											)}
+											<input
+												id="ai-default-model"
+												type="text"
+												name="defaultModel"
+												value={aiSettings.defaultModel}
+												onChange={(e) =>
+													handleAiSettingChange(
+														"defaultModel",
+														e.target.value,
+													)
+												}
+												placeholder="gemini-1.5-pro"
+												className="flex-1 h-9 px-3 rounded-lg border border-foreground/15 bg-foreground/[0.03] text-foreground text-xs font-mono outline-none focus:border-primary transition-colors"
+											/>
+										</div>
 										<p className="text-[11px] text-muted-foreground mt-1">
 											{t(
 												"settings.aiDefaultModelDesc",
@@ -695,6 +916,99 @@ export function AppSettingsDialog({
 													)
 												}
 											/>
+										</div>
+									</div>
+
+									{/* Mini Test Provider Connection Chat Panel */}
+									<div className="pt-4 border-t border-foreground/10 space-y-3">
+										<div className="flex items-center justify-between">
+											<div className="flex items-center gap-2">
+												<div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+													<LightningIcon className="w-4 h-4" />
+												</div>
+												<div>
+													<h4 className="text-xs font-semibold text-foreground">
+														Test Provider Connection
+													</h4>
+													<p className="text-[11px] text-muted-foreground">
+														Uji konektivitas CLI dan model aktif sebelum mulai mengedit.
+													</p>
+												</div>
+											</div>
+											<span className="text-[11px] font-mono px-2 py-0.5 rounded bg-foreground/5 text-muted-foreground">
+												{aiSettings.preferredRunner} • {aiSettings.defaultModel}
+											</span>
+										</div>
+
+										{/* Chat Log Window */}
+										<div className="rounded-xl border border-foreground/10 bg-black/25 p-3 min-h-[90px] max-h-[160px] overflow-y-auto space-y-2 text-xs font-mono">
+											{testChatMessages.length === 0 ? (
+												<div className="flex items-center justify-center h-full py-4 text-muted-foreground text-[11px] italic">
+													Pilih provider di atas dan kirim pesan tes untuk memverifikasi respon CLI.
+												</div>
+											) : (
+												testChatMessages.map((msg, i) => (
+													<div
+														key={i}
+														className={`flex flex-col gap-0.5 ${
+															msg.sender === "user" ? "items-end" : "items-start"
+														}`}
+													>
+														<span className="text-[10px] text-muted-foreground uppercase font-semibold">
+															{msg.sender === "user" ? "You" : aiSettings.preferredRunner}
+															{msg.latencyMs !== undefined && ` (${msg.latencyMs}ms)`}
+														</span>
+														<div
+															className={`px-3 py-1.5 rounded-lg max-w-[85%] whitespace-pre-wrap ${
+																msg.sender === "user"
+																	? "bg-primary/20 text-primary border border-primary/30"
+																	: msg.isError
+																		? "bg-destructive/15 text-destructive border border-destructive/30"
+																		: "bg-foreground/10 text-foreground border border-foreground/15"
+															}`}
+														>
+															{msg.text}
+														</div>
+													</div>
+												))
+											)}
+										</div>
+
+										{/* Test Input Row */}
+										<div className="flex items-center gap-2">
+											<input
+												type="text"
+												value={testPrompt}
+												onChange={(e) => setTestPrompt(e.target.value)}
+												onKeyDown={(e) => {
+													if (e.key === "Enter") {
+														e.preventDefault();
+														void handleRunTestConnection();
+													}
+												}}
+												placeholder="Halo, tes koneksi Captr Studio"
+												className="flex-1 h-9 px-3 rounded-lg border border-foreground/15 bg-foreground/[0.03] text-foreground text-xs font-mono outline-none focus:border-primary transition-colors"
+											/>
+											<Button
+												type="button"
+												variant="default"
+												size="sm"
+												onClick={() => void handleRunTestConnection()}
+												disabled={isTestingConnection || !testPrompt.trim()}
+												className="h-9 px-3.5 gap-1.5 rounded-lg text-xs font-medium"
+											>
+												{isTestingConnection ? (
+													<>
+														<CircleNotchIcon className="w-4 h-4 animate-spin" />
+														Testing...
+													</>
+												) : (
+													<>
+														<PaperPlaneRightIcon className="w-4 h-4" />
+														Test Connection
+													</>
+												)}
+											</Button>
 										</div>
 									</div>
 								</div>

@@ -60,7 +60,19 @@ export interface CaptrAppContext {
 }
 
 export interface GlobalAiSettings {
-	preferredRunner: "agy" | "opencode" | "hermes" | "cursor" | "custom";
+	preferredRunner:
+		| "agy"
+		| "claude"
+		| "opencode"
+		| "cursor"
+		| "codex"
+		| "devin"
+		| "hermes"
+		| "cline"
+		| "kiro"
+		| "trae"
+		| "custom"
+		| (string & {});
 	customRunnerPath?: string;
 	defaultModel: string;
 	apiBaseUrl?: string;

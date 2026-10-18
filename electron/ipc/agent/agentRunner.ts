@@ -34,6 +34,7 @@ export interface RunAgentTaskParams {
 	editContext: StoryEditContext;
 	agentId: string;
 	customCommand?: string;
+	model?: string;
 	userPrompt: string;
 	project: TimelineProject;
 	transcripts: Record<string, AssetTranscript>;
@@ -75,25 +76,44 @@ export function buildAgentCommandArgs(
 	taskPrompt: string,
 	workspaceDir?: string,
 	defaultArgs?: string[],
+	model?: string,
 ): string[] {
 	if (agentId === "agy") {
 		const args = ["--dangerously-skip-permissions"];
 		if (workspaceDir) {
 			args.push("--add-dir", workspaceDir);
 		}
+		if (model) {
+			args.push("--model", model);
+		}
 		args.push("-p", taskPrompt);
 		return args;
 	}
 	if (agentId === "claude") {
-		return ["--dangerously-skip-permissions", "-p", taskPrompt];
+		const args = ["--dangerously-skip-permissions"];
+		if (model) {
+			args.push("--model", model);
+		}
+		args.push("-p", taskPrompt);
+		return args;
 	}
 	if (agentId === "opencode") {
-		return ["run", "--auto", taskPrompt];
+		const args = ["run", "--auto"];
+		if (model) {
+			args.push("--model", model);
+		}
+		args.push(taskPrompt);
+		return args;
+	}
+	const args: string[] = [];
+	if (model) {
+		args.push("--model", model);
 	}
 	if (defaultArgs && defaultArgs.length > 0) {
-		return [...defaultArgs, taskPrompt];
+		args.push(...defaultArgs);
 	}
-	return [taskPrompt];
+	args.push(taskPrompt);
+	return args;
 }
 
 /**
@@ -164,7 +184,13 @@ export async function runAgentTask(
 		}
 
 		const taskPrompt = formatAgentTaskPrompt(params.userPrompt, draftFile);
-		const args = buildAgentCommandArgs(params.agentId, taskPrompt, tempDir, known?.defaultArgs);
+		const args = buildAgentCommandArgs(
+			params.agentId,
+			taskPrompt,
+			tempDir,
+			known?.defaultArgs,
+			params.model,
+		);
 
 		log(`[Captr Studio] Launching agent: ${command} in ${tempDir}...\n`);
 
@@ -334,3 +360,112 @@ export function cancelAgentTask(): boolean {
 	}
 	return false;
 }
+
+export interface TestAgentConnectionParams {
+	agentId: string;
+	customCommand?: string;
+	model?: string;
+	prompt: string;
+}
+
+export interface TestAgentConnectionResult {
+	success: boolean;
+	response?: string;
+	latencyMs: number;
+	error?: string;
+}
+
+export async function testAgentConnection(
+	params: TestAgentConnectionParams,
+): Promise<TestAgentConnectionResult> {
+	const start = Date.now();
+	const known = KNOWN_AGENTS.find((a) => a.id === params.agentId);
+	let command = params.customCommand?.trim() || known?.command || params.agentId;
+
+	if (!path.isAbsolute(command)) {
+		const resolved = await checkAgentAvailability(command);
+		if (!resolved && params.agentId !== "custom") {
+			return {
+				success: false,
+				latencyMs: Date.now() - start,
+				error: `Executable "${command}" tidak ditemukan di PATH sistem. Pastikan CLI provider sudah terpasang.`,
+			};
+		}
+		if (resolved) {
+			command = resolved;
+		}
+	}
+
+	const args = buildAgentCommandArgs(
+		params.agentId,
+		params.prompt || "Ping from Captr Studio",
+		undefined,
+		known?.defaultArgs,
+		params.model,
+	);
+
+	return new Promise((resolve) => {
+		let stdout = "";
+		let stderr = "";
+		let killed = false;
+
+		const proc = spawn(command, args, {
+			env: getAugmentedEnv(),
+			shell: process.platform === "win32",
+			windowsHide: true,
+		});
+
+		const timer = setTimeout(() => {
+			killed = true;
+			try {
+				proc.kill("SIGTERM");
+			} catch {}
+			resolve({
+				success: false,
+				latencyMs: Date.now() - start,
+				error: "Koneksi timeout setelah 20 detik.",
+			});
+		}, 20000);
+
+		proc.stdout?.on("data", (d) => {
+			stdout += d.toString();
+		});
+
+		proc.stderr?.on("data", (d) => {
+			stderr += d.toString();
+		});
+
+		proc.on("error", (err) => {
+			if (killed) return;
+			clearTimeout(timer);
+			resolve({
+				success: false,
+				latencyMs: Date.now() - start,
+				error: err.message,
+			});
+		});
+
+		proc.on("close", (code) => {
+			if (killed) return;
+			clearTimeout(timer);
+			const latencyMs = Date.now() - start;
+			if (code === 0) {
+				const response = (stdout || stderr).trim() || "Koneksi berhasil (status code 0).";
+				resolve({
+					success: true,
+					response,
+					latencyMs,
+				});
+			} else {
+				const errorMsg =
+					stderr.trim() || stdout.trim() || `CLI provider keluar dengan exit code ${code}.`;
+				resolve({
+					success: false,
+					latencyMs,
+					error: errorMsg,
+				});
+			}
+		});
+	});
+}
+

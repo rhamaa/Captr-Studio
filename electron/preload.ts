@@ -1121,11 +1121,18 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		editContext: import("../src/core/timeline/storyOwnership").StoryEditContext;
 		agentId: string;
 		customCommand?: string;
+		model?: string;
 		userPrompt: string;
 		project: unknown;
 		transcripts: Record<string, unknown>;
 	}) => ipcRenderer.invoke("agent:run-task", params),
 	cancelAgentTask: () => ipcRenderer.invoke("agent:cancel-task"),
+	testAgentConnection: (params: {
+		agentId: string;
+		customCommand?: string;
+		model?: string;
+		prompt: string;
+	}) => ipcRenderer.invoke("agent:test-connection", params),
 	onAgentLogStream: (callback: (chunk: string) => void) => {
 		const listener = (_event: Electron.IpcRendererEvent, chunk: string) => callback(chunk);
 		ipcRenderer.on("agent:log-stream", listener);

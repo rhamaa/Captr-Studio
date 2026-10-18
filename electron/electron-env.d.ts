@@ -1105,6 +1105,7 @@ interface Window {
 			editContext: import("../src/core/timeline/storyOwnership").StoryEditContext;
 			agentId: string;
 			customCommand?: string;
+			model?: string;
 			userPrompt: string;
 			project: import("../src/core/timeline/types").TimelineProject;
 			transcripts: Record<
@@ -1120,6 +1121,17 @@ interface Window {
 			error?: string;
 		}>;
 		cancelAgentTask?: () => Promise<boolean>;
+		testAgentConnection?: (params: {
+			agentId: string;
+			customCommand?: string;
+			model?: string;
+			prompt: string;
+		}) => Promise<{
+			success: boolean;
+			response?: string;
+			latencyMs: number;
+			error?: string;
+		}>;
 		onAgentLogStream?: (callback: (chunk: string) => void) => () => void;
 		checkCustomAgent?: (command: string) => Promise<{
 			id: string;

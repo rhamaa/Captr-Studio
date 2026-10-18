@@ -12,6 +12,9 @@ describe("agentDetector", () => {
 		expect(ids[0]).toBe("agy");
 		expect(ids).toContain("claude");
 		expect(ids).toContain("opencode");
+		expect(ids).toContain("cursor");
+		expect(ids).toContain("codex");
+		expect(ids).toContain("devin");
 		expect(ids).toContain("kiro");
 		expect(ids).toContain("trae");
 		expect(ids).toContain("cline");

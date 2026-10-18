@@ -175,5 +175,39 @@ describe("AppSettingsDialog & AI Settings", () => {
 			expect(html).toContain('name="customRunnerPath"');
 			expect(html).toContain('value="C:\\tools\\custom-agent.exe"');
 		});
+
+		it("renders rich AI provider cards with icons and no default bias", () => {
+			const html = renderToStaticMarkup(
+				createElement(
+					I18nProvider,
+					null,
+					createElement(AppSettingsDialog, {
+						open: true,
+						defaultTab: "ai",
+						onOpenChange: vi.fn(),
+					}),
+				),
+			);
+
+			// All runners should be rendered as cards with data-runner
+			expect(html).toContain('data-runner="agy"');
+			expect(html).toContain('data-runner="claude"');
+			expect(html).toContain('data-runner="opencode"');
+			expect(html).toContain('data-runner="cursor"');
+			expect(html).toContain('data-runner="codex"');
+			expect(html).toContain('data-runner="devin"');
+			expect(html).toContain('data-runner="hermes"');
+			expect(html).toContain('data-runner="cline"');
+			expect(html).toContain('data-runner="kiro"');
+			expect(html).toContain('data-runner="trae"');
+			expect(html).toContain('data-runner="custom"');
+
+			// None should have (Default) in their names
+			expect(html).not.toContain("Antigravity CLI (Default)");
+
+			// Test connection section should be present
+			expect(html).toContain("Test Provider Connection");
+			expect(html).toContain("Halo, tes koneksi Captr Studio");
+		});
 	});
 });

@@ -5,6 +5,9 @@ import {
 	type RunAgentTaskParams,
 	type RunAgentTaskResult,
 	runAgentTask,
+	type TestAgentConnectionParams,
+	type TestAgentConnectionResult,
+	testAgentConnection,
 } from "../agent/agentRunner";
 import {
 	cancelActiveHyperframeAgentTask,
@@ -87,6 +90,13 @@ export function registerAgentHandlers() {
 	ipcMain.handle("agent:cancel-task", () => {
 		return cancelAgentTask();
 	});
+
+	ipcMain.handle(
+		"agent:test-connection",
+		async (_, params: TestAgentConnectionParams): Promise<TestAgentConnectionResult> => {
+			return testAgentConnection(params);
+		},
+	);
 
 	ipcMain.handle(
 		"agent:run-hyperframe-task",

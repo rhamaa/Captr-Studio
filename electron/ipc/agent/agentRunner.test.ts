@@ -31,4 +31,18 @@ describe("agentRunner", () => {
 		const args = buildAgentCommandArgs("opencode", "test prompt");
 		expect(args).toEqual(["run", "--auto", "test prompt"]);
 	});
+
+	it("passes model flag to runner when specified", () => {
+		const agyArgs = buildAgentCommandArgs("agy", "test prompt", undefined, undefined, "gemini-2.0-flash");
+		expect(agyArgs).toEqual(["--dangerously-skip-permissions", "--model", "gemini-2.0-flash", "-p", "test prompt"]);
+
+		const claudeArgs = buildAgentCommandArgs("claude", "test prompt", undefined, undefined, "claude-3-5-sonnet");
+		expect(claudeArgs).toEqual(["--dangerously-skip-permissions", "--model", "claude-3-5-sonnet", "-p", "test prompt"]);
+
+		const cursorArgs = buildAgentCommandArgs("cursor", "test prompt", undefined, ["-p"], "gpt-4o");
+		expect(cursorArgs).toEqual(["--model", "gpt-4o", "-p", "test prompt"]);
+
+		const devinArgs = buildAgentCommandArgs("devin", "test prompt", undefined, ["-p"], "devin-standard");
+		expect(devinArgs).toEqual(["--model", "devin-standard", "-p", "test prompt"]);
+	});
 });

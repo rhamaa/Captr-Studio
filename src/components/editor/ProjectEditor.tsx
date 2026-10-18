@@ -1050,6 +1050,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				const res = await window.electronAPI.runAgentTask({
 					agentId: settings.preferredRunner || "agy",
 					customCommand: settings.customRunnerPath,
+					model: settings.defaultModel,
 					userPrompt: `Execute ${toolName} on current editing surface`,
 					project: activeProject,
 					transcripts,
@@ -1083,6 +1084,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				const res = await window.electronAPI.runAgentTask({
 					agentId: settings.preferredRunner || "agy",
 					customCommand: settings.customRunnerPath,
+					model: settings.defaultModel,
 					userPrompt: promptText.trim(),
 					project: activeProject,
 					transcripts,
