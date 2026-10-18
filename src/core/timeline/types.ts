@@ -1,6 +1,7 @@
 import type { PropertyKeyframe } from "@/components/video-editor/types";
 import type { MediaSource, RecordComposition, RecordingPackage } from "@/recording/types";
 import type { RepurposeBoardSettings } from "./repurposeTypes";
+import type { ProjectAiConfig } from "./aiTypes";
 
 export type { PropertyKeyframe } from "@/components/video-editor/types";
 export type {
@@ -17,6 +18,7 @@ export type {
 	RepurposeBoardSettings,
 	RepurposeSlice,
 } from "./repurposeTypes";
+export type { ProjectAiConfig } from "./aiTypes";
 export interface TextOverlay {
 	content: string;
 	fontFamily: string;
@@ -169,6 +171,7 @@ export interface TimelineProject {
 	hyperframeManifest?: import("../story/storyTypes").HyperframeManifestItem[];
 	whiteboardSnapshot?: Record<string, unknown>;
 	terminalConfig?: ProjectTerminalConfig;
+	aiConfig?: ProjectAiConfig;
 	createdAt: string;
 	updatedAt: string;
 }

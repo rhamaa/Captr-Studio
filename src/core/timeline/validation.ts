@@ -990,5 +990,39 @@ export function validateTimelineProject(
 			);
 		}
 	}
+	if (p.aiConfig !== undefined) {
+		requireValue(
+			p.aiConfig !== null &&
+				typeof p.aiConfig === "object" &&
+				!Array.isArray(p.aiConfig),
+			"Invalid project AI config: must be an object",
+		);
+		if (p.aiConfig.modelOverride !== undefined) {
+			requireValue(
+				typeof p.aiConfig.modelOverride === "string",
+				"Invalid AI model override",
+			);
+		}
+		if (p.aiConfig.personaPrompt !== undefined) {
+			requireValue(
+				typeof p.aiConfig.personaPrompt === "string",
+				"Invalid AI persona prompt",
+			);
+		}
+		if (p.aiConfig.silenceThresholdMs !== undefined) {
+			requireValue(
+				typeof p.aiConfig.silenceThresholdMs === "number" &&
+					Number.isFinite(p.aiConfig.silenceThresholdMs) &&
+					p.aiConfig.silenceThresholdMs >= 0,
+				"Invalid AI silence threshold",
+			);
+		}
+		if (p.aiConfig.defaultCaptionStyle !== undefined) {
+			requireValue(
+				typeof p.aiConfig.defaultCaptionStyle === "string",
+				"Invalid AI default caption style",
+			);
+		}
+	}
 	return p;
 }
