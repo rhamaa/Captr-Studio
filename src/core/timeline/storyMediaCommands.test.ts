@@ -126,4 +126,13 @@ describe("Story private media commands", () => {
 		expect(history.project.assets.some((a) => a.id === "global-voice")).toBe(true);
 		expect(history.project.localAssets).toBeUndefined();
 	});
+	it("renames private story media asset and rejects empty names", async () => {
+		const { renameStoryMedia } = await import("./storyMediaCommands");
+		const before = ownershipFixture();
+		const renamed = renameStoryMedia(before, scope, "voice-A", "Updated Voiceover");
+		expect(getStoryProject(renamed, scope).localAssets?.find((a) => a.id === "voice-A")?.name).toBe("Updated Voiceover");
+		expect(() => renameStoryMedia(before, scope, "voice-A", "   ")).toThrow(/empty/i);
+		expect(() => renameStoryMedia(before, scope, "missing-id", "New Name")).toThrow(/not found/i);
+	});
 });
+

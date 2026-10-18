@@ -7,6 +7,7 @@ import {
 	placeAsset,
 	registerMedia,
 	registerRecording,
+	renameAsset,
 	removeAsset,
 	removeClip,
 	removeTrack,
@@ -21,6 +22,7 @@ import {
 	updateComposition,
 	updateProjectCanvas,
 } from "./commands";
+import { resolveMediaAsset } from "./clipSource";
 import { ProjectHistory } from "./history";
 import { fixtureText } from "./storyOwnership.fixtures";
 import { mapClipTime, mapCompositionTime, mapStreamTime } from "./timeMapping";
@@ -379,4 +381,32 @@ describe("transition and component animation command cleanup", () => {
 		const reenabled = toggleClipEnabled(disabled, "c");
 		expect(reenabled.tracks[0]!.clips[0]!.enabled).toBe(true);
 	});
+
+	it("renames global assets and updates resolved clip labels", () => {
+		let project = recorded();
+		project = renameAsset(project, "a", "Renamed Screen Recording");
+		expect(project.assets.find((a) => a.id === "a")?.name).toBe("Renamed Screen Recording");
+
+		// Timeline clip placed with this assetId automatically reflects the new name
+		project = placeAsset(project, "a", "visual-1", 0, { clipId: "c1", compositionId: "comp-1" });
+		const clip = project.tracks[0].clips.find((c) => c.id === "c1")!;
+		const resolved = resolveMediaAsset(project, clip.assetId);
+		expect(resolved.name).toBe("Renamed Screen Recording");
+
+		// Undo and Redo restore original name cleanly
+		const history = new ProjectHistory(project);
+		const renamed = history.execute((p) => renameAsset(p, "a", "New Name 2"));
+		expect(renamed.assets.find((a) => a.id === "a")?.name).toBe("New Name 2");
+		const undone = history.undo();
+		expect(undone.assets.find((a) => a.id === "a")?.name).toBe("Renamed Screen Recording");
+		const redone = history.redo();
+		expect(redone.assets.find((a) => a.id === "a")?.name).toBe("New Name 2");
+
+		// Empty or whitespace names rejected
+		expect(() => renameAsset(project, "a", "   ")).toThrow(/empty/i);
+
+		// Non-existent asset rejected
+		expect(() => renameAsset(project, "non-existent", "New Name")).toThrow(/not found/i);
+	});
 });
+

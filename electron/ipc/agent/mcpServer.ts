@@ -12,6 +12,7 @@ import {
 	formatProjectContext,
 	summarizeProjectDiff,
 } from "../../../src/core/timeline/agentTools";
+import { renameAsset } from "../../../src/core/timeline/commands";
 import type { RecordingFrameAppearance } from "../../../src/recording/schema";
 import {
 	applyStoryCommand,
@@ -418,6 +419,23 @@ const MCP_TOOLS = [
 					type: "number",
 					description: "Target zoom scale factor at click peaks (e.g. 1.35 or 1.5)",
 				},
+				editContext: {
+					type: "object",
+					description: "Captured Story editContext from get_project_context",
+				},
+			},
+		},
+	},
+	{
+		name: "rename_asset",
+		description:
+			"Renames a project media asset or private story asset by its ID, updating displays across timeline clips, compositions, and libraries.",
+		inputSchema: {
+			type: "object",
+			required: ["assetId", "newName", "editContext"],
+			properties: {
+				assetId: { type: "string", description: "ID of the asset to rename" },
+				newName: { type: "string", description: "New display name for the asset" },
 				editContext: {
 					type: "object",
 					description: "Captured Story editContext from get_project_context",
@@ -842,6 +860,43 @@ export async function executeMcpToolCall(
 			} catch (err) {
 				return {
 					text: `Auto-zoom to clicks failed: ${err instanceof Error ? err.message : String(err)}`,
+					isError: true,
+				};
+			}
+		}
+
+		case "rename_asset": {
+			const assetId = String(args.assetId || "");
+			const newName = String(args.newName || "");
+			if (!assetId) {
+				return { text: "Error: assetId is required", isError: true };
+			}
+			if (!newName.trim()) {
+				return { text: "Error: newName cannot be empty", isError: true };
+			}
+			try {
+				const updated = renameAsset(baseRoot, assetId, newName);
+				speculativeProject = updated;
+				speculativeContext = structuredClone(proposalContext);
+				const diff = summarizeProjectDiff(
+					getStoryEditProject(activeContext.project, proposalContext.scope),
+					getStoryEditProject(speculativeProject!, proposalContext.scope),
+				);
+				broadcastToRenderers("agent:speculative-preview", {
+					project: getStoryEditProject(speculativeProject!, proposalContext.scope),
+					context: proposalContext,
+					diff,
+				});
+				return {
+					text: JSON.stringify({
+						success: true,
+						assetId,
+						newName: newName.trim(),
+					}),
+				};
+			} catch (err) {
+				return {
+					text: `Rename asset failed: ${err instanceof Error ? err.message : String(err)}`,
 					isError: true,
 				};
 			}

@@ -375,5 +375,38 @@ describe("Recording composition settings", () => {
 		expect(html).toContain('aria-label="Zoom in preview"');
 		expect(html).toContain('aria-label="Pan preview"');
 	});
+
+	it("renders recording asset name in the editor badge and footer when provided", () => {
+		const registered = registerRecording(
+			createTimelineProject("project-rename", "Project Rename"),
+			{
+				captureId: "capture-rn",
+				name: "Original Capture",
+				screen: { path: "raw-screen.mp4", offsetUs: 0, durationUs: 5_000_000 },
+				durationUs: 5_000_000,
+				width: 1920,
+				height: 1080,
+				settings: {},
+			},
+			{ assetId: "asset-rn", packageId: "package-rn" },
+		);
+		const project = placeAsset(registered, "asset-rn", registered.tracks[0].id, 0, {
+			clipId: "clip-rn",
+			compositionId: "comp-rn",
+		});
+		const html = translate(
+			createElement(RecordingCompositionEditor, {
+				package: project.packages[0],
+				composition: project.compositions[0],
+				recordingAssetName: "Renamed Screen Walkthrough",
+				onChange: () => {},
+				onClose: () => {},
+			}),
+		);
+
+		expect(html).toContain('title="Renamed Screen Walkthrough"');
+		expect(html).toContain(">Renamed Screen Walkthrough</span>");
+	});
 });
+
 

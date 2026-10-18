@@ -29,6 +29,8 @@ export interface AssetLibraryProps {
 	storyAssets?: MediaAsset[];
 	onPublish?: (id: string) => void;
 	onRemoveStoryMedia?: (id: string) => void;
+	onRename?: (id: string, name: string) => void;
+	onRenameStoryMedia?: (id: string, name: string) => void;
 	activeTab?: "assets" | "shapes";
 	onSelectTab?: (tab: "assets" | "shapes") => void;
 	toolRail?: ReactNode;
@@ -54,6 +56,8 @@ export function AssetLibrary({
 	storyAssets,
 	onPublish,
 	onRemoveStoryMedia,
+	onRename,
+	onRenameStoryMedia,
 	activeTab = "assets",
 	onSelectTab,
 	toolRail,
@@ -218,6 +222,15 @@ export function AssetLibrary({
 									owner === "story" && onPublish
 										? () => onPublish(asset.id)
 										: undefined
+								}
+								onRename={
+									owner === "story"
+										? onRenameStoryMedia
+											? (name) => onRenameStoryMedia(asset.id, name)
+											: undefined
+										: onRename
+											? (name) => onRename(asset.id, name)
+											: undefined
 								}
 							/>
 						);

@@ -23,13 +23,18 @@ import {
 	addTextOverlay,
 	placeAsset,
 	removeAsset,
+	renameAsset,
 	updateClip,
 	updateProjectTerminalConfig,
 } from "@/core/timeline/commands";
 import { applyDesignTemplate } from "@/core/timeline/designTemplateCommands";
 import type { ProjectCommand } from "@/core/timeline/history";
 import { createAndPlaceShape } from "@/core/timeline/shapeCommands";
-import { publishStoryMedia, removeStoryMedia } from "@/core/timeline/storyMediaCommands";
+import {
+	publishStoryMedia,
+	removeStoryMedia,
+	renameStoryMedia,
+} from "@/core/timeline/storyMediaCommands";
 import type { StoryEditContext } from "@/core/timeline/storyOwnership";
 import type { AssetTranscript } from "@/core/timeline/transcriptTypes";
 import {
@@ -735,6 +740,21 @@ export function StoryEditor({
 						}}
 						onPlace={addToTimeline}
 						onRemove={(id) => onProjectCommand?.((root) => removeAsset(root, id))}
+						onRename={(id, name) =>
+							onProjectCommand?.((root) => renameAsset(root, id, name))
+						}
+						onRenameStoryMedia={(id, name) =>
+							onProjectCommand?.((root) =>
+								renameStoryMedia(
+									root,
+									storyId
+										? { kind: "artboard", artboardId: storyId }
+										: { kind: "root" },
+									id,
+									name,
+								),
+							)
+						}
 					/>
 				) : (
 					<ShapeLibrary

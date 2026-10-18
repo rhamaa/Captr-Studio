@@ -425,6 +425,23 @@
 	text-overflow: ellipsis;
 	flex: 1;
 }
+.project-asset-info > span.is-editable {
+	cursor: pointer;
+}
+.project-asset-info > span.is-editable:hover {
+	color: var(--project-accent, #91aaff);
+}
+.project-asset-rename-input {
+	font-size: 10px;
+	flex: 1;
+	min-width: 0;
+	background: hsl(var(--background));
+	color: hsl(var(--foreground));
+	border: 1px solid var(--project-accent, #3b82f6);
+	border-radius: 3px;
+	padding: 1px 4px;
+	outline: none;
+}
 .project-asset-actions {
 	display: flex;
 }

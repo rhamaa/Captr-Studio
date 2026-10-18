@@ -24,6 +24,7 @@ import {
 	placeAsset,
 	registerMedia,
 	removeAsset,
+	renameAsset,
 	updateClip,
 	updateComposition,
 } from "@/core/timeline/commands";
@@ -1352,6 +1353,9 @@ export function ProjectEditor(props: ProjectEditorProps) {
 							package={pkg}
 							composition={composition}
 							projectTitle={projectFileName(state.path)}
+							recordingAssetName={
+								activeProject.assets.find((a) => a.packageId === pkg.id)?.name
+							}
 							canvas={activeProject.canvas}
 							clipTransform={editedClip?.transform}
 							onClipTransformChange={(transform) => {
@@ -1442,6 +1446,13 @@ export function ProjectEditor(props: ProjectEditorProps) {
 							onRemoveAsset={(id) => {
 								try {
 									controller.execute((p) => removeAsset(p, id));
+								} catch (error) {
+									errorMessage(error);
+								}
+							}}
+							onRenameAsset={(id, name) => {
+								try {
+									controller.execute((p) => renameAsset(p, id, name));
 								} catch (error) {
 									errorMessage(error);
 								}

@@ -126,4 +126,42 @@ describe("AssetCard caption support", () => {
 		expect(html).toContain("Microphone audio");
 		expect(html).toContain("No captions");
 	});
+
+	it("renders rename button when onRename is provided", () => {
+		const onRename = vi.fn();
+		const html = renderToStaticMarkup(
+			createElement(AssetCard, {
+				asset: videoAsset,
+				sourcePath: "D:/mock/My Video.mp4",
+				selected: false,
+				onPreview: vi.fn(),
+				onPlace: vi.fn(),
+				onRemove: vi.fn(),
+				onRename,
+			}),
+		);
+
+		expect(html).toContain('aria-label="Rename My Video.mp4"');
+		expect(html).toContain('title="Rename asset"');
+		expect(html).toContain('title="My Video.mp4 (double click to rename)"');
+		expect(html).toContain('class="is-editable"');
+	});
+
+	it("omits rename button when onRename is not provided", () => {
+		const html = renderToStaticMarkup(
+			createElement(AssetCard, {
+				asset: videoAsset,
+				sourcePath: "D:/mock/My Video.mp4",
+				selected: false,
+				onPreview: vi.fn(),
+				onPlace: vi.fn(),
+				onRemove: vi.fn(),
+			}),
+		);
+
+		expect(html).not.toContain('aria-label="Rename My Video.mp4"');
+		expect(html).not.toContain('class="is-editable"');
+	});
 });
+
+

@@ -114,7 +114,7 @@ describe("mcpServer", () => {
 		expect(res.result.capabilities.tools).toBeDefined();
 	});
 
-	it("handles tools/list and returns all 11 required tools", () => {
+	it("handles tools/list and returns all 12 required tools", () => {
 		const res = handleJsonRpcMessage({
 			jsonrpc: "2.0",
 			id: 2,
@@ -133,7 +133,8 @@ describe("mcpServer", () => {
 		expect(toolNames).toContain("set_frame_appearance");
 		expect(toolNames).toContain("apply_appearance_preset");
 		expect(toolNames).toContain("auto_zoom_to_clicks");
-		expect(toolNames.length).toBe(11);
+		expect(toolNames).toContain("rename_asset");
+		expect(toolNames.length).toBe(12);
 		for (const tool of res.result.tools) {
 			if (tool.name !== "get_project_context")
 				expect(tool.inputSchema.required).toContain("editContext");
@@ -191,7 +192,7 @@ describe("mcpServer", () => {
 		expect(response.status).toBe(200);
 		const data = await response.json();
 		expect(data.id).toBe(42);
-		expect(data.result.tools.length).toBe(11);
+		expect(data.result.tools.length).toBe(12);
 	});
 
 	it("executes trim_clip with second-based arguments", async () => {
@@ -396,5 +397,18 @@ describe("mcpServer", () => {
 			"repurpose-shorts-9-16",
 			"auto-center-webcam",
 		]);
+	});
+
+	it("renames asset via rename_asset tool and broadcasts speculative preview", async () => {
+		setMcpProjectContext(createMockContext());
+		const result = await executeMcpToolCall("rename_asset", {
+			assetId: "a1",
+			newName: "Renamed Video.mp4",
+		});
+		expect(result.isError).toBeFalsy();
+		const parsed = JSON.parse(result.text);
+		expect(parsed.success).toBe(true);
+		expect(parsed.assetId).toBe("a1");
+		expect(parsed.newName).toBe("Renamed Video.mp4");
 	});
 });

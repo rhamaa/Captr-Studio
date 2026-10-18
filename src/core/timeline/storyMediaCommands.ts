@@ -64,3 +64,24 @@ export function publishStoryMedia(
 		updatedAt: new Date().toISOString(),
 	}));
 }
+
+export function renameStoryMedia(
+	project: TimelineProject,
+	scope: StoryScope,
+	assetId: string,
+	name: string,
+): TimelineProject {
+	const trimmed = name.trim();
+	if (!trimmed) throw new Error("Asset name cannot be empty");
+	const owner = getStoryProject(project, scope);
+	if (!owner.localAssets?.some((asset) => asset.id === assetId))
+		throw new Error("Private media not found in Story owner");
+	return applyStoryCommand(project, scope, (view) => ({
+		...view,
+		localAssets: view.localAssets!.map((asset) =>
+			asset.id === assetId ? { ...asset, name: trimmed } : asset,
+		),
+		updatedAt: new Date().toISOString(),
+	}));
+}
+

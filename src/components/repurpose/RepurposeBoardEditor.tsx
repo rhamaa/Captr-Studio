@@ -51,6 +51,7 @@ export interface RepurposeBoardEditorProps {
 	onPreviewAsset?: (id: string) => void;
 	onPlaceAsset?: (id: string) => void;
 	onRemoveAsset?: (id: string) => void;
+	onRenameAsset?: (id: string, name: string) => void;
 }
 
 const HYPERFRAME_ASPECT_PRESETS: Array<{
@@ -81,6 +82,7 @@ export function RepurposeBoardEditor({
 	onPreviewAsset,
 	onPlaceAsset,
 	onRemoveAsset,
+	onRenameAsset,
 }: RepurposeBoardEditorProps) {
 	const [error, setError] = useState<string | null>(null);
 	const [showAddMenu, setShowAddMenu] = useState(false);
@@ -416,6 +418,7 @@ export function RepurposeBoardEditor({
 								onPreview={onPreviewAsset ?? (() => undefined)}
 								onPlace={handlePlaceAssetFromSidebar}
 								onRemove={onRemoveAsset ?? (() => undefined)}
+								onRename={onRenameAsset}
 							/>
 						</div>
 					)}

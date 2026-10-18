@@ -85,6 +85,7 @@ export interface RecordingCompositionEditorProps {
 	package: RecordingPackage;
 	composition: RecordComposition;
 	projectTitle?: string;
+	recordingAssetName?: string;
 	canvas?: { width: number; height: number; fps?: number };
 	clipTransform?: { x: number; y: number; scale: number; rotation: number; opacity: number };
 	onClipTransformChange?: (transform: {
@@ -166,6 +167,7 @@ export function RecordingCompositionEditor({
 	package: pkg,
 	composition,
 	projectTitle,
+	recordingAssetName,
 	canvas: propCanvas,
 	clipTransform,
 	onClipTransformChange,
@@ -412,11 +414,12 @@ export function RecordingCompositionEditor({
 		[settings.annotationRegions],
 	);
 	const clipName = useMemo(() => {
+		if (recordingAssetName) return recordingAssetName;
 		const p = pkg.screen.path;
 		if (!p) return "Screen Recording";
 		const parts = p.split(/[/\\]/);
 		return parts[parts.length - 1] || "Screen Recording";
-	}, [pkg.screen.path]);
+	}, [recordingAssetName, pkg.screen.path]);
 	const outputUs = sourceToCompositionTime(composition, sourceSeconds * 1_000_000);
 	useEffect(() => {
 		if (!playing) return;

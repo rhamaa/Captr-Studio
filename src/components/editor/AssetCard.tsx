@@ -6,6 +6,7 @@ import {
 	Image as ImageIcon,
 	Microphone,
 	MusicNote,
+	PencilSimple,
 	Plus,
 	SpeakerHigh,
 	TextT,
@@ -30,6 +31,7 @@ export interface AssetCardProps {
 	onRemove: () => void;
 	onPublish?: () => void;
 	onTranscribe?: (asset: MediaAsset) => void;
+	onRename?: (newName: string) => void;
 }
 export function AssetCard({
 	asset,
@@ -42,12 +44,34 @@ export function AssetCard({
 	onRemove,
 	onPublish,
 	onTranscribe,
+	onRename,
 }: AssetCardProps) {
 	const [url, setUrl] = useState("");
 	const [transcript, setTranscript] = useState<AssetTranscript | null>(null);
 	const [isTranscribing, setIsTranscribing] = useState(false);
 	const [transcribeError, setTranscribeError] = useState<string | null>(null);
 	const [dialogOpen, setDialogOpen] = useState(false);
+	const [isEditingName, setIsEditingName] = useState(false);
+	const [nameDraft, setNameDraft] = useState(asset.name);
+
+	useEffect(() => {
+		setNameDraft(asset.name);
+	}, [asset.name]);
+
+	const commitRename = () => {
+		const trimmed = nameDraft.trim();
+		if (trimmed && trimmed !== asset.name && onRename) {
+			onRename(trimmed);
+		} else {
+			setNameDraft(asset.name);
+		}
+		setIsEditingName(false);
+	};
+
+	const cancelRename = () => {
+		setNameDraft(asset.name);
+		setIsEditingName(false);
+	};
 
 	const canHaveCaptions =
 		asset.kind === "recording" || asset.kind === "video" || asset.kind === "audio";
@@ -205,8 +229,52 @@ export function AssetCard({
 					)}
 				</button>
 				<div className="project-asset-info">
-					<span title={asset.name}>{asset.name}</span>
+					{isEditingName ? (
+						<input
+							className="project-asset-rename-input"
+							aria-label="Rename asset"
+							autoFocus
+							value={nameDraft}
+							onChange={(e) => setNameDraft(e.target.value)}
+							onBlur={commitRename}
+							onKeyDown={(e) => {
+								if (e.key === "Enter") {
+									e.stopPropagation();
+									commitRename();
+								} else if (e.key === "Escape") {
+									e.stopPropagation();
+									cancelRename();
+								}
+							}}
+							onClick={(e) => e.stopPropagation()}
+						/>
+					) : (
+						<span
+							className={onRename ? "is-editable" : undefined}
+							title={onRename ? `${asset.name} (double click to rename)` : asset.name}
+							onDoubleClick={(e) => {
+								if (onRename) {
+									e.stopPropagation();
+									setIsEditingName(true);
+								}
+							}}
+						>
+							{asset.name}
+						</span>
+					)}
 					<div className="project-asset-actions">
+						{onRename && (
+							<button
+								aria-label={`Rename ${asset.name}`}
+								title="Rename asset"
+								onClick={(e) => {
+									e.stopPropagation();
+									setIsEditingName(true);
+								}}
+							>
+								<PencilSimple size={15} />
+							</button>
+						)}
 						{onPublish && (
 							<button
 								aria-label="Publish to Assets"

@@ -7,6 +7,7 @@ import { resolveMediaAsset } from "./clipSource";
 import { relatedClipIds } from "./editingCommands";
 import { reconcileClipTransitions } from "./clipTransitions";
 import { getStoryProject, listStoryScopes, refreshStoryProjections } from "./storyOwnership";
+import { renameStoryMedia } from "./storyMediaCommands";
 import {
 	type ClipTransform,
 	type CompletedRecording,
@@ -279,6 +280,24 @@ export function removeAsset(p: TimelineProject, id: string) {
 			n.compositions = n.compositions.filter((e) => e.packageId !== a.packageId);
 		}
 	});
+}
+export function renameAsset(p: TimelineProject, id: string, name: string): TimelineProject {
+	const trimmed = name.trim();
+	if (!trimmed) throw new Error("Asset name cannot be empty");
+	const globalAsset = p.assets.find((a) => a.id === id);
+	if (globalAsset) {
+		return edit(p, (n) => {
+			const a = n.assets.find((a) => a.id === id);
+			if (a) a.name = trimmed;
+		});
+	}
+	for (const scope of listStoryScopes(p)) {
+		const story = getStoryProject(p, scope);
+		if (story.localAssets?.some((a) => a.id === id)) {
+			return renameStoryMedia(p, scope, id, trimmed);
+		}
+	}
+	throw new Error("Asset not found");
 }
 export function setClipRate(p: TimelineProject, id: string, rate: number) {
 	return edit(p, (n) => {
