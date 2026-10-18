@@ -139,9 +139,13 @@ describe("AppSettingsDialog & AI Settings", () => {
 			expect(html).toContain('value="cursor"');
 			expect(html).toContain('value="custom"');
 
-			// Check Default Model input
+			// Check Default Model select and dynamic /model fetch button
+			expect(html).toContain('id="ai-default-model-select"');
 			expect(html).toContain('name="defaultModel"');
-			expect(html).toContain('value="gemini-1.5-pro"');
+			expect(html).toContain("Cek Model (/model)");
+
+			// Check Save Configuration button
+			expect(html).toContain("Simpan Konfigurasi");
 
 			// Check MCP Server Port input
 			expect(html).toContain('name="mcpServerPort"');

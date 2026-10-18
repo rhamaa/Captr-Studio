@@ -469,3 +469,185 @@ export async function testAgentConnection(
 	});
 }
 
+export interface FetchAgentModelsParams {
+	agentId: string;
+	customCommand?: string;
+}
+
+export interface FetchAgentModelsResult {
+	success: boolean;
+	models: string[];
+	rawOutput?: string;
+	error?: string;
+}
+
+/**
+ * Extracts distinct AI model names from CLI output (e.g. from `/model` or `models` command).
+ */
+export function parseModelsFromOutput(output: string): string[] {
+	if (!output || !output.trim()) return [];
+	const found = new Set<string>();
+	const lines = output.split(/\r?\n/);
+
+	const modelTokenRegex =
+		/\b(?:[a-zA-Z0-9_-]+\/)?(?:gpt-[a-z0-9.-]+|claude-[a-z0-9.-]+|gemini-[a-z0-9.-]+|deepseek-[a-z0-9.-]+|llama-[a-z0-9.-]+|o[13](?:-[a-z0-9.-]+)?|qwen-[a-z0-9.-]+|mistral-[a-z0-9.-]+|[a-z0-9]+(?:-[a-z0-9]+)+(?:\.[a-z0-9]+)*)\b/gi;
+
+	for (const line of lines) {
+		const trimmed = line.trim();
+		if (!trimmed) continue;
+
+		// Bullet point pattern like "- claude-3-5-sonnet: ..." or "* gemini-2.0-flash"
+		const bulletMatch = trimmed.match(/^[-*#\d.>|]\s*([a-zA-Z0-9_\-./:]+)/);
+		if (
+			bulletMatch &&
+			bulletMatch[1] &&
+			bulletMatch[1].length > 2 &&
+			!bulletMatch[1].toLowerCase().includes("http")
+		) {
+			const candidate = bulletMatch[1].replace(/[:*`,()]/g, "").trim();
+			if (
+				candidate &&
+				/^[a-zA-Z0-9_\-./]+$/.test(candidate) &&
+				/[a-zA-Z]/.test(candidate) &&
+				![
+					"model",
+					"models",
+					"default",
+					"current",
+					"available",
+					"provider",
+					"select",
+				].includes(candidate.toLowerCase())
+			) {
+				found.add(candidate);
+			}
+		}
+
+		// Pattern search for model tokens
+		const matches = trimmed.match(modelTokenRegex);
+		if (matches) {
+			for (const m of matches) {
+				const cleaned = m.replace(/^[/:.-]+|[/:.-]+$/g, "").trim();
+				if (
+					cleaned.length >= 3 &&
+					![
+						"model",
+						"models",
+						"default",
+						"current",
+						"available",
+						"provider",
+						"select",
+					].includes(cleaned.toLowerCase())
+				) {
+					found.add(cleaned);
+				}
+			}
+		}
+	}
+
+	return Array.from(found);
+}
+
+/**
+ * Fetches available models from a CLI provider by invoking it with `/model` or runner-specific model command.
+ */
+export async function fetchAgentModels(
+	params: FetchAgentModelsParams,
+): Promise<FetchAgentModelsResult> {
+	const known = KNOWN_AGENTS.find((a) => a.id === params.agentId);
+	let command = params.customCommand?.trim() || known?.command || params.agentId;
+
+	if (!path.isAbsolute(command)) {
+		const resolvedPath = await checkAgentAvailability(command);
+		if (resolvedPath) {
+			command = resolvedPath;
+		} else {
+			return {
+				success: false,
+				models: [],
+				error: `CLI provider "${command}" tidak ditemukan di sistem.`,
+			};
+		}
+	}
+
+	let args: string[];
+	if (params.agentId === "opencode") {
+		args = ["models"];
+	} else {
+		args = buildAgentCommandArgs(
+			params.agentId,
+			"/model",
+			undefined,
+			known?.defaultArgs,
+		);
+	}
+
+	return new Promise((resolve) => {
+		let stdout = "";
+		let stderr = "";
+		let killed = false;
+
+		const proc = spawn(command, args, {
+			env: getAugmentedEnv(),
+			shell: process.platform === "win32",
+			windowsHide: true,
+		});
+
+		const timer = setTimeout(() => {
+			killed = true;
+			try {
+				proc.kill("SIGTERM");
+			} catch {}
+			resolve({
+				success: false,
+				models: [],
+				error: "Permintaan /model timeout setelah 15 detik.",
+			});
+		}, 15000);
+
+		proc.stdout?.on("data", (d) => {
+			stdout += d.toString();
+		});
+
+		proc.stderr?.on("data", (d) => {
+			stderr += d.toString();
+		});
+
+		proc.on("error", (err) => {
+			if (killed) return;
+			clearTimeout(timer);
+			resolve({
+				success: false,
+				models: [],
+				error: err.message,
+			});
+		});
+
+		proc.on("close", (code) => {
+			if (killed) return;
+			clearTimeout(timer);
+			const fullOutput = (stdout + "\n" + stderr).trim();
+			const models = parseModelsFromOutput(fullOutput);
+			if (code === 0 || models.length > 0) {
+				resolve({
+					success: true,
+					models,
+					rawOutput: fullOutput,
+				});
+			} else {
+				resolve({
+					success: false,
+					models: [],
+					rawOutput: fullOutput,
+					error:
+						stderr.trim() ||
+						stdout.trim() ||
+						`CLI keluar dengan kode ${code}.`,
+				});
+			}
+		});
+	});
+}
+
+

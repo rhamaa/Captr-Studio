@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildAgentCommandArgs, formatAgentTaskPrompt } from "./agentRunner";
+import { buildAgentCommandArgs, formatAgentTaskPrompt, parseModelsFromOutput } from "./agentRunner";
 
 describe("agentRunner", () => {
 	it("formats agent task prompt with clear JSON file references", () => {
@@ -45,4 +45,31 @@ describe("agentRunner", () => {
 		const devinArgs = buildAgentCommandArgs("devin", "test prompt", undefined, ["-p"], "devin-standard");
 		expect(devinArgs).toEqual(["--model", "devin-standard", "-p", "test prompt"]);
 	});
+
+	describe("parseModelsFromOutput", () => {
+		it("extracts model names from CLI /model list or bullet points", () => {
+			const output = `
+Available AI models:
+* gemini-2.0-flash (fast, multimodal)
+* gemini-1.5-pro (advanced reasoning)
+- claude-3-5-sonnet
+- gpt-4o
+- deepseek-chat
+- o1-preview
+			`;
+			const models = parseModelsFromOutput(output);
+			expect(models).toContain("gemini-2.0-flash");
+			expect(models).toContain("gemini-1.5-pro");
+			expect(models).toContain("claude-3-5-sonnet");
+			expect(models).toContain("gpt-4o");
+			expect(models).toContain("deepseek-chat");
+			expect(models).toContain("o1-preview");
+		});
+
+		it("filters out common command words and returns empty array on empty input", () => {
+			expect(parseModelsFromOutput("")).toEqual([]);
+			expect(parseModelsFromOutput("No models available.")).toEqual([]);
+		});
+	});
 });
+

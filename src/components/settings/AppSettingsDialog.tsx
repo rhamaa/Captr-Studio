@@ -1,5 +1,6 @@
 import {
 	ArrowsClockwise as ArrowsClockwiseIcon,
+	Check as CheckIcon,
 	CircleNotch as CircleNotchIcon,
 	Code as CodeIcon,
 	CodeSimple as CodeSimpleIcon,
@@ -7,6 +8,7 @@ import {
 	Cpu as CpuIcon,
 	Cube as CubeIcon,
 	Desktop as DesktopIcon,
+	FloppyDisk as FloppyDiskIcon,
 	Folder as FolderIcon,
 	FolderOpen as FolderOpenIcon,
 	Gear as GearIcon,
@@ -114,6 +116,11 @@ export function AppSettingsDialog({
 	const [testChatMessages, setTestChatMessages] = useState<
 		Array<{ sender: "user" | "agent"; text: string; latencyMs?: number; isError?: boolean }>
 	>([]);
+	const [availableModelsByRunner, setAvailableModelsByRunner] =
+		useState<Record<string, string[]>>(RUNNER_MODEL_PRESETS);
+	const [isFetchingModels, setIsFetchingModels] = useState(false);
+	const [isCustomModelInputOpen, setIsCustomModelInputOpen] = useState(false);
+	const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
 
 	const scanAvailableAgents = async () => {
 		if (!window.electronAPI?.getAvailableAgents) return;
@@ -149,10 +156,62 @@ export function AppSettingsDialog({
 
 	const handleSelectRunner = (runnerId: string) => {
 		handleAiSettingChange("preferredRunner", runnerId as any);
-		const presets = RUNNER_MODEL_PRESETS[runnerId];
+		const presets = availableModelsByRunner[runnerId] || RUNNER_MODEL_PRESETS[runnerId];
 		if (presets && presets.length > 0 && !presets.includes(aiSettings.defaultModel)) {
 			handleAiSettingChange("defaultModel", presets[0]);
+			setIsCustomModelInputOpen(false);
 		}
+	};
+
+	const handleFetchModels = async () => {
+		if (isFetchingModels) return;
+		const runnerId = aiSettings.preferredRunner;
+		const customCmd = aiSettings.customRunnerPath;
+		setIsFetchingModels(true);
+		try {
+			if (window.electronAPI?.fetchAgentModels) {
+				const res = await window.electronAPI.fetchAgentModels({
+					agentId: runnerId,
+					customCommand: customCmd,
+				});
+				if (res.success && res.models && res.models.length > 0) {
+					setAvailableModelsByRunner((prev) => ({
+						...prev,
+						[runnerId]: Array.from(new Set([...res.models, ...(prev[runnerId] || [])])),
+					}));
+					if (!res.models.includes(aiSettings.defaultModel)) {
+						handleAiSettingChange("defaultModel", res.models[0]);
+						setIsCustomModelInputOpen(false);
+					}
+					setTestChatMessages((prev) => [
+						...prev,
+						{
+							sender: "agent",
+							text: `[${runnerId}] Berhasil mendeteksi ${res.models.length} model dari /model:\n${res.models.join(", ")}`,
+						},
+					]);
+				} else {
+					setTestChatMessages((prev) => [
+						...prev,
+						{
+							sender: "agent",
+							text: `[${runnerId}] ${res.error || "Tidak ada model yang terdeteksi dari /model. Menggunakan preset standar."}`,
+							isError: true,
+						},
+					]);
+				}
+			}
+		} catch (err) {
+			console.warn("Failed to fetch models via /model:", err);
+		} finally {
+			setIsFetchingModels(false);
+		}
+	};
+
+	const handleSaveAiSettings = () => {
+		saveGlobalAiSettings(aiSettings);
+		setSaveStatus("saved");
+		setTimeout(() => setSaveStatus("idle"), 3000);
 	};
 
 	const handleRunTestConnection = async () => {
@@ -756,71 +815,101 @@ export function AppSettingsDialog({
 										</div>
 									)}
 
-									{/* Default Model with Dynamic Presets */}
-									<div>
-										<label
-											htmlFor="ai-default-model"
-											className="block text-xs font-medium text-foreground mb-1.5"
-										>
-											{t("settings.aiDefaultModel", "Default Model")}
-										</label>
-										<div className="flex items-center gap-2">
-											{RUNNER_MODEL_PRESETS[aiSettings.preferredRunner]?.length > 0 && (
-												<select
-													value={
-														RUNNER_MODEL_PRESETS[
-															aiSettings.preferredRunner
-														].includes(aiSettings.defaultModel)
-															? aiSettings.defaultModel
-															: "custom"
-													}
-													onChange={(e) => {
-														if (e.target.value !== "custom") {
-															handleAiSettingChange("defaultModel", e.target.value);
-														}
-													}}
-													className="h-9 px-3 rounded-lg border border-foreground/15 bg-background text-foreground text-xs font-medium outline-none focus:border-primary transition-colors cursor-pointer"
+									{/* Default Model with Dynamic /model Discovery */}
+									<div className="space-y-2">
+										<div className="flex items-center justify-between">
+											<div>
+												<label
+													htmlFor="ai-default-model-select"
+													className="block text-xs font-semibold text-foreground"
 												>
-													{RUNNER_MODEL_PRESETS[
-														aiSettings.preferredRunner
-													].map((m) => (
+													{t("settings.aiDefaultModel", "Default Model")}
+												</label>
+												<p className="text-[11px] text-muted-foreground">
+													{t(
+														"settings.aiDefaultModelDesc",
+														"Model yang digunakan otomatis oleh seluruh fitur AI di Captr Studio.",
+													)}
+												</p>
+											</div>
+											<Button
+												type="button"
+												variant="outline"
+												size="sm"
+												onClick={() => void handleFetchModels()}
+												disabled={isFetchingModels}
+												className="h-8 px-2.5 text-xs gap-1.5 rounded-lg border-foreground/15 hover:bg-foreground/5 text-foreground"
+												title="Jalankan /model pada CLI provider untuk memeriksa model yang tersedia"
+											>
+												<ArrowsClockwiseIcon
+													className={`w-3.5 h-3.5 ${isFetchingModels ? "animate-spin text-primary" : ""}`}
+												/>
+												{isFetchingModels ? "Mengecek /model..." : "Cek Model (/model)"}
+											</Button>
+										</div>
+
+										<div className="space-y-2">
+											<select
+												id="ai-default-model-select"
+												name="defaultModel"
+												value={
+													(
+														availableModelsByRunner[aiSettings.preferredRunner] || []
+													).includes(aiSettings.defaultModel)
+														? aiSettings.defaultModel
+														: "custom"
+												}
+												onChange={(e) => {
+													if (e.target.value === "custom") {
+														setIsCustomModelInputOpen(true);
+													} else {
+														setIsCustomModelInputOpen(false);
+														handleAiSettingChange("defaultModel", e.target.value);
+													}
+												}}
+												className="w-full h-9 px-3 rounded-lg border border-foreground/15 bg-background text-foreground text-xs font-mono outline-none focus:border-primary transition-colors cursor-pointer"
+											>
+												{(availableModelsByRunner[aiSettings.preferredRunner] || []).map(
+													(m) => (
 														<option
 															key={m}
 															value={m}
-															className="bg-editor-dialog text-foreground"
+															className="bg-editor-dialog text-foreground font-mono"
 														>
 															{m}
 														</option>
-													))}
-													<option
-														value="custom"
-														className="bg-editor-dialog text-foreground"
-													>
-														Custom model...
-													</option>
-												</select>
+													),
+												)}
+												<option
+													value="custom"
+													className="bg-editor-dialog text-foreground italic"
+												>
+													+ Input Model Kustom...
+												</option>
+											</select>
+
+											{(isCustomModelInputOpen ||
+												!(
+													availableModelsByRunner[aiSettings.preferredRunner] || []
+												).includes(aiSettings.defaultModel)) && (
+												<div className="space-y-1">
+													<input
+														id="ai-default-model-custom"
+														type="text"
+														name="defaultModelCustom"
+														value={aiSettings.defaultModel}
+														onChange={(e) =>
+															handleAiSettingChange("defaultModel", e.target.value)
+														}
+														placeholder="Ketik model identifier kustom (misal: claude-3-7-sonnet)"
+														className="w-full h-9 px-3 rounded-lg border border-primary/40 bg-foreground/[0.03] text-foreground text-xs font-mono outline-none focus:border-primary transition-colors"
+													/>
+													<span className="text-[10px] text-muted-foreground block">
+														Model kustom disimpan otomatis ke konfigurasi AI Captr Studio.
+													</span>
+												</div>
 											)}
-											<input
-												id="ai-default-model"
-												type="text"
-												name="defaultModel"
-												value={aiSettings.defaultModel}
-												onChange={(e) =>
-													handleAiSettingChange(
-														"defaultModel",
-														e.target.value,
-													)
-												}
-												placeholder="gemini-1.5-pro"
-												className="flex-1 h-9 px-3 rounded-lg border border-foreground/15 bg-foreground/[0.03] text-foreground text-xs font-mono outline-none focus:border-primary transition-colors"
-											/>
 										</div>
-										<p className="text-[11px] text-muted-foreground mt-1">
-											{t(
-												"settings.aiDefaultModelDesc",
-												"Model identifier passed to the runner (e.g. gemini-1.5-pro, claude-3-5-sonnet, gpt-4o).",
-											)}
-										</p>
 									</div>
 
 									{/* MCP Server Port */}
@@ -1010,6 +1099,44 @@ export function AppSettingsDialog({
 												)}
 											</Button>
 										</div>
+									</div>
+
+									{/* Save Configuration Action Bar */}
+									<div className="pt-4 border-t border-foreground/10 flex items-center justify-between">
+										<div className="flex items-center gap-2">
+											{saveStatus === "saved" ? (
+												<div className="flex items-center gap-1.5 text-xs text-green-500 font-medium">
+													<CheckIcon className="w-4 h-4 text-green-500" />
+													<span>Konfigurasi AI berhasil disimpan &amp; aktif!</span>
+												</div>
+											) : (
+												<span className="text-[11px] text-muted-foreground">
+													{t(
+														"settings.aiSaveNote",
+														"Konfigurasi aktif di seluruh fitur AI Captr Studio.",
+													)}
+												</span>
+											)}
+										</div>
+										<Button
+											type="button"
+											variant="default"
+											size="sm"
+											onClick={handleSaveAiSettings}
+											className="h-9 px-4 gap-2 rounded-lg text-xs font-semibold shadow-sm"
+										>
+											{saveStatus === "saved" ? (
+												<>
+													<CheckIcon className="w-4 h-4" />
+													Tersimpan
+												</>
+											) : (
+												<>
+													<FloppyDiskIcon className="w-4 h-4" />
+													Simpan Konfigurasi
+												</>
+											)}
+										</Button>
 									</div>
 								</div>
 							</div>

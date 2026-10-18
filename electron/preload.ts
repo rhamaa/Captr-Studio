@@ -1133,6 +1133,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		model?: string;
 		prompt: string;
 	}) => ipcRenderer.invoke("agent:test-connection", params),
+	fetchAgentModels: (params: {
+		agentId: string;
+		customCommand?: string;
+	}) => ipcRenderer.invoke("agent:fetch-models", params),
 	onAgentLogStream: (callback: (chunk: string) => void) => {
 		const listener = (_event: Electron.IpcRendererEvent, chunk: string) => callback(chunk);
 		ipcRenderer.on("agent:log-stream", listener);

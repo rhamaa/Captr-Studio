@@ -1132,6 +1132,15 @@ interface Window {
 			latencyMs: number;
 			error?: string;
 		}>;
+		fetchAgentModels?: (params: {
+			agentId: string;
+			customCommand?: string;
+		}) => Promise<{
+			success: boolean;
+			models: string[];
+			rawOutput?: string;
+			error?: string;
+		}>;
 		onAgentLogStream?: (callback: (chunk: string) => void) => () => void;
 		checkCustomAgent?: (command: string) => Promise<{
 			id: string;

@@ -2,6 +2,9 @@ import { ipcMain } from "electron";
 import { checkCustomAgent, detectAvailableAgents } from "../agent/agentDetector";
 import {
 	cancelAgentTask,
+	fetchAgentModels,
+	type FetchAgentModelsParams,
+	type FetchAgentModelsResult,
 	type RunAgentTaskParams,
 	type RunAgentTaskResult,
 	runAgentTask,
@@ -95,6 +98,13 @@ export function registerAgentHandlers() {
 		"agent:test-connection",
 		async (_, params: TestAgentConnectionParams): Promise<TestAgentConnectionResult> => {
 			return testAgentConnection(params);
+		},
+	);
+
+	ipcMain.handle(
+		"agent:fetch-models",
+		async (_, params: FetchAgentModelsParams): Promise<FetchAgentModelsResult> => {
+			return fetchAgentModels(params);
 		},
 	);
 
