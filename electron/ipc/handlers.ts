@@ -9,7 +9,6 @@ import { registerRecordFramePresetHandlers } from "./register/recordFramePresets
 import { registerRecordingHandlers } from "./register/recording";
 import { registerSettingsHandlers } from "./register/settings";
 import { registerSourceHandlers } from "./register/sources";
-import { registerTerminalHandlers } from "./register/terminal";
 import { registerTranscriptionHandlers } from "./register/transcription";
 import {
 	selectedSource,
@@ -76,5 +75,4 @@ export function registerIpcHandlers(
 	registerTranscriptionHandlers();
 	registerAgentHandlers();
 	registerHyperframeExportHandlers();
-	registerTerminalHandlers();
 }
