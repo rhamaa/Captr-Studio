@@ -102,6 +102,21 @@ describe("AiCommandBar", () => {
 		expect(html).toBe("");
 	});
 
+	it("renders generative prompt suggestions when input is empty", () => {
+		const html = renderToStaticMarkup(
+			createElement(AiCommandBar, {
+				open: true,
+				onClose: vi.fn(),
+				activeSurface: { kind: "none" },
+			}),
+		);
+
+		expect(html).toContain("Suggestions:");
+		expect(html).toContain("Cyberpunk Neon");
+		expect(html).toContain("Minimalist Dark");
+		expect(html).toContain("macOS Glass");
+	});
+
 	it("triggers action execution directly when called", () => {
 		const onAction = vi.fn();
 		const surface: ActiveSurface = {

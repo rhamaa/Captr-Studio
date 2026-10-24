@@ -84,9 +84,23 @@ export function assembleAgentEditingContext(
 	}
 	const clipsSummary = clipLines.join("\n").trim() || "No clips on timeline.";
 
+	// Format compositions & frame appearance
+	const compLines: string[] = [];
+	for (const comp of project.compositions) {
+		const win = comp.settings?.windowAppearance;
+		const border = win ? `${win.borderWidth}px ${win.borderColor}` : "none";
+		const radius = win ? `${win.cornerRadius}px` : "none";
+		const header = win?.headerStyle ?? "none";
+		const wallpaper = comp.settings?.wallpaper ?? "default";
+		compLines.push(
+			`• Composition (ID: ${comp.id}): border ${border}, radius ${radius}, header ${header}, wallpaper: "${wallpaper}"`,
+		);
+	}
+	const compositionsSummary = compLines.join("\n").trim() || "No screen compositions.";
+
 	const systemPrompt = `You are an AI Video Editor Assistant for Captr Studio.
 Your goal is to edit the provided \`TimelineProject\` JSON according to the user instructions.
-You can trim clip start/duration, slice clips into multiple segments, reorder clips, or remove unwanted segments.
+You can trim clip start/duration, slice clips into multiple segments, reorder clips, remove unwanted segments, and apply generative visual styling (borders, colors, shadows, wallpapers, headers) to recording compositions.
 
 CRITICAL RULES:
 1. Always preserve the JSON schema of TimelineProject. Do not remove required fields.
@@ -109,6 +123,12 @@ ${(project.localAssets ?? []).map((asset) => `${asset.id}: ${asset.name}`).join(
 
 ## Current Timeline Structure
 ${clipsSummary}
+
+## Screen Compositions & Frame Appearance
+${compositionsSummary}
+
+To customize frame styling (colors, borders, corners, headers, wallpapers), you can modify \`composition.settings.windowAppearance\` or call the \`set_frame_appearance\` tool.
+Available built-in wallpapers: "/wallpapers/energy-19.jpg", "/wallpapers/midnight-8.jpg", "/wallpapers/glassmorphism-3.jpg", "/wallpapers/tahoe-dark.jpg", "/wallpapers/sequoia-blue.jpg", "/wallpapers/sonoma-horizon.jpg", "/wallpapers/iridescent-9.jpg".
 
 ## Speech Transcripts
 ${formattedTranscripts}

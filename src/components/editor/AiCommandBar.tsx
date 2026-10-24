@@ -197,6 +197,33 @@ export function AiCommandBar({
 					)}
 				</div>
 
+				{/* Prompt suggestions when input is empty */}
+				{!prompt && !isProcessing && (
+					<div className="px-4 pb-2.5 flex items-center gap-1.5 flex-wrap">
+						<span className="text-[10px] text-neutral-500 font-medium mr-1">Suggestions:</span>
+						{[
+							"✨ Cyberpunk Neon",
+							"🎨 Minimalist Dark",
+							"🪟 macOS Glass",
+							"✂️ Cut Silence & Pauses",
+							"🔍 Auto-Zoom to Clicks",
+						].map((sug) => (
+							<button
+								key={sug}
+								type="button"
+								onClick={() => {
+									const cleaned = sug.replace(/^[^\w\s]+\s*/, "");
+									setPrompt(cleaned);
+									inputRef.current?.focus();
+								}}
+								className="text-[11px] px-2 py-0.5 rounded-full bg-neutral-800/80 hover:bg-neutral-700 text-neutral-300 hover:text-white border border-neutral-700/50 transition-colors"
+							>
+								{sug}
+							</button>
+						))}
+					</div>
+				)}
+
 				{/* Error feedback if any */}
 				{error && (
 					<div className="px-4 py-1.5 bg-red-950/50 border-t border-red-900/50 text-red-300 text-xs flex items-center justify-between">

@@ -84,19 +84,27 @@ export function getSpawnExecutionOptions(
 }
 
 export function formatAgentTaskPrompt(userPrompt: string, draftFilePath: string): string {
-	return `You are editing a Captr Studio video timeline project.
+	return `You are an AI Video Editor Assistant for Captr Studio.
 The current project state is stored in: "${draftFilePath}".
-Also read "CONTEXT.md" in the same folder, which contains clip summaries and speech transcripts with word timestamps.
+Also read "CONTEXT.md" in the same folder, which contains clip summaries, speech transcripts with word timestamps, and screen composition appearance settings.
 
 USER REQUEST:
 "${userPrompt}"
 
 INSTRUCTIONS:
 1. Open and inspect "${draftFilePath}".
-2. Apply the requested edits (trimming clips, cutting pauses, deleting or reordering clips).
+2. Apply the requested edits:
+   - Timeline Operations: trimming clips, cutting pauses/silence, reordering or splitting clips.
+   - Generative Visual Styling: customize composition.settings.windowAppearance or webcamAppearance (borderWidth, borderColor, cornerRadius, surfaceColor, backdropBlur, headerStyle, shadow, wallpaper).
 3. Ensure all clip startUs, duration, and source range properties match the TimelineProject schema and do not overlap.
 4. Save the modified JSON directly back to "${draftFilePath}" OR print the updated JSON as your final response.
-5. If MCP tools are enabled, you can also use structured tools: get_project_context, split_clip, trim_clip, remove_silence, add_broll_or_overlay, preview_speculative_edits, commit_edits.`;
+5. If MCP tools are enabled, you can also use structured tools:
+   - get_project_context
+   - split_clip, trim_clip, remove_silence
+   - set_frame_appearance (target: "window" | "webcam", patch: { borderWidth, borderColor, cornerRadius, surfaceColor, backdropBlur, headerStyle, shadow })
+   - auto_zoom_to_clicks
+   - add_broll_or_overlay
+   - preview_speculative_edits, commit_edits.`;
 }
 
 /**

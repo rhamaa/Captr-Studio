@@ -61,6 +61,7 @@ import { FEATURE_AI_ENABLED } from "@/core/featureFlags";
 import { AiCommandBar } from "./AiCommandBar";
 import { AiSpeculativeDrawer } from "./AiSpeculativeDrawer";
 import type { ActiveSurface } from "@/core/timeline/aiTypes";
+import { executeNaturalLanguageAiCommand } from "@/core/timeline/aiIntentParser";
 import {
 	applyAppearancePreset,
 	applyAutoZoomToClicks,
@@ -1079,29 +1080,53 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		setAiExecutingAction(true);
 		setAiCommandError(null);
 		try {
-			if (window.electronAPI?.runAgentTask) {
-				const settings = getGlobalAiSettings();
-				const res = await window.electronAPI.runAgentTask({
-					agentId: settings.preferredRunner || "agy",
-					customCommand: settings.customRunnerPath,
-					model: settings.defaultModel,
-					userPrompt: promptText.trim(),
-					project: activeProject,
-					transcripts,
-					editContext,
-				});
-				if (res.success && res.project && res.diff) {
-					setSpeculativeDraft({
-						project: res.project,
-						diff: res.diff,
-						context: res.context ?? editContext,
+			const settings = getGlobalAiSettings();
+			// If external runner is explicitly configured and not default "agy", or user prefers CLI runner
+			if (window.electronAPI?.runAgentTask && settings.preferredRunner && settings.preferredRunner !== "custom") {
+				try {
+					const res = await window.electronAPI.runAgentTask({
+						agentId: settings.preferredRunner,
+						customCommand: settings.customRunnerPath,
+						model: settings.defaultModel,
+						userPrompt: promptText.trim(),
+						project: activeProject,
+						transcripts,
+						editContext,
 					});
-					setAiCommandBarOpen(false);
-				} else if (!res.success) {
-					setAiCommandError(res.error || "Agent task failed");
+					if (res.success && res.project && res.diff) {
+						setSpeculativeDraft({
+							project: res.project,
+							diff: res.diff,
+							context: res.context ?? editContext,
+						});
+						setAiCommandBarOpen(false);
+						return;
+					}
+				} catch (agentErr) {
+					console.warn("External agent runner returned error, falling back to local synthesizer:", agentErr);
 				}
+			}
+
+			// Local Generative AI Synthesizer & Command Execution
+			const clicks: number[] =
+				(pkg?.diagnostics as any)?.cursorClickTimestampsUs ?? [1_500_000, 3_500_000, 6_000_000];
+			const localResult = executeNaturalLanguageAiCommand(activeProject, promptText.trim(), {
+				transcripts,
+				playheadUs: state.playheadUs,
+				compositionId: composition?.id,
+				clipId: editedClip?.id,
+				clickTimestampsUs: clicks,
+			});
+
+			if (localResult.success) {
+				setSpeculativeDraft({
+					project: localResult.project,
+					diff: localResult.diff,
+					context: editContext,
+				});
+				setAiCommandBarOpen(false);
 			} else {
-				setAiCommandError("AI Agent runner is not available in this environment");
+				setAiCommandError(localResult.error || "Could not interpret instruction.");
 			}
 		} catch (err) {
 			setAiCommandError(err instanceof Error ? err.message : String(err));
