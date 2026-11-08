@@ -51,6 +51,8 @@ Sebelum mengubah pembuatan slide Record, Recorder HUD, finalisasi rekaman, proje
 5. Perbarui `ISSUE.md` saat kontrak berubah. Verifikasi Ctrl+S setelah Record berulang, import video/gambar/audio, Assets-only save/reopen, dan placement Record ganda dengan edit independen. Konversi V1/V2 Record harus eksplisit ke salinan dengan identitas/path baru; metadata tidak didukung menolak keseluruhan tanpa mengubah file asli. Video/Motion legacy tetap ditolak.
 6. Autosave hanya untuk project yang sudah memiliki path, setelah 1,2 detik tanpa edit, dan hanya saat idle; project baru tidak boleh otomatis membuka dialog Save. Ctrl+S/Meta+S harus bekerja dari input dan dialog lewat keydown capture; Ctrl+Shift+S tetap Save As, dan pemulihan path Electron hanya boleh menulis bundle dengan `projectId` yang cocok.
 
+7. Monolog (kamera saja) adalah Recording package dengan `captureSource: "camera"`: file kamera = `screen`, mic tertanam = `microphone` dengan path sama. Simpan take lewat `save-recorded-monolog` (bukan `store-recorded-video`), ambil lease finalizing sebelum countdown, dan registrasi via `acceptImport`. Naskah teleprompter tidak pernah dipersist. Pembaca package harus memakai `recordingCaptureSource()` / `separateMicrophone()` dan tidak menambah fitur berbasis kursor untuk package kamera.
+
 ## V3 visual effects dan shape
 
 - `project.json` authoritative menyimpan relasi `clipTransitions` dan animasi komponen per placement; field transisi opsional harus tetap backward-compatible dengan project V3 yang tidak memilikinya.

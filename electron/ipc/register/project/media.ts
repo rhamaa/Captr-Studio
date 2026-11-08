@@ -7,7 +7,12 @@ import {
 	rememberApprovedLocalReadPath,
 	resolveApprovedLocalMediaPath,
 } from "../../project/manager";
-import { discardRecordedAudioFile, writeRecordedAudio } from "../../project/recordedAudioFile";
+import {
+	discardRecordedAudioFile,
+	discardRecordedMonologFile,
+	writeRecordedAudio,
+	writeRecordedMonolog,
+} from "../../project/recordedAudioFile";
 import { getRecordingsDir, normalizePath } from "../../utils";
 
 export function registerProjectMediaHandlers() {
@@ -98,6 +103,38 @@ export function registerProjectMediaHandlers() {
 			}
 		},
 	);
+
+	ipcMain.handle(
+		"save-recorded-monolog",
+		async (
+			_,
+			payload: { videoBuffer: ArrayBuffer | Uint8Array | number[]; extension?: string },
+		) => {
+			let filePath: string | undefined;
+			try {
+				filePath = await writeRecordedMonolog(await getRecordingsDir(), payload);
+				const approvedPath = normalizePath(filePath);
+				await rememberApprovedLocalReadPath(approvedPath);
+				return { success: true, filePath: approvedPath };
+			} catch (error) {
+				if (filePath)
+					await discardRecordedMonologFile(await getRecordingsDir(), filePath).catch(
+						() => false,
+					);
+				console.error("Failed to save monolog take:", error);
+				return { success: false, error: String(error) };
+			}
+		},
+	);
+
+	ipcMain.handle("discard-recorded-monolog", async (_, filePath: string) => {
+		try {
+			const deleted = await discardRecordedMonologFile(await getRecordingsDir(), filePath);
+			return { success: true, deleted };
+		} catch (error) {
+			return { success: false, deleted: false, error: String(error) };
+		}
+	});
 
 	ipcMain.handle("discard-recorded-audio", async (_, filePath: string) => {
 		try {

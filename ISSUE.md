@@ -1,5 +1,19 @@
 # Issue Log & Regression Checklist
 
+## Monolog Recorder (kamera + teleprompter) — 8 November 2026
+
+- **Fitur:** tombol Monolog di tool rail editor membuka dialog rekam kamera + mic dengan teleprompter auto-scroll. Rencana dan keputusan: `docs/superpowers/plans/2026-11-08-monolog-recorder.md`.
+- **Kontrak package:** take kamera disimpan sebagai `package.screen` dengan `captureSource: "camera"`; mic yang tertanam memakai path yang sama di `package.microphone`. Field tidak ada = `"screen"` (backward-compatible). Validator menolak nilai lain dan menolak `cursorPath` pada package kamera.
+- **Penyimpanan take:** IPC baru `save-recorded-monolog`/`discard-recorded-monolog` menulis ke `recordings/monologs/` tanpa efek samping session, `currentProjectPath`, atau telemetri kursor. `store-recorded-video` sengaja tidak dipakai karena mereset path project.
+- **Lease & kunci:** `begin()` mengambil lease `set-project-recording-finalizing` sebelum countdown dan melepasnya saat Save/Retake/Close/gagal/dispose. Selama lease, main menolak operasi file; renderer memblokir Ctrl+S, autosave, navigasi Story/Home/New/Open, dan close window lewat `pendingWork` + guard monolog.
+- **Assets-only:** registrasi lewat `controller.acceptImport` dengan token generation; take dari project yang sudah ditinggalkan dibuang beserta filenya. Toast "Place at playhead" memeriksa ulang projectId/generation.
+- **Naskah teleprompter:** hanya state komponen dialog; tidak masuk project, IPC, storage, atau video.
+- **Record editor:** package kamera menyembunyikan tab Cursor dan tombol Auto zoom; `applyAutoZoomToClicks` (MCP) menolak package kamera. Zoom manual tetap tersedia.
+- **Hyperframe:** mic yang path-nya sama dengan screen tidak diinjeksi sebagai `<audio>` terpisah (mencegah audio dobel).
+- **Verifikasi otomatis:** suite terkait lulus (capture source, camera builder, camera recorder, teleprompter model, dialog controller, monolog assets, file IPC, Record editor, agent tools, Hyperframe, ProjectEditor). `npx tsc --noEmit` bersih. Run penuh sebelumnya 1794/1804; 10 gagal terjadi saat file sedang diformat ulang dan lulus 60/60 saat diulang.
+- **Pending QA native:** rekam → Save → muncul di Assets saja → place at playhead → framing Record editor → export MP4 audio sinkron; Retake; Close di review; Ctrl+S lalu reopen (path tidak berubah); dua take ditempatkan dan diedit independen; kamera dicabut saat merekam; izin kamera ditolak (macOS).
+- **Belum dikerjakan:** penulisan chunk bertahap ke disk (take panjang ditahan di memori renderer), HUD mode, voice-follow teleprompter.
+
 ## AI Custom Harness & Context Synchronization — 18 Oktober 2026
 
 - **Verifikasi akhir:** Seluruh **74 tes AI & Editor** lulus 100% di 7 test suite, `npx tsc --noEmit` exit code 0 tanpa type error, dan `npx graft build` terindeks bersih (5.517 nodes, 13.860 edges).

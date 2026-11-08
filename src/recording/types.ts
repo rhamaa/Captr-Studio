@@ -8,10 +8,13 @@ export type RecordingSettings = Omit<Partial<ProjectEditorState>, keyof Recordin
 		webcamAppearance?: RecordingFrameAppearance;
 	};
 export interface MediaSource { path: string; durationUs: number; offsetUs: number }
+/** What produced the package's primary `screen` stream. Missing means "screen". */
+export type RecordingCaptureSource = "screen" | "camera";
 export interface RecordingPackage {
  id: string; captureId: string; schemaVersion: 1; durationUs: number; width: number; height: number;
  screen: MediaSource; webcam?: MediaSource; microphone?: MediaSource; system?: MediaSource;
  cursorPath?: string; settings: RecordingSettings; diagnostics?: Record<string, unknown>;
+ captureSource?: RecordingCaptureSource;
 }
 export interface CompletedRecording extends Omit<RecordingPackage, "id" | "schemaVersion"> { name: string }
 export interface TimeMapSegment { outputStartUs: number; outputEndUs: number; sourceStartUs: number; rate: number }

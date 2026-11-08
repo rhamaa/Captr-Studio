@@ -815,6 +815,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	discardRecordedAudio: (filePath: string) => {
 		return ipcRenderer.invoke("discard-recorded-audio", filePath);
 	},
+	saveRecordedMonolog: (payload: {
+		videoBuffer: ArrayBuffer | Uint8Array | number[];
+		extension?: string;
+	}) => {
+		return ipcRenderer.invoke("save-recorded-monolog", payload);
+	},
+	discardRecordedMonolog: (filePath: string) => {
+		return ipcRenderer.invoke("discard-recorded-monolog", filePath);
+	},
 	installDownloadedUpdate: () => {
 		return ipcRenderer.invoke("install-downloaded-update");
 	},

@@ -407,6 +407,43 @@ describe("Recording composition settings", () => {
 		expect(html).toContain('title="Renamed Screen Walkthrough"');
 		expect(html).toContain(">Renamed Screen Walkthrough</span>");
 	});
+
+	it("hides cursor-only tools for a camera monolog package", () => {
+		const render = (captureSource?: "camera") => {
+			const registered = registerRecording(
+				createTimelineProject("project", "Project"),
+				{
+					captureId: `capture-${captureSource ?? "screen"}`,
+					name: "Take",
+					...(captureSource ? { captureSource } : {}),
+					screen: { path: "take.webm", offsetUs: 0, durationUs: 5_000_000 },
+					durationUs: 5_000_000,
+					width: 1920,
+					height: 1080,
+					settings: {},
+				},
+				{ assetId: "asset", packageId: "package" },
+			);
+			const project = placeAsset(registered, "asset", registered.tracks[0].id, 0, {
+				clipId: "clip",
+				compositionId: "composition",
+			});
+			return translate(
+				createElement(RecordingCompositionEditor, {
+					package: project.packages[0],
+					composition: project.compositions[0],
+					onChange: () => {},
+					onClose: () => {},
+				}),
+			);
+		};
+		const screen = render();
+		expect(screen).toContain(">Cursor</span>");
+		expect(screen).toContain(">Auto zoom</span>");
+		const camera = render("camera");
+		expect(camera).not.toContain(">Cursor</span>");
+		expect(camera).not.toContain(">Auto zoom</span>");
+		expect(camera).toContain(">Layout</span>");
+		expect(camera).toContain(">Zoom</span>");
+	});
 });
-
-

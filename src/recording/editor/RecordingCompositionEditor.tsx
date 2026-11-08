@@ -76,6 +76,7 @@ import type { RecordComposition, RecordingPackage, RecordingSettings } from "../
 import { changeRecordingSettings, resolveRecordingSettings } from "./compositionAdapter";
 import { playbackOutputTimeUs } from "./playbackClock";
 import { RecordingOverlayHandles } from "./RecordingOverlayHandles";
+import { recordingCaptureSource } from "../captureSource";
 import {
 	type RecordingAppearanceTarget,
 	resolveRecordingFrameAppearanceTarget,
@@ -209,6 +210,10 @@ export function RecordingCompositionEditor({
 		[selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null),
 		[selectedLayoutId, setSelectedLayoutId] = useState<string | null>(null),
 		[error, setError] = useState<string | null>(null);
+	const isCameraTake = recordingCaptureSource(pkg) === "camera";
+	const recordingTabs = isCameraTake
+		? RECORDING_TABS.filter((tab) => tab.id !== "cursor")
+		: RECORDING_TABS;
 
 	const [previewViewport, setPreviewViewport] = useState<RecordingPreviewViewport>({
 		zoom: 1,
@@ -540,6 +545,7 @@ export function RecordingCompositionEditor({
 		(a) => a.id === selectedAnnotationId,
 	);
 	const suggestZooms = () => {
+		if (isCameraTake) return;
 		const sourceAspectRatio = pkg.height > 0 ? pkg.width / pkg.height : 16 / 9;
 		const targetRatioValue = getAspectRatioValue(aspectRatio, sourceAspectRatio);
 		const suggestions =
@@ -960,7 +966,7 @@ export function RecordingCompositionEditor({
 
 				<aside className="recording-editor-settings">
 					<nav className="recording-section-tabs" aria-label="Recording effect sections">
-						{RECORDING_TABS.map((tab) => {
+						{recordingTabs.map((tab) => {
 							const Icon = tab.icon;
 							const isActive = section === tab.id;
 							return (
@@ -1144,15 +1150,17 @@ export function RecordingCompositionEditor({
 							<kbd className="recording-tb-kbd">S</kbd>
 						</button>
 						<span className="recording-tb-separator" />
-						<button
-							type="button"
-							className="recording-tb-btn"
-							onClick={suggestZooms}
-							title="Auto-detect zooms based on mouse clicks"
-						>
-							<Sparkle size={13} weight="fill" />
-							<span>Auto zoom</span>
-						</button>
+						{!isCameraTake && (
+							<button
+								type="button"
+								className="recording-tb-btn"
+								onClick={suggestZooms}
+								title="Auto-detect zooms based on mouse clicks"
+							>
+								<Sparkle size={13} weight="fill" />
+								<span>Auto zoom</span>
+							</button>
+						)}
 						<button
 							type="button"
 							className="recording-tb-btn"

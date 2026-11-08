@@ -2,7 +2,12 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { discardRecordedAudioFile, writeRecordedAudio } from "./recordedAudioFile";
+import {
+	discardRecordedAudioFile,
+	discardRecordedMonologFile,
+	writeRecordedAudio,
+	writeRecordedMonolog,
+} from "./recordedAudioFile";
 
 let root = "";
 let outside = "";
@@ -74,5 +79,34 @@ describe("recorded voiceover files", () => {
 			/voiceover|owned|path/i,
 		);
 		expect(await fs.readFile(outsideFile, "utf8")).toBe("keep me");
+	});
+});
+
+describe("recorded monolog files", () => {
+	it("writes the camera take under the monologs directory", async () => {
+		const filePath = await writeRecordedMonolog(root, {
+			videoBuffer: new Uint8Array([9, 8]),
+			extension: "MP4",
+		});
+		expect(path.dirname(filePath)).toBe(path.join(root, "monologs"));
+		expect(filePath).toMatch(/monolog-.*\.mp4$/);
+		expect(await fs.readFile(filePath)).toEqual(Buffer.from([9, 8]));
+	});
+
+	it("rejects audio-only extensions and empty takes", async () => {
+		await expect(
+			writeRecordedMonolog(root, { videoBuffer: new Uint8Array([1]), extension: "wav" }),
+		).rejects.toThrow(/extension/i);
+		await expect(
+			writeRecordedMonolog(root, { videoBuffer: new Uint8Array([]), extension: "webm" }),
+		).rejects.toThrow(/empty/i);
+	});
+
+	it("discards only files it owns", async () => {
+		const filePath = await writeRecordedMonolog(root, { videoBuffer: new Uint8Array([1]) });
+		expect(await discardRecordedMonologFile(root, filePath)).toBe(true);
+		const voiceover = await writeRecordedAudio(root, { audioBuffer: new Uint8Array([1]) });
+		await expect(discardRecordedMonologFile(root, voiceover)).rejects.toThrow(/owned/i);
+		expect(await fs.readFile(voiceover)).toEqual(Buffer.from([1]));
 	});
 });

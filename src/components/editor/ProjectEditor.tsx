@@ -15,6 +15,7 @@ import {
 	X,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
 import { projectFileName, projectTitleFromPath } from "@/core/project/projectNames";
@@ -74,6 +75,8 @@ import { getGlobalAiSettings } from "@/lib/appSettings";
 import "./projectEditor.css";
 import type { RecordingSessionData } from "../../../electron/ipc/types";
 import { AudioRecorderDialog } from "./AudioRecorderDialog";
+import { MonologRecorderDialog } from "./monolog/MonologRecorderDialog";
+import { useMonologRecordingAssets } from "./useMonologRecordingAssets";
 import { createProjectAudioRecorderNavigation } from "./projectAudioRecorderNavigation";
 import { bindProjectClose } from "./projectLifecycle";
 import {
@@ -146,6 +149,9 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	const exportAbort = useRef<AbortController | null>(null);
 	const [recordingPending, setRecordingPending] = useState(0);
 	const audioAssets = useAudioRecordingAssets(controller);
+	const monologAssets = useMonologRecordingAssets(controller, m("monologNamePrefix"));
+	const monologBusyMessage = useRef(m("monologBusy"));
+	monologBusyMessage.current = m("monologBusy");
 	const audioTakeToken = useRef<ReturnType<typeof audioAssets.begin> | null>(null);
 	const [audioRecorderOpen, setAudioRecorderOpen] = useState(false);
 	const [audioNavigationRequested, setAudioNavigationRequested] = useState(false);
@@ -177,6 +183,8 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	const [aiCommandBarOpen, setAiCommandBarOpen] = useState(false);
 	const [aiExecutingAction, setAiExecutingAction] = useState(false);
 	const [aiCommandError, setAiCommandError] = useState<string | null>(null);
+	// Declared after the other state so hook order stays stable for existing tests.
+	const [monologOpen, setMonologOpen] = useState(false);
 	const scope = useMemo(
 		() =>
 			activeArtboardId
@@ -324,6 +332,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 			exportProgress !== null ||
 			nameDialog ||
 			audioRecorderOpen ||
+			monologOpen ||
 			props.navigationBlocked,
 	);
 	useEffect(() => {
@@ -500,11 +509,17 @@ export function ProjectEditor(props: ProjectEditorProps) {
 	useEffect(() => {
 		document.title = `${projectFileName(state.path)} — Captr Studio`;
 	}, [state.path]);
-	const navigate = (action: () => void) =>
+	const navigate = (action: () => void) => {
+		if (monologAssets.isActive()) {
+			setError(m("monologBusy"));
+			return;
+		}
+		if (monologOpen) setMonologOpen(false);
 		audioNavigation.request(() => {
 			props.onBusyChange?.(false);
 			action();
 		});
+	};
 	const navigateStory = useCallback((action: () => void) => {
 		const current = controller.snapshot;
 		if (
@@ -542,6 +557,42 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		await audioAssets.discard(audioTakeToken.current);
 		audioTakeToken.current = null;
 		if (!audioNavigationRequestedRef.current) setAudioRecorderOpen(false);
+	};
+	const openMonologRecorder = () => {
+		const current = controller.snapshot;
+		if (
+			busy ||
+			recordingPending > 0 ||
+			audioAssets.isActive() ||
+			exportProgress !== null ||
+			current.fileOperation ||
+			current.navigationPending ||
+			current.pendingWork > 0
+		) {
+			setError(m("monologBusy"));
+			return;
+		}
+		setPlaying(false);
+		controller.preview(null);
+		setMonologOpen(true);
+	};
+	const monologSaved = (assetId: string) => {
+		const owner = controller.importToken();
+		toast.success(m("monologSaved"), {
+			action: {
+				label: m("placeAtPlayhead"),
+				onClick: () => {
+					const current = controller.importToken();
+					if (
+						controller.isExited ||
+						current.projectId !== owner.projectId ||
+						current.generation !== owner.generation
+					)
+						return;
+					addToTimelineRef.current(assetId);
+				},
+			},
+		});
 	};
 	const closeAudioRecorder = () => {
 		if (audioAssets.isActive()) {
@@ -601,6 +652,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 			errorMessage(e);
 		}
 	};
+	const addToTimelineRef = useRef<(id: string) => void>(() => undefined);
 	const addToTimeline = (id: string) => {
 		const targetProject = activeProject,
 			asset = state.project.assets.find((a) => a.id === id);
@@ -631,11 +683,13 @@ export function ProjectEditor(props: ProjectEditorProps) {
 			errorMessage(e);
 		}
 	};
+	addToTimelineRef.current = addToTimeline;
 	useEffect(() => {
 		props.onBusyChange?.(
 			busy ||
 				recordingPending > 0 ||
 				audioCaptureActive ||
+				monologOpen ||
 				exportProgress !== null ||
 				Boolean(state.fileOperation) ||
 				state.navigationPending,
@@ -644,6 +698,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 		busy,
 		recordingPending,
 		audioCaptureActive,
+		monologOpen,
 		exportProgress,
 		state.fileOperation,
 		state.navigationPending,
@@ -655,9 +710,15 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				controller,
 				window.electronAPI,
 				errorMessage,
-				audioNavigation.beforeClose,
+				async () => {
+					if (monologAssets.isActive()) {
+						setError(monologBusyMessage.current);
+						return false;
+					}
+					return audioNavigation.beforeClose();
+				},
 			),
-		[controller, audioNavigation, errorMessage],
+		[controller, audioNavigation, errorMessage, monologAssets],
 	);
 	useEffect(() => {
 		const removeSaveShortcut = bindProjectSaveShortcut(
@@ -669,6 +730,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 				editingClipId ||
 				nameDialog ||
 				audioRecorderOpen ||
+				monologOpen ||
 				props.navigationBlocked ||
 				document.querySelector("[role=dialog]")
 			)
@@ -1543,6 +1605,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						onImportMedia={(paths) => void importMedia(paths)}
 						onStartRecord={() => void startRecord()}
 						onOpenAudioRecorder={openAudioRecorder}
+						onOpenMonologRecorder={openMonologRecorder}
 						onOpenRecording={(id) => {
 							setPlaying(false);
 							setEditingClipId(id);
@@ -1601,6 +1664,15 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						if (recording) beginAudioCapture();
 					}}
 					onClose={closeAudioRecorder}
+				/>
+			)}
+			{monologOpen && (
+				<MonologRecorderDialog
+					begin={() => monologAssets.begin()}
+					finalize={(token, take) => monologAssets.finalize(token, take)}
+					discard={(token) => monologAssets.discard(token)}
+					onSaved={monologSaved}
+					onClose={() => setMonologOpen(false)}
 				/>
 			)}
 			{FEATURE_AI_ENABLED && (

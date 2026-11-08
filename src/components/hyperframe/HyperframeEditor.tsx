@@ -28,6 +28,7 @@ import {
 	WarningCircle,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { separateMicrophone } from "@/recording/captureSource";
 import type { HyperframeComposition, HyperframeVersionSnapshot } from "@/core/story/storyTypes";
 import type { MediaAsset, TimelineProject } from "@/core/timeline/types";
 import { FEATURE_AI_ENABLED } from "@/core/featureFlags";
@@ -384,11 +385,12 @@ export async function buildProjectMediaUrlMap(
 		const parentAsset = project.assets?.find((a) => a.packageId === pkg.id || a.id === pkg.id);
 		const baseName = parentAsset?.name || pkg.id;
 
-		if (pkg.microphone?.path && map.has(pkg.microphone.path)) {
-			const micUrl = map.get(pkg.microphone.path)!;
+		const microphone = separateMicrophone(pkg);
+		if (microphone?.path && map.has(microphone.path)) {
+			const micUrl = map.get(microphone.path)!;
 			map.set(`${baseName} (Microphone Audio)`, micUrl);
 			map.set(`${pkg.id}-mic`, micUrl);
-			const base = pkg.microphone.path.split(/[/\\]/).pop();
+			const base = microphone.path.split(/[/\\]/).pop();
 			if (base) {
 				map.set(base, micUrl);
 				const stripped = base.replace(/^(?:\d+-)+/, "");
@@ -531,7 +533,7 @@ export function HyperframeEditor({
 			const parentAsset = project.assets?.find((a) => a.packageId === pkg.id || a.id === pkg.id);
 			const baseName = parentAsset?.name || pkg.id;
 
-			if (pkg.microphone?.path) {
+			if (pkg.microphone?.path && separateMicrophone(pkg)) {
 				const micId = `${pkg.id}-mic`;
 				if (!list.some((a) => a.id === micId)) {
 					list.push({

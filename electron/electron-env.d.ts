@@ -859,6 +859,15 @@ interface Window {
 			deleted?: boolean;
 			error?: string;
 		}>;
+		saveRecordedMonolog?: (payload: {
+			videoBuffer: ArrayBuffer | Uint8Array | number[];
+			extension?: string;
+		}) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+		discardRecordedMonolog?: (filePath: string) => Promise<{
+			success: boolean;
+			deleted?: boolean;
+			error?: string;
+		}>;
 		installDownloadedUpdate: () => Promise<{ success: boolean }>;
 		downloadAvailableUpdate: (
 			installAfterDownload?: boolean,

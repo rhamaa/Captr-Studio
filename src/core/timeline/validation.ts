@@ -452,6 +452,12 @@ export function validateTimelineProject(
 		source(r.microphone);
 		source(r.system);
 		if (r.cursorPath) assertSafeMediaPath(r.cursorPath);
+		requireValue(
+			r.captureSource === undefined ||
+				r.captureSource === "screen" ||
+				(r.captureSource === "camera" && !r.cursorPath),
+			"Invalid recording capture source",
+		);
 		requireValue(r.settings && typeof r.settings === "object", "Invalid recording settings");
 		serializable(r.settings);
 	}

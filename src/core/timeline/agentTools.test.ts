@@ -289,3 +289,27 @@ describe("agentTools", () => {
 		).toThrow(/not found/i);
 	});
 });
+
+describe("auto zoom on camera recordings", () => {
+	it("refuses because camera takes have no cursor data", async () => {
+		const { applyAutoZoomToClicks } = await import("./agentTools");
+		const { createTimelineProject, placeAsset, registerRecording } = await import("./commands");
+		const registered = registerRecording(
+			createTimelineProject("p", "P"),
+			{
+				captureId: "monolog",
+				name: "Monolog 1",
+				captureSource: "camera",
+				screen: { path: "m.webm", offsetUs: 0, durationUs: 5_000_000 },
+				durationUs: 5_000_000,
+				width: 1920,
+				height: 1080,
+				settings: {},
+			},
+			{ assetId: "a", packageId: "r" },
+		);
+		const project = placeAsset(registered, "a", "visual-1", 0, { clipId: "c", compositionId: "e" });
+		expect(() => applyAutoZoomToClicks(project, "c", [1_000_000])).toThrow(/camera/i);
+	});
+});
+

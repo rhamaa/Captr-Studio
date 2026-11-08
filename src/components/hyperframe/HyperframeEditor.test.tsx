@@ -341,5 +341,27 @@ describe("HyperframeEditor", () => {
 		expect(html).toContain("Generated Version 2 (Browser Mockup)");
 		expect(html).toContain("Terminal Stream (2 lines)");
 	});
+
+	it("does not map a camera take's embedded mic as a separate companion track", async () => {
+		const pkg = mockProject.packages[0];
+		const project: TimelineProject = {
+			...mockProject,
+			packages: [
+				{
+					...pkg,
+					captureSource: "camera",
+					webcam: undefined,
+					system: undefined,
+					microphone: { ...pkg.screen },
+				},
+			],
+		};
+		const map = await buildProjectMediaUrlMap(project, async (p: string) => ({
+			success: true,
+			url: `http://127.0.0.1:5000/video?path=${encodeURIComponent(p)}`,
+		}));
+		expect([...map.keys()].some((key) => key.includes("Microphone Audio"))).toBe(false);
+		expect(map.has(`${pkg.id}-mic`)).toBe(false);
+	});
 });
 

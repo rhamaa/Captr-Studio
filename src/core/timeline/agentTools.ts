@@ -711,6 +711,10 @@ export function applyAutoZoomToClicks(
 		throw new Error(`Clip with id "${clipId}" not found in project`);
 	}
 
+	const packageId = current.compositions.find((c) => c.id === targetClip?.compositionId)?.packageId;
+	if (current.packages.find((pkg) => pkg.id === packageId)?.captureSource === "camera")
+		throw new Error("Auto zoom to clicks needs cursor data; camera recordings have none");
+
 	if (!clickTimestampsUs || clickTimestampsUs.length === 0) {
 		return current;
 	}
