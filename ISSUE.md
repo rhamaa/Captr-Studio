@@ -1,5 +1,13 @@
 # Issue Log & Regression Checklist
 
+## AI Editor dan Hyperframe disembunyikan — 8 November 2026
+
+- `src/core/featureFlags.ts`: `FEATURE_AI_ENABLED = false`, `FEATURE_HYPERFRAME_ENABLED = false`. Hanya titik masuk UI yang dihapus; data `.captr` (`aiConfig`, `hyperframes`) tetap dibaca dan disimpan apa adanya.
+- AI: tombol AI Editor, hotkey Ctrl+K, command bar, tab Settings "AI Harness & Models" (juga saat `defaultTab="ai"`), agent di Hyperframe, dan auto-start MCP server (port 4040) dimatikan.
+- Hyperframe: tombol/menu "+ Hyperframe", CTA empty state, kartu Hyperframe di canvas Multi-Artboard (canvas menerima proyeksi `hyperframes: []`), pembukaan editor Hyperframe, serta metrik/filter Hyperframe di Captr Inspector disembunyikan.
+- Catatan: saat Hyperframe disembunyikan, kartu tidak disinkronkan ke canvas, sehingga posisi kartu Hyperframe di whiteboard snapshot bisa hilang dan akan kembali ke posisi default saat fitur diaktifkan lagi.
+- Tes lama memakai mock flag aktif; tes baru memverifikasi kondisi tersembunyi (Settings, Multi-Artboard Hub).
+
 ## Monolog Recorder (kamera + teleprompter) — 8 November 2026
 
 - **Fitur:** tombol Monolog di tool rail editor membuka dialog rekam kamera + mic dengan teleprompter auto-scroll. Rencana dan keputusan: `docs/superpowers/plans/2026-11-08-monolog-recorder.md`.

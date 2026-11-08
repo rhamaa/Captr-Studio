@@ -27,13 +27,15 @@ import {
 	startMcpServer,
 	stopMcpServer,
 } from "../agent/mcpServer";
+import { FEATURE_AI_ENABLED } from "../../../src/core/featureFlags";
 import type { ActiveSurface } from "../../../src/core/timeline/aiTypes";
 
 export function registerAgentHandlers() {
-	// Auto-start local MCP server on app initialization
-	void startMcpServer().catch((err) => {
-		console.warn("[MCP] Failed to auto-start local MCP server:", err);
-	});
+	// Auto-start local MCP server on app initialization (only while the AI feature is visible)
+	if (FEATURE_AI_ENABLED)
+		void startMcpServer().catch((err) => {
+			console.warn("[MCP] Failed to auto-start local MCP server:", err);
+		});
 
 	ipcMain.handle("agent:get-available", async () => {
 		return detectAvailableAgents();

@@ -10,6 +10,16 @@ import {
 } from "@/lib/appSettings";
 import { AppSettingsDialog } from "./AppSettingsDialog";
 
+const featureFlags = vi.hoisted(() => ({ ai: true, hyperframe: true }));
+vi.mock("@/core/featureFlags", () => ({
+	get FEATURE_AI_ENABLED() {
+		return featureFlags.ai;
+	},
+	get FEATURE_HYPERFRAME_ENABLED() {
+		return featureFlags.hyperframe;
+	},
+}));
+
 // ThemeProvider writes to the browser DOM during initialization; rendering here
 // only needs a static preference.
 vi.mock("@/contexts/ThemeContext", () => ({
@@ -231,4 +241,27 @@ describe("AppSettingsDialog & AI Settings", () => {
 			expect(html).not.toContain('value="terminal"');
 		});
 	});
+
+	it("hides the AI tab while the AI feature is disabled, even when requested as default", () => {
+		featureFlags.ai = false;
+		try {
+			const html = renderToStaticMarkup(
+				createElement(
+					I18nProvider,
+					null,
+					createElement(AppSettingsDialog, {
+						open: true,
+						defaultTab: "ai",
+						onOpenChange: vi.fn(),
+					}),
+				),
+			);
+			expect(html).toContain("General");
+			expect(html).not.toContain("AI Harness &amp; Models");
+			expect(html).not.toContain("AI Harness &amp; Orchestration");
+		} finally {
+			featureFlags.ai = true;
+		}
+	});
 });
+

@@ -5,6 +5,16 @@ import type { HyperframeComposition } from "@/core/story/storyTypes";
 import type { TimelineProject } from "@/core/timeline/types";
 import { HyperframeEditorDrawer } from "./HyperframeEditorDrawer";
 
+const featureFlags = vi.hoisted(() => ({ ai: true, hyperframe: true }));
+vi.mock("@/core/featureFlags", () => ({
+	get FEATURE_AI_ENABLED() {
+		return featureFlags.ai;
+	},
+	get FEATURE_HYPERFRAME_ENABLED() {
+		return featureFlags.hyperframe;
+	},
+}));
+
 const mockHyperframe: HyperframeComposition = {
 	id: "hf-test-1",
 	name: "Kinetic Intro",

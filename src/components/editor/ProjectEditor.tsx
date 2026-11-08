@@ -58,7 +58,7 @@ import { timelineActionCommand } from "./timelineInteractions";
 import { type ProjectController, useProjectController } from "./useProjectController";
 import { useProjectMessages } from "./useProjectMessages";
 import { useRecordingAssets } from "./useRecordingAssets";
-import { FEATURE_AI_ENABLED } from "@/core/featureFlags";
+import { FEATURE_AI_ENABLED, FEATURE_HYPERFRAME_ENABLED } from "@/core/featureFlags";
 import { AiCommandBar } from "./AiCommandBar";
 import { AiSpeculativeDrawer } from "./AiSpeculativeDrawer";
 import type { ActiveSurface } from "@/core/timeline/aiTypes";
@@ -1028,6 +1028,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 
 	// Global hotkey Ctrl+K / Cmd+K to toggle AI Command Bar
 	useEffect(() => {
+		if (!FEATURE_AI_ENABLED) return;
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
 				e.preventDefault();
@@ -1527,7 +1528,7 @@ export function ProjectEditor(props: ProjectEditorProps) {
 								setActiveArtboardId(artboardId);
 								controller.seek(0);
 							})}
-							onOpenHyperframeEditor={(hyperframeId) => navigateStory(() => {
+							onOpenHyperframeEditor={(hyperframeId) => FEATURE_HYPERFRAME_ENABLED && navigateStory(() => {
 								setPlaying(false);
 								setActiveHyperframeId(hyperframeId);
 							})}

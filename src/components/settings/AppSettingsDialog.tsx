@@ -42,6 +42,7 @@ import { useI18n } from "@/contexts/I18nContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import type { GlobalAiSettings } from "@/core/timeline/aiTypes";
 import type { AppLocale } from "@/i18n/config";
+import { FEATURE_AI_ENABLED } from "@/core/featureFlags";
 import { SUPPORTED_LOCALES } from "@/i18n/config";
 import { getGlobalAiSettings, saveGlobalAiSettings } from "@/lib/appSettings";
 
@@ -104,7 +105,9 @@ export function AppSettingsDialog({
 
 	const [projectsDir, setProjectsDir] = useState<string>("");
 	const [recordingsDir, setRecordingsDir] = useState<string>("");
-	const [activeTab, setActiveTab] = useState(defaultTab);
+	const [activeTab, setActiveTab] = useState(
+		defaultTab === "ai" && !FEATURE_AI_ENABLED ? "general" : defaultTab,
+	);
 	const [aiSettings, setAiSettings] = useState<GlobalAiSettings>(getGlobalAiSettings);
 	const [detectedAgents, setDetectedAgents] = useState<
 		Array<{ id: string; name: string; command: string; available: boolean; executablePath?: string }>
@@ -362,6 +365,7 @@ export function AppSettingsDialog({
 								<KeyboardIcon className="w-4 h-4" />
 								{t("settings.shortcuts", "Shortcuts")}
 							</TabsTrigger>
+							{FEATURE_AI_ENABLED && (
 							<TabsTrigger
 								value="ai"
 								className="data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-1 py-2 text-xs font-semibold gap-2 border-b-2 border-transparent transition-all"
@@ -369,6 +373,7 @@ export function AppSettingsDialog({
 								<CpuIcon className="w-4 h-4" />
 								{t("settings.ai", "AI Harness & Models")}
 							</TabsTrigger>
+							)}
 							<TabsTrigger
 								value="about"
 								className="data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-1 py-2 text-xs font-semibold gap-2 border-b-2 border-transparent transition-all"
@@ -645,6 +650,7 @@ export function AppSettingsDialog({
 						</TabsContent>
 
 						{/* AI HARNESS & MODELS TAB */}
+						{FEATURE_AI_ENABLED && (
 						<TabsContent value="ai" className="mt-0 space-y-6">
 							<div>
 								<h3 className="text-sm font-semibold text-foreground mb-1">
@@ -1131,6 +1137,7 @@ export function AppSettingsDialog({
 								</div>
 							</div>
 						</TabsContent>
+						)}
 
 						{/* ABOUT TAB */}
 						<TabsContent value="about" className="mt-0 space-y-5">

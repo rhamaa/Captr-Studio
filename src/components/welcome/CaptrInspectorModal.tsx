@@ -21,6 +21,7 @@ import {
 import { CaptrLogo } from "@/components/brand/CaptrLogo";
 import type { ProjectLibraryEntry } from "@/components/video-editor/ProjectBrowserDialog";
 import { formatMs } from "@/components/video-editor/timeline/items/itemUtils";
+import { FEATURE_HYPERFRAME_ENABLED } from "@/core/featureFlags";
 
 export interface CaptrInspectorModalProps {
 	open: boolean;
@@ -676,6 +677,7 @@ export function CaptrInspectorModal({
 													</span>
 												</div>
 
+												{FEATURE_HYPERFRAME_ENABLED && (
 												<div className="p-3 rounded-xl bg-[#13151B] border border-[#222530] flex items-center justify-between">
 													<div>
 														<p className="text-xs font-semibold text-white">
@@ -689,6 +691,7 @@ export function CaptrInspectorModal({
 														{metrics.hyperframeEntries.length}
 													</span>
 												</div>
+												)}
 											</div>
 										</div>
 
@@ -769,7 +772,9 @@ export function CaptrInspectorModal({
 												{ id: "video", label: "Video" },
 												{ id: "audio", label: "Audio" },
 												{ id: "graphic", label: "Graphic" },
-											].map((cat) => (
+											]
+												.filter((cat) => FEATURE_HYPERFRAME_ENABLED || cat.id !== "hyperframe")
+												.map((cat) => (
 												<button
 													key={cat.id}
 													type="button"

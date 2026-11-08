@@ -6,6 +6,16 @@ import { createTimelineProject } from "@/core/timeline/commands";
 import { addRepurposeArtboard, ensureRepurposeBoard } from "@/core/timeline/repurposeCommands";
 import { RepurposeBoardEditor } from "./RepurposeBoardEditor";
 
+const featureFlags = vi.hoisted(() => ({ ai: true, hyperframe: true }));
+vi.mock("@/core/featureFlags", () => ({
+	get FEATURE_AI_ENABLED() {
+		return featureFlags.ai;
+	},
+	get FEATURE_HYPERFRAME_ENABLED() {
+		return featureFlags.hyperframe;
+	},
+}));
+
 describe("RepurposeBoardEditor", () => {
 	it("renders empty state by default with preset selection buttons and + Hyperframe option", () => {
 		const base = createTimelineProject("p1", "Test Project");
@@ -161,4 +171,51 @@ describe("RepurposeBoardEditor", () => {
 		expect(html).toContain("Intro Frame");
 		expect(html).toContain("Open Code");
 	});
+
+	it("hides Hyperframe entry points and cards while the feature is disabled", () => {
+		featureFlags.hyperframe = false;
+		try {
+			const render = (project: ReturnType<typeof ensureRepurposeBoard>) =>
+				renderToStaticMarkup(
+					createElement(
+						I18nProvider,
+						null,
+						createElement(RepurposeBoardEditor, {
+							project,
+							projectTitle: "Test Project",
+							onChange: vi.fn(),
+							onClose: vi.fn(),
+						}),
+					),
+				);
+			const empty = render(ensureRepurposeBoard(createTimelineProject("p1", "Test Project")));
+			expect(empty).toContain("Artboard Belum Memiliki Video");
+			expect(empty).not.toContain("Hyperframe");
+
+			const withHyperframe = {
+				...ensureRepurposeBoard(createTimelineProject("p2", "Test Project")),
+				hyperframes: [
+					{
+						id: "hf-1",
+						name: "Hidden Hyperframe",
+						entryHtml: "hyperframe/hyperframe-hf-1.html",
+						specJson: "hyperframe/hyperframe-hf-1.json",
+						htmlContent: "<html></html>",
+						durationUs: 5_000_000,
+						width: 1920,
+						height: 1080,
+						fps: 60,
+						aspectRatio: "16:9",
+						createdAt: "2026-11-08T00:00:00.000Z",
+					},
+				],
+			} as ReturnType<typeof ensureRepurposeBoard>;
+			const html = render(withHyperframe);
+			expect(html).not.toContain("Hidden Hyperframe");
+			expect(html).toContain("0 Video Cards");
+		} finally {
+			featureFlags.hyperframe = true;
+		}
+	});
 });
+

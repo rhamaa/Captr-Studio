@@ -30,6 +30,7 @@ import {
 } from "@/core/timeline/repurposeTypes";
 import type { TimelineProject } from "@/core/timeline/types";
 import { HyperframeEditor } from "@/components/hyperframe/HyperframeEditor";
+import { FEATURE_HYPERFRAME_ENABLED } from "@/core/featureFlags";
 import { RepurposeBatchExportDialog } from "./RepurposeBatchExportDialog";
 import { RepurposeWhiteboardCanvas } from "./whiteboard/RepurposeWhiteboardCanvas";
 
@@ -95,7 +96,15 @@ export function RepurposeBoardEditor({
 	// Ensure project has repurposeBoard initialized
 	const boardProject = useMemo(() => ensureRepurposeBoard(project), [project]);
 	const board = boardProject.repurposeBoard!;
-	const hyperframes = useMemo(() => project.hyperframes ?? [], [project.hyperframes]);
+	const hyperframes = useMemo(
+		() => (FEATURE_HYPERFRAME_ENABLED ? (project.hyperframes ?? []) : []),
+		[project.hyperframes],
+	);
+	// While Hyperframe is hidden, the canvas sees no Hyperframe cards; project data is untouched.
+	const canvasProject = useMemo(
+		() => (FEATURE_HYPERFRAME_ENABLED ? project : { ...project, hyperframes: [] }),
+		[project],
+	);
 
 	const editingHyperframe = useMemo(() => {
 		if (!editingHyperframeId) return null;
@@ -323,6 +332,7 @@ export function RepurposeBoardEditor({
 					</div>
 
 					{/* Add Hyperframe HTML Video Card */}
+					{FEATURE_HYPERFRAME_ENABLED && (
 					<div className="repurpose-add-wrapper">
 						<button
 							type="button"
@@ -354,6 +364,7 @@ export function RepurposeBoardEditor({
 							</div>
 						)}
 					</div>
+					)}
 
 					{/* Batch Export */}
 					<button
@@ -433,8 +444,9 @@ export function RepurposeBoardEditor({
 							</div>
 							<h3 className="repurpose-empty-title">Artboard Belum Memiliki Video</h3>
 							<p className="repurpose-empty-sub">
-								Pilih format video di bawah untuk mulai memproduksi Story dari aset
-								atau animasi Hyperframe berbasis kode:
+								{FEATURE_HYPERFRAME_ENABLED
+									? "Pilih format video di bawah untuk mulai memproduksi Story dari aset atau animasi Hyperframe berbasis kode:"
+									: "Pilih format video di bawah untuk mulai memproduksi Story dari aset:"}
 							</p>
 
 							{/* Story Presets */}
@@ -460,6 +472,7 @@ export function RepurposeBoardEditor({
 							</div>
 
 							{/* Hyperframe Quick Add CTA */}
+							{FEATURE_HYPERFRAME_ENABLED && (
 							<div className="mt-6 flex flex-col items-center">
 								<button
 									type="button"
@@ -470,10 +483,11 @@ export function RepurposeBoardEditor({
 									<span>Buat Animasi Hyperframe (16:9)</span>
 								</button>
 							</div>
+							)}
 						</div>
 					) : (
 						<RepurposeWhiteboardCanvas
-							project={project}
+							project={canvasProject}
 							boardProject={boardProject}
 							artboardProjectViews={artboardProjectViews}
 							activePlayingId={activePlayingId}
@@ -514,7 +528,7 @@ export function RepurposeBoardEditor({
 			</div>
 
 			{/* Fallback In-Place Hyperframe Editor (when not handled by parent router) */}
-			{editingHyperframe && (
+			{FEATURE_HYPERFRAME_ENABLED && editingHyperframe && (
 				<HyperframeEditor
 					hyperframe={editingHyperframe}
 					project={boardProject}
