@@ -7076,3 +7076,19 @@
 		animation: none;
 	}
 }
+
+.project-record-option {
+	display: grid;
+	gap: 1px;
+	line-height: 1.3;
+}
+
+.project-record-option strong {
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.project-record-option small {
+	color: hsl(var(--muted-foreground));
+	font-size: 11px;
+}

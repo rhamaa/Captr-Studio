@@ -88,12 +88,19 @@ describe("monolog recording assets", () => {
 		const result = await h.assets.finalize(token, take());
 		expect(result).toEqual({ assetId: token.ids.assetId });
 		const project = h.project();
-		expect(project.assets).toHaveLength(1);
-		expect(project.assets[0]).toMatchObject({ kind: "recording", name: "Monolog 1" });
-		expect(project.packages[0]).toMatchObject({
-			captureSource: "camera",
-			screen: { path: "C:/rec/monologs/m.webm" },
-		});
+		expect(project.assets).toEqual([
+			{
+				id: token.ids.assetId,
+				kind: "video",
+				name: "Monolog 1",
+				durationUs: 3_000_000,
+				width: 1920,
+				height: 1080,
+				source: { path: "C:/rec/monologs/m.webm", durationUs: 3_000_000, offsetUs: 0 },
+			},
+		]);
+		expect(project.packages).toEqual([]);
+		expect(project.localAssets ?? []).toEqual([]);
 		expect(project.tracks.flatMap((track) => track.clips)).toEqual([]);
 		expect(h.api.setProjectRecordingFinalizing).toHaveBeenLastCalledWith({
 			projectId: "p",

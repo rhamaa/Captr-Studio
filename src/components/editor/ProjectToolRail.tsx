@@ -1,4 +1,4 @@
-import { CopySimple, Folder, Plus, Square, TextT, UserFocus } from "@phosphor-icons/react";
+import { CopySimple, Folder, Plus, Square, TextT } from "@phosphor-icons/react";
 import type { ShapeDefinition, StoryDesignTemplate } from "@/core/timeline/types";
 import { useProjectMessages } from "./useProjectMessages";
 
@@ -9,7 +9,6 @@ export interface ProjectToolRailProps {
 	onAddShape?: (kind: ShapeDefinition["kind"]) => void;
 	templates?: StoryDesignTemplate[];
 	onApplyTemplate?: (id: string) => void;
-	onRecordMonolog?: () => void;
 	className?: string;
 }
 
@@ -22,7 +21,6 @@ export function ProjectToolRail({
 	onAddShape,
 	templates,
 	onApplyTemplate,
-	onRecordMonolog,
 	className = "",
 }: ProjectToolRailProps) {
 	const m = useProjectMessages();
@@ -80,24 +78,6 @@ export function ProjectToolRail({
 					</div>
 				</details>
 			</div>
-
-			{onRecordMonolog && (
-				<>
-					<div className="project-tool-rail-divider" />
-					<div className="project-tool-rail-actions">
-						<button
-							type="button"
-							aria-label={m("monologTitle")}
-							title={m("monologTitle")}
-							className="project-tool-rail-action-btn"
-							onClick={onRecordMonolog}
-						>
-							<UserFocus size={15} />
-							<span>{m("recordMonolog")}</span>
-						</button>
-					</div>
-				</>
-			)}
 
 			{onAddText && (
 				<>

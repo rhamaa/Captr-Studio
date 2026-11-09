@@ -1,11 +1,8 @@
 import { useEffect, useMemo } from "react";
-import { registerRecording } from "@/core/timeline/commands";
+import { registerMedia } from "@/core/timeline/commands";
 import type { TimelineProject } from "@/core/timeline/types";
 import type { CameraTake } from "@/recording/cameraRecorder";
-import {
-	completedRecordingFromCamera,
-	nextMonologName,
-} from "@/recording/completedCameraRecording";
+import { cameraTakeAsset, nextMonologName } from "@/recording/cameraTakeAsset";
 import { type ProbedMedia, probeMedia } from "@/recording/mediaProbe";
 import type { ProjectController } from "./useProjectController";
 
@@ -13,7 +10,7 @@ const PENDING_WORK_KEY = "monologRecording";
 
 export interface MonologRecordingToken {
 	token: { generation: number; projectId: string };
-	ids: { assetId: string; packageId: string; captureId: string };
+	ids: { assetId: string; captureId: string };
 }
 
 type MonologController = Pick<
@@ -109,7 +106,6 @@ export function createMonologRecordingAssetsController(
 					token: Object.freeze({ ...importToken }),
 					ids: Object.freeze({
 						assetId: createId(),
-						packageId: createId(),
 						captureId: createId(),
 					}),
 				});
@@ -146,15 +142,14 @@ export function createMonologRecordingAssetsController(
 					await removeFile(filePath);
 					return null;
 				}
-				const completed = await completedRecordingFromCamera(
+				const asset = await cameraTakeAsset(
 					{
+						id: token.ids.assetId,
 						videoPath: filePath,
-						captureId: token.ids.captureId,
 						name: nextMonologName(
 							dependencies.getProject().assets,
 							dependencies.namePrefix,
 						),
-						hasAudio: take.hasAudio,
 					},
 					{ probeMedia: dependencies.probeMedia },
 				);
@@ -163,15 +158,13 @@ export function createMonologRecordingAssetsController(
 					return null;
 				}
 				// Name again against the latest assets, in case they changed while probing.
-				completed.name = nextMonologName(
+				asset.name = nextMonologName(
 					dependencies.getProject().assets,
 					dependencies.namePrefix,
 				);
+				// Global project Assets: shared by every Story and Artboard on the storyboard.
 				const accepted = dependencies.controller.acceptImport(token.token, (project) =>
-					registerRecording(project, completed, {
-						assetId: token.ids.assetId,
-						packageId: token.ids.packageId,
-					}),
+					registerMedia(project, asset),
 				);
 				if (!accepted) {
 					await removeFile(filePath);

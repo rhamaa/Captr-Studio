@@ -12,10 +12,17 @@ import {
 	Square,
 	SquaresFour,
 	VideoCamera,
+	UserFocus,
 	X,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Toaster } from "@/components/ui/sonner";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
 import { projectFileName, projectTitleFromPath } from "@/core/project/projectNames";
@@ -1369,16 +1376,38 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						Artboards
 					</button>
 				)}
-				<button
-					className="project-record-button"
-					disabled={
-						state.saving || state.navigationPending || busy || recordingPending > 0
-					}
-					onClick={() => void startRecord()}
-				>
-					<VideoCamera size={16} />
-					{m("record")}
-				</button>
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<button
+							type="button"
+							className="project-record-button"
+							aria-label={m("record")}
+							disabled={
+								state.saving || state.navigationPending || busy || recordingPending > 0
+							}
+						>
+							<VideoCamera size={16} />
+							{m("record")}
+							<CaretDown size={11} weight="bold" aria-hidden="true" />
+						</button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end" aria-label={m("record")}>
+						<DropdownMenuItem onSelect={() => void startRecord()}>
+							<VideoCamera size={15} />
+							<span className="project-record-option">
+								<strong>{m("recordScreen")}</strong>
+								<small>{m("recordScreenHint")}</small>
+							</span>
+						</DropdownMenuItem>
+						<DropdownMenuItem onSelect={() => openMonologRecorder()}>
+							<UserFocus size={15} />
+							<span className="project-record-option">
+								<strong>{m("recordMonologOption")}</strong>
+								<small>{m("recordMonologHint")}</small>
+							</span>
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
 				{FEATURE_AI_ENABLED && (
 					<button
 						type="button"
@@ -1606,7 +1635,6 @@ export function ProjectEditor(props: ProjectEditorProps) {
 						onImportMedia={(paths) => void importMedia(paths)}
 						onStartRecord={() => void startRecord()}
 						onOpenAudioRecorder={openAudioRecorder}
-						onOpenMonologRecorder={openMonologRecorder}
 						onOpenRecording={(id) => {
 							setPlaying(false);
 							setEditingClipId(id);

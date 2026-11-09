@@ -140,7 +140,6 @@ export interface StoryEditorProps {
 	onImportMedia?: (paths?: string[]) => void;
 	onStartRecord?: () => void;
 	onOpenAudioRecorder?: () => void;
-	onOpenMonologRecorder?: () => void;
 	onOpenRecording?: (clipId: string) => void;
 	playing: boolean;
 	setPlaying: (playing: boolean | ((v: boolean) => boolean)) => void;
@@ -206,7 +205,6 @@ export function StoryEditor({
 	onImportMedia,
 	onStartRecord,
 	onOpenAudioRecorder,
-	onOpenMonologRecorder,
 	onOpenRecording,
 	playing,
 	setPlaying,
@@ -666,7 +664,6 @@ export function StoryEditor({
 	const toolRail = (
 		<ProjectToolRail
 			activeTab={sidebarTab}
-			onRecordMonolog={onOpenMonologRecorder}
 			onSelectTab={setSidebarTab}
 			onAddShape={addShape}
 			templates={rootProject.designTemplates ?? []}

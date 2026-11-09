@@ -1,5 +1,13 @@
 # Issue Log & Regression Checklist
 
+## Monolog jadi asset video global + menu Record — 8 November 2026
+
+- **Kontrak baru:** take Monolog didaftarkan sebagai asset `kind: "video"` di Assets global (level storyboard) lewat `registerMedia`, dengan `source.path` ke `recordings/monologs/…`. Tidak ada package/composition. Asset ini bisa ditempatkan di Story root maupun Artboard mana pun, seperti video import; audio mic tertanam diputar sebagai segmen `media`.
+- **UX:** tombol Record di navbar sekarang membuka menu: "Record screen" (alur existing) dan "Record monolog" (dialog kamera + teleprompter). Tombol Monolog di tool rail dihapus.
+- **Kompatibilitas:** package `captureSource: "camera"` dari build sebelumnya tetap valid dan tetap menyembunyikan tool kursor di Record editor.
+- **Verifikasi otomatis:** 149/149 tes pada suite recording, monolog, ProjectEditor, ToolRail, StoryEditor; `tsc` bersih.
+- **Pending QA native:** menu Record (keyboard + mouse), rekam Monolog → muncul sebagai video di Assets → tempatkan di dua Artboard berbeda → Save/reopen → export dengan audio sinkron.
+
 ## AI Editor dan Hyperframe disembunyikan — 8 November 2026
 
 - `src/core/featureFlags.ts`: `FEATURE_AI_ENABLED = false`, `FEATURE_HYPERFRAME_ENABLED = false`. Hanya titik masuk UI yang dihapus; data `.captr` (`aiConfig`, `hyperframes`) tetap dibaca dan disimpan apa adanya.

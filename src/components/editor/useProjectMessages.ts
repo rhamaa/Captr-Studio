@@ -122,9 +122,8 @@ export const projectMessages = {
 	generatingCaptions: "Generating captions…",
 	viewCaptions: "View captions",
 	captionsReady: "Captions ready",
-	recordMonolog: "Monolog",
 	monologTitle: "Record monolog",
-	monologDescription: "Record yourself on camera. The take is added to Assets.",
+	monologDescription: "Record yourself on camera. The take is saved as a video in Assets, shared by every Story.",
 	cameraInput: "Camera",
 	defaultCamera: "System default",
 	noCameras: "No camera found.",
@@ -150,6 +149,9 @@ export const projectMessages = {
 	teleprompterMirrorText: "Mirror text",
 	teleprompterHint: "Space pauses · ↑/↓ change speed",
 	wordsPerMinute: "wpm",
+	recordScreenHint: "Screen, camera and mic as a Record package",
+	recordMonologOption: "Record monolog",
+	recordMonologHint: "Camera only, with a teleprompter",
 } as const;
 export function useProjectMessages() {
 	const { t } = useI18n();

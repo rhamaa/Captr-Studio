@@ -289,9 +289,8 @@
     "unlimited": "Unlimited",
     "up": "Up",
     "white": "White",
-    "recordMonolog": "Monolog",
     "monologTitle": "Record monolog",
-    "monologDescription": "Record yourself on camera. The take is added to Assets.",
+    "monologDescription": "Record yourself on camera. The take is saved as a video in Assets, shared by every Story.",
     "cameraInput": "Camera",
     "defaultCamera": "System default",
     "noCameras": "No camera found.",
@@ -316,6 +315,9 @@
     "teleprompterFontSize": "Font size",
     "teleprompterMirrorText": "Mirror text",
     "teleprompterHint": "Space pauses · ↑/↓ change speed",
-    "wordsPerMinute": "wpm"
+    "wordsPerMinute": "wpm",
+    "recordScreenHint": "Screen, camera and mic as a Record package",
+    "recordMonologOption": "Record monolog",
+    "recordMonologHint": "Camera only, with a teleprompter"
   }
 }
